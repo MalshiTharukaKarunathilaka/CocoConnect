@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Default: SQLite so the API runs without Docker.
+// For PostgreSQL (proposal): change provider to "postgresql"
+// and set DATABASE_URL=postgresql://kapconnect:kapconnect@localhost:5432/kapconnect
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(uuid())
+  phone      String   @unique
+  name       String
+  role       String
+  status     String   @default("PENDING")
+  trustScore Float    @default(4.0)
+  district   String?
+  estateName String?
+  docsNote   String?
+  fcmToken   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model OtpCode {
+  id        String   @id @default(uuid())
+  phone     String
+  userId    String?
+  code      String
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model BuyRequest {
+  id        String   @id @default(uuid())
+  buyerId   String
+  category  String   @default("RAW")
+  quantity  Int
+  bidPrice  Float
+  needDate  DateTime
+  location  String?
+  district  String?
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+}
+
+model SellListing {
+  id          String   @id @default(uuid())
+  estateId    String
+  category    String   @default("RAW")
+  quantity    Int
+  offerPrice  Float
+  availableAt DateTime
+  location    String?
+  district    String?
+  verified    Boolean  @default(false)
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+}
+
+model TradeOrder {
+  id         String   @id @default(uuid())
+  code       String   @unique
+  buyerId    String
+  estateId   String
+  requestId  String?
+  listingId  String?
+  category   String   @default("RAW")
+  quantity   Int
+  unitPrice  Float
+  status     String   @default("NEGOTIATING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  orderId    String
+  senderId   String
+  type       String   @default("TEXT")
+  text       String?
+  offerPrice Float?
+  createdAt  DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  readFlag  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Dispute {
+  id        String   @id @default(uuid())
+  orderId   String
+  title     String
+  body      String
+  severity  String   @default("medium")
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+}

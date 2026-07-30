@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KapConnect — Admin Side Wireframes (Client Pack)</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green: #1e4d36;
+  --green-mid: #2d6a4f;
+  --green-soft: #e8f2ec;
+  --cream: #f7f5ef;
+  --white: #fff;
+  --text: #1a2a22;
+  --text2: #5a6b62;
+  --text3: #8a9690;
+  --tan: #8b5e3c;
+  --border: #e2ddd3;
+  --sidebar: #132a1f;
+  --red: #c43c3c;
+  --amber: #b8860b;
+  --blue: #2c6ec4;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: #e8e4da;
+  color: var(--text);
+  line-height: 1.45;
+}
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .wf-page { break-after: page; box-shadow: none; margin: 0 0 24px; }
+}
+
+.pack-hero {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 24px 20px;
+}
+.pack-hero h1 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--green);
+  letter-spacing: -0.03em;
+}
+.pack-hero h1 span { color: var(--tan); }
+.pack-hero p { color: var(--text2); max-width: 720px; margin-top: 8px; font-size: .95rem; }
+.pack-meta {
+  display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px;
+}
+.pack-meta span {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: .75rem;
+  font-weight: 700;
+  color: var(--text2);
+}
+.actions-bar {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px;
+}
+.actions-bar a, .actions-bar button {
+  background: var(--green);
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: .85rem;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+.actions-bar a.secondary {
+  background: var(--white);
+  color: var(--green);
+  border: 1.5px solid var(--green);
+}
+
+.toc {
+  max-width: 1100px;
+  margin: 0 auto 28px;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+.toc a {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--green);
+  text-decoration: none;
+}
+.toc a small { display: block; font-weight: 500; color: var(--text3); margin-top: 2px; }
+
+.wf-page {
+  max-width: 1100px;
+  margin: 0 auto 36px;
+  background: var(--white);
+  border-radius: 18px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.08);
+  overflow: hidden;
+}
+.wf-caption {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--cream);
+}
+.wf-caption .num {
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--tan);
+}
+.wf-caption h2 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin: 4px 0;
+  color: var(--green);
+}
+.wf-caption p { font-size: .82rem; color: var(--text2); max-width: 820px; }
+
+/* Fake browser / desktop frame */
+.desk-frame {
+  background: #d9d4c8;
+  padding: 18px;
+}
+.desk-chrome {
+  background: #2a2a2a;
+  border-radius: 12px 12px 0 0;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.desk-dot { width: 10px; height: 10px; border-radius: 50%; }
+.desk-dot.r { background: #ff5f57; }
+.desk-dot.y { background: #febc2e; }
+.desk-dot.g { background: #28c840; }
+.desk-url {
+  flex: 1;
+  margin-left: 8px;
+  background: #444;
+  color: #ccc;
+  font-size: .7rem;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+.desk-body {
+  background: var(--cream);
+  border-radius: 0 0 12px 12px;
+  min-height: 520px;
+  display: flex;
+  overflow: hidden;
+}
+
+.sb {
+  width: 190px;
+  background: var(--sidebar);
+  color: #fff;
+  padding: 16px 10px;
+  flex-shrink: 0;
+}
+.sb .brand { font-weight: 800; font-size: .95rem; padding: 0 8px 12px; }
+.sb .brand span { color: #c4a574; }
+.sb .brand small { display: block; font-size: .58rem; color: rgba(255,255,255,.4); letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
+.sb .link {
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: .72rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.55);
+  margin-bottom: 2px;
+}
+.sb .link.on { background: var(--green-mid); color: #fff; }
+.sb .sec { font-size: .55rem; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.3); padding: 12px 10px 4px; font-weight: 700; }
+
+.pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.tb {
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  padding: 12px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tb h3 { font-size: .95rem; font-weight: 800; }
+.tb .right { display: flex; gap: 8px; align-items: center; }
+.tb .search {
+  background: #f3f1eb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: .7rem;
+  color: var(--text3);
+  width: 160px;
+}
+.pane-body { padding: 16px 18px; }
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.stat {
+  background: #fff;
+  border-radius: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+}
+.stat .k { font-size: .58rem; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; }
+.stat .v { font-size: 1.15rem; font-weight: 800; margin-top: 4px; }
+.stat .d { font-size: .65rem; color: var(--green-mid); font-weight: 600; margin-top: 2px; }
+
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.card h4 { font-size: .8rem; font-weight: 800; margin-bottom: 8px; }
+.grid2 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; }
+
+table { width: 100%; border-collapse: collapse; font-size: .68rem; }
+th { text-align: left; color: var(--text3); font-size: .58rem; text-transform: uppercase; letter-spacing: .05em; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+td { padding: 8px 4px 8px 0; border-bottom: 1px solid #f0ece4; font-weight: 600; }
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: .58rem;
+  font-weight: 700;
+}
+.pill.g { background: var(--green-soft); color: var(--green); }
+.pill.a { background: #fbf3de; color: var(--amber); }
+.pill.r { background: #fceeee; color: var(--red); }
+.pill.b { background: #eaf2fb; color: var(--blue); }
+
+.btn {
+  display: inline-block;
+  background: var(--green);
+  color: #fff;
+  font-size: .65rem;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 6px;
+}
+.btn.out { background: #fff; color: var(--text2); border: 1px solid var(--border); }
+.btn.red { background: #fceeee; color: var(--red); }
+.btn.amber { background: #fbf3de; color: var(--amber); }
+.row { display: flex; gap: 8px; align-items: center; }
+.av {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--green-soft); color: var(--green);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: .7rem; flex-shrink: 0;
+}
+.muted { color: var(--text3); font-weight: 500; font-size: .62rem; }
+.alert {
+  display: flex; gap: 8px; padding: 8px 0;
+  border-bottom: 1px solid #f0ece4;
+  font-size: .7rem;
+}
+.alert:last-child { border-bottom: none; }
+.alert strong { display: block; font-size: .72rem; }
+.field-fake {
+  border: 1.5px solid var(--border);
+  background: #faf9f6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: .8rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text2);
+}
+.field-fake label {
+  display: block;
+  font-size: .58rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text3);
+  margin-bottom: 4px;
+}
+
+/* Login wireframe special */
+.login-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(45,106,79,.1), transparent 50%),
+    var(--cream);
+}
+.login-box {
+  width: 340px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 28px 24px;
+}
+.login-box .logo { font-size: 1.3rem; font-weight: 800; color: var(--green); }
+.login-box .logo span { color: var(--tan); }
+.login-box .sub { font-size: .75rem; color: var(--text2); margin: 4px 0 18px; }
+
+.why {
+  max-width: 1100px;
+  margin: 0 auto 48px;
+  padding: 0 24px;
+}
+.why .box {
+  background: var(--white);
+  border-radius: 14px;
+  padding: 22px;
+  border: 1px solid var(--border);
+}
+.why h3 { color: var(--green); font-size: 1rem; margin-bottom: 10px; }
+.why ul { padding-left: 18px; color: var(--text2); font-size: .85rem; }
+.why li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<header class="pack-hero">
+  <h1>Kap<span>Connect</span> — Admin Side Wireframes</h1>
+  <p>
+    Client review pack for the <strong>Admin Console</strong>.
+    Admin is a desktop web panel (not the phone app). It lets KapConnect staff manage users,
+    verify estates, watch buy/sell activity, settle disputes, and control prices/regions.
+  </p>
+  <div class="pack-meta">
+    <span>Brand: KapConnect</span>
+    <span>Surface: Desktop Admin</span>
+    <span>Version: Wireframe v1</span>
+    <span>Date: Jul 2026</span>
+  </div>
+  <div class="actions-bar no-print">
+    <button onclick="window.print()">Print / Save as PDF</button>
+    <a class="secondary" href="KapConnect_Admin.html">Open working Admin demo</a>
+    <a class="secondary" href="KapConnect.html">Open mobile app</a>
+  </div>
+</header>
+
+<nav class="toc no-print">
+  <a href="#wf1">01 · Login<small>Admin sign-in</small></a>
+  <a href="#wf2">02 · Dashboard<small>KPIs & alerts</small></a>
+  <a href="#wf3">03 · Users<small>Buyers & estates</small></a>
+  <a href="#wf4">04 · Verification<small>Approve documents</small></a>
+  <a href="#wf5">05 · Buy Requests<small>Marketplace demand</small></a>
+  <a href="#wf6">06 · Sell Listings<small>Estate supply</small></a>
+  <a href="#wf7">07 · Orders<small>Deals & payments</small></a>
+  <a href="#wf8">08 · Disputes<small>Problems & flags</small></a>
+  <a href="#wf9">09 · Regions & Prices<small>District bands</small></a>
+  <a href="#wf10">10 · Settings<small>Fees & languages</small></a>
+</nav>
+
+<!-- 01 LOGIN -->
+<article class="wf-page" id="wf1">
+  <div class="wf-caption">
+    <div class="num">Wireframe 01</div>
+    <h2>Admin Login</h2>
+    <p>Staff only. Separate from buyer/estate phone login. Why: keeps powerful controls locked behind admin accounts.</p>
+  </div>
+  <div class="desk-frame">
+    <div class="desk-chrome">
+      <div class="desk-dot r"></div><div class="desk-dot y"></div><div class="desk-dot g"></div>
+      <div class="desk-url">admin.kapconnect.lk / login</div>
+    </div>
+    <div class="desk-body" style="display:block">
+      <div class="login-center">
+        <div class="login-box">
+          <div class="logo">Kap<span>Connect</span></div>
+          <div class="sub">Admin Console — manage users, marketplace, and orders.</div>
+          <div class="field-fake"><label>Admin Email</label>admin@kapconnect.lk</div>
+          <div class="field-fake"><label>Password</label>••••••••</div>
+          <div class="btn" style="width:100%;text-align:center;padding:10px">Sign in to Admin</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+
+<!-- 02 DASHBOARD -->
+<article class="wf-page" id="wf2">
+  <div class="wf-caption">
+    <div class="num">Wireframe 02</div>
+    <h2>Admin Dashboard</h2>
+    <p>Home screen for admins. Shows live numbers + “needs attention” so staff know what to fix first.</p>
+  </div>
+  <div class="desk-frame">
+    <div class="desk-chrome">
+      <div class="desk-dot r"></div><div class="desk-dot y"></div><div class="desk-dot g"></div>
+      <div class="desk-url">admin.kapconnect.lk / dashboard</div>
+    </div>
+    <div class="desk-body">
+      <aside class="sb">
+        <div class="brand">Kap<span>Connect</span><small>Admin Console</small></div>
+        <div class="sec">Overview</div>
+        <div class="link on">📊 Dashboard</div>
+        <div class="sec">People</div>
+        <div class="link">👥 Users</div>
+        <div class="link">✅ Verification</div>
+        <div class="sec">Marketplace</div>
+        <div class="link">🛒 Buy Requests</div>
+        <div class="link">🌴 Sell Listings</div>
+        <div class="link">📦 Orders</div>
+        <div class="link">⚠️ Disputes</div>
+        <div class="sec">System</div>
+        <div class="link">📍 Regions & Prices</div>
+        <div class="link">⚙️ Settings</div>
+      </aside>
+      <div class="pane">
+        <div class="tb"><h3>Dashboard</h3><div class="right"><div class="search">Search users, orders…</div><span class="btn out">🔔 5</span></div></div>
+        <div class="pane-body">
+          <div class="stats">
+            <div class="stat"><div class="k">Active Users</div><div class="v">1,248</div><div class="d">↑ 42 this week</div></div>
+            <div class="stat"><div class="k">Open Requests</div><div class="v">86</div><div class="d">↑ 12 today</div></div>
+            <div class="stat"><div class="k">Deals in Progress</div><div class="v">34</div><div class="d">8 pending payment</div></div>
+            <div class="stat"><div class="k">GMV (30d)</div><div class="v">Rs. 18.4M</div><div class="d">↑ 9.2%</div></div>
+          </div>
+          <div class="grid2">
+            <div class="card">
+              <h4>Needs attention</h4>
+              <div class="alert"><div>⚠️</div><div><strong>Dispute · #CR-4921</strong><span class="muted">Short quantity claim · ABC Estates</span></div></div>
+              <div class="alert"><div>🪪</div><div><strong>3 estates awaiting verification</strong><span class="muted">NIC / land deed review</span></div></div>
+              <div class="alert"><div>💬</div><div><strong>Flagged chat</strong><span class="muted">Off-platform payment mentioned</span></div></div>
+            </div>
+            <div class="card">
+              <h4>Today’s activity</h4>
+              <table>
+                <tr><td>New buyers</td><td style="text-align:right">7</td></tr>
+                <tr><td>New estates</td><td style="text-align:right">3</td></tr>
+                <tr><td>Requests posted</td><td style="text-align:right">19</td></tr>
+                <tr><td>Deals accepted</td><td style="text-align:right">6</td></tr>
+              </table>
+            </div>
+          </div>
+          <div class="card">
+            <h4>Recent orders</h4>
+            <table>
+              <thead><tr><th>Order</th><th>Buyer</th><th>Estate</th><th>Value</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>#CR-4921</td><td>Mudalali A</td><td>ABC Estates</td><td>Rs. 144,000</td><td><span class="pill a">Payment pending</span></td></tr>
+                <tr><td>#CR-4918</td><td>Perera Traders</td><td>Green Valley</td><td>Rs. 100,800</td><td><span class="pill g">Completed</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+
+<!-- 03 USERS -->
+<article class="wf-page" id="wf3">
+  <div class="wf-caption">
+    <div class="num">Wireframe 03</div>
+    <h2>User Management</h2>
+    <p>List of all buyers and estate owners. Admin can filter, open a profile, adjust trust score, or suspend bad actors.</p>
+  </div>
+  <div class="desk-frame">
+    <div class="desk-chrome">
+      <div class="desk-dot r"></div><div class="desk-dot y"></div><div class="desk-dot g"></div>
+      <div class="desk-url">admin.kapconnect.lk / users</div>
+    </div>
+    <div class="desk-body">
+      <aside class="sb">
+        <div class="brand">Kap<span>Connect</span><small>Admin Console</small></div>
+        <div class="sec">People</div>
+        <div class="link on">👥 Users</div>
+        <div class="link">✅ Verification</div>
+        <div class="sec">Marketplace</div>
+        <div class="link">📦 Orders</div>
+      </aside>
+      <div class="pane">
+        <div class="tb"><h3>Users</h3><div class="right"><div class="search">Search name, phone…</div></div></div>
+        <div class="pane-body">
+          <div class="row" style="margin-bottom:10px">
+            <span class="btn">All</span>
+            <span class="btn out">Buyers</span>
+            <span class="btn out">Estate Owners</span>
+            <span class="btn out">Suspended</span>
+          </div>
+          <div class="card">
+            <table>
+              <thead><tr><th>User</th><th>Role</th><th>District</th><th>Trust</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><div class="row"><div class="av">M</div><div>Mudalali A<br><span class="muted">+94 77 123 4567</span></div></div></td>
+                  <td><span class="pill b">Buyer</span></td>
+                  <td>Kurunegala</td>
+                  <td>4.8 ★</td>
+                  <td><span class="pill g">Verified</span></td>
+                  <td><span class="btn out">View</span></td>
+                </tr>
+                <tr>
+                  <td><div class="row"><div class="av">A</div><div>ABC Estate Owner<br><span class="muted">+94 71 555 0199</span></div></div></td>
+                  <td><span class="pill g">Estate</span></td>
+                  <td>Kurunegala</td>
+                  <td>4.8 ★</td>
+                  <td><span class="pill g">Verified</span></td>
+                  <td><span class="btn out">View</span></td>
+                </tr>
+                <tr>
+                  <td><div class="row"><div class="av">P</div><div>Perera Plantations<br><span class="muted">+94 76 882 1100</span></div></div></td>
+                  <td><span class="pill g">Estate</span></td>
+                  <td>Puttalam</td>
+                  <td>4.5 ★</td>
+                  <td><span class="pill a">Pending</span></td>
+                  <td><span class="btn">Review</span></td>
+                </tr>
+                <tr>
+                  <td><div class="row"><div class="av">S</div><div>Sunimal Traders<br><span class="muted">+94 75 444 2211</span></div></div></td>
+                  <td><span class="pill b">Buyer</span></td>
+                  <td>Colombo</td>
+                  <td>3.2 ★</td>
+                  <td><span class="pill r">Suspended</span></td>
+                  <td><span class="btn out">View</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+
+<!-- 04 VERIFICATION -->
+<article class="wf-page" id="wf4">
+  <div class="wf-caption">
+    <div class="num">Wireframe 04</div>
+    <h2>Verification Queue</h2>
+    <p>Before someone gets a “Verified” badge, admin checks NIC / business registration / land deed. Why: builds trust in the marketplace.</p>
+  </div>
+  <div class="desk-frame">
+    <div class="desk-chrome">
+      <div class="desk-dot r"></div><div class="desk-dot y"></div><div class="desk-dot g"></div>
+      <div class="desk-url">admin.kapconnect.lk / verification</div>
+    </div>
+    <div class="desk-body">
+      <aside class="sb">
+        <div class="brand">Kap<span>Connect</span><small>Admin Console</small></div>
+        <div class="link">👥 Users</div>
+        <div class="link on">✅ Verification</div>
+      </aside>
+      <div class="pane">
+        <div class="tb"><h3>Verification queue</h3><div class="right"><span class="pill a">3 pending</span></div></div>
+        <div class="pane-body">
+          <div class="card">
+            <table>
+              <thead><tr><th>Applicant</th><th>Type</th><th>Docs</th><th>Submitted</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><div class="row"><div class="av">P</div>Perera Plantations</div></td>
+                  <td>Estate Owner</td>
+                  <td>NIC + Land deed</td>
+                  <td>20 Jul 2026</td>
+                  <td><span class="btn">Approve</span> <span class="btn red">Reject</span> <span class="btn out">View docs</span></td>
+                </tr>
+                <tr>
+                  <td><div class="row"><div class="av">R</div>Rohan Mendis</div></td>
+                  <td>Estate Owner</td>
+                  <td>NIC only</td>
+                  <td>22 Jul 2026</td>
+                  <td><span class="btn amber">Request more</span> <span class="btn out">View docs</span></td>
+                </tr>
+                <tr>
+                  <td><div class="row"><div class="av">L</div>Lanka Bulk Buyers</div></td>
+                  <td>Buyer (Business)</td>
+                  <td>BR + NIC</td>
+                  <td>25 Jul 2026</td>
+                  <td><span class="btn">Approve</span> <span class="btn red">Reject</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+
+<!-- 05 BUY REQUESTS -->
+<article class="wf-page" id="wf5">
+  <div class="wf-caption">
+    <div class="num">Wireframe 05</div>
+    <h2>Buy Requests Monitor</h2>
+    <p>All buyer “Request Raw Coconuts” posts from the mobile app. Admin can hide spam or remove unrealistic bids.</p>
+  </div>
+  <div class="desk-frame">
+    <div class="desk-chrome">
+      <div class="desk-dot r"></div><div class="desk-dot y"></div><div class="desk-dot g"></div>
+      <div class="desk-url">admin.kapconnect.lk / buy-requests</div>
+    </div>
+    <div class="desk-body">
+      <aside class="sb">
+        <div class="brand">Kap<span>Connect</span><small>Admin Console</small></div>
+        <div class="sec">Marketplace</div>
+        <div class="link on">🛒 Buy Requests</div>
+        <div class="link">🌴 Sell Listings</div>
+      </aside>
+      <div class="pane">
+        <div class="tb"><h3>Buy requests</h3></div>
+        <div class="pane-body">
+          <div class="row" style="margin-bottom:10px">
+            <span class="btn">All</span><span class="btn out">Open</span><span class="btn out">Matched</span><span class="btn out">Expired</span>
+          </div>
+          <div class="card">
+            <table>
+              <thead><tr><th>ID</th><th>Buyer</th><th>Category</th><th>Qty</th><th>Bid</th><th>District</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>#BR-8821</td><td>Mudalali A</td><td>Raw</td><td>1,200</td><td>Rs. 110</td><td>Kurunegala</td><td><span class="pill g">Open</span></td><td><span class="btn out">Hide</span></td></tr>
+                <tr><td>#BR-8814</td><td>Perera Traders</td><td>Dehusked</td><td>800</td><td>Rs. 145</td><td>Gampaha</td><td><span class="pill b">Matched</span></td><td><span class="btn out">Order</span></td></tr>
+                <tr><td>#BR-8802</td><td>Sunimal Traders</td><td>Raw</td><td>5,000</td><td>Rs. 95</td><td>Colombo</td><td><span class="pill a">Expired</span></td><td><span class="btn red">Remove</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+
+<!-- 06 LISTINGS -->
+<article class="wf-page" id="wf6">
+  <div class="wf-caption">
+    <div class="num">Wireframe 06</div>
+    <h2>Sell Listings Monitor</h2>
+    <p>All estate “Sell Raw Coconuts” listings. Admin can feature good listings or take down fake/spam stock.</p>
+  </div>
+  <div class="desk-frame">
+    <div class="desk-chrome">
+      <div class="desk-dot r"></div><div class="desk-dot y"></div><div class="desk-dot g"></div>
+      <div class="desk-url">admin.kapconnect.lk / sell-listings</div>
+    </div>
+    <div class="desk-body">
+      <aside class="sb">
+        <div class="brand">Kap<span>Connect</span><small>Admin Console</small></div>
+        <div class="link">🛒 Buy Requests</div>
+        <div class="link on">🌴 Sell Listings</div>
+      </aside>
+      <div class="pane">
+        <div class="tb"><h3>Sell listings</h3></div>
+        <div class="pane-body">
+          <div class="card">
+            <table>
+              <thead><tr><th>ID</th><th>Estate</th><th>Category</th><th>Qty</th><th>Offer</th><th>Available</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>#SL-3301</td><td>ABC Estates</td><td>Raw</td><td>1,200</td><td>Rs. 130</td><td>18 Jul</td><td><span class="pill g">Active</span></td><td><span class="btn out">Feature</span> <span class="btn red">Take down</span></td></tr>
+                <tr><td>#SL-3298</td><td>Perera Plantations</td><td>Raw</td><td>600</td><td>Rs. 140</td><td>20 Jul</td><td><span class="pill g">Active</span></td><td><span class="btn out">Feature</span></td></tr>
+                <tr><td>#SL-3280</td><td>Green Valley</td><td>Husks</td><td>2,000 kg</td><td>Rs. 18/kg</td><td>15 Jul</td><td><span class="pill a">Sold out</span></td><td><span class="btn out">Archive</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+
+<!-- 07 ORDERS -->
+<article class="wf-page" id="wf7">
+  <div class="wf-caption">
+    <div class="num">Wireframe 07</div>
+    <h2>Orders & Transactions</h2>
+    <p>Every negotiation that becomes a deal. Tracks status from negotiating → accepted → payment → completed.</p>
+  </div>
+  <div class="desk-frame">
+    <div class="desk-chrome">
+      <div class="desk-dot r"></div><div class="desk-dot y"></div><div class="desk-dot g"></div>
+      <div class="desk-url">admin.kapconnect.lk / orders</div>
+    </div>
+    <div class="desk-body">
+      <aside class="sb">
+        <div class="brand">Kap<span>Connect</span><small>Admin Console</small></div>
+        <div class="link on">📦 Orders</div>
+        <div class="link">⚠️ Disputes</div>
+      </aside>
+      <div class="pane">
+        <div class="tb"><h3>Orders & transactions</h3></div>
+        <div class="pane-body">
+          <div class="row" style="margin-bottom:10px">
+            <span class="btn">All</span><span class="btn out">Negotiation</span><span class="btn out">Accepted</span><span class="btn out">Payment</span><span class="btn out">Completed</span>
+          </div>
+          <div class="card">
+            <table>
+              <thead><tr><th>Order</th><th>Parties</th><th>Product</th><th>Total</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>#CR-4921</td><td>Mudalali A ↔ ABC Estates</td><td>Raw · 1,200 × 120</td><td>Rs. 144,000</td><td><span class="pill a">Payment pending</span></td><td><span class="btn out">Timeline</span></td></tr>
+                <tr><td>#CR-4918</td><td>Perera ↔ Green Valley</td><td>Raw · 800 × 126</td><td>Rs. 100,800</td><td><span class="pill g">Completed</span></td><td><span class="btn out">Receipt</span></td></tr>
+                <tr><td>#CR-4915</td><td>Lanka Coco ↔ Chilaw Gold</td><td>Dehusked · 2,500</td><td>Rs. 312,500</td><td><span class="pill b">Negotiating</span></td><td><span class="btn out">Chat</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+
+<!-- 08 DISPUTES -->
+<article class="wf-page" id="wf8">
+  <div class="wf-caption">
+    <div class="num">Wireframe 08</div>
+    <h2>Disputes & Policy Flags</h2>
+    <p>When a deal goes wrong (short delivery, late payment) or chat breaks rules (pay outside app). Admin mediates and decides.</p>
+  </div>
+  <div class="desk-frame">
+    <div class="desk-chrome">
+      <div class="desk-dot r"></div><div class="desk-dot y"></div><div class="desk-dot g"></div>
+      <div class="desk-url">admin.kapconnect.lk / disputes</div>
+    </div>
+    <div class="desk-body">
+      <aside class="sb">
+        <div class="brand">Kap<span>Connect</span><small>Admin Console</small></div>
+        <div class="link">📦 Orders</div>
+        <div class="link on">⚠️ Disputes</div>
+      </aside>
+      <div class="pane">
+        <div class="tb"><h3>Disputes & flags</h3><div class="right"><span class="pill r">2 open</span></div></div>
+        <div class="pane-body">
+          <div class="card">
+            <div class="alert">
+              <div>⚠️</div>
+              <div style="flex:1">
+                <strong>#CR-4921 · Quantity shortfall <span class="pill r">High</span></strong>
+                <span class="muted">Buyer got 1,150 vs 1,200. Estate claims counting error. Photos attached.</span>
+                <div class="row" style="margin-top:8px">
+                  <span class="btn">Refund difference</span>
+                  <span class="btn amber">Mediate</span>
+                  <span class="btn out">View chat</span>
+                </div>
+              </div>
+            </div>
+            <div class="alert">
+              <div>💬</div>
+              <div style="flex:1">
+                <strong>Off-platform payment flag <span class="pill a">Medium</span></strong>
+                <span class="muted">Chat mentions bank transfer outside KapConnect.</span>
+                <div class="row" style="margin-top:8px">
+                  <span class="btn amber">Warn users</span>
+                  <span class="btn red">Freeze deal</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+
+<!-- 09 REGIONS -->
+<article class="wf-page" id="wf9">
+  <div class="wf-caption">
+    <div class="num">Wireframe 09</div>
+    <h2>Regions & Suggested Prices</h2>
+    <p>Control which districts are live and publish fair price bands (e.g. Kurunegala Rs. 110–135). Helps stop extreme low/high spam bids.</p>
+  </div>
+  <div class="desk-frame">
+    <div class="desk-chrome">
+      <div class="desk-dot r"></div><div class="desk-dot y"></div><div class="desk-dot g"></div>
+      <div class="desk-url">admin.kapconnect.lk / regions</div>
+    </div>
+    <div class="desk-body">
+      <aside class="sb">
+        <div class="brand">Kap<span>Connect</span><small>Admin Console</small></div>
+        <div class="sec">System</div>
+        <div class="link on">📍 Regions & Prices</div>
+        <div class="link">🥥 Categories</div>
+        <div class="link">⚙️ Settings</div>
+      </aside>
+      <div class="pane">
+        <div class="tb"><h3>Regions & prices</h3></div>
+        <div class="pane-body">
+          <div class="grid2">
+            <div class="card">
+              <h4>Active districts <span class="btn" style="float:right">+ Add</span></h4>
+              <table>
+                <thead><tr><th>District</th><th>Buyers</th><th>Estates</th><th>Radius</th></tr></thead>
+                <tbody>
+                  <tr><td>Kurunegala</td><td>312</td><td>148</td><td>3 km</td></tr>
+                  <tr><td>Puttalam</td><td>198</td><td>121</td><td>5 km</td></tr>
+                  <tr><td>Gampaha</td><td>220</td><td>64</td><td>3 km</td></tr>
+                  <tr><td>Colombo</td><td>410</td><td>22</td><td>8 km</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card">
+              <h4>Suggested price bands (Raw · Rs/nut)</h4>
+              <table>
+                <tr><td>Kurunegala</td><td style="text-align:right;font-weight:800">110 – 135</td></tr>
+                <tr><td>Puttalam</td><td style="text-align:right;font-weight:800">108 – 132</td></tr>
+                <tr><td>Gampaha</td><td style="text-align:right;font-weight:800">115 – 140</td></tr>
+              </table>
+              <div style="margin-top:12px"><span class="btn">Publish bands</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+
+<!-- 10 SETTINGS -->
+<article class="wf-page" id="wf10">
+  <div class="wf-caption">
+    <div class="num">Wireframe 10</div>
+    <h2>Platform Settings</h2>
+    <p>Global knobs: platform fee, default search radius, languages (EN / SI / TA), payment hold time, support contact.</p>
+  </div>
+  <div class="desk-frame">
+    <div class="desk-chrome">
+      <div class="desk-dot r"></div><div class="desk-dot y"></div><div class="desk-dot g"></div>
+      <div class="desk-url">admin.kapconnect.lk / settings</div>
+    </div>
+    <div class="desk-body">
+      <aside class="sb">
+        <div class="brand">Kap<span>Connect</span><small>Admin Console</small></div>
+        <div class="link">📍 Regions & Prices</div>
+        <div class="link on">⚙️ Settings</div>
+      </aside>
+      <div class="pane">
+        <div class="tb"><h3>Settings</h3></div>
+        <div class="pane-body">
+          <div class="card" style="max-width:560px">
+            <div class="grid2">
+              <div class="field-fake"><label>Platform fee (%)</label>1.5</div>
+              <div class="field-fake"><label>Default radius (km)</label>3</div>
+              <div class="field-fake"><label>Default language</label>English (EN)</div>
+              <div class="field-fake"><label>Payment hold (hours)</label>4</div>
+            </div>
+            <div class="field-fake"><label>Support contact</label>support@kapconnect.lk · +94 11 234 5678</div>
+            <div class="btn" style="margin-top:4px">Save settings</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+
+<section class="why">
+  <div class="box">
+    <h3>How Admin connects to the mobile app (simple)</h3>
+    <ul>
+      <li><strong>Buyer app</strong> posts a coconut request → appears in Admin → Buy Requests.</li>
+      <li><strong>Estate app</strong> posts a sell listing → appears in Admin → Sell Listings.</li>
+      <li>They negotiate & accept → becomes an Admin → Order.</li>
+      <li>If something goes wrong → Admin → Disputes.</li>
+      <li>New estate uploads documents → Admin → Verification → then Verified badge shows in the app.</li>
+    </ul>
+    <p style="margin-top:12px;font-size:.85rem;color:var(--text2)">
+      Working clickable demo: <strong>KapConnect_Admin.html</strong> &nbsp;·&nbsp;
+      Mobile app: <strong>KapConnect.html</strong>
+    </p>
+  </div>
+</section>
+
+</body>
+</html>

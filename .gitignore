@@ -1,0 +1,45 @@
+# Secrets — never share these
+.env
+.env.*
+**/firebase-service-account.json
+**/google-services.json
+**/GoogleService-Info.plist
+**/application-local.yml
+
+# Java / Maven
+kapconnect-api/target/
+kapconnect-api/data/
+kapconnect-api/.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+*.war
+*.log
+
+# Node / React / Express
+backend/node_modules/
+backend/data/
+kapconnect-web/node_modules/
+kapconnect-web/dist/
+npm-debug.log*
+.npm
+!.env.example
+
+# Flutter (when added)
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/ios/Pods/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+*.swp
+.cursor/
+
+# Local DB dumps
+*.sql.bak
+*.dump
