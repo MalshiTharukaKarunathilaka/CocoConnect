@@ -62,6 +62,7 @@ button:hover { transform: translateY(-1px); }
 .page-header p { color: var(--muted); margin: 0; }
 .alert { padding: .85rem 1rem; border-radius: 10px; margin: 1rem 0; display: flex; justify-content: space-between; }
 .alert.error { background: #fff0f0; color: #9b2d2d; border: 1px solid #f1cccc; }
+.alert.success { background: #eef8f1; color: #1b6b3a; border: 1px solid #cfe8d7; }
 .alert button { padding: 0; background: transparent; color: inherit; }
 .loading, .empty { min-height: 300px; display: grid; place-items: center; align-content: center; color: var(--muted); }
 .empty { background: white; border: 1px dashed #cbd6ce; border-radius: 16px; padding: 2rem; }
@@ -203,10 +204,51 @@ tbody tr:last-child td { border-bottom: 0; }
 .client-form-title span { width: 38px; height: 38px; display: grid; place-items: center; background: var(--client-green); color: white; border-radius: 7px; font-size: 1.25rem; }
 .client-form-title h2 { margin: 0; font-size: 1.12rem; line-height: 1.15; }
 .client-form-card label { color: #5b6263; font-size: .68rem; font-weight: 600; }
-.client-form-card input { border-color: #dfe2e4; background: #fafbfc; border-radius: 5px; padding: 12px; }
+.client-form-card input,
+.client-form-card select { border: 1px solid #dfe2e4; background: #fafbfc; border-radius: 5px; padding: 12px; font: inherit; width: 100%; margin-top: 5px; }
 .client-primary { background: var(--client-green-dark); color: white; border-radius: 5px; padding: 13px; }
 .client-primary:hover { background: #0a4a2b; }
 .form-note { display: block; color: #a4a8a5; font-size: .58rem; text-align: center; }
+.estate-mini-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 8px 18px;
+}
+.estate-mini-stats > div {
+  background: white;
+  border: 1px solid #ece8e1;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.estate-mini-stats small { display: block; color: #7f8783; font-size: .62rem; }
+.estate-mini-stats b { font-size: 1.25rem; color: var(--client-green-dark); }
+.client-listing-card.mine .card-arrow { display: none; }
+.estate-grid button:disabled { opacity: 0.55; cursor: default; }
+.offer-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.offer-form input {
+  flex: 1 1 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+}
+.offer-form .success,
+.offer-form .danger-outline,
+.offer-form .secondary { font-size: .8rem; flex: 1 1 auto; }
+.msg-who {
+  display: block;
+  font-style: normal;
+  font-size: .65rem;
+  opacity: .7;
+  margin-bottom: 2px;
+}
+.center-note { text-align: center; margin-top: 10px; }
 
 .mobile-section { padding-top: 30px; }
 .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin-bottom: 14px; }

@@ -41,6 +41,28 @@ router.post(
       throw new ApiError(403, 'Only buyer or estate can start negotiation');
     }
 
+    // Reuse an open deal for the same listing/request so people don't create duplicates
+    const openWhere = {
+      buyerId,
+      estateId,
+      status: { in: ['NEGOTIATING', 'ACCEPTED', 'PAYMENT_PENDING'] },
+    };
+    if (body.listingId) openWhere.listingId = body.listingId;
+    if (body.requestId) openWhere.requestId = body.requestId;
+    if (body.listingId || body.requestId) {
+      const existing = await prisma.tradeOrder.findFirst({
+        where: openWhere,
+        orderBy: { updatedAt: 'desc' },
+      });
+      if (existing) {
+        const messages = await prisma.message.findMany({
+          where: { orderId: existing.id },
+          orderBy: { createdAt: 'asc' },
+        });
+        return res.json({ order: existing, messages, reused: true });
+      }
+    }
+
     const order = await prisma.tradeOrder.create({
       data: {
         code: `CR-${randomUUID().slice(0, 4).toUpperCase()}`,
@@ -108,8 +130,9 @@ router.post(
   authRequired,
   asyncHandler(async (req, res) => {
     const order = await requireMember(req.user, req.params.id);
-    if (order.status !== 'NEGOTIATING') {
-      throw new ApiError(400, 'Chat locked — order not negotiating');
+    const chatOpen = ['NEGOTIATING', 'ACCEPTED', 'PAYMENT_PENDING'].includes(order.status);
+    if (!chatOpen) {
+      throw new ApiError(400, 'Chat locked — this order is finished');
     }
     const body = z
       .object({
@@ -119,24 +142,35 @@ router.post(
       })
       .parse(req.body);
     const type = body.type || (body.offerPrice != null ? 'OFFER' : 'TEXT');
-    if (type === 'TEXT' && !body.text?.trim()) throw new ApiError(400, 'text required');
-    if (type === 'OFFER' && body.offerPrice == null) throw new ApiError(400, 'offerPrice required');
+    if (type === 'TEXT' && !body.text?.trim()) throw new ApiError(400, 'Message text is required');
+    if (type === 'OFFER') {
+      if (order.status !== 'NEGOTIATING') {
+        throw new ApiError(400, 'Price offers only work while negotiating');
+      }
+      if (body.offerPrice == null || Number.isNaN(body.offerPrice) || body.offerPrice < 1) {
+        throw new ApiError(400, 'Enter a valid offer price (Rs. per nut)');
+      }
+    }
 
     const msg = await prisma.message.create({
       data: {
         orderId: order.id,
         senderId: req.user.id,
         type,
-        text: body.text,
-        offerPrice: body.offerPrice,
+        text: body.text?.trim() || null,
+        offerPrice: type === 'OFFER' ? body.offerPrice : null,
       },
     });
-    if (type === 'OFFER') {
-      await prisma.tradeOrder.update({
-        where: { id: order.id },
-        data: { unitPrice: body.offerPrice },
-      });
-    }
+    await prisma.tradeOrder.update({
+      where: { id: order.id },
+      data: type === 'OFFER' ? { unitPrice: body.offerPrice } : { updatedAt: new Date() },
+    });
+    const otherId = req.user.id === order.buyerId ? order.estateId : order.buyerId;
+    await notifyUser(
+      otherId,
+      type === 'OFFER' ? 'New price offer' : 'New message',
+      type === 'OFFER' ? `Offer Rs. ${body.offerPrice} on ${order.code}` : `Message on ${order.code}`
+    );
     res.json(msg);
   })
 );
@@ -158,6 +192,19 @@ router.patch(
         ]),
       })
       .parse(req.body);
+
+    const allowed = {
+      NEGOTIATING: ['ACCEPTED', 'REJECTED', 'DISPUTED'],
+      ACCEPTED: ['PAYMENT_PENDING', 'COMPLETED', 'DISPUTED', 'REJECTED'],
+      PAYMENT_PENDING: ['COMPLETED', 'DISPUTED', 'REJECTED'],
+      COMPLETED: [],
+      REJECTED: [],
+      DISPUTED: ['NEGOTIATING', 'REJECTED'],
+    };
+    if (!(allowed[order.status] || []).includes(body.status)) {
+      throw new ApiError(400, `Cannot move order from ${order.status} to ${body.status}`);
+    }
+
     const saved = await prisma.tradeOrder.update({
       where: { id: order.id },
       data: { status: body.status },

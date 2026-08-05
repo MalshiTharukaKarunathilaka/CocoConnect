@@ -31,15 +31,25 @@ router.post(
       throw new ApiError(403, 'Only buyers can create buy requests');
     }
     const body = buySchema.parse(req.body);
+    const needDate = new Date(body.needDate);
+    if (Number.isNaN(needDate.getTime())) {
+      throw new ApiError(400, 'Please choose a valid needed date');
+    }
+    if (!body.quantity || body.quantity < 1) {
+      throw new ApiError(400, 'Quantity must be at least 1');
+    }
+    if (!body.bidPrice || body.bidPrice < 1) {
+      throw new ApiError(400, 'Bid price must be at least Rs. 1');
+    }
     const created = await prisma.buyRequest.create({
       data: {
         buyerId: req.user.id,
         category: body.category || 'RAW',
         quantity: body.quantity,
         bidPrice: body.bidPrice,
-        needDate: new Date(body.needDate),
-        location: body.location,
-        district: body.district,
+        needDate,
+        location: body.location || body.district || 'Sri Lanka',
+        district: body.district || 'Kurunegala',
       },
     });
     res.json(created);
@@ -68,15 +78,19 @@ router.post(
       throw new ApiError(403, 'Only estate owners can create listings');
     }
     const body = listingSchema.parse(req.body);
+    const availableAt = new Date(body.availableAt);
+    if (Number.isNaN(availableAt.getTime())) {
+      throw new ApiError(400, 'Please choose a valid available date');
+    }
     const created = await prisma.sellListing.create({
       data: {
         estateId: req.user.id,
         category: body.category || 'RAW',
         quantity: body.quantity,
         offerPrice: body.offerPrice,
-        availableAt: new Date(body.availableAt),
-        location: body.location,
-        district: body.district,
+        availableAt,
+        location: body.location || body.district || 'Sri Lanka',
+        district: body.district || 'Kurunegala',
       },
     });
     res.json(created);
