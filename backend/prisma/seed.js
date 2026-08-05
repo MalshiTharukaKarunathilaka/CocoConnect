@@ -29,6 +29,15 @@ async function main() {
     'Kurunegala',
     'ABC Estates'
   );
+  // Sample pending estate so admin Verification queue is not empty on first run
+  await seedUser(
+    '0715550200',
+    'Green Palms Estate',
+    'ESTATE',
+    'PENDING',
+    'Puttalam',
+    'Green Palms'
+  );
 
   if ((await prisma.buyRequest.count()) === 0) {
     await prisma.buyRequest.create({

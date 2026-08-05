@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, authApi } from './api'
+import AdminApp from './AdminApp'
 import './App.css'
 
 const demos = [
@@ -92,28 +93,6 @@ function Login({ onLogin }) {
   )
 }
 
-function Sidebar({ user, tab, setTab, logout }) {
-  const roleTabs = [['overview', '▦', 'Overview'], ['users', '👥', 'Users'], ['orders', '📦', 'All orders']]
-
-  return (
-    <aside className="sidebar">
-      <div className="brand"><span>🌴</span> KapConnect</div>
-      <nav>
-        {roleTabs.map(([id, icon, label]) => (
-          <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>
-            <span>{icon}</span>{label}
-          </button>
-        ))}
-      </nav>
-      <div className="profile">
-        <div className="avatar">{user.name.slice(0, 1)}</div>
-        <div><b>{user.name}</b><small>{user.role}</small></div>
-        <button className="logout" onClick={logout} title="Sign out">↪</button>
-      </div>
-    </aside>
-  )
-}
-
 function MobileHeader({ user, logout, back, title }) {
   return (
     <header className="mobile-header">
@@ -136,15 +115,6 @@ function MobileNav({ tab, setTab }) {
         </button>
       ))}
     </nav>
-  )
-}
-
-function Header({ title, subtitle, action }) {
-  return (
-    <header className="page-header">
-      <div><h1>{title}</h1><p>{subtitle}</p></div>
-      {action}
-    </header>
   )
 }
 
@@ -344,42 +314,6 @@ function ProfileScreen({ user, logout }) {
   )
 }
 
-function ListingCard({ item, user, onNegotiate, onHide }) {
-  return (
-    <article className="market-card">
-      <div className="card-top">
-        <span className="category">{item.category}</span>
-        <span className={`status ${item.status?.toLowerCase()}`}>{item.status}</span>
-      </div>
-      <div className="coconut">🌴</div>
-      <h3>{item.quantity?.toLocaleString()} coconuts</h3>
-      <div className="price">{money(item.offerPrice)} <small>each</small></div>
-      <dl>
-        <div><dt>📍 Location</dt><dd>{item.location || item.district || 'Not given'}</dd></div>
-        <div><dt>📅 Available</dt><dd>{shortDate(item.availableAt)}</dd></div>
-      </dl>
-      {user.role === 'BUYER' && <button className="primary full" onClick={() => onNegotiate(item)}>Start negotiation</button>}
-      {user.role === 'ADMIN' && <button className="danger-outline full" onClick={() => onHide(item)}>Hide listing</button>}
-    </article>
-  )
-}
-
-function RequestCard({ item, user, onNegotiate, onHide }) {
-  return (
-    <article className="request-card">
-      <div className="card-top">
-        <span className="category">{item.category}</span>
-        <span className={`status ${item.status?.toLowerCase()}`}>{item.status}</span>
-      </div>
-      <h3>Buyer needs {item.quantity?.toLocaleString()} coconuts</h3>
-      <div className="price">{money(item.bidPrice)} <small>bid per coconut</small></div>
-      <div className="request-meta"><span>📍 {item.location || item.district}</span><span>📅 Needed {shortDate(item.needDate)}</span></div>
-      {user.role === 'ESTATE' && <button className="primary" onClick={() => onNegotiate(item)}>Send an offer</button>}
-      {user.role === 'ADMIN' && <button className="danger-outline" onClick={() => onHide(item)}>Hide request</button>}
-    </article>
-  )
-}
-
 function CreateForm({ type, initialCategory = 'RAW', close, saved }) {
   const isListing = type === 'listing'
   const [form, setForm] = useState({
@@ -432,25 +366,6 @@ function CreateForm({ type, initialCategory = 'RAW', close, saved }) {
         {error && <div className="alert error">{error}</div>}
         <div className="modal-actions"><button type="button" className="secondary" onClick={close}>Cancel</button><button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button></div>
       </form>
-    </div>
-  )
-}
-
-function Orders({ orders, openOrder }) {
-  if (!orders.length) return <Empty text="Start a negotiation from the marketplace and it will appear here." />
-  return (
-    <div className="table-card">
-      <table>
-        <thead><tr><th>Order</th><th>Category</th><th>Quantity</th><th>Unit price</th><th>Status</th><th></th></tr></thead>
-        <tbody>{orders.map((order) => (
-          <tr key={order.id}>
-            <td><b>{order.code}</b><small>{shortDate(order.createdAt)}</small></td>
-            <td>{order.category}</td><td>{order.quantity?.toLocaleString()}</td><td>{money(order.unitPrice)}</td>
-            <td><span className={`status ${order.status?.toLowerCase()}`}>{order.status?.replaceAll('_', ' ')}</span></td>
-            <td><button className="link-button" onClick={() => openOrder(order)}>Open deal →</button></td>
-          </tr>
-        ))}</tbody>
-      </table>
     </div>
   )
 }
@@ -523,27 +438,6 @@ function DealModal({ order, user, close, changed }) {
   )
 }
 
-function AdminOverview({ dashboard }) {
-  const cards = [
-    ['👥', 'Users', dashboard.users], ['🌴', 'Active listings', dashboard.activeListings],
-    ['📋', 'Open requests', dashboard.openBuyRequests], ['🤝', 'Deals in progress', dashboard.dealsInProgress],
-    ['⚠️', 'Open disputes', dashboard.openDisputes], ['💰', 'Completed value', money(dashboard.completedGmv)],
-  ]
-  return <div className="stats-grid">{cards.map(([icon, name, value]) => <div className="stat-card" key={name}><span>{icon}</span><div><small>{name}</small><strong>{value ?? 0}</strong></div></div>)}</div>
-}
-
-function Users({ users, refresh }) {
-  async function setStatus(user, status) {
-    await api(`/admin/users/${user.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
-    refresh()
-  }
-  return (
-    <div className="table-card"><table><thead><tr><th>User</th><th>Phone</th><th>Role</th><th>District</th><th>Status</th><th>Action</th></tr></thead>
-      <tbody>{users.map((user) => <tr key={user.id}><td><b>{user.name}</b><small>{user.estateName}</small></td><td>{user.phone}</td><td>{user.role}</td><td>{user.district}</td><td><span className={`status ${user.status.toLowerCase()}`}>{user.status}</span></td><td>{user.status === 'SUSPENDED' ? <button className="link-button" onClick={() => setStatus(user, 'VERIFIED')}>Restore</button> : <button className="danger-link" onClick={() => setStatus(user, 'SUSPENDED')}>Suspend</button>}</td></tr>)}</tbody>
-    </table></div>
-  )
-}
-
 function App() {
   const [session, setSession] = useState(() => {
     const saved = localStorage.getItem('kapconnect_user')
@@ -559,19 +453,12 @@ function App() {
   const [estateCategory, setEstateCategory] = useState('RAW')
 
   const loadData = useCallback(async () => {
-    if (!session) return
+    if (!session || session.role === 'ADMIN') return
     setLoading(true)
     setError('')
     try {
-      if (session.role === 'ADMIN') {
-        const [dashboard, users, orders, listings, requests] = await Promise.all([
-          api('/admin/dashboard'), api('/admin/users'), api('/admin/orders'), api('/listings'), api('/buy-requests'),
-        ])
-        setData({ dashboard, users, orders, listings, requests })
-      } else {
-        const [listings, requests, orders] = await Promise.all([api('/listings'), api('/buy-requests'), api('/orders')])
-        setData({ listings, requests, orders, dashboard: {}, users: [] })
-      }
+      const [listings, requests, orders] = await Promise.all([api('/listings'), api('/buy-requests'), api('/orders')])
+      setData({ listings, requests, orders, dashboard: {}, users: [] })
     } catch (err) {
       setError(err.message)
     } finally {
@@ -585,7 +472,7 @@ function App() {
     localStorage.setItem('kapconnect_token', result.accessToken)
     localStorage.setItem('kapconnect_user', JSON.stringify(result.user))
     setSession(result.user)
-    setTab(result.user.role === 'ADMIN' ? 'overview' : 'market')
+    setTab('market')
   }
 
   function logout() {
@@ -612,87 +499,35 @@ function App() {
     } catch (err) { setError(err.message) }
   }
 
-  async function hide(item, kind) {
-    if (!window.confirm(`Hide this ${kind}?`)) return
-    try {
-      await api(`/admin/${kind === 'listing' ? 'listings' : 'buy-requests'}/${item.id}/hide`, { method: 'PATCH' })
-      loadData()
-    } catch (err) { setError(err.message) }
-  }
-
   if (!session) return <Login onLogin={login} />
+  if (session.role === 'ADMIN') return <AdminApp user={session} logout={logout} />
 
-  const myRequests = data.requests.filter((item) => item.buyerId === session.id)
   const myListings = data.listings.filter((item) => item.estateId === session.id)
 
-  if (session.role !== 'ADMIN') {
-    let mobileContent
-    if (tab === 'orders') {
-      mobileContent = <MobileOrders orders={data.orders} openOrder={setDeal} />
-    } else if (tab === 'profile') {
-      mobileContent = <ProfileScreen user={session} logout={logout} />
-    } else if (session.role === 'BUYER') {
-      mobileContent = <BuyerMarketplace listings={data.listings} onNegotiate={(item) => negotiate(item, 'listing')} saved={loadData} />
-    } else if (estateView === 'categories') {
-      mobileContent = <CategoryPicker back={() => setEstateView('home')} choose={(category) => { setEstateCategory(category); setEstateView('sell') }} />
-    } else if (estateView === 'sell') {
-      mobileContent = <EstateSellScreen category={estateCategory} requests={data.requests.filter((item) => item.category === estateCategory)} onNegotiate={(item) => negotiate(item, 'request')} openForm={() => setForm('listing')} back={() => setEstateView('categories')} />
-    } else {
-      mobileContent = <EstateDashboard openCoconuts={() => setEstateView('categories')} listings={myListings} />
-    }
-
-    return (
-      <div className="client-mobile-shell">
-        <MobileHeader user={session} logout={logout} />
-        <main className="client-mobile-content">
-          {error && <div className="alert error">{error}<button onClick={() => setError('')}>×</button></div>}
-          {loading ? <div className="loading">Loading KapConnect…</div> : mobileContent}
-        </main>
-        <MobileNav tab={tab} setTab={(nextTab) => { setTab(nextTab); if (nextTab === 'market' && session.role === 'ESTATE') setEstateView('home') }} />
-        {form && <CreateForm type={form} initialCategory={estateCategory} close={() => setForm(null)} saved={() => { setForm(null); loadData() }} />}
-        {deal && <DealModal order={deal} user={session} close={() => setDeal(null)} changed={loadData} />}
-      </div>
-    )
+  let mobileContent
+  if (tab === 'orders') {
+    mobileContent = <MobileOrders orders={data.orders} openOrder={setDeal} />
+  } else if (tab === 'profile') {
+    mobileContent = <ProfileScreen user={session} logout={logout} />
+  } else if (session.role === 'BUYER') {
+    mobileContent = <BuyerMarketplace listings={data.listings} onNegotiate={(item) => negotiate(item, 'listing')} saved={loadData} />
+  } else if (estateView === 'categories') {
+    mobileContent = <CategoryPicker back={() => setEstateView('home')} choose={(category) => { setEstateCategory(category); setEstateView('sell') }} />
+  } else if (estateView === 'sell') {
+    mobileContent = <EstateSellScreen category={estateCategory} requests={data.requests.filter((item) => item.category === estateCategory)} onNegotiate={(item) => negotiate(item, 'request')} openForm={() => setForm('listing')} back={() => setEstateView('categories')} />
+  } else {
+    mobileContent = <EstateDashboard openCoconuts={() => setEstateView('categories')} listings={myListings} />
   }
 
-  const titles = {
-    overview: ['Admin overview', 'A quick view of everything happening on KapConnect.'],
-    users: ['Manage users', 'Verify, review, or suspend marketplace accounts.'],
-    market: session.role === 'BUYER' ? ['Coconut marketplace', 'Browse fresh listings from estate owners.'] : ['Buyer requests', 'Find buyers who are ready to purchase coconuts.'],
-    requests: ['My buy requests', 'Post what you need and let estate owners contact you.'],
-    listings: ['My sale listings', 'Show buyers what is available from your estate.'],
-    orders: [session.role === 'ADMIN' ? 'All orders' : 'My deals', 'Track negotiations, messages, and agreed prices.'],
-  }
-  const [title, subtitle] = titles[tab] || titles.market
-
-  let content
-  if (tab === 'overview') content = <AdminOverview dashboard={data.dashboard} />
-  else if (tab === 'users') content = <Users users={data.users} refresh={loadData} />
-  else if (tab === 'orders') content = <Orders orders={data.orders} openOrder={setDeal} />
-  else if (tab === 'market' && session.role === 'BUYER') content = data.listings.length
-    ? <div className="card-grid">{data.listings.map((item) => <ListingCard key={item.id} item={item} user={session} onNegotiate={(x) => negotiate(x, 'listing')} onHide={(x) => hide(x, 'listing')} />)}</div>
-    : <Empty text="Estate listings will appear here." />
-  else if (tab === 'market') content = data.requests.length
-    ? <div className="request-list">{data.requests.map((item) => <RequestCard key={item.id} item={item} user={session} onNegotiate={(x) => negotiate(x, 'request')} onHide={(x) => hide(x, 'request')} />)}</div>
-    : <Empty text="Buyer requests will appear here." />
-  else if (tab === 'requests') content = myRequests.length
-    ? <div className="request-list">{myRequests.map((item) => <RequestCard key={item.id} item={item} user={session} onNegotiate={() => {}} onHide={() => {}} />)}</div>
-    : <Empty text="Create your first request to start finding sellers." />
-  else content = myListings.length
-    ? <div className="card-grid">{myListings.map((item) => <ListingCard key={item.id} item={item} user={session} onNegotiate={() => {}} onHide={() => {}} />)}</div>
-    : <Empty text="Create your first estate listing." />
-
-  const canCreateRequest = tab === 'requests' && session.role === 'BUYER'
-  const canCreateListing = tab === 'listings' && session.role === 'ESTATE'
   return (
-    <div className="app-shell">
-      <Sidebar user={session} tab={tab} setTab={setTab} logout={logout} />
-      <main className="content">
-        <Header title={title} subtitle={subtitle} action={(canCreateRequest || canCreateListing) && <button className="primary" onClick={() => setForm(canCreateListing ? 'listing' : 'request')}>＋ {canCreateListing ? 'New listing' : 'New request'}</button>} />
+    <div className="client-mobile-shell">
+      <MobileHeader user={session} logout={logout} />
+      <main className="client-mobile-content">
         {error && <div className="alert error">{error}<button onClick={() => setError('')}>×</button></div>}
-        {loading ? <div className="loading">Loading KapConnect…</div> : content}
+        {loading ? <div className="loading">Loading KapConnect…</div> : mobileContent}
       </main>
-      {form && <CreateForm type={form} close={() => setForm(null)} saved={() => { setForm(null); loadData() }} />}
+      <MobileNav tab={tab} setTab={(nextTab) => { setTab(nextTab); if (nextTab === 'market' && session.role === 'ESTATE') setEstateView('home') }} />
+      {form && <CreateForm type={form} initialCategory={estateCategory} close={() => setForm(null)} saved={() => { setForm(null); loadData() }} />}
       {deal && <DealModal order={deal} user={session} close={() => setDeal(null)} changed={loadData} />}
     </div>
   )
