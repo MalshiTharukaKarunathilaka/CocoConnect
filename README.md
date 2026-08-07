@@ -1,58 +1,121 @@
-# CocoConnect
-A digital ecosystem for the Coconut Growers Association of Sri Lanka, designed to streamline coconut estate management, marketplace operations, and stakeholder collaboration.
 # 🌴 CocoConnect
 
-## Overview
-
-CocoConnect is a digital ecosystem developed to support the coconut industry in Sri Lanka. The platform connects estate owners, estate managers, buyers, and administrators through a centralized system that simplifies estate management, product trading, communication, and administration.
-
-This project is developed as a third-year group project for the **University of Colombo School of Computing (UCSC)**.
+> A digital ecosystem developed for the **Coconut Growers Association of Sri Lanka (CGASL)** to modernize coconut estate management, connect stakeholders, and enhance marketplace operations.
 
 ---
 
-## Project Objectives
+# Overview
 
-* Digitize coconut estate management.
-* Connect estate owners with buyers.
-* Improve communication between stakeholders.
-* Provide an efficient marketplace for coconut products.
-* Simplify administration and management processes.
+CocoConnect is a digital platform designed to support the Sri Lankan coconut industry by providing an integrated ecosystem for estate owners, estate managers, buyers, service providers, and administrators.
+
+The platform streamlines estate management, facilitates marketplace transactions, improves stakeholder communication, and enables data-driven decision-making through a centralized digital solution.
+
+This project is developed as a **Third-Year Information Systems Group Project** at the **University of Colombo School of Computing (UCSC)** in collaboration with the **Coconut Growers Association of Sri Lanka (CGASL)**.
 
 ---
 
-## Technologies Used
+# Project Objectives
 
-### Frontend
+* Digitalize coconut estate management processes.
+* Improve collaboration among industry stakeholders.
+* Provide a centralized marketplace for coconut-related products and services.
+* Simplify communication between buyers, estate owners, and service providers.
+* Improve productivity through digital record management and reporting.
 
-* Flutter (Mobile Application)
-* React (Web Application)
+---
 
-### Backend
+# Key Features
+
+## Estate Owner
+
+* Estate management
+* Harvest management
+* Marketplace management
+* Buyer communication
+* Service request management
+* Dashboard and analytics
+
+## Estate Manager
+
+* Estate monitoring
+* Harvest tracking
+* Task management
+* Workforce coordination
+* Progress reporting
+
+## Buyer
+
+* Browse products
+* Search and filter listings
+* Purchase coconut products
+* In-app negotiation and communication
+* Order management
+
+## Service Providers
+
+* Offer machinery, fertilizer, labour, and other agricultural services
+* Manage service requests
+* Track ongoing services
+
+## Administrator
+
+* User management
+* Marketplace moderation
+* System monitoring
+* Reports and analytics
+* Platform administration
+
+---
+
+# Technology Stack
+
+## Mobile Application
+
+* Flutter
+* Dart
+
+## Backend
 
 * Node.js
 * Express.js
 
-### Database
+## Database
 
 * PostgreSQL
 
-### Future Integrations
+## Development Tools
+
+* Visual Studio Code
+* Android Studio
+* Git
+* GitHub
+* Postman
+* Figma
+
+## Future Integrations
 
 * Firebase Cloud Messaging
 * Google Maps API
 
 ---
 
-## Repository Structure
+# Repository Structure
 
-```
+```text
 CocoConnect
 │
 ├── backend/
+│   ├── src/
+│   ├── routes/
+│   ├── controllers/
+│   ├── middleware/
+│   └── config/
 │
-├── frontend/
+├── mobile/
 │
 ├── docs/
+│
+├── database/
 │
 ├── README.md
 │
@@ -61,71 +124,62 @@ CocoConnect
 
 ---
 
-## Git Branch Strategy
+# Git Branch Strategy
 
-### Main Branches
+## Main Branches
 
-* `main` – Stable production branch
-* `develop` – Integration branch
+* `main` — Production-ready code
+* `develop` — Integration branch
 
-### Feature Branches
+## Feature Branches
 
 * `estate-owner`
 * `estate-manager`
 * `buyer`
 * `admin`
 
-### Sub Branches
+## Sub Feature Branches
 
-#### Estate Owner
+### Estate Owner
 
 * `estate-owner-dev1`
 * `estate-owner-dev2`
 
-#### Buyer
+### Buyer
 
 * `buyer-dev1`
 * `buyer-dev2`
 
 ---
 
-## Development Workflow
+# Development Workflow
 
-1. Create or switch to your assigned branch.
-2. Pull the latest changes.
-3. Develop your assigned feature.
-4. Commit your changes with meaningful commit messages.
-5. Push your branch to GitHub.
-6. Create a Pull Request to merge into `develop`.
-7. After testing, changes will be merged from `develop` into `main`.
-
----
-
-## Team Guidelines
-
-* Do not commit directly to the `main` branch.
-* Always work on your assigned branch.
-* Pull the latest updates before starting development.
-* Write meaningful commit messages.
-* Resolve merge conflicts before creating a Pull Request.
+1. Clone the repository.
+2. Switch to your assigned branch.
+3. Pull the latest changes before starting development.
+4. Implement your assigned feature.
+5. Commit changes using meaningful commit messages.
+6. Push changes to your feature branch.
+7. Create a Pull Request to merge into `develop`.
+8. After testing and review, approved changes will be merged into `main`.
 
 ---
 
-## Getting Started
+# Getting Started
 
-### Clone the Repository
+## Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/<organization-or-username>/CocoConnect.git
 ```
 
-### Navigate to the Project
+## Navigate to the Project
 
 ```bash
 cd CocoConnect
 ```
 
-### Backend Setup
+## Backend Setup
 
 ```bash
 cd backend
@@ -133,26 +187,33 @@ npm install
 npm run dev
 ```
 
-### Frontend Setup
+## Mobile Application
 
 ```bash
-cd frontend
-npm install
-npm run dev
+cd mobile
+flutter pub get
+flutter run
 ```
 
 ---
 
-## Contributors
+# Team Modules
 
-* Project Manager / Business Analyst
-* Estate Owner Development Team
-* Estate Manager Development Team
-* Buyer Development Team
-* Admin Development Team
+* Estate Owner
+* Estate Manager
+* Buyer
+* Administrator
 
 ---
 
-## License
+# Contributors
 
-This project is developed for academic purposes at the University of Colombo School of Computing (UCSC).
+Developed by the Third-Year Information Systems undergraduate team of the **University of Colombo School of Computing (UCSC)** in collaboration with the **Coconut Growers Association of Sri Lanka (CGASL)**.
+
+---
+
+# License
+
+This project is developed for academic purposes as part of the Bachelor of Science in Information Systems degree programme at the University of Colombo School of Computing (UCSC).
+
+© 2026 CocoConnect Team. All rights reserved.
