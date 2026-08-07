@@ -162,17 +162,34 @@ class CoconutProductCard extends StatelessWidget {
                       },
                     ),
                   ),
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Colors.white.withAlpha(230),
-                      child: const Icon(
-                        Icons.eco,
-                        color: Color(0xFF2E7D32),
-                        size: 19,
-                      ),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(3),
+                            topRight: Radius.circular(3),
+                          ),
+                          child: Image.network(
+                            imageUrl,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: const Color(0xFFE8F5E9),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.image,
+                                    size: 45,
+                                    color: Color(0xFF2E7D32),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

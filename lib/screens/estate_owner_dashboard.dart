@@ -108,8 +108,8 @@ class EstateOwnerDashboard extends StatelessWidget {
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         crossAxisCount: 2,
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 12,
                         childAspectRatio: 1.08,
                         children: [
                           DashboardCategoryCard(
