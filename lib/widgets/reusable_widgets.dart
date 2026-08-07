@@ -21,7 +21,7 @@ class DashboardHeading extends StatelessWidget {
           title,
           style: TextStyle(
             color: color,
-            fontSize: 21,
+            fontSize: 18,
             height: 1.0,
             fontWeight: FontWeight.bold,
           ),
@@ -31,7 +31,7 @@ class DashboardHeading extends StatelessWidget {
           subtitle,
           style: const TextStyle(
             color: Color(0xFF777777),
-            fontSize: 12,
+            fontSize: 10,
           ),
         ),
       ],
@@ -58,47 +58,54 @@ class DashboardCategoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(12),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
+            color: Colors.black.withAlpha(10),
+            blurRadius: 9,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircleAvatar(
-              radius: 28,
+              radius: 22,
               backgroundColor: const Color(0xFFF3F3F3),
               child: Icon(
                 icon,
                 color: iconColor,
-                size: 27,
+                size: 22,
               ),
             ),
-            const SizedBox(height: 14),
+
+            const SizedBox(height: 8),
+
             Text(
               title,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFF333333),
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
+
+            const SizedBox(height: 3),
+
             Text(
               subtitle,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFF8A8A8A),
-                fontSize: 11,
+                fontSize: 9,
               ),
             ),
           ],
@@ -107,7 +114,6 @@ class DashboardCategoryCard extends StatelessWidget {
     );
   }
 }
-
 class CoconutProductCard extends StatelessWidget {
   final String title;
   final String imageUrl;
@@ -256,16 +262,31 @@ class CustomBottomNavigation extends StatelessWidget {
             icon: Icons.dashboard,
             label: 'Dashboard',
             isActive: currentIndex == 0,
+            onTap: () {
+              if (currentIndex != 0) {
+                Navigator.popUntil(context, (route) => route.isFirst);
+              }
+            },
           ),
+
           BottomMenuItem(
             icon: Icons.receipt_long,
             label: 'Orders',
             isActive: currentIndex == 1,
+            onTap: () {
+              // Later you can link Orders page here.
+            },
           ),
+
           BottomMenuItem(
             icon: Icons.person,
             label: 'Profile',
             isActive: currentIndex == 2,
+            onTap: () {
+              if (currentIndex != 2) {
+                Navigator.pushNamed(context, '/profile');
+              }
+            },
           ),
         ],
       ),
@@ -277,45 +298,52 @@ class BottomMenuItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isActive;
+  final VoidCallback? onTap;
 
   const BottomMenuItem({
     super.key,
     required this.icon,
     required this.label,
     required this.isActive,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isActive ? 16 : 8,
-        vertical: 8,
-      ),
-      decoration: BoxDecoration(
-        color: isActive ? const Color(0xFFD9EAD4) : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: isActive ? const Color(0xFF2E7D32) : const Color(0xFF777777),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: isActive
-                  ? const Color(0xFF2E7D32)
-                  : const Color(0xFF777777),
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: isActive ? 16 : 8,
+          vertical: 8,
+        ),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFD9EAD4) : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color:
+              isActive ? const Color(0xFF2E7D32) : const Color(0xFF777777),
             ),
-          ),
-        ],
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: isActive
+                    ? const Color(0xFF2E7D32)
+                    : const Color(0xFF777777),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

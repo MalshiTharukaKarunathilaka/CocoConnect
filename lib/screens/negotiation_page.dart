@@ -42,6 +42,7 @@ class NegotiationPage extends StatelessWidget {
                           size: 22,
                         ),
                       ),
+
                       const Expanded(
                         child: Column(
                           children: [
@@ -65,7 +66,19 @@ class NegotiationPage extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 22),
+
+                      const CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Color(0xFFE8F5E9),
+                        child: Text(
+                          'A',
+                          style: TextStyle(
+                            color: Color(0xFF2E7D32),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

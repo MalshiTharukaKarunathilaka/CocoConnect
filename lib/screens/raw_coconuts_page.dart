@@ -2,8 +2,68 @@ import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'sell_request_page.dart';
 
-class RawCoconutsPage extends StatelessWidget {
+class RawCoconutsPage extends StatefulWidget {
   const RawCoconutsPage({super.key});
+
+  @override
+  State<RawCoconutsPage> createState() => _RawCoconutsPageState();
+}
+
+class _RawCoconutsPageState extends State<RawCoconutsPage> {
+  final TextEditingController quantityController =
+  TextEditingController(text: '1200');
+
+  final TextEditingController dateController =
+  TextEditingController(text: 'mm/dd/yyyy');
+
+  final TextEditingController priceController =
+  TextEditingController(text: 'Rs. 130.00');
+
+  bool showSummary = false;
+
+  Future<void> pickAvailableDate() async {
+    final DateTime today = DateTime.now();
+    final DateTime todayOnly = DateTime(today.year, today.month, today.day);
+
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: todayOnly,
+      firstDate: todayOnly,
+      lastDate: DateTime(2030),
+    );
+
+    if (pickedDate != null) {
+      setState(() {
+        dateController.text =
+        '${pickedDate.month.toString().padLeft(2, '0')}/${pickedDate.day.toString().padLeft(2, '0')}/${pickedDate.year}';
+      });
+    }
+  }
+
+  void showSellSummary() {
+    if (quantityController.text.trim().isEmpty ||
+        dateController.text == 'mm/dd/yyyy' ||
+        priceController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill all sell details'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      showSummary = true;
+    });
+  }
+
+  @override
+  void dispose() {
+    quantityController.dispose();
+    dateController.dispose();
+    priceController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +93,9 @@ class RawCoconutsPage extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+
                       const SizedBox(height: 12),
+
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -47,6 +109,7 @@ class RawCoconutsPage extends StatelessWidget {
                               color: Color(0xFF2E7D32),
                             ),
                           ),
+
                           const Text(
                             'KapConnect',
                             style: TextStyle(
@@ -55,8 +118,9 @@ class RawCoconutsPage extends StatelessWidget {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          Row(
-                            children: const [
+
+                          const Row(
+                            children: [
                               Text(
                                 'EN',
                                 style: TextStyle(
@@ -109,91 +173,10 @@ class RawCoconutsPage extends StatelessWidget {
 
                       const SizedBox(height: 20),
 
-                      // Sell form card
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(6),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withAlpha(12),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: const [
-                                Icon(
-                                  Icons.inventory_2_outlined,
-                                  size: 18,
-                                  color: Color(0xFF2E7D32),
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Sell Raw Coconuts',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF263238),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            const FormLabel(text: 'NUMBER OF UNITS'),
-                            const CustomInputField(
-                              text: '5000',
-                              icon: null,
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            const FormLabel(text: 'AVAILABLE DATE'),
-                            const CustomInputField(
-                              text: 'mm/dd/yyyy',
-                              icon: Icons.calendar_month,
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            const FormLabel(text: 'OFFER PRICE PER UNIT'),
-                            const CustomInputField(
-                              text: 'Rs. 200.00',
-                              icon: null,
-                            ),
-
-                            const SizedBox(height: 18),
-
-                            SizedBox(
-                              width: double.infinity,
-                              height: 44,
-                              child: ElevatedButton(
-                                onPressed: () {},
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF2E7D32),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(5),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Sell',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      // This line changes form to summary after clicking Sell
+                      showSummary
+                          ? buildSellSummaryCard()
+                          : buildSellFormCard(),
 
                       const SizedBox(height: 22),
 
@@ -209,6 +192,7 @@ class RawCoconutsPage extends StatelessWidget {
                               color: Color(0xFF263238),
                             ),
                           ),
+
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 9,
@@ -218,8 +202,8 @@ class RawCoconutsPage extends StatelessWidget {
                               color: const Color(0xFFE8F5E9),
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: Row(
-                              children: const [
+                            child: const Row(
+                              children: [
                                 Icon(
                                   Icons.filter_list,
                                   size: 13,
@@ -242,8 +226,8 @@ class RawCoconutsPage extends StatelessWidget {
 
                       const SizedBox(height: 10),
 
-                      Row(
-                        children: const [
+                      const Row(
+                        children: [
                           FilterChipButton(
                             text: 'Best Price',
                             isActive: true,
@@ -266,8 +250,8 @@ class RawCoconutsPage extends StatelessWidget {
                       InterestedBuyerCard(
                         iconLetter: 'A',
                         buyerName: 'Mudalali A',
-                        location: 'Green Valley Estate, Kurunegala',
-                        price: 'Rs. 100',
+                        trustScore: '4.8/5',
+                        price: 'Rs. 136',
                         quantity: '1,200 nuts',
                         pickupDate: '18 Jul 2026',
                         onTap: () {
@@ -279,15 +263,27 @@ class RawCoconutsPage extends StatelessWidget {
                           );
                         },
                       ),
+
                       const SizedBox(height: 12),
 
                       const InterestedBuyerCard(
                         iconLetter: 'P',
                         buyerName: 'Perera Purchasers',
-                        location: 'Puttalam, Sri Lanka',
-                        price: 'Rs. 105',
+                        trustScore: '4.0/5',
+                        price: 'Rs. 121',
                         quantity: '800 units',
                         pickupDate: '02 Aug 2026',
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      const InterestedBuyerCard(
+                        iconLetter: 'S',
+                        buyerName: 'Super Market A',
+                        trustScore: '3.4/5',
+                        price: 'Rs. 118',
+                        quantity: '1500 units',
+                        pickupDate: '02 Feb 2027',
                       ),
 
                       const SizedBox(height: 20),
@@ -300,6 +296,252 @@ class RawCoconutsPage extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget buildSellFormCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(12),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.inventory_2_outlined,
+                size: 18,
+                color: Color(0xFF2E7D32),
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Sell Raw Coconuts',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF263238),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          const FormLabel(text: 'NUMBER OF UNITS'),
+          CustomInputField(
+            controller: quantityController,
+            icon: null,
+          ),
+
+          const SizedBox(height: 12),
+
+          const FormLabel(text: 'AVAILABLE DATE'),
+          CustomInputField(
+            controller: dateController,
+            icon: Icons.calendar_month,
+            readOnly: true,
+            onTap: pickAvailableDate,
+          ),
+
+          const SizedBox(height: 12),
+
+          const FormLabel(text: 'OFFER PRICE PER UNIT'),
+          CustomInputField(
+            controller: priceController,
+            icon: null,
+          ),
+
+          const SizedBox(height: 18),
+
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: ElevatedButton(
+              onPressed: showSellSummary,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D32),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
+              child: const Text(
+                'Sell',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildSellSummaryCard() {
+    final String quantity = quantityController.text.trim();
+    final String date = dateController.text.trim();
+    final String price = priceController.text.trim();
+
+    final double quantityValue =
+        double.tryParse(quantity.replaceAll(',', '').trim()) ?? 0;
+
+    final double priceValue = double.tryParse(
+      price
+          .replaceAll('Rs.', '')
+          .replaceAll('Rs', '')
+          .replaceAll(',', '')
+          .trim(),
+    ) ??
+        0;
+
+    final double total = quantityValue * priceValue;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(12),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.check_circle,
+                size: 18,
+                color: Color(0xFF2E7D32),
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Sell  Summary',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF263238),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 5,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F5E9),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text(
+              'READY TO POST',
+              style: TextStyle(
+                color: Color(0xFF2E7D32),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          const Text(
+            'Raw Coconut Sell Offer',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF777777),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          const SummaryRow(
+            title: 'Seller',
+            value: 'ABC Estate Owner',
+          ),
+
+          const Divider(height: 24),
+
+          SummaryRow(
+            title: 'Quantity',
+            value: '$quantity nuts',
+          ),
+
+          const Divider(height: 24),
+
+          SummaryRow(
+            title: 'Available Date',
+            value: date,
+          ),
+
+          const Divider(height: 24),
+
+          SummaryRow(
+            title: 'Offer Price Per Unit',
+            value: price,
+          ),
+
+          const Divider(height: 24),
+
+          SummaryRow(
+            title: 'Estimated Total',
+            value: 'Rs. ${total.toStringAsFixed(2)}',
+          ),
+
+          const SizedBox(height: 16),
+
+          const Text(
+            'Buyers can view this sell offer after you confirm it. Payment will be handled outside the system.',
+            style: TextStyle(
+              fontSize: 11,
+              color: Color(0xFF777777),
+              height: 1.4,
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      showSummary = false;
+                    });
+                  },
+                  child: const Text('Edit'),
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+
+
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -327,28 +569,37 @@ class FormLabel extends StatelessWidget {
 }
 
 class CustomInputField extends StatelessWidget {
-  final String text;
+  final TextEditingController controller;
   final IconData? icon;
+  final bool readOnly;
+  final VoidCallback? onTap;
 
   const CustomInputField({
     super.key,
-    required this.text,
+    required this.controller,
     required this.icon,
+    this.readOnly = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
-      initialValue: text,
+      controller: controller,
+      readOnly: readOnly,
+      onTap: onTap,
       style: const TextStyle(fontSize: 13),
       decoration: InputDecoration(
         suffixIcon: icon == null
             ? null
-            : Icon(
-                icon,
-                size: 18,
-                color: const Color(0xFF777777),
-              ),
+            : IconButton(
+          icon: Icon(
+            icon,
+            size: 18,
+            color: const Color(0xFF777777),
+          ),
+          onPressed: onTap,
+        ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 12,
@@ -409,7 +660,7 @@ class FilterChipButton extends StatelessWidget {
 class InterestedBuyerCard extends StatelessWidget {
   final String iconLetter;
   final String buyerName;
-  final String location;
+  final String trustScore;
   final String price;
   final String quantity;
   final String pickupDate;
@@ -419,7 +670,7 @@ class InterestedBuyerCard extends StatelessWidget {
     super.key,
     required this.iconLetter,
     required this.buyerName,
-    required this.location,
+    required this.trustScore,
     required this.price,
     required this.quantity,
     required this.pickupDate,
@@ -479,10 +730,11 @@ class InterestedBuyerCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        location,
+                        'TRUST SCORE: $trustScore',
                         style: const TextStyle(
                           fontSize: 10,
-                          color: Color(0xFF777777),
+                          color: Color(0xFFE65100),
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
@@ -572,6 +824,42 @@ class BuyerInfoItem extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class SummaryRow extends StatelessWidget {
+  final String title;
+  final String value;
+
+  const SummaryRow({
+    super.key,
+    required this.title,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF777777),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Color(0xFF1B5E20),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 }

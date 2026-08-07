@@ -58,12 +58,16 @@ class OrderStatusPage extends StatelessWidget {
                         ),
                       ),
 
-                      CircleAvatar(
+                      const CircleAvatar(
                         radius: 20,
-                        backgroundColor: const Color(0xFFE8F5E9),
-                        child: const Icon(
-                          Icons.agriculture,
-                          color: Color(0xFF2E7D32),
+                        backgroundColor: Color(0xFFE8F5E9),
+                        child: Text(
+                          'A',
+                          style: TextStyle(
+                            color: Color(0xFF2E7D32),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],

@@ -19,13 +19,14 @@ class EstateOwnerDashboard extends StatelessWidget {
               children: [
                 const SizedBox(height: 10),
 
+                // Header
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 18),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
+                    children: [
                       Row(
-                        children: [
+                        children: const [
                           Icon(
                             Icons.arrow_back,
                             size: 20,
@@ -42,7 +43,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      Text(
+                      const Text(
                         'EN | SI | TA',
                         style: TextStyle(
                           fontSize: 11,
@@ -54,123 +55,136 @@ class EstateOwnerDashboard extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 22),
+                const SizedBox(height: 16),
 
                 Expanded(
-                  child: ListView(
+                  child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 18),
-                    children: [
-                      const Text(
-                        'Estate owner dashboard',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF4A4A4A),
-                          fontWeight: FontWeight.w600,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Estate owner dashboard',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF4A4A4A),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: 5),
+                        const SizedBox(height: 5),
 
-                      Container(
-                        width: 54,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2E7D32),
-                          borderRadius: BorderRadius.circular(20),
+                        Container(
+                          width: double.infinity,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2E7D32),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: 28),
+                        const SizedBox(height: 14),
 
-                      Row(
-                        children: const [
-                          Expanded(
-                            child: DashboardHeading(
-                              title: 'Selling\nCategories',
-                              subtitle: 'List products',
-                              color: Color(0xFFB26A2C),
+                        const Row(
+                          children: [
+                            Expanded(
+                              child: DashboardHeading(
+                                title: 'Selling\nCategories',
+                                subtitle: 'List products',
+                                color: Color(0xFFB26A2C),
+                              ),
                             ),
-                          ),
-                          SizedBox(width: 20),
-                          Expanded(
-                            child: DashboardHeading(
-                              title: 'Provider\nServices',
-                              subtitle: 'Essential resources',
-                              color: Color(0xFF3B8F65),
+                            SizedBox(width: 20),
+                            Expanded(
+                              child: DashboardHeading(
+                                title: 'Provider\nServices',
+                                subtitle: 'Essential resources',
+                                color: Color(0xFF3B8F65),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
 
-                      const SizedBox(height: 22),
+                        const SizedBox(height: 12),
 
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 1.08,
-                        children: [
-                          DashboardCategoryCard(
-                            title: 'Coconuts',
-                            subtitle: 'List harvest',
-                            icon: Icons.park,
-                            iconColor: const Color(0xFF3B8F65),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const CoconutsPage(),
-                                ),
-                              );
-                            },
+                        Expanded(
+                          child: GridView.count(
+                            padding: EdgeInsets.zero,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                            childAspectRatio: 1.45,
+                            children: [
+                              DashboardCategoryCard(
+                                title: 'Coconuts',
+                                subtitle: 'List harvest',
+                                icon: Icons.park,
+                                iconColor: const Color(0xFF3B8F65),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                      const CoconutsPage(),
+                                    ),
+                                  );
+                                },
+                              ),
+
+                              const DashboardCategoryCard(
+                                title: 'Fertilizer',
+                                subtitle: 'Quality nutrients',
+                                icon: Icons.eco,
+                                iconColor: Color(0xFF3B8F65),
+                              ),
+
+                              const DashboardCategoryCard(
+                                title: 'Vegetables',
+                                subtitle: 'Fresh produce',
+                                icon: Icons.spa,
+                                iconColor: Color(0xFFB26A2C),
+                              ),
+
+                              const DashboardCategoryCard(
+                                title: 'Machinery',
+                                subtitle: 'Rent or buy',
+                                icon: Icons.agriculture,
+                                iconColor: Color(0xFFB26A2C),
+                              ),
+
+                              const DashboardCategoryCard(
+                                title: 'Livestock',
+                                subtitle: 'Animal products',
+                                icon: Icons.pets,
+                                iconColor: Color(0xFF777777),
+                              ),
+
+                              const DashboardCategoryCard(
+                                title: 'Labour',
+                                subtitle: 'Hire workers',
+                                icon: Icons.groups,
+                                iconColor: Color(0xFF777777),
+                              ),
+
+                              const DashboardCategoryCard(
+                                title: 'Other Goods',
+                                subtitle: 'Farm goods',
+                                icon: Icons.inventory_2,
+                                iconColor: Color(0xFF777777),
+                              ),
+
+                              const DashboardCategoryCard(
+                                title: 'Miscellaneous',
+                                subtitle: 'Other services',
+                                icon: Icons.category,
+                                iconColor: Color(0xFF777777),
+                              ),
+                            ],
                           ),
-                          const DashboardCategoryCard(
-                            title: 'Fertilizer',
-                            subtitle: 'Quality nutrients',
-                            icon: Icons.eco,
-                            iconColor: Color(0xFF3B8F65),
-                          ),
-                          const DashboardCategoryCard(
-                            title: 'Vegetables',
-                            subtitle: 'Fresh produce',
-                            icon: Icons.spa,
-                            iconColor: Color(0xFFB26A2C),
-                          ),
-                          const DashboardCategoryCard(
-                            title: 'Machinery',
-                            subtitle: 'Rent or buy',
-                            icon: Icons.agriculture,
-                            iconColor: Color(0xFFB26A2C),
-                          ),
-                          const DashboardCategoryCard(
-                            title: 'Livestock',
-                            subtitle: 'Animal products',
-                            icon: Icons.pets,
-                            iconColor: Color(0xFF777777),
-                          ),
-                          const DashboardCategoryCard(
-                            title: 'Labour',
-                            subtitle: 'Hire workers',
-                            icon: Icons.groups,
-                            iconColor: Color(0xFF777777),
-                          ),
-                          const DashboardCategoryCard(
-                            title: 'Other Goods',
-                            subtitle: 'Farm goods',
-                            icon: Icons.inventory_2,
-                            iconColor: Color(0xFF777777),
-                          ),
-                          const DashboardCategoryCard(
-                            title: 'Miscellaneous',
-                            subtitle: 'Other services',
-                            icon: Icons.category,
-                            iconColor: Color(0xFF777777),
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
