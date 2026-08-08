@@ -60,7 +60,20 @@ class _MarketplacePageState extends State<MarketplacePage> {
   @override
   Widget build(BuildContext context) {
     return BuyerScaffold(
-      bottomNavigation: const BuyerBottomNavigation(currentIndex: 1),
+      bottomNavigation: BuyerBottomNavigation(
+        currentIndex: 1,
+        onTabSelected: (index) {
+          if (index == 0) {
+            // Categories is the root of this flow - unwind back to it
+            // rather than stacking another copy on top.
+            Navigator.popUntil(context, (route) => route.isFirst);
+          } else if (index == 2) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Profile screen not built yet')),
+            );
+          }
+        },
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
         child: Column(

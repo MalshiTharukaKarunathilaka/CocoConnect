@@ -43,10 +43,12 @@ class BuyerScaffold extends StatelessWidget {
 
 class BuyerBottomNavigation extends StatelessWidget {
   final int currentIndex;
+  final ValueChanged<int>? onTabSelected;
 
   const BuyerBottomNavigation({
     super.key,
     required this.currentIndex,
+    this.onTabSelected,
   });
 
   @override
@@ -64,16 +66,19 @@ class BuyerBottomNavigation extends StatelessWidget {
             icon: Icons.dashboard,
             label: 'DASHBOARD',
             isActive: currentIndex == 0,
+            onTap: () => onTabSelected?.call(0),
           ),
           BuyerNavItem(
             icon: Icons.assignment,
             label: 'ORDERS',
             isActive: currentIndex == 1,
+            onTap: () => onTabSelected?.call(1),
           ),
           BuyerNavItem(
             icon: Icons.person,
             label: 'PROFILE',
             isActive: currentIndex == 2,
+            onTap: () => onTabSelected?.call(2),
           ),
         ],
       ),
@@ -85,31 +90,40 @@ class BuyerNavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isActive;
+  final VoidCallback? onTap;
 
   const BuyerNavItem({
     super.key,
     required this.icon,
     required this.label,
     required this.isActive,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final Color color = isActive ? kBuyerGreen : kBuyerGrey;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 20, color: color),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -359,6 +373,75 @@ class BuyerInfoPair extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class BuyerSectionTitle extends StatelessWidget {
+  final String text;
+
+  const BuyerSectionTitle({
+    super.key,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF1A1A1A),
+        ),
+      ),
+    );
+  }
+}
+
+/// Label on the left, value on the right - used for detail listings.
+class BuyerDetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  const BuyerDetailRow({
+    super.key,
+    required this.label,
+    required this.value,
+    this.valueColor = const Color(0xFF1A1A1A),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 4,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: kBuyerGrey),
+            ),
+          ),
+          Expanded(
+            flex: 5,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: valueColor,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

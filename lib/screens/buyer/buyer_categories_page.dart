@@ -8,7 +8,23 @@ class BuyerCategoriesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BuyerScaffold(
-      bottomNavigation: const BuyerBottomNavigation(currentIndex: 0),
+      bottomNavigation: BuyerBottomNavigation(
+        currentIndex: 0,
+        onTabSelected: (index) {
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MarketplacePage(),
+              ),
+            );
+          } else if (index == 2) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Profile screen not built yet')),
+            );
+          }
+        },
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
         child: Column(
