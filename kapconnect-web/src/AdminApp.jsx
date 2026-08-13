@@ -7,23 +7,23 @@ const shortDate = (value) => (value ? new Date(value).toLocaleDateString() : '�
 const pill = (status) => <span className={`adm-pill ${String(status || '').toLowerCase()}`}>{String(status || '').replaceAll('_', ' ')}</span>
 
 const NAV = [
-  { section: 'Overview', items: [['dashboard', '📊', 'Dashboard']] },
-  { section: 'People', items: [['users', '👥', 'Users'], ['verify', '✅', 'Verification']] },
+  { section: 'Overview', items: [['dashboard', 'Dashboard']] },
+  { section: 'People', items: [['users', 'Users'], ['verify', 'Verification']] },
   {
     section: 'Marketplace',
     items: [
-      ['requests', '🛒', 'Buy Requests'],
-      ['listings', '🌴', 'Sell Listings'],
-      ['orders', '📦', 'Orders'],
-      ['disputes', '⚠️', 'Disputes'],
+      ['requests', 'Buy requests'],
+      ['listings', 'Sell listings'],
+      ['orders', 'Orders'],
+      ['disputes', 'Disputes'],
     ],
   },
   {
     section: 'System',
     items: [
-      ['regions', '📍', 'Regions & Prices'],
-      ['reports', '📈', 'Reports'],
-      ['settings', '⚙️', 'Settings'],
+      ['regions', 'Regions & prices'],
+      ['reports', 'Reports'],
+      ['settings', 'Settings'],
     ],
   },
 ]
@@ -220,15 +220,15 @@ export default function AdminApp({ user, logout }) {
             {openDisputes.length === 0 && pendingUsers.length === 0 && <div className="adm-empty">No alerts right now</div>}
             {openDisputes.map((item) => (
               <div className="adm-alert" key={item.id}>
-                <div className="ico danger">⚠️</div>
+                <span className="adm-tag danger">Dispute</span>
                 <div><b>{item.title}</b><p>{item.body}</p></div>
                 <button className="adm-btn green" onClick={() => setView('disputes')}>Open</button>
               </div>
             ))}
             {pendingUsers.length > 0 && (
               <div className="adm-alert">
-                <div className="ico warn">🪪</div>
-                <div><b>{pendingUsers.length} awaiting verification</b><p>Approve docs to show Verified badge in app</p></div>
+                <span className="adm-tag warn">Verify</span>
+                <div><b>{pendingUsers.length} awaiting verification</b><p>Approve applicants to show Verified status in the app</p></div>
                 <button className="adm-btn green" onClick={() => setView('verify')}>Open queue</button>
               </div>
             )}
@@ -323,7 +323,7 @@ export default function AdminApp({ user, logout }) {
           <tbody>
             {rows.map((l) => (
               <tr key={l.id}>
-                <td>{l.category}{l.verified ? ' ✓' : ''}</td><td>{l.quantity?.toLocaleString()}</td><td>{money(l.offerPrice)}</td><td>{shortDate(l.availableAt)}</td><td>{l.district || '—'}</td><td>{pill(l.status)}</td>
+                <td>{l.category}{l.verified ? <span className="adm-inline-ok"> Verified</span> : ''}</td><td>{l.quantity?.toLocaleString()}</td><td>{money(l.offerPrice)}</td><td>{shortDate(l.availableAt)}</td><td>{l.district || '—'}</td><td>{pill(l.status)}</td>
                 <td className="adm-actions">
                   <button className={`adm-btn ${l.verified ? 'outline' : 'green'}`} onClick={() => toggleListingVerify(l)}>{l.verified ? 'Unverify' : 'Verify'}</button>
                   {l.status !== 'HIDDEN' && <button className="adm-btn red" onClick={() => hideItem('listings', l.id)}>Hide</button>}
@@ -390,7 +390,7 @@ export default function AdminApp({ user, logout }) {
       <div className="adm-card">
         {data.disputes.length ? data.disputes.map((d) => (
           <div className="adm-alert" key={d.id}>
-            <div className={`ico ${d.severity === 'high' ? 'danger' : 'warn'}`}>{d.severity === 'high' ? '⚠️' : '💬'}</div>
+            <span className={`adm-tag ${d.severity === 'high' ? 'danger' : 'warn'}`}>{d.severity === 'high' ? 'High' : 'Medium'}</span>
             <div style={{ flex: 1 }}>
               <b>{d.title} · {d.orderId.slice(0, 8)} {pill(d.status)}</b>
               <p>{d.body}</p>
@@ -444,7 +444,7 @@ export default function AdminApp({ user, logout }) {
           <div className="adm-card-h"><h2>Export</h2></div>
           <div className="adm-actions">
             <button className="adm-btn green" onClick={exportJson}>Download admin JSON</button>
-            <button className="adm-btn outline" onClick={load}>↻ Refresh live data</button>
+            <button className="adm-btn outline" onClick={load}>Refresh data</button>
           </div>
         </div>
       </>
@@ -475,14 +475,17 @@ export default function AdminApp({ user, logout }) {
   return (
     <div className="adm-shell">
       <aside className="adm-sidebar">
-        <div className="adm-brand">Kap<span>Connect</span><small>Admin · Live Sync</small></div>
+        <div className="adm-brand">
+          <strong>KapConnect</strong>
+          <small>Administration</small>
+        </div>
         <nav className="adm-nav">
           {NAV.map((group) => (
             <div key={group.section}>
               <div className="adm-sec">{group.section}</div>
-              {group.items.map(([id, icon, label]) => (
+              {group.items.map(([id, label]) => (
                 <button key={id} className={`adm-link ${view === id ? 'active' : ''}`} onClick={() => setView(id)}>
-                  <span>{icon}</span>{label}
+                  {label}
                   {id === 'verify' && pendingUsers.length > 0 && <span className="adm-badge">{pendingUsers.length}</span>}
                   {id === 'disputes' && openDisputes.length > 0 && <span className="adm-badge">{openDisputes.length}</span>}
                 </button>
@@ -492,21 +495,23 @@ export default function AdminApp({ user, logout }) {
         </nav>
         <div className="adm-foot">
           <div className="adm-avatar">{user.name.slice(0, 1)}</div>
-          <div><b>{user.name}</b><small>Super Admin</small></div>
-          <button onClick={logout} title="Sign out">⏻</button>
+          <div><b>{user.name}</b><small>Administrator</small></div>
+          <button type="button" className="adm-signout" onClick={logout}>Sign out</button>
         </div>
       </aside>
       <div className="adm-main">
         <header className="adm-topbar">
-          <h1>{TITLES[view]}</h1>
+          <div>
+            <h1>{TITLES[view]}</h1>
+            <p className="adm-top-sub">Synced {new Date().toLocaleTimeString()}</p>
+          </div>
           <div className="adm-top-actions">
             <input className="adm-search" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <button className="adm-btn outline" onClick={load}>↻ Refresh</button>
+            <button className="adm-btn outline" onClick={load}>Refresh</button>
           </div>
         </header>
         <div className="adm-content">
-          <div className="adm-sync"><span className="dot" /> Live sync with KapConnect API<div className="adm-muted">{new Date().toLocaleTimeString()}</div></div>
-          {error && <div className="adm-error">{error}<button onClick={() => setError('')}>×</button></div>}
+          {error && <div className="adm-error">{error}<button onClick={() => setError('')}>Close</button></div>}
           {content}
         </div>
       </div>

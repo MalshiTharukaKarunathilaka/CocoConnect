@@ -18,6 +18,26 @@ async function seedUser(phone, name, role, status, district, estateName) {
   });
 }
 
+async function ensureBuyRequest(buyerId, category, data) {
+  const existing = await prisma.buyRequest.findFirst({
+    where: { buyerId, category, status: { in: ['OPEN', 'MATCHED'] } },
+  });
+  if (existing) return existing;
+  return prisma.buyRequest.create({
+    data: { buyerId, category, ...data },
+  });
+}
+
+async function ensureListing(estateId, category, data) {
+  const existing = await prisma.sellListing.findFirst({
+    where: { estateId, category, status: 'ACTIVE' },
+  });
+  if (existing) return existing;
+  return prisma.sellListing.create({
+    data: { estateId, category, ...data },
+  });
+}
+
 async function main() {
   const admin = await seedUser('0700000000', 'KapConnect Admin', 'ADMIN', 'VERIFIED', 'Colombo', null);
   const buyer = await seedUser('0771234567', 'Mudalali A', 'BUYER', 'VERIFIED', 'Kurunegala', null);
@@ -29,7 +49,6 @@ async function main() {
     'Kurunegala',
     'ABC Estates'
   );
-  // Sample pending estate so admin Verification queue is not empty on first run
   await seedUser(
     '0715550200',
     'Green Palms Estate',
@@ -39,37 +58,64 @@ async function main() {
     'Green Palms'
   );
 
-  if ((await prisma.buyRequest.count()) === 0) {
-    await prisma.buyRequest.create({
-      data: {
-        buyerId: buyer.id,
-        category: 'RAW',
-        quantity: 500,
-        bidPrice: 85,
-        needDate: new Date(Date.now() + 14 * 86400000),
-        location: 'Kurunegala town',
-        district: 'Kurunegala',
-      },
-    });
-  }
+  await ensureBuyRequest(buyer.id, 'RAW', {
+    quantity: 500,
+    bidPrice: 85,
+    needDate: new Date(Date.now() + 14 * 86400000),
+    location: 'Kurunegala town',
+    district: 'Kurunegala',
+  });
 
-  if ((await prisma.sellListing.count()) === 0) {
-    await prisma.sellListing.create({
-      data: {
-        estateId: estate.id,
-        category: 'RAW',
-        quantity: 1000,
-        offerPrice: 90,
-        availableAt: new Date(Date.now() + 7 * 86400000),
-        location: 'ABC Estates',
-        district: 'Kurunegala',
-        verified: true,
-      },
-    });
-  }
+  await ensureBuyRequest(buyer.id, 'DEHUSKED', {
+    quantity: 800,
+    bidPrice: 135,
+    needDate: new Date(Date.now() + 10 * 86400000),
+    location: 'Kurunegala processing yard',
+    district: 'Kurunegala',
+  });
 
-  console.log('KapConnect seed users ready. OTP demo code = 123456');
-  console.log({ admin: admin.phone, buyer: buyer.phone, estate: estate.phone });
+  await ensureBuyRequest(buyer.id, 'HUSKS', {
+    quantity: 2500,
+    bidPrice: 16,
+    needDate: new Date(Date.now() + 12 * 86400000),
+    location: 'Kurunegala',
+    district: 'Kurunegala',
+  });
+
+  await ensureListing(estate.id, 'RAW', {
+    quantity: 1000,
+    offerPrice: 90,
+    availableAt: new Date(Date.now() + 7 * 86400000),
+    location: 'ABC Estates',
+    district: 'Kurunegala',
+    verified: true,
+  });
+
+  await ensureListing(estate.id, 'DEHUSKED', {
+    quantity: 750,
+    offerPrice: 138,
+    availableAt: new Date(Date.now() + 5 * 86400000),
+    location: 'ABC Estates dehusking unit',
+    district: 'Kurunegala',
+    verified: true,
+  });
+
+  await ensureListing(estate.id, 'HUSKS', {
+    quantity: 4000,
+    offerPrice: 18,
+    availableAt: new Date(Date.now() + 4 * 86400000),
+    location: 'ABC Estates',
+    district: 'Kurunegala',
+    verified: false,
+  });
+
+  console.log('KapConnect seed ready. OTP demo code = 123456');
+  console.log({
+    admin: admin.phone,
+    buyer: buyer.phone,
+    estate: estate.phone,
+    categories: ['RAW', 'DEHUSKED', 'HUSKS'],
+  });
 }
 
 main()

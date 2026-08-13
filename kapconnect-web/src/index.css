@@ -1,7 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=Sora:wght@400;500;600;700&display=swap');
+
 :root {
-  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
   color: #1d2922;
-  background: #f6f8f5;
+  background: #f3f6f2;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

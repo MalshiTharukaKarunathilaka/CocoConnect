@@ -4,20 +4,53 @@ import AdminApp from './AdminApp'
 import './App.css'
 
 const demos = [
-  { role: 'Buyer', phone: '0771234567', icon: '🛒' },
-  { role: 'Estate', phone: '0715550199', icon: '🌴' },
-  { role: 'Admin', phone: '0700000000', icon: '🛡️' },
+  {
+    role: 'Buyer',
+    label: 'Buyer',
+    phone: '0771234567',
+    blurb: 'Request stock & negotiate',
+  },
+  {
+    role: 'Seller',
+    label: 'Seller',
+    phone: '0715550199',
+    blurb: 'List estate harvest',
+  },
+  {
+    role: 'Admin',
+    label: 'Admin',
+    phone: '0700000000',
+    blurb: 'Manage the marketplace',
+  },
 ]
 
 const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`
 const shortDate = (value) => value ? new Date(value).toLocaleDateString() : '—'
 
+const CATEGORIES = {
+  RAW: { label: 'Raw Coconuts', short: 'Raw', unit: 'nuts', defaultQty: '1200', defaultPrice: '110' },
+  DEHUSKED: { label: 'Dehusked Coconuts', short: 'Dehusked', unit: 'nuts', defaultQty: '800', defaultPrice: '135' },
+  HUSKS: { label: 'Coconut Husks', short: 'Husks', unit: 'units', defaultQty: '2000', defaultPrice: '18' },
+}
+
+function categoryLabel(code) {
+  return CATEGORIES[code]?.label || String(code || '').replaceAll('_', ' ')
+}
+
 function Login({ onLogin }) {
+  const [audience, setAudience] = useState('buyer')
   const [phone, setPhone] = useState('0771234567')
   const [code, setCode] = useState('123456')
   const [step, setStep] = useState('phone')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  function pickAudience(next) {
+    setAudience(next)
+    setStep('phone')
+    setError('')
+    setPhone(next === 'seller' ? '0715550199' : '0771234567')
+  }
 
   async function requestOtp(event) {
     event.preventDefault()
@@ -48,46 +81,118 @@ function Login({ onLogin }) {
     }
   }
 
+  const isSeller = audience === 'seller'
+
   return (
     <main className="login-page">
-      <section className="login-hero">
-        <div className="brand brand-large"><span>🌴</span> KapConnect</div>
-        <p className="eyebrow">Sri Lanka's coconut marketplace</p>
-        <h1>Buy and sell coconuts with confidence.</h1>
-        <p className="hero-copy">Connect buyers and estate owners, negotiate prices, and manage every deal in one simple place.</p>
-        <div className="hero-points">
-          <span>✓ Verified users</span><span>✓ Direct negotiation</span><span>✓ Simple order tracking</span>
-        </div>
-      </section>
+      <div className="login-backdrop" aria-hidden="true" />
+      <div className="login-shade" aria-hidden="true" />
 
-      <section className="login-panel">
-        <div className="login-card">
-          <h2>Welcome back</h2>
-          <p>Use your phone number to continue.</p>
+      <section className="login-stage">
+        <header className="login-brand">
+          <span className="login-mark" aria-hidden="true">K</span>
+          <div>
+            <strong>KapConnect</strong>
+            <small>Coconut trade · Sri Lanka</small>
+          </div>
+        </header>
+
+        <div className="login-copy">
+          <p className="login-kicker">One marketplace. Two sides.</p>
+          <h1>Buyers meet estate sellers.</h1>
+          <p className="login-lead">
+            Post demand, list harvest, negotiate price, and close coconut deals — built for traders and estate owners.
+          </p>
+          <ul className="login-roles">
+            <li>
+              <b>Buyers</b>
+              <span>Request nuts by date and bid your price.</span>
+            </li>
+            <li>
+              <b>Sellers</b>
+              <span>List estate stock and reply to nearby demand.</span>
+            </li>
+          </ul>
+        </div>
+
+        <aside className="login-panel">
+          <div className="login-panel-head">
+            <h2>Sign in</h2>
+            <p>Choose how you use KapConnect, then continue with your phone.</p>
+          </div>
+
+          <div className="audience-toggle" role="tablist" aria-label="Account type">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!isSeller}
+              className={!isSeller ? 'active' : ''}
+              onClick={() => pickAudience('buyer')}
+            >
+              I am a Buyer
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isSeller}
+              className={isSeller ? 'active' : ''}
+              onClick={() => pickAudience('seller')}
+            >
+              I am a Seller
+            </button>
+          </div>
+
+          <p className="audience-hint">
+            {isSeller
+              ? 'Estate owners list harvest, talk to buyers, and manage deals.'
+              : 'Buyers request stock, browse estate listings, and negotiate.'}
+          </p>
+
           <form onSubmit={step === 'phone' ? requestOtp : verify}>
-            <label>Phone number</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={step === 'code'} />
+            <label>Phone number
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={step === 'code'}
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="07X XXX XXXX"
+              />
+            </label>
             {step === 'code' && (
-              <>
-                <label>OTP code</label>
-                <input value={code} onChange={(e) => setCode(e.target.value)} />
-                <small>For this demo, the code is 123456.</small>
-              </>
+              <label>OTP code
+                <input value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" />
+                <small>Demo OTP is always 123456.</small>
+              </label>
             )}
             {error && <div className="alert error">{error}</div>}
-            <button className="primary full" disabled={busy}>
-              {busy ? 'Please wait…' : step === 'phone' ? 'Send OTP' : 'Sign in'}
+            <button className="primary full login-submit" disabled={busy}>
+              {busy ? 'Please wait…' : step === 'phone' ? 'Send OTP' : `Continue as ${isSeller ? 'Seller' : 'Buyer'}`}
             </button>
+            {step === 'code' && (
+              <button type="button" className="text-link" onClick={() => { setStep('phone'); setError('') }}>
+                Use a different number
+              </button>
+            )}
           </form>
-          <div className="divider"><span>quick demo login</span></div>
+
+          <div className="divider"><span>Quick demo access</span></div>
           <div className="demo-grid">
             {demos.map((demo) => (
-              <button key={demo.role} className="demo-button" disabled={busy} onClick={() => verify(null, demo.phone)}>
-                <span>{demo.icon}</span><b>{demo.role}</b><small>{demo.phone}</small>
+              <button
+                key={demo.role}
+                type="button"
+                className={`demo-button ${demo.role.toLowerCase()}`}
+                disabled={busy}
+                onClick={() => verify(null, demo.phone)}
+              >
+                <b>{demo.label}</b>
+                <small>{demo.blurb}</small>
+                <em>{demo.phone}</em>
               </button>
             ))}
           </div>
-        </div>
+        </aside>
       </section>
     </main>
   )
@@ -122,12 +227,12 @@ function Empty({ text }) {
   return <div className="empty"><span>🌱</span><h3>Nothing here yet</h3><p>{text}</p></div>
 }
 
-function BuyerRequestForm({ saved, defaultDistrict = 'Kurunegala' }) {
+function BuyerRequestForm({ saved, defaultDistrict = 'Kurunegala', category = 'RAW' }) {
+  const meta = CATEGORIES[category] || CATEGORIES.RAW
   const today = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState({
-    category: 'RAW',
-    quantity: '1200',
-    price: '110',
+    quantity: meta.defaultQty,
+    price: meta.defaultPrice,
     date: today,
     location: defaultDistrict,
     district: defaultDistrict,
@@ -136,6 +241,16 @@ function BuyerRequestForm({ saved, defaultDistrict = 'Kurunegala' }) {
   const [error, setError] = useState('')
   const [ok, setOk] = useState('')
   const field = (name) => ({ value: form[name], onChange: (e) => setForm({ ...form, [name]: e.target.value }) })
+
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      quantity: meta.defaultQty,
+      price: meta.defaultPrice,
+    }))
+    setOk('')
+    setError('')
+  }, [category, meta.defaultQty, meta.defaultPrice])
 
   async function submit(event) {
     event.preventDefault()
@@ -150,7 +265,7 @@ function BuyerRequestForm({ saved, defaultDistrict = 'Kurunegala' }) {
       return
     }
     if (!quantity || quantity < 1) {
-      setError('Quantity must be at least 1 nut.')
+      setError('Quantity must be at least 1.')
       setBusy(false)
       return
     }
@@ -163,7 +278,7 @@ function BuyerRequestForm({ saved, defaultDistrict = 'Kurunegala' }) {
       await api('/buy-requests', {
         method: 'POST',
         body: JSON.stringify({
-          category: form.category,
+          category,
           quantity,
           bidPrice,
           needDate: form.date,
@@ -171,11 +286,10 @@ function BuyerRequestForm({ saved, defaultDistrict = 'Kurunegala' }) {
           district: form.district,
         }),
       })
-      setOk('Request submitted. Estate owners nearby can now see it.')
+      setOk(`${meta.label} request submitted. Estate owners can now see it.`)
       setForm({
-        category: form.category,
-        quantity: '1200',
-        price: '110',
+        quantity: meta.defaultQty,
+        price: meta.defaultPrice,
         date: today,
         location: form.district,
         district: form.district,
@@ -190,41 +304,36 @@ function BuyerRequestForm({ saved, defaultDistrict = 'Kurunegala' }) {
 
   return (
     <form className="client-form-card" onSubmit={submit}>
-      <div className="client-form-title"><span>＋</span><h2>Request<br />Coconuts</h2></div>
-      <label>Category
-        <select {...field('category')}>
-          <option value="RAW">Raw coconuts</option>
-          <option value="DEHUSKED">Dehusked</option>
-          <option value="HUSKS">Husks</option>
-        </select>
-      </label>
-      <label>Number of Nuts Required<input type="number" min="1" required {...field('quantity')} /></label>
+      <div className="client-form-title"><span>＋</span><h2>Request<br />{meta.short}</h2></div>
+      <p className="category-locked">Category: <b>{meta.label}</b></p>
+      <label>Number of {meta.unit} required<input type="number" min="1" required {...field('quantity')} /></label>
       <label>Required Date<input type="date" required min={today} {...field('date')} /></label>
-      <label>Bidding Price (Rs. per nut)<input type="number" min="1" required {...field('price')} /></label>
+      <label>Bidding Price (Rs. per {meta.unit.slice(0, -1) || 'unit'})<input type="number" min="1" required {...field('price')} /></label>
       <label>District<input required {...field('district')} onChange={(e) => setForm({ ...form, district: e.target.value, location: form.location || e.target.value })} /></label>
       <label>Pickup / delivery area<input required {...field('location')} /></label>
       {error && <div className="alert error">{error}</div>}
       {ok && <div className="alert success">{ok}</div>}
-      <button className="client-primary full" disabled={busy}>{busy ? 'Submitting…' : 'Submit Request  →'}</button>
-      <small className="form-note">Your request will be visible to estate owners. They can message you to negotiate.</small>
+      <button className="client-primary full" disabled={busy}>{busy ? 'Submitting…' : `Submit ${meta.short} Request  →`}</button>
+      <small className="form-note">Visible to estate owners selling {meta.label.toLowerCase()}.</small>
     </form>
   )
 }
 
 function EstateListingRow({ item, onNegotiate }) {
+  const unit = CATEGORIES[item.category]?.unit || 'nuts'
   return (
     <article className="client-listing-card">
       <div className="client-person">
         <span className="client-avatar">E</span>
         <div>
           <b>{item.verified ? 'Verified Estate' : 'Estate listing'}</b>
-          <small>{item.location || item.district || 'Sri Lanka'} · {item.category}</small>
+          <small>{item.location || item.district || 'Sri Lanka'} · {categoryLabel(item.category)}</small>
         </div>
         <strong>{money(item.offerPrice)}</strong>
       </div>
-      <p className="trust-line">{item.verified ? '✓ Verified offer price' : '○ Pending verification'}</p>
+      <p className="trust-line">{item.verified ? 'Verified offer price' : 'Pending verification'}</p>
       <div className="client-card-stats">
-        <span><small>QUANTITY</small><b>{item.quantity?.toLocaleString()} nuts</b></span>
+        <span><small>QUANTITY</small><b>{item.quantity?.toLocaleString()} {unit}</b></span>
         <span><small>AVAILABLE</small><b>{shortDate(item.availableAt)}</b></span>
       </div>
       <button className="card-arrow" onClick={() => onNegotiate(item)} aria-label="Start negotiation">→</button>
@@ -233,18 +342,19 @@ function EstateListingRow({ item, onNegotiate }) {
 }
 
 function BuyerRequestRow({ item, onNegotiate }) {
+  const unit = CATEGORIES[item.category]?.unit || 'nuts'
   return (
     <article className="client-listing-card">
       <div className="client-person">
         <span className="client-avatar buyer">B</span>
         <div>
           <b>Buyer request</b>
-          <small>{item.location || item.district || 'Sri Lanka'} · {item.category}</small>
+          <small>{item.location || item.district || 'Sri Lanka'} · {categoryLabel(item.category)}</small>
         </div>
         <strong>{money(item.bidPrice)}</strong>
       </div>
       <div className="client-card-stats">
-        <span><small>QUANTITY</small><b>{item.quantity?.toLocaleString()} nuts</b></span>
+        <span><small>QUANTITY</small><b>{item.quantity?.toLocaleString()} {unit}</b></span>
         <span><small>REQUIRED DATE</small><b>{shortDate(item.needDate)}</b></span>
       </div>
       <button className="card-arrow" onClick={() => onNegotiate(item)} aria-label="Offer to supply">→</button>
@@ -266,25 +376,41 @@ function sortRequests(rows, sort) {
   return list
 }
 
-function BuyerMarketplace({ listings, onNegotiate, saved, district }) {
+function BuyerMarketplace({ listings, onNegotiate, saved, district, category, onChangeCategory }) {
   const [sort, setSort] = useState('price')
-  const rows = sortListings(listings, sort)
+  const [filter, setFilter] = useState('all')
+  const meta = CATEGORIES[category] || CATEGORIES.RAW
+  let rows = listings.filter((item) => item.category === category)
+  if (filter === 'verified') rows = rows.filter((item) => item.verified)
+  if (filter === 'value') rows = rows.filter((item) => item.offerPrice <= Number(meta.defaultPrice) + 5)
+  rows = sortListings(rows, sort)
+
   return (
     <>
+      <button className="text-back" onClick={onChangeCategory}>← Change category</button>
       <section className="mobile-title">
-        <h1>Marketplace</h1>
-        <p>Connect with local estate owners and secure your coconut supply with transparent pricing.</p>
+        <h1>{meta.label}</h1>
+        <p>Request supply or negotiate with estates selling {meta.label.toLowerCase()}.</p>
       </section>
-      <BuyerRequestForm saved={saved} defaultDistrict={district || 'Kurunegala'} />
+      <BuyerRequestForm saved={saved} defaultDistrict={district || 'Kurunegala'} category={category} />
       <section className="mobile-section">
-        <div className="section-heading"><div><h2>Nearby Estate Owner Listings</h2><p>⌖ {district || 'Your region'}</p></div></div>
+        <div className="section-heading">
+          <div>
+            <h2>Nearby {meta.short} listings</h2>
+            <p>{rows.length} available · {district || 'Your region'}</p>
+          </div>
+        </div>
         <div className="chip-row">
+          <button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>All</button>
+          <button className={filter === 'verified' ? 'active' : ''} onClick={() => setFilter('verified')}>Verified</button>
+          <button className={filter === 'value' ? 'active' : ''} onClick={() => setFilter('value')}>Fair price</button>
           <button className={sort === 'price' ? 'active' : ''} onClick={() => setSort('price')}>Best Price</button>
-          <button className={sort === 'date' ? 'active' : ''} onClick={() => setSort('date')}>Earliest Pickup</button>
-          <button className={sort === 'newest' ? 'active' : ''} onClick={() => setSort('newest')}>Newest</button>
+          <button className={sort === 'date' ? 'active' : ''} onClick={() => setSort('date')}>Earliest</button>
         </div>
         <div className="mobile-card-list">
-          {rows.length ? rows.map((item) => <EstateListingRow key={item.id} item={item} onNegotiate={onNegotiate} />) : <Empty text="Estate listings will appear here." />}
+          {rows.length
+            ? rows.map((item) => <EstateListingRow key={item.id} item={item} onNegotiate={onNegotiate} />)
+            : <Empty text={`No ${meta.label.toLowerCase()} listings yet. Submit a request so estates can find you.`} />}
         </div>
       </section>
     </>
@@ -330,7 +456,7 @@ function EstateDashboard({ openCoconuts, listings, openOrders }) {
             <article className="client-listing-card mine" key={item.id}>
               <div className="client-person">
                 <span className="client-avatar">🌴</span>
-                <div><b>{item.category}</b><small>{item.location || item.district} · {item.verified ? 'Verified' : 'Unverified'}</small></div>
+                <div><b>{categoryLabel(item.category)}</b><small>{item.location || item.district} · {item.verified ? 'Verified' : 'Unverified'}</small></div>
                 <strong>{money(item.offerPrice)}</strong>
               </div>
               <div className="client-card-stats">
@@ -345,20 +471,26 @@ function EstateDashboard({ openCoconuts, listings, openOrders }) {
   )
 }
 
-function CategoryPicker({ choose, back }) {
+function CategoryPicker({ choose, back, mode = 'estate' }) {
   const categories = [
-    ['RAW', '🌴', 'Raw Coconuts', 'Fresh harvest coconuts'],
-    ['DEHUSKED', '🥥', 'Dehusked Coconuts', 'Ready for processing'],
-    ['HUSKS', '🧺', 'Coconut Husks', 'Bulk coconut husks'],
+    ['RAW', 'Raw Coconuts', 'Fresh harvest with husk'],
+    ['DEHUSKED', 'Dehusked Coconuts', 'Ready for processing and trade'],
+    ['HUSKS', 'Coconut Husks', 'Bulk husks for fibre and fuel'],
   ]
+  const isBuyer = mode === 'buyer'
   return (
     <section className="category-screen">
-      <button className="text-back" onClick={back}>← Back</button>
+      {back && <button className="text-back" onClick={back}>← Back</button>}
       <h1>Choose Coconut Category</h1>
-      <p>Select the type of coconut product you are looking to list.</p>
-      <div className="category-stack">{categories.map(([id, icon, title, copy]) => (
-        <button key={id} onClick={() => choose(id)}>
-          <span>{icon}</span><div><b>→ {title}</b><small>{copy}</small></div>
+      <p>
+        {isBuyer
+          ? 'Select the product you want to buy. Dehusked, raw, and husks each have their own marketplace.'
+          : 'Select the product you want to list and match with buyer demand.'}
+      </p>
+      <div className="category-stack">{categories.map(([id, title, copy]) => (
+        <button key={id} type="button" onClick={() => choose(id)} className={`cat-${id.toLowerCase()}`}>
+          <span className="cat-visual" aria-hidden="true">{CATEGORIES[id].short}</span>
+          <div><b>{title}</b><small>{copy}</small></div>
         </button>
       ))}</div>
     </section>
@@ -368,21 +500,31 @@ function CategoryPicker({ choose, back }) {
 function EstateSellScreen({ category, requests, myListings, onNegotiate, openForm, back }) {
   const [sort, setSort] = useState('price')
   const rows = sortRequests(requests, sort)
-  const title = category === 'RAW' ? 'Raw Coconuts' : category === 'DEHUSKED' ? 'Dehusked Coconuts' : 'Coconut Husks'
+  const meta = CATEGORIES[category] || CATEGORIES.RAW
   return (
     <>
       <button className="text-back" onClick={back}>← Categories</button>
-      <section className="mobile-title compact"><h1>Sell {title}</h1><p>List your stock and reply to nearby buyer demand.</p></section>
-      <button className="sell-action-card" onClick={openForm}><span>🛒</span><div><b>Create Sale Listing</b><small>Add quantity, date and your price</small></div><strong>＋</strong></button>
+      <section className="mobile-title compact">
+        <h1>Sell {meta.label}</h1>
+        <p>List your {meta.short.toLowerCase()} stock and reply to nearby buyer demand.</p>
+      </section>
+      <button className="sell-action-card" onClick={openForm}>
+        <span>＋</span>
+        <div>
+          <b>Create {meta.short} listing</b>
+          <small>Add quantity, date and your price</small>
+        </div>
+        <strong>Add</strong>
+      </button>
 
       <section className="mobile-section">
-        <div className="section-heading"><div><h2>My {title} listings</h2><p>{myListings.length} active</p></div></div>
+        <div className="section-heading"><div><h2>My {meta.short} listings</h2><p>{myListings.length} active</p></div></div>
         <div className="mobile-card-list">
           {myListings.length ? myListings.map((item) => (
             <article className="client-listing-card mine" key={item.id}>
               <div className="client-person">
-                <span className="client-avatar">🌴</span>
-                <div><b>{money(item.offerPrice)} / nut</b><small>{item.location || item.district}</small></div>
+                <span className="client-avatar">E</span>
+                <div><b>{money(item.offerPrice)} / {meta.unit.slice(0, -1) || 'unit'}</b><small>{item.location || item.district}</small></div>
                 <strong>{item.quantity?.toLocaleString()}</strong>
               </div>
               <div className="client-card-stats">
@@ -390,18 +532,22 @@ function EstateSellScreen({ category, requests, myListings, onNegotiate, openFor
                 <span><small>STATUS</small><b>{item.verified ? 'Verified' : 'Live'}</b></span>
               </div>
             </article>
-          )) : <Empty text="Create a sale listing so buyers can find you." />}
+          )) : <Empty text={`Create a ${meta.short.toLowerCase()} listing so buyers can find you.`} />}
         </div>
       </section>
 
       <section className="mobile-section">
-        <div className="section-heading"><div><h2>Interested Buyers</h2><p>⌖ Tap → to message and negotiate</p></div></div>
+        <div className="section-heading"><div><h2>Buyers wanting {meta.short}</h2><p>Tap → to message and negotiate</p></div></div>
         <div className="chip-row">
           <button className={sort === 'price' ? 'active' : ''} onClick={() => setSort('price')}>Best Bid</button>
           <button className={sort === 'date' ? 'active' : ''} onClick={() => setSort('date')}>Earliest Need</button>
           <button className={sort === 'newest' ? 'active' : ''} onClick={() => setSort('newest')}>Newest</button>
         </div>
-        <div className="mobile-card-list">{rows.length ? rows.map((item) => <BuyerRequestRow key={item.id} item={item} onNegotiate={onNegotiate} />) : <Empty text="Buyer requests will appear here." />}</div>
+        <div className="mobile-card-list">
+          {rows.length
+            ? rows.map((item) => <BuyerRequestRow key={item.id} item={item} onNegotiate={onNegotiate} />)
+            : <Empty text={`No ${meta.short.toLowerCase()} buyer requests yet.`} />}
+        </div>
       </section>
     </>
   )
@@ -434,9 +580,9 @@ function MobileOrders({ orders, openOrder, role }) {
       <div className="mobile-order-list">{visible.length ? visible.map((order) => (
         <article className="mobile-order-card" key={order.id}>
           <div className="order-code"><span>{isEstate ? 'DEAL' : 'REQUEST'} #{order.code}</span><span className={`status ${order.status.toLowerCase()}`}>{order.status.replaceAll('_', ' ')}</span></div>
-          <h2>{order.category.replaceAll('_', ' ')} Coconut</h2>
+          <h2>{categoryLabel(order.category)}</h2>
           <p>{isEstate ? 'Buyer negotiation' : 'Estate negotiation'}</p>
-          <div className="order-value"><span><small>QUANTITY</small><b>{order.quantity?.toLocaleString()} <em>nuts</em></b></span><span><small>PRICE</small><b>{money(order.unitPrice)}<em>/nut</em></b></span></div>
+          <div className="order-value"><span><small>QUANTITY</small><b>{order.quantity?.toLocaleString()} <em>{CATEGORIES[order.category]?.unit || 'nuts'}</em></b></span><span><small>PRICE</small><b>{money(order.unitPrice)}<em>/unit</em></b></span></div>
           <button className="client-primary full" onClick={() => openOrder(order)}>{orderActionLabel(order.status)} →</button>
         </article>
       )) : <Empty text="No orders match this tab yet." />}</div>
@@ -456,9 +602,14 @@ function ProfileScreen({ user, logout }) {
 
 function CreateForm({ type, initialCategory = 'RAW', close, saved }) {
   const isListing = type === 'listing'
+  const meta = CATEGORIES[initialCategory] || CATEGORIES.RAW
   const [form, setForm] = useState({
-    category: initialCategory, quantity: '', price: '', date: '',
-    location: '', district: 'Kurunegala',
+    category: initialCategory,
+    quantity: meta.defaultQty,
+    price: meta.defaultPrice,
+    date: new Date().toISOString().slice(0, 10),
+    location: '',
+    district: 'Kurunegala',
   })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -471,12 +622,24 @@ function CreateForm({ type, initialCategory = 'RAW', close, saved }) {
     event.preventDefault()
     setBusy(true)
     setError('')
+    const quantity = Number(form.quantity)
+    const price = Number(form.price)
+    if (!form.date || Number.isNaN(new Date(form.date).getTime())) {
+      setError('Please choose a valid date.')
+      setBusy(false)
+      return
+    }
+    if (!quantity || quantity < 1 || !price || price < 1) {
+      setError('Enter a valid quantity and price.')
+      setBusy(false)
+      return
+    }
     const body = {
       category: form.category,
-      quantity: Number(form.quantity),
-      [isListing ? 'offerPrice' : 'bidPrice']: Number(form.price),
+      quantity,
+      [isListing ? 'offerPrice' : 'bidPrice']: price,
       [isListing ? 'availableAt' : 'needDate']: form.date,
-      location: form.location,
+      location: form.location || form.district,
       district: form.district,
     }
     try {
@@ -494,9 +657,15 @@ function CreateForm({ type, initialCategory = 'RAW', close, saved }) {
       <form className="modal" onSubmit={submit} onMouseDown={(e) => e.stopPropagation()}>
         <button type="button" className="modal-close" onClick={close}>×</button>
         <p className="eyebrow">{isListing ? 'Estate listing' : 'Buyer request'}</p>
-        <h2>{isListing ? 'List coconuts for sale' : 'Create a buy request'}</h2>
+        <h2>{isListing ? `List ${categoryLabel(form.category)}` : `Request ${categoryLabel(form.category)}`}</h2>
         <div className="form-grid">
-          <label>Category<select {...field('category')}><option>RAW</option><option>DEHUSKED</option><option>HUSKS</option></select></label>
+          <label>Category
+            <select {...field('category')}>
+              <option value="RAW">Raw Coconuts</option>
+              <option value="DEHUSKED">Dehusked Coconuts</option>
+              <option value="HUSKS">Coconut Husks</option>
+            </select>
+          </label>
           <label>Quantity<input type="number" min="1" required {...field('quantity')} /></label>
           <label>{isListing ? 'Offer price' : 'Bid price'}<input type="number" min="1" required {...field('price')} /></label>
           <label>{isListing ? 'Available date' : 'Needed date'}<input type="date" required {...field('date')} /></label>
@@ -593,7 +762,7 @@ function DealModal({ order, user, close, changed }) {
       <section className="modal deal-modal" onMouseDown={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={close}>×</button>
         <p className="eyebrow">Chat · {current.code}</p>
-        <h2>{current.quantity} {current.category.toLowerCase()} coconuts</h2>
+        <h2>{current.quantity} {categoryLabel(current.category).toLowerCase()}</h2>
         <div className="deal-summary">
           <span>Current price <b>{money(current.unitPrice)}</b></span>
           <span>Status <b>{current.status.replaceAll('_', ' ')}</b></span>
@@ -646,6 +815,8 @@ function App() {
   const [deal, setDeal] = useState(null)
   const [estateView, setEstateView] = useState('home')
   const [estateCategory, setEstateCategory] = useState('RAW')
+  const [buyerView, setBuyerView] = useState('categories')
+  const [buyerCategory, setBuyerCategory] = useState('DEHUSKED')
 
   const loadData = useCallback(async () => {
     if (!session || session.role === 'ADMIN') return
@@ -685,7 +856,9 @@ function App() {
       quantity: item.quantity,
       unitPrice: price,
       counterpartyId: kind === 'listing' ? item.estateId : item.buyerId,
-      firstMessage: kind === 'listing' ? 'I am interested in this listing.' : 'I can supply this request.',
+      firstMessage: kind === 'listing'
+        ? `I am interested in your ${categoryLabel(item.category).toLowerCase()} listing.`
+        : `I can supply this ${categoryLabel(item.category).toLowerCase()} request.`,
     }
     try {
       setError('')
@@ -708,9 +881,27 @@ function App() {
   } else if (tab === 'profile') {
     mobileContent = <ProfileScreen user={session} logout={logout} />
   } else if (session.role === 'BUYER') {
-    mobileContent = <BuyerMarketplace listings={data.listings} onNegotiate={(item) => negotiate(item, 'listing')} saved={loadData} district={session.district} />
+    if (buyerView === 'categories') {
+      mobileContent = (
+        <CategoryPicker
+          mode="buyer"
+          choose={(category) => { setBuyerCategory(category); setBuyerView('market') }}
+        />
+      )
+    } else {
+      mobileContent = (
+        <BuyerMarketplace
+          listings={data.listings}
+          category={buyerCategory}
+          onChangeCategory={() => setBuyerView('categories')}
+          onNegotiate={(item) => negotiate(item, 'listing')}
+          saved={loadData}
+          district={session.district}
+        />
+      )
+    }
   } else if (estateView === 'categories') {
-    mobileContent = <CategoryPicker back={() => setEstateView('home')} choose={(category) => { setEstateCategory(category); setEstateView('sell') }} />
+    mobileContent = <CategoryPicker mode="estate" back={() => setEstateView('home')} choose={(category) => { setEstateCategory(category); setEstateView('sell') }} />
   } else if (estateView === 'sell') {
     mobileContent = (
       <EstateSellScreen
@@ -733,8 +924,12 @@ function App() {
         {error && <div className="alert error">{error}<button onClick={() => setError('')}>×</button></div>}
         {loading ? <div className="loading">Loading KapConnect…</div> : mobileContent}
       </main>
-      <MobileNav tab={tab} setTab={(nextTab) => { setTab(nextTab); if (nextTab === 'market' && session.role === 'ESTATE') setEstateView('home') }} />
-      {form && <CreateForm type={form} initialCategory={estateCategory} close={() => setForm(null)} saved={() => { setForm(null); loadData() }} />}
+      <MobileNav tab={tab} setTab={(nextTab) => {
+        setTab(nextTab)
+        if (nextTab === 'market' && session.role === 'ESTATE') setEstateView('home')
+        if (nextTab === 'market' && session.role === 'BUYER') setBuyerView('categories')
+      }} />
+      {form && <CreateForm type={form} initialCategory={session.role === 'BUYER' ? buyerCategory : estateCategory} close={() => setForm(null)} saved={() => { setForm(null); loadData() }} />}
       {deal && <DealModal order={deal} user={session} close={() => setDeal(null)} changed={loadData} />}
     </div>
   )
