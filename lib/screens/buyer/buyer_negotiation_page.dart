@@ -1,8 +1,27 @@
 import 'package:flutter/material.dart';
 import '../../widgets/buyer_widgets.dart';
+import 'coconut_type.dart';
 
 class BuyerNegotiationPage extends StatelessWidget {
-  const BuyerNegotiationPage({super.key});
+  final CoconutType type;
+  final String estateName;
+  final String ownerName;
+  final int pricePerNut;
+  final int quantity;
+
+  const BuyerNegotiationPage({
+    super.key,
+    this.type = CoconutType.raw,
+    this.estateName = 'ABC Estate',
+    this.ownerName = 'ABC Estate Owner',
+    this.pricePerNut = 130,
+    this.quantity = 1200,
+  });
+
+  /// Buyer opens 20 below asking, owner counters 5 under, then offers 10 under.
+  int get _buyerOffer => pricePerNut - 20;
+  int get _ownerCounter => pricePerNut - 5;
+  int get _latestOffer => pricePerNut - 10;
 
   @override
   Widget build(BuildContext context) {
@@ -27,19 +46,22 @@ class BuyerNegotiationPage extends StatelessWidget {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
-                        'ABC Estate',
-                        style: TextStyle(
+                        estateName,
+                        style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF1A1A1A),
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
-                        'ABC Estate Owner',
-                        style: TextStyle(fontSize: 11, color: kBuyerGrey),
+                        ownerName,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: kBuyerGrey,
+                        ),
                       ),
                     ],
                   ),
@@ -85,17 +107,17 @@ class BuyerNegotiationPage extends StatelessWidget {
                               ),
                             ),
                             Row(
-                              children: const [
+                              children: [
                                 Text(
-                                  'Raw  Coconut',
-                                  style: TextStyle(
+                                  type.singular,
+                                  style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
                                     color: Color(0xFF3A3A3A),
                                   ),
                                 ),
-                                SizedBox(width: 6),
-                                Icon(
+                                const SizedBox(width: 6),
+                                const Icon(
                                   Icons.access_time,
                                   size: 14,
                                   color: kBuyerGrey,
@@ -107,9 +129,12 @@ class BuyerNegotiationPage extends StatelessWidget {
 
                         const SizedBox(height: 6),
 
-                        const Text(
-                          '1200 nuts',
-                          style: TextStyle(fontSize: 12, color: kBuyerGrey),
+                        Text(
+                          '$quantity nuts',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: kBuyerGrey,
+                          ),
                         ),
 
                         const SizedBox(height: 10),
@@ -120,17 +145,17 @@ class BuyerNegotiationPage extends StatelessWidget {
                           children: [
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
+                              children: [
                                 Text(
-                                  'Rs. 130.00',
-                                  style: TextStyle(
+                                  'Rs. $pricePerNut.00',
+                                  style: const TextStyle(
                                     fontSize: 25,
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF1A1A1A),
                                   ),
                                 ),
-                                SizedBox(height: 2),
-                                Text(
+                                const SizedBox(height: 2),
+                                const Text(
                                   'per nut',
                                   style: TextStyle(
                                     fontSize: 11,
@@ -163,12 +188,12 @@ class BuyerNegotiationPage extends StatelessWidget {
 
                   const SizedBox(height: 18),
 
-                  const Align(
+                  Align(
                     alignment: Alignment.centerRight,
                     child: NegotiationBubble(
                       message:
-                          "Hello, I'm interested in the 1200 nuts. "
-                          'Can you do Rs.110?',
+                          "Hello, I'm interested in the $quantity nuts. "
+                          'Can you do Rs.$_buyerOffer?',
                       time: '10:42AM',
                       isMine: true,
                     ),
@@ -176,12 +201,12 @@ class BuyerNegotiationPage extends StatelessWidget {
 
                   const SizedBox(height: 14),
 
-                  const Align(
+                  Align(
                     alignment: Alignment.centerLeft,
                     child: NegotiationBubble(
                       message:
                           'Thanks for reaching out. The quality is premium '
-                          'this season. Best I can do is Rs. 125.',
+                          'this season. Best I can do is Rs. $_ownerCounter.',
                       time: '10:45 AM',
                       isMine: false,
                     ),
@@ -222,9 +247,9 @@ class BuyerNegotiationPage extends StatelessWidget {
                           padding: EdgeInsets.symmetric(vertical: 10),
                           child: Divider(height: 1, color: Color(0x55FFFFFF)),
                         ),
-                        const Text(
-                          'Rs. 120.00',
-                          style: TextStyle(
+                        Text(
+                          'Rs. $_latestOffer.00',
+                          style: const TextStyle(
                             fontSize: 23,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,

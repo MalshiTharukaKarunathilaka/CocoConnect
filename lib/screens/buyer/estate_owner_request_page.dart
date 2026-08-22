@@ -1,9 +1,33 @@
 import 'package:flutter/material.dart';
 import '../../widgets/buyer_widgets.dart';
 import 'buyer_negotiation_page.dart';
+import 'coconut_type.dart';
 
 class EstateOwnerRequestPage extends StatelessWidget {
-  const EstateOwnerRequestPage({super.key});
+  final CoconutType type;
+  final String estateName;
+  final String ownerName;
+  final int pricePerNut;
+  final int quantity;
+
+  const EstateOwnerRequestPage({
+    super.key,
+    this.type = CoconutType.raw,
+    this.estateName = 'ABC Estate',
+    this.ownerName = 'ABC Estate Owner',
+    this.pricePerNut = 130,
+    this.quantity = 1200,
+  });
+
+  /// 1200 -> "1,200"
+  String get _formattedQuantity => quantity.toString().replaceAllMapped(
+        RegExp(r'(\d)(?=(\d{3})+$)'),
+        (m) => '${m[1]},',
+      );
+
+  String get _estimatedTotal => (quantity * pricePerNut)
+      .toString()
+      .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},');
 
   @override
   Widget build(BuildContext context) {
@@ -58,10 +82,10 @@ class EstateOwnerRequestPage extends StatelessWidget {
                                 color: const Color(0xFF8D6E4A),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(
-                                Icons.park,
+                              child: Icon(
+                                type.icon,
                                 size: 30,
-                                color: Color(0xFFE8DCC8),
+                                color: const Color(0xFFE8DCC8),
                               ),
                             ),
                             const SizedBox(width: 14),
@@ -69,18 +93,18 @@ class EstateOwnerRequestPage extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'ABC Estate',
-                                    style: TextStyle(
+                                  Text(
+                                    estateName,
+                                    style: const TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold,
                                       color: kBuyerGreen,
                                     ),
                                   ),
                                   const SizedBox(height: 3),
-                                  const Text(
-                                    'ABC Estate  Owner',
-                                    style: TextStyle(
+                                  Text(
+                                    ownerName,
+                                    style: const TextStyle(
                                       fontSize: 13,
                                       color: Color(0xFF5A5A5A),
                                     ),
@@ -161,11 +185,12 @@ class EstateOwnerRequestPage extends StatelessWidget {
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: const [
+                          children: [
                             BuyerSectionTitle(
-                              text: 'Order Request for Raw coconuts',
+                              text: 'Order Request for '
+                                  '${type.singular.toLowerCase()}s',
                             ),
-                            BuyerPill(
+                            const BuyerPill(
                               text: 'OPEN',
                               background: Color(0xFFDDEEE0),
                               foreground: kBuyerGreen,
@@ -176,14 +201,14 @@ class EstateOwnerRequestPage extends StatelessWidget {
                         const SizedBox(height: 16),
 
                         Row(
-                          children: const [
+                          children: [
                             Expanded(
                               child: BuyerInfoPair(
                                 label: 'QUANTITY',
-                                value: '1,200 nuts',
+                                value: '$_formattedQuantity nuts',
                               ),
                             ),
-                            Expanded(
+                            const Expanded(
                               child: BuyerInfoPair(
                                 label: 'REQUIRED DATE',
                                 value: '18 Jul 2026',
@@ -195,17 +220,17 @@ class EstateOwnerRequestPage extends StatelessWidget {
                         const SizedBox(height: 16),
 
                         Row(
-                          children: const [
+                          children: [
                             Expanded(
                               child: BuyerInfoPair(
                                 label: 'OFFER PRICE',
-                                value: 'Rs. 130 / nut',
+                                value: 'Rs. $pricePerNut / nut',
                               ),
                             ),
                             Expanded(
                               child: BuyerInfoPair(
                                 label: 'ESTIMATED TOTAL',
-                                value: 'Rs. 156,000',
+                                value: 'Rs. $_estimatedTotal',
                               ),
                             ),
                           ],
@@ -243,20 +268,20 @@ class EstateOwnerRequestPage extends StatelessWidget {
                   BuyerCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        BuyerSectionTitle(text: 'Coconut Details'),
-                        SizedBox(height: 8),
-                        BuyerDetailRow(label: 'Type', value: 'Raw coconut'),
-                        BuyerDetailRow(label: 'Grade', value: 'Grade A'),
-                        BuyerDetailRow(
-                          label: 'Husk',
-                          value: 'Unhusked',
+                      children: [
+                        const BuyerSectionTitle(text: 'Coconut Details'),
+                        const SizedBox(height: 8),
+                        BuyerDetailRow(label: 'Type', value: type.singular),
+                        const BuyerDetailRow(
+                          label: 'Grade',
+                          value: 'Grade A',
                         ),
-                        BuyerDetailRow(
+                        BuyerDetailRow(label: 'Husk', value: type.husk),
+                        const BuyerDetailRow(
                           label: 'Average nut size',
                           value: 'Large (400 - 500 g)',
                         ),
-                        BuyerDetailRow(
+                        const BuyerDetailRow(
                           label: 'Harvest window',
                           value: 'Jul 2026',
                         ),
@@ -329,7 +354,13 @@ class EstateOwnerRequestPage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const BuyerNegotiationPage(),
+                    builder: (context) => BuyerNegotiationPage(
+                      type: type,
+                      estateName: estateName,
+                      ownerName: ownerName,
+                      pricePerNut: pricePerNut,
+                      quantity: quantity,
+                    ),
                   ),
                 );
               },

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/buyer_widgets.dart';
+import 'coconut_types_page.dart';
 import 'marketplace_page.dart';
 
 class BuyerCategoriesPage extends StatelessWidget {
@@ -93,7 +94,7 @@ class BuyerCategoriesPage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const MarketplacePage(),
+                    builder: (context) => const CoconutTypesPage(),
                   ),
                 );
               },

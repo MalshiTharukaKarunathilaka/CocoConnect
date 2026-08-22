@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../widgets/buyer_widgets.dart';
+import 'coconut_type.dart';
 import 'estate_owner_request_page.dart';
 
 class MarketplacePage extends StatefulWidget {
-  const MarketplacePage({super.key});
+  /// Which coconut form this marketplace is for. All three types share
+  /// this screen; only the copy and prices differ.
+  final CoconutType type;
+
+  const MarketplacePage({
+    super.key,
+    this.type = CoconutType.raw,
+  });
 
   @override
   State<MarketplacePage> createState() => _MarketplacePageState();
@@ -48,11 +56,16 @@ class _MarketplacePageState extends State<MarketplacePage> {
     );
   }
 
-  void _openRequest() {
+  void _openRequest(String estateName, String ownerName, int price) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const EstateOwnerRequestPage(),
+        builder: (context) => EstateOwnerRequestPage(
+          type: widget.type,
+          estateName: estateName,
+          ownerName: ownerName,
+          pricePerNut: price,
+        ),
       ),
     );
   }
@@ -134,10 +147,11 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
             const SizedBox(height: 6),
 
-            const Text(
-              'Connect with local estate owners and secure your raw '
-              'coconut supply with transparent pricing.',
-              style: TextStyle(
+            Text(
+              'Connect with local estate owners and secure your '
+              '${widget.type.singular.toLowerCase()} supply with '
+              'transparent pricing.',
+              style: const TextStyle(
                 fontSize: 13,
                 height: 1.4,
                 color: kBuyerGrey,
@@ -168,10 +182,10 @@ class _MarketplacePageState extends State<MarketplacePage> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Request Raw Coconuts',
-                          style: TextStyle(
+                          'Request ${widget.type.label}',
+                          style: const TextStyle(
                             fontSize: 19,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF1A1A1A),
@@ -225,7 +239,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                   const SizedBox(height: 7),
                   BuyerInputField(
                     controller: _priceController,
-                    hint: '110',
+                    hint: '${widget.type.pricePerNut - 20}',
                     keyboardType: TextInputType.number,
                     prefix: const Padding(
                       padding: EdgeInsets.only(left: 14, right: 4),
@@ -327,15 +341,19 @@ class _MarketplacePageState extends State<MarketplacePage> {
             const SizedBox(height: 16),
 
             EstateListingCard(
-              initial: 'F',
+              initial: 'A',
               initialBackground: const Color(0xFFDDEEE0),
               estateName: 'ABC Estates',
               ownerName: 'ABC Estate Owner',
-              price: 'Rs. 130',
+              price: 'Rs. ${widget.type.pricePerNut}',
               trustScore: '4.8/5',
               quantity: '1,200 nuts',
-              availableDate: '18 Jul 2024',
-              onTap: _openRequest,
+              availableDate: '18 Jul 2026',
+              onTap: () => _openRequest(
+                'ABC Estates',
+                'ABC Estate Owner',
+                widget.type.pricePerNut,
+              ),
             ),
 
             const SizedBox(height: 16),
@@ -345,11 +363,15 @@ class _MarketplacePageState extends State<MarketplacePage> {
               initialBackground: const Color(0xFFDCE6F5),
               estateName: 'Perera Plantations',
               ownerName: 'Perera Group',
-              price: 'Rs. 140',
-              trustScore: '4.8/5',
+              price: 'Rs. ${widget.type.pricePerNut + 10}',
+              trustScore: '4.6/5',
               quantity: '600 nuts',
-              availableDate: '20 Jul 2024',
-              onTap: _openRequest,
+              availableDate: '20 Jul 2026',
+              onTap: () => _openRequest(
+                'Perera Plantations',
+                'Perera Group',
+                widget.type.pricePerNut + 10,
+              ),
             ),
           ],
         ),
