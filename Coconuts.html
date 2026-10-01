@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CocoConnect - Coconut Categories</title>
+
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    >
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- =====================================
+         HEADER
+    ====================================== -->
+
+    <header class="top-header">
+
+        <button class="back-button" onclick="goBack()">
+            <i data-lucide="arrow-left"></i>
+        </button>
+
+        <div class="brand">
+            CocoConnect
+        </div>
+
+        <div class="languages">
+            <span class="active-language">EN</span>
+            <span>|</span>
+            <span>SI</span>
+            <span>|</span>
+            <span>TA</span>
+        </div>
+
+    </header>
+
+
+    <!-- =====================================
+         VIEW ONLY BAR
+    ====================================== -->
+
+    <div class="view-only">
+
+        <i data-lucide="eye"></i>
+
+        <span>
+            Estate Manager · View Only
+        </span>
+
+    </div>
+
+
+    <!-- =====================================
+         MAIN CONTENT
+    ====================================== -->
+
+    <main class="content">
+
+        <section class="page-heading">
+
+            <h1>
+                Coconut Categories
+            </h1>
+
+            <p>
+                View the coconut product types listed by
+                your estate owner.
+            </p>
+
+        </section>
+
+
+        <!-- =====================================
+             COCONUT CATEGORY CARDS
+        ====================================== -->
+
+        <section class="category-list">
+
+
+            <!-- =================================
+                 RAW COCONUTS
+            ================================== -->
+
+            <article
+                class="coconut-card"
+                onclick="openCategory('Raw Coconuts')"
+            >
+
+                <div class="image-container">
+
+                    <img
+                        src="img/1.png"
+                        alt="Raw coconuts"
+                    >
+
+                    <button
+                        class="card-action"
+                        aria-label="View Raw Coconuts"
+                    >
+                        <i data-lucide="book-open"></i>
+                    </button>
+
+                </div>
+
+                <div class="card-footer">
+
+                    <div class="view-icon">
+                        <i data-lucide="eye"></i>
+                    </div>
+
+                    <h2>
+                        Raw Coconuts
+                    </h2>
+
+                </div>
+
+            </article>
+
+
+            <!-- =================================
+                 DEHUSKED COCONUTS
+            ================================== -->
+
+            <article
+                class="coconut-card"
+                onclick="openCategory('Dehusked Coconuts')"
+            >
+
+                <div class="image-container">
+
+                    <img
+                        src="img/2.png"
+                        alt="Dehusked coconuts"
+                    >
+
+                    <button
+                        class="card-action"
+                        aria-label="View Dehusked Coconuts"
+                    >
+                        <i data-lucide="circle"></i>
+                    </button>
+
+                </div>
+
+                <div class="card-footer">
+
+                    <div class="view-icon">
+                        <i data-lucide="eye"></i>
+                    </div>
+
+                    <h2>
+                        Dehusked Coconuts
+                    </h2>
+
+                </div>
+
+            </article>
+
+
+            <!-- =================================
+                 COCONUT HUSKS
+            ================================== -->
+
+            <article
+                class="coconut-card"
+                onclick="openCategory('Coconut Husks')"
+            >
+
+                <div class="image-container">
+
+                    <img
+                        src="img/3.png"
+                        alt="Coconut husks"
+                    >
+
+                    <button
+                        class="card-action"
+                        aria-label="View Coconut Husks"
+                    >
+                        <i data-lucide="recycle"></i>
+                    </button>
+
+                </div>
+
+                <div class="card-footer">
+
+                    <div class="view-icon">
+                        <i data-lucide="eye"></i>
+                    </div>
+
+                    <h2>
+                        Coconut Husks
+                    </h2>
+
+                </div>
+
+            </article>
+
+        </section>
+
+    </main>
+
+
+    <!-- =====================================
+         BOTTOM NAVIGATION
+    ====================================== -->
+
+    <nav class="bottom-nav">
+
+        <button
+            class="nav-item active"
+            onclick="navigate('home')"
+        >
+            <i data-lucide="house"></i>
+            <span>Home</span>
+        </button>
+
+
+        <button
+            class="nav-item"
+            onclick="navigate('market')"
+        >
+            <i data-lucide="store"></i>
+            <span>Market</span>
+        </button>
+
+
+        <button
+            class="nav-item"
+            onclick="navigate('orders')"
+        >
+            <i data-lucide="clipboard-list"></i>
+            <span>Orders</span>
+        </button>
+
+
+        <button
+            class="nav-item"
+            onclick="navigate('profile')"
+        >
+            <i data-lucide="user-round"></i>
+            <span>Profile</span>
+        </button>
+
+    </nav>
+
+</div>
+
+
+<script src="script.js"></script>
+
+</body>
+</html>
