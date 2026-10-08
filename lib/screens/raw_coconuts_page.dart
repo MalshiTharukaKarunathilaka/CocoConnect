@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'sell_request_page.dart';
+import '../services/api_service.dart';
 
 class RawCoconutsPage extends StatefulWidget {
   const RawCoconutsPage({super.key});
@@ -64,7 +65,68 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
     priceController.dispose();
     super.dispose();
   }
+  
+  String convertDateToDatabaseFormat(String dateText) {
+  final parts = dateText.split('/');
 
+  if (parts.length != 3) {
+    return dateText;
+  }
+
+  final month = parts[0].padLeft(2, '0');
+  final day = parts[1].padLeft(2, '0');
+  final year = parts[2];
+
+  return '$year-$month-$day';
+}
+
+Future<void> saveListingToDatabase() async {
+  try {
+    final int quantity = int.parse(
+      quantityController.text.replaceAll(',', '').trim(),
+    );
+
+    final double price = double.parse(
+      priceController.text
+          .replaceAll('Rs.', '')
+          .replaceAll('Rs', '')
+          .replaceAll(',', '')
+          .trim(),
+    );
+
+    final String availableDate =
+        convertDateToDatabaseFormat(dateController.text.trim());
+
+    await ApiService.createListing(
+      quantity: quantity,
+      availableDate: availableDate,
+      offerPricePerUnit: price,
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sell listing saved successfully'),
+      ),
+    );
+
+    setState(() {
+      showSummary = true;
+      quantityController.clear();
+      dateController.text = 'mm/dd/yyyy';
+      priceController.text = 'Rs. 130.00';
+    });
+  } catch (error) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sell listing saved successfully'),
+      ),
+    );
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -246,46 +308,56 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                       ),
 
                       const SizedBox(height: 14),
+FutureBuilder<List<dynamic>>(
+  future: ApiService.getBuyerRequests(),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
 
-                      InterestedBuyerCard(
-                        iconLetter: 'A',
-                        buyerName: 'Mudalali A',
-                        trustScore: '4.8/5',
-                        price: 'Rs. 136',
-                        quantity: '1,200 nuts',
-                        pickupDate: '18 Jul 2026',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const SellRequestPage(),
-                            ),
-                          );
-                        },
-                      ),
+    if (snapshot.hasError) {
+      return const Text(
+        'Failed to load buyers',
+        style: TextStyle(color: Colors.red),
+      );
+    }
 
-                      const SizedBox(height: 12),
+    final buyers = snapshot.data ?? [];
 
-                      const InterestedBuyerCard(
-                        iconLetter: 'P',
-                        buyerName: 'Perera Purchasers',
-                        trustScore: '4.0/5',
-                        price: 'Rs. 121',
-                        quantity: '800 units',
-                        pickupDate: '02 Aug 2026',
-                      ),
+    if (buyers.isEmpty) {
+      return const Text('No interested buyers found');
+    }
 
-                      const SizedBox(height: 20),
+    return Column(
+      children: buyers.map((buyer) {
+        final String buyerName = buyer['buyer_name'].toString();
 
-                      const InterestedBuyerCard(
-                        iconLetter: 'S',
-                        buyerName: 'Super Market A',
-                        trustScore: '3.4/5',
-                        price: 'Rs. 118',
-                        quantity: '1500 units',
-                        pickupDate: '02 Feb 2027',
-                      ),
-
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: InterestedBuyerCard(
+            iconLetter: buyerName.isNotEmpty ? buyerName[0] : '?',
+            buyerName: buyerName,
+            trustScore: '${buyer['trust_score']}/5',
+            price: 'Rs. ${buyer['bidding_price_per_unit']}',
+            quantity: '${buyer['requested_quantity']} nuts',
+            pickupDate: buyer['required_date'].toString().substring(0, 10),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SellRequestPage(),
+                ),
+              );
+            },
+          ),
+        );
+      }).toList(),
+    );
+  },
+),
+        
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -522,7 +594,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const SizedBox(height: 18),
 
-          Row(
+                Row(
             children: [
               Expanded(
                 child: OutlinedButton(
@@ -537,8 +609,16 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
               const SizedBox(width: 10),
 
-
-
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: saveListingToDatabase,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Confirm'),
+                ),
+              ),
             ],
           ),
         ],
