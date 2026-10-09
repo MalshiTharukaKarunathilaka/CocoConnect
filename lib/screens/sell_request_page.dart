@@ -1,8 +1,66 @@
 import 'package:flutter/material.dart';
 import 'negotiation_page.dart';
 
-class SellRequestPage extends StatelessWidget {
-  const SellRequestPage({super.key});
+class SellRequestPage extends StatefulWidget {
+  final int buyerId;
+  final String buyerName;
+  final String location;
+  final int requestedQuantity;
+  final String requiredDate;
+  final String productType;
+  final double buyerBiddingPrice;
+  final double sellerOfferPricePerUnit;
+
+  const SellRequestPage({
+    super.key,
+    required this.buyerId,
+    required this.buyerName,
+    required this.location,
+    required this.requestedQuantity,
+    required this.requiredDate,
+    required this.productType,
+    required this.buyerBiddingPrice,
+    required this.sellerOfferPricePerUnit,
+  });
+
+  @override
+  State<SellRequestPage> createState() => _SellRequestPageState();
+}
+
+class _SellRequestPageState extends State<SellRequestPage> {
+  late final TextEditingController quantityController;
+  late final TextEditingController offerPriceController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    quantityController = TextEditingController(
+      text: widget.requestedQuantity.toString(),
+    );
+
+    offerPriceController = TextEditingController(
+      text: widget.sellerOfferPricePerUnit.toStringAsFixed(2),
+    );
+  }
+
+  @override
+  void dispose() {
+    quantityController.dispose();
+    offerPriceController.dispose();
+    super.dispose();
+  }
+
+  String get productName {
+    if (widget.productType == 'RAW_COCONUT') {
+      return 'Raw Coconut';
+    }
+    return widget.productType;
+  }
+
+  double get totalValue {
+    return widget.requestedQuantity * widget.sellerOfferPricePerUnit;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,40 +142,40 @@ class SellRequestPage extends StatelessWidget {
 
                           const SizedBox(width: 14),
 
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Mudalali A',
-                                  style: TextStyle(
+                                  widget.buyerName,
+                                  style: const TextStyle(
                                     color: Color(0xFF2E7D32),
                                     fontSize: 23,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                SizedBox(height: 4),
+                                const SizedBox(height: 4),
                                 Text(
-                                  'Requesting for Raw\nCoconut',
-                                  style: TextStyle(
+                                  'Requesting for\n$productName',
+                                  style: const TextStyle(
                                     fontSize: 13,
                                     color: Color(0xFF3A3A3A),
                                     height: 1.3,
                                   ),
                                 ),
-                                SizedBox(height: 6),
+                                const SizedBox(height: 6),
                                 Row(
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       Icons.location_on_outlined,
                                       size: 16,
                                       color: Color(0xFFB26A2C),
                                     ),
-                                    SizedBox(width: 4),
+                                    const SizedBox(width: 4),
                                     Expanded(
                                       child: Text(
-                                        'Green Valley Estate,\nKurunegala',
-                                        style: TextStyle(
+                                        widget.location,
+                                        style: const TextStyle(
                                           fontSize: 12,
                                           color: Color(0xFFB26A2C),
                                           height: 1.2,
@@ -134,18 +192,38 @@ class SellRequestPage extends StatelessWidget {
 
                       const SizedBox(height: 18),
 
-                      const Row(
+                      Row(
                         children: [
                           Expanded(
                             child: RequestInfoItem(
                               title: 'QUANTITY',
-                              value: '1,200 nuts',
+                              value: '${widget.requestedQuantity} nuts',
                             ),
                           ),
                           Expanded(
                             child: RequestInfoItem(
                               title: 'REQUIRED DATE',
-                              value: '18 Jul 2026',
+                              value: widget.requiredDate,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: RequestInfoItem(
+                              title: 'BUYER PRICE',
+                              value:
+                                  'Rs. ${widget.buyerBiddingPrice.toStringAsFixed(2)}',
+                            ),
+                          ),
+                          Expanded(
+                            child: RequestInfoItem(
+                              title: 'BUYER ID',
+                              value: widget.buyerId.toString(),
                             ),
                           ),
                         ],
@@ -169,7 +247,8 @@ class SellRequestPage extends StatelessWidget {
                 const SizedBox(height: 22),
 
                 TextFormField(
-                  initialValue: '1200',
+                  controller: quantityController,
+                  readOnly: true,
                   decoration: InputDecoration(
                     labelText: 'Quantity Requested (Nuts)',
                     floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -186,10 +265,12 @@ class SellRequestPage extends StatelessWidget {
                 const SizedBox(height: 24),
 
                 TextFormField(
-                  initialValue: '130',
+                  controller: offerPriceController,
+                  readOnly: true,
                   decoration: InputDecoration(
                     labelText: 'Offer Price per Nut (LKR)',
                     floatingLabelBehavior: FloatingLabelBehavior.always,
+                    prefixText: 'Rs. ',
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 16,
@@ -197,6 +278,35 @@ class SellRequestPage extends StatelessWidget {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(9),
                     ),
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Estimated Total',
+                        style: TextStyle(
+                          color: Color(0xFF263238),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Rs. ${totalValue.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: Color(0xFF1B5E20),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
@@ -210,7 +320,9 @@ class SellRequestPage extends StatelessWidget {
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const NegotiationPage(),
+                          builder: (context) => NegotiationPage(
+                            buyerName: widget.buyerName,
+                          ),
                         ),
                       );
                     },

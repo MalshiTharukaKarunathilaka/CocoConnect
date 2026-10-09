@@ -82,6 +82,16 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
 Future<void> saveListingToDatabase() async {
   try {
+    if (quantityController.text.trim().isEmpty ||
+        dateController.text == 'mm/dd/yyyy' ||
+        priceController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill all sell details'),
+        ),
+      );
+      return;
+    }
     final int quantity = int.parse(
       quantityController.text.replaceAll(',', '').trim(),
     );
@@ -113,9 +123,9 @@ Future<void> saveListingToDatabase() async {
 
     setState(() {
       showSummary = true;
-      quantityController.clear();
-      dateController.text = 'mm/dd/yyyy';
-      priceController.text = 'Rs. 130.00';
+      //quantityController.clear();
+      //dateController.text = 'mm/dd/yyyy';
+      //priceController.text = 'Rs. 130.00';
     });
   } catch (error) {
     if (!mounted) return;
@@ -343,14 +353,36 @@ FutureBuilder<List<dynamic>>(
             price: 'Rs. ${buyer['bidding_price_per_unit']}',
             quantity: '${buyer['requested_quantity']} nuts',
             pickupDate: buyer['required_date'].toString().substring(0, 10),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SellRequestPage(),
-                ),
-              );
-            },
+           onTap: () {
+  final double sellerOfferPrice = double.tryParse(
+        priceController.text
+            .replaceAll('Rs.', '')
+            .replaceAll('Rs', '')
+            .replaceAll(',', '')
+            .trim(),
+      ) ??
+      0;
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => SellRequestPage(
+        buyerId: int.tryParse(buyer['id'].toString()) ?? 0,
+        buyerName: buyer['buyer_name'].toString(),
+        location: buyer['location'].toString(),
+        requestedQuantity:
+            int.tryParse(buyer['requested_quantity'].toString()) ?? 0,
+        requiredDate: buyer['required_date'].toString().substring(0, 10),
+        productType: buyer['product_type'].toString(),
+        buyerBiddingPrice: double.tryParse(
+              buyer['bidding_price_per_unit'].toString(),
+            ) ??
+            0,
+        sellerOfferPricePerUnit: sellerOfferPrice,
+      ),
+    ),
+  );
+},
           ),
         );
       }).toList(),
@@ -440,7 +472,7 @@ FutureBuilder<List<dynamic>>(
             width: double.infinity,
             height: 44,
             child: ElevatedButton(
-              onPressed: showSellSummary,
+              onPressed: saveListingToDatabase,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2E7D32),
                 foregroundColor: Colors.white,
@@ -607,18 +639,7 @@ FutureBuilder<List<dynamic>>(
                 ),
               ),
 
-              const SizedBox(width: 10),
-
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: saveListingToDatabase,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32),
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Confirm'),
-                ),
-              ),
+             
             ],
           ),
         ],
