@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/estate_owner_dashboard.dart';
+import 'screens/auth_gate.dart';
 import 'screens/estate_owner_profile_page.dart';
 
 void main() {
@@ -14,18 +14,15 @@ class KapConnectApp extends StatelessWidget {
     return MaterialApp(
       title: 'KapConnect',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        fontFamily: 'Arial',
-      ),
+      theme: ThemeData(useMaterial3: true, fontFamily: 'Arial'),
 
       // First screen
-      home: const EstateOwnerDashboard(),
+      // Restores a saved login, otherwise shows Login; then sends each
+      // account type to its own home screen.
+      home: const AuthGate(),
 
       // App routes
-      routes: {
-        '/profile': (context) => const EstateOwnerProfilePage(),
-      },
+      routes: {'/profile': (context) => const EstateOwnerProfilePage()},
     );
   }
 }

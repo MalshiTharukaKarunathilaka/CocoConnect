@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'order_status_page.dart';
 
 class NegotiationPage extends StatelessWidget {
-  const NegotiationPage({super.key});
+  final String buyerName;
+
+  const NegotiationPage({
+    super.key,
+    required this.buyerName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -43,19 +48,19 @@ class NegotiationPage extends StatelessWidget {
                         ),
                       ),
 
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           children: [
                             Text(
-                              'Mudalali A',
-                              style: TextStyle(
+                              buyerName,
+                              style: const TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF0F1F35),
                               ),
                             ),
-                            SizedBox(height: 2),
-                            Text(
+                            const SizedBox(height: 2),
+                            const Text(
                               'BUYER',
                               style: TextStyle(
                                 fontSize: 10,
@@ -67,12 +72,12 @@ class NegotiationPage extends StatelessWidget {
                         ),
                       ),
 
-                      const CircleAvatar(
+                      CircleAvatar(
                         radius: 18,
-                        backgroundColor: Color(0xFFE8F5E9),
+                        backgroundColor: const Color(0xFFE8F5E9),
                         child: Text(
-                          'A',
-                          style: TextStyle(
+                          buyerName.isNotEmpty ? buyerName[0] : '?',
+                          style: const TextStyle(
                             color: Color(0xFF2E7D32),
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -144,9 +149,9 @@ class NegotiationPage extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            const Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: const [
+                              children: [
                                 Text(
                                   'Current Offer',
                                   style: TextStyle(
@@ -219,6 +224,7 @@ class NegotiationPage extends StatelessWidget {
                                     ),
                                   ],
                                 ),
+
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 9,
@@ -368,9 +374,9 @@ class NegotiationPage extends StatelessWidget {
                                     color: const Color(0xFFD8E1EA),
                                   ),
                                 ),
-                                child: Column(
+                                child: const Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: const [
+                                  children: [
                                     Row(
                                       children: [
                                         Icon(
@@ -478,7 +484,8 @@ class NegotiationPage extends StatelessWidget {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => const OrderStatusPage(),
+                                      builder: (context) =>
+                                          const OrderStatusPage(),
                                     ),
                                   );
                                 },
