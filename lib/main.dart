@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/estate_owner_dashboard.dart';
 import 'screens/estate_owner_profile_page.dart';
+import 'screens/login_page.dart';
 
 void main() {
   runApp(const KapConnectApp());
@@ -20,7 +21,7 @@ class KapConnectApp extends StatelessWidget {
       ),
 
       // First screen
-      home: const EstateOwnerDashboard(),
+      home: const LoginPage(),
 
       // App routes
       routes: {
