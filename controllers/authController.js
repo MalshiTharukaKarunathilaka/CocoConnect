@@ -160,4 +160,41 @@ const me = async (req, res) => {
   }
 };
 
-module.exports = { signup, login, me };
+/*
+|--------------------------------------------------------------------------
+| UPDATE CURRENT USER
+|--------------------------------------------------------------------------
+| Phone and role are fixed - phone is the login, role decides the screens.
+*/
+const updateMe = async (req, res) => {
+  try {
+    const name = String(req.body.name || "").trim();
+    const location = String(req.body.location || "").trim();
+
+    if (!name) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+
+    const result = await pool.query(
+      `UPDATE users SET name = $2, location = $3
+       WHERE id = $1
+       RETURNING *`,
+      [req.user.id, name, location || null]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Account not found" });
+    }
+
+    return res.status(200).json(publicUser(result.rows[0]));
+  } catch (error) {
+    console.error("Update current user error:", error);
+
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = { signup, login, me, updateMe };

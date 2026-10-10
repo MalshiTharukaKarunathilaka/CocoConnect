@@ -168,9 +168,122 @@ const getMyRequests = async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
+| UPDATE MY REQUEST (only while still PENDING)
+|--------------------------------------------------------------------------
+*/
+const updateRequest = async (req, res) => {
+  try {
+    const { requestedQuantity, requiredDate, biddingPricePerUnit } = req.body;
+
+    if (!requestedQuantity || !requiredDate || !biddingPricePerUnit) {
+      return res.status(400).json({
+        message: "Quantity, required date and price are required",
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE buyer_requests
+       SET requested_quantity = $3,
+           required_date = $4,
+           bidding_price_per_unit = $5
+       WHERE id = $1 AND buyer_id = $2 AND status = 'PENDING'
+       RETURNING *`,
+      [req.params.id, req.user.id, requestedQuantity, requiredDate, biddingPricePerUnit]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "No pending request of yours with that id",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Request updated",
+      buyerRequest: result.rows[0],
+    });
+  } catch (error) {
+    return serverError(res, "Update buyer request", error);
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| DELETE MY REQUEST
+|--------------------------------------------------------------------------
+| Refused once an estate owner has responded with a sell request or an order
+| refers to it, so their records are never left pointing at nothing.
+*/
+const deleteRequest = async (req, res) => {
+  try {
+    const own = await pool.query(
+      "SELECT id FROM buyer_requests WHERE id = $1 AND buyer_id = $2",
+      [req.params.id, req.user.id]
+    );
+    if (own.rows.length === 0) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+
+    const responses = await pool.query(
+      `SELECT
+        (SELECT COUNT(*) FROM sell_requests WHERE buyer_request_id = $1) AS sells,
+        (SELECT COUNT(*) FROM orders WHERE buyer_request_id = $1) AS orders`,
+      [req.params.id]
+    );
+    const { sells, orders } = responses.rows[0];
+    if (Number(sells) > 0 || Number(orders) > 0) {
+      return res.status(409).json({
+        message: "Estate owners have already responded to this request, so it can't be deleted",
+      });
+    }
+
+    await pool.query("DELETE FROM buyer_requests WHERE id = $1", [req.params.id]);
+
+    return res.status(200).json({ message: "Request deleted" });
+  } catch (error) {
+    return serverError(res, "Delete buyer request", error);
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
 | NEGOTIATIONS
 |--------------------------------------------------------------------------
 */
+const getMyNegotiations = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        n.id,
+        n.status,
+        n.order_id,
+        n.created_at,
+        o.status AS order_status,
+        pl.product_type,
+        pl.quantity,
+        pl.offer_price_per_unit,
+        eo.estate_name,
+        eo.name AS owner_name,
+        COALESCE(mc.message_count, 0) AS message_count
+       FROM negotiations n
+       JOIN product_listings pl ON pl.id = n.listing_id
+       LEFT JOIN estate_owners eo ON eo.id = pl.estate_owner_id
+       LEFT JOIN orders o ON o.id = n.order_id
+       LEFT JOIN (
+         SELECT negotiation_id, COUNT(*) AS message_count
+         FROM negotiation_messages
+         GROUP BY negotiation_id
+       ) mc ON mc.negotiation_id = n.id
+       WHERE n.buyer_id = $1
+       ORDER BY n.created_at DESC, n.id DESC`,
+      [req.user.id]
+    );
+
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    return serverError(res, "Get my negotiations", error);
+  }
+};
+
 
 // Loads a negotiation only if it belongs to the logged-in buyer.
 const findOwnNegotiation = async (db, negotiationId, buyerId) => {
@@ -254,10 +367,17 @@ const getNegotiation = async (req, res) => {
       [negotiation.id, req.user.id]
     );
 
+    const order = negotiation.order_id
+      ? await pool.query("SELECT status FROM orders WHERE id = $1", [
+          negotiation.order_id,
+        ])
+      : null;
+
     return res.status(200).json({
       id: negotiation.id,
       status: negotiation.status,
       order_id: negotiation.order_id,
+      order_status: order?.rows[0]?.status ?? null,
       listing: listing.rows[0],
       messages: messages.rows,
     });
@@ -409,12 +529,14 @@ const getMyOrders = async (req, res) => {
         pl.product_type,
         pl.quantity,
         eo.estate_name,
-        eo.name AS owner_name
+        eo.name AS owner_name,
+        n.id AS negotiation_id
        FROM orders o
        LEFT JOIN product_listings pl ON pl.id = o.listing_id
        LEFT JOIN estate_owners eo ON eo.id = pl.estate_owner_id
+       LEFT JOIN negotiations n ON n.order_id = o.id
        WHERE o.buyer_id = $1
-       ORDER BY o.created_at DESC`,
+       ORDER BY o.created_at DESC, o.id DESC`,
       [req.user.id]
     );
 
@@ -454,6 +576,9 @@ module.exports = {
   getListing,
   createRequest,
   getMyRequests,
+  updateRequest,
+  deleteRequest,
+  getMyNegotiations,
   startNegotiation,
   getNegotiation,
   sendMessage,

@@ -5,6 +5,9 @@ const {
   getListing,
   createRequest,
   getMyRequests,
+  updateRequest,
+  deleteRequest,
+  getMyNegotiations,
   startNegotiation,
   getNegotiation,
   sendMessage,
@@ -96,6 +99,56 @@ router.get("/requests", getMyRequests);
 
 /**
  * @swagger
+ * /api/buyer/requests/{id}:
+ *   put:
+ *     summary: Edit one of my pending requests
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [requestedQuantity, requiredDate, biddingPricePerUnit]
+ *             properties:
+ *               requestedQuantity: { type: integer, example: 1500 }
+ *               requiredDate: { type: string, format: date, example: "2026-12-20" }
+ *               biddingPricePerUnit: { type: number, example: 118 }
+ *     responses:
+ *       200:
+ *         description: Request updated
+ *       404:
+ *         description: No pending request of yours with that id
+ *   delete:
+ *     summary: Delete one of my requests (not once estate owners responded)
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Request deleted
+ *       409:
+ *         description: Estate owners already responded
+ */
+router.put("/requests/:id", updateRequest);
+router.delete("/requests/:id", deleteRequest);
+
+/**
+ * @swagger
  * /api/buyer/negotiations:
  *   post:
  *     summary: Start (or reopen) a negotiation on a listing
@@ -121,9 +174,23 @@ router.post("/negotiations", startNegotiation);
 
 /**
  * @swagger
+ * /api/buyer/negotiations:
+ *   get:
+ *     summary: My negotiations, newest first
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of negotiations with estate and order status
+ */
+router.get("/negotiations", getMyNegotiations);
+
+/**
+ * @swagger
  * /api/buyer/negotiations/{id}:
  *   get:
- *     summary: A negotiation with its listing and messages
+ *     summary: A negotiation with its listing, messages and order status
  *     tags: [Buyer]
  *     security:
  *       - bearerAuth: []

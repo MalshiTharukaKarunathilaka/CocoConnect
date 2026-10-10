@@ -1,6 +1,6 @@
 const express = require("express");
 
-const { signup, login, me } = require("../controllers/authController");
+const { signup, login, me, updateMe } = require("../controllers/authController");
 const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
@@ -62,5 +62,31 @@ router.post("/login", login);
  *         description: Login required
  */
 router.get("/me", requireAuth, me);
+
+/**
+ * @swagger
+ * /api/auth/me:
+ *   patch:
+ *     summary: Update my name and location
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name: { type: string, example: "Senuji Perera" }
+ *               location: { type: string, example: "Kandy" }
+ *     responses:
+ *       200:
+ *         description: Updated user
+ *       400:
+ *         description: Name is required
+ */
+router.patch("/me", requireAuth, updateMe);
 
 module.exports = router;

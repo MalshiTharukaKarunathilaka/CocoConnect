@@ -14,6 +14,14 @@ types.setTypeParser(TIMESTAMP_OID, (value) =>
   new Date(value.replace(" ", "T") + "Z")
 );
 
+// DB_MODE=memory swaps Supabase for a throwaway in-memory database
+// (npm run dev:memory) so features can be tried without touching team data.
+if (process.env.DB_MODE === "memory") {
+  console.log("Using in-memory test database - nothing is saved to Supabase");
+  module.exports = require("../test/memoryDb");
+  return;
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl:
