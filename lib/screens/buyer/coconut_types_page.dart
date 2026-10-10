@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../widgets/buyer_widgets.dart';
+import '../auth_gate.dart';
 import 'coconut_type.dart';
 import 'marketplace_page.dart';
+import 'my_activity_page.dart';
 
 /// Sits between Buying Categories and the marketplace - the buyer picks
 /// which form of coconut they want before seeing listings.
@@ -17,14 +19,9 @@ class CoconutTypesPage extends StatelessWidget {
           if (index == 0) {
             Navigator.popUntil(context, (route) => route.isFirst);
           } else if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const MarketplacePage()),
-            );
+            openMyActivity(context);
           } else if (index == 2) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Profile screen not built yet')),
-            );
+            showAccountSheet(context);
           }
         },
       ),

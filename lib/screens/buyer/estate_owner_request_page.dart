@@ -1,36 +1,64 @@
 import 'package:flutter/material.dart';
+import '../../services/api_client.dart';
+import '../../services/buyer_service.dart';
 import '../../widgets/buyer_widgets.dart';
+import 'buyer_format.dart';
 import 'buyer_negotiation_page.dart';
 import 'coconut_type.dart';
 
-class EstateOwnerRequestPage extends StatelessWidget {
+class EstateOwnerRequestPage extends StatefulWidget {
   final CoconutType type;
-  final String estateName;
-  final String ownerName;
-  final int pricePerNut;
-  final int quantity;
+  final Listing listing;
 
   const EstateOwnerRequestPage({
     super.key,
-    this.type = CoconutType.raw,
-    this.estateName = 'ABC Estate',
-    this.ownerName = 'ABC Estate Owner',
-    this.pricePerNut = 130,
-    this.quantity = 1200,
+    required this.type,
+    required this.listing,
   });
 
-  /// 1200 -> "1,200"
-  String get _formattedQuantity => quantity.toString().replaceAllMapped(
-    RegExp(r'(\d)(?=(\d{3})+$)'),
-    (m) => '${m[1]},',
-  );
+  @override
+  State<EstateOwnerRequestPage> createState() => _EstateOwnerRequestPageState();
+}
 
-  String get _estimatedTotal => (quantity * pricePerNut)
-      .toString()
-      .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},');
+class _EstateOwnerRequestPageState extends State<EstateOwnerRequestPage> {
+  bool _opening = false;
+
+  Future<void> _negotiate() async {
+    if (_opening) return;
+    setState(() => _opening = true);
+
+    try {
+      final int negotiationId = await BuyerService.startNegotiation(
+        widget.listing.id,
+      );
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BuyerNegotiationPage(
+            negotiationId: negotiationId,
+            type: widget.type,
+          ),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: const Color(0xFFC62828),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final Listing listing = widget.listing;
+    final CoconutType type = widget.type;
+
     return BuyerScaffold(
       body: Column(
         children: [
@@ -94,7 +122,7 @@ class EstateOwnerRequestPage extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    estateName,
+                                    listing.estateName,
                                     style: const TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold,
@@ -103,39 +131,35 @@ class EstateOwnerRequestPage extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
-                                    ownerName,
+                                    listing.ownerName,
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: Color(0xFF5A5A5A),
                                     ),
                                   ),
-                                  const SizedBox(height: 7),
-                                  Row(
-                                    children: const [
-                                      Icon(
-                                        Icons.location_on,
-                                        size: 14,
-                                        color: kBuyerBrown,
-                                      ),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Kurunegala',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
+                                  if (listing.location != null) ...[
+                                    const SizedBox(height: 7),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.location_on,
+                                          size: 14,
                                           color: kBuyerBrown,
                                         ),
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        '3.2 km away',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: kBuyerGrey,
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            listing.location!,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: kBuyerBrown,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -155,20 +179,15 @@ class EstateOwnerRequestPage extends StatelessWidget {
                               color: Color(0xFFE0A526),
                             ),
                             const SizedBox(width: 5),
-                            const Text(
-                              'Trust Score: 4.8/5',
-                              style: TextStyle(
+                            Text(
+                              listing.trustScore == null
+                                  ? 'Trust Score: not rated yet'
+                                  : 'Trust Score: ${listing.trustScore}/5',
+                              style: const TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF3A3A3A),
                               ),
-                            ),
-                            const Spacer(),
-                            const BuyerPill(
-                              text: 'VERIFIED OWNER',
-                              background: Color(0xFFDDEEE0),
-                              foreground: kBuyerGreen,
-                              icon: Icons.check_circle_outline,
                             ),
                           ],
                         ),
@@ -206,13 +225,13 @@ class EstateOwnerRequestPage extends StatelessWidget {
                             Expanded(
                               child: BuyerInfoPair(
                                 label: 'QUANTITY',
-                                value: '$_formattedQuantity nuts',
+                                value: '${withCommas(listing.quantity)} nuts',
                               ),
                             ),
-                            const Expanded(
+                            Expanded(
                               child: BuyerInfoPair(
-                                label: 'REQUIRED DATE',
-                                value: '18 Jul 2026',
+                                label: 'AVAILABLE FROM',
+                                value: shortDate(listing.availableDate),
                               ),
                             ),
                           ],
@@ -225,36 +244,43 @@ class EstateOwnerRequestPage extends StatelessWidget {
                             Expanded(
                               child: BuyerInfoPair(
                                 label: 'OFFER PRICE',
-                                value: 'Rs. $pricePerNut / nut',
+                                value: '${rupees(listing.pricePerUnit)} / nut',
                               ),
                             ),
                             Expanded(
                               child: BuyerInfoPair(
                                 label: 'ESTIMATED TOTAL',
-                                value: 'Rs. $_estimatedTotal',
+                                value: rupees(
+                                  listing.pricePerUnit * listing.quantity,
+                                ),
                               ),
                             ),
                           ],
                         ),
 
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 14),
-                          child: Divider(height: 1, color: kBuyerBorder),
-                        ),
-
-                        Row(
-                          children: const [
-                            Icon(Icons.schedule, size: 14, color: kBuyerGrey),
-                            SizedBox(width: 6),
-                            Text(
-                              'Posted 2 days ago  ·  Closes in 5 days',
-                              style: TextStyle(
-                                fontSize: 11.5,
+                        if (listing.createdAt != null) ...[
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 14),
+                            child: Divider(height: 1, color: kBuyerBorder),
+                          ),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.schedule,
+                                size: 14,
                                 color: kBuyerGrey,
                               ),
-                            ),
-                          ],
-                        ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Posted ${shortDate(listing.createdAt!.toLocal())}',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: kBuyerGrey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -269,68 +295,12 @@ class EstateOwnerRequestPage extends StatelessWidget {
                         const BuyerSectionTitle(text: 'Coconut Details'),
                         const SizedBox(height: 8),
                         BuyerDetailRow(label: 'Type', value: type.singular),
-                        const BuyerDetailRow(label: 'Grade', value: 'Grade A'),
                         BuyerDetailRow(label: 'Husk', value: type.husk),
-                        const BuyerDetailRow(
-                          label: 'Average nut size',
-                          value: 'Large (400 - 500 g)',
-                        ),
-                        const BuyerDetailRow(
-                          label: 'Harvest window',
-                          value: 'Jul 2026',
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // ----- Logistics -----
-                  BuyerCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        BuyerSectionTitle(text: 'Pickup & Payment'),
-                        SizedBox(height: 8),
-                        BuyerDetailRow(
-                          label: 'Pickup location',
-                          value: 'Estate gate, Kurunegala',
-                        ),
-                        BuyerDetailRow(
-                          label: 'Transport',
-                          value: 'Arranged by buyer',
-                        ),
-                        BuyerDetailRow(
-                          label: 'Payment method',
-                          value: 'Bank transfer',
-                        ),
-                        BuyerDetailRow(
-                          label: 'Payment terms',
-                          value: 'On collection',
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // ----- Owner's note -----
-                  BuyerCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        BuyerSectionTitle(text: 'Note from the owner'),
-                        SizedBox(height: 8),
-                        Text(
-                          'Harvest is from a 12-acre block with regular '
-                          'fertilizing. Nuts can be collected in two loads '
-                          'if that suits your transport.',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            height: 1.45,
-                            color: Color(0xFF5A5A5A),
+                        if (listing.location != null)
+                          BuyerDetailRow(
+                            label: 'Pickup location',
+                            value: listing.location!,
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -342,22 +312,9 @@ class EstateOwnerRequestPage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
             child: BuyerPrimaryButton(
-              label: 'Negotiate',
+              label: _opening ? 'Opening...' : 'Negotiate',
               trailingIcon: Icons.send,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => BuyerNegotiationPage(
-                      type: type,
-                      estateName: estateName,
-                      ownerName: ownerName,
-                      pricePerNut: pricePerNut,
-                      quantity: quantity,
-                    ),
-                  ),
-                );
-              },
+              onPressed: _opening ? null : _negotiate,
             ),
           ),
         ],

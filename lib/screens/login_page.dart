@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../services/api_client.dart';
+import '../services/auth_service.dart';
 import '../widgets/auth_widgets.dart';
+import 'auth_gate.dart';
 import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -15,6 +18,7 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
+  bool _loading = false;
 
   @override
   void dispose() {
@@ -23,18 +27,32 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _submit() {
-    if (!_formKey.currentState!.validate()) {
+  Future<void> _submit() async {
+    if (_loading || !_formKey.currentState!.validate()) {
       return;
     }
 
-    // No backend yet - confirm the form is valid so the flow can be demoed.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Logging in +94 ${_phoneController.text.trim()}'),
-        backgroundColor: kAuthGreen,
-      ),
-    );
+    FocusScope.of(context).unfocus();
+    setState(() => _loading = true);
+
+    try {
+      final user = await AuthService.login(
+        phone: _phoneController.text,
+        password: _passwordController.text,
+      );
+      if (!mounted) return;
+      openHomeFor(context, user);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: const Color(0xFFC62828),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -108,8 +126,8 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 18),
 
                 AuthPrimaryButton(
-                  label: 'Login',
-                  onPressed: _submit,
+                  label: _loading ? 'Logging in...' : 'Login',
+                  onPressed: _loading ? null : _submit,
                 ),
 
                 const SizedBox(height: 18),
@@ -136,9 +154,7 @@ class _LoginPageState extends State<LoginPage> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const SignupPage(),
-              ),
+              MaterialPageRoute(builder: (context) => const SignupPage()),
             );
           },
         ),

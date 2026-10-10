@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../services/api_client.dart';
+import '../services/auth_service.dart';
 import '../widgets/auth_widgets.dart';
+import 'auth_gate.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -25,6 +28,7 @@ class _SignupPageState extends State<SignupPage> {
   String _selectedRole = _roles.first;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  bool _loading = false;
 
   @override
   void dispose() {
@@ -35,18 +39,34 @@ class _SignupPageState extends State<SignupPage> {
     super.dispose();
   }
 
-  void _submit() {
-    if (!_formKey.currentState!.validate()) {
+  Future<void> _submit() async {
+    if (_loading || !_formKey.currentState!.validate()) {
       return;
     }
 
-    // No backend yet - confirm the form is valid so the flow can be demoed.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Creating $_selectedRole account'),
-        backgroundColor: kAuthGreen,
-      ),
-    );
+    FocusScope.of(context).unfocus();
+    setState(() => _loading = true);
+
+    try {
+      final user = await AuthService.signup(
+        name: _nameController.text.trim(),
+        phone: _phoneController.text,
+        password: _passwordController.text,
+        role: _selectedRole,
+      );
+      if (!mounted) return;
+      openHomeFor(context, user);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: const Color(0xFFC62828),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -169,8 +189,8 @@ class _SignupPageState extends State<SignupPage> {
                 const SizedBox(height: 22),
 
                 AuthPrimaryButton(
-                  label: 'Sign Up',
-                  onPressed: _submit,
+                  label: _loading ? 'Creating account...' : 'Sign Up',
+                  onPressed: _loading ? null : _submit,
                 ),
 
                 const SizedBox(height: 18),

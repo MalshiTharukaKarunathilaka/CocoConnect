@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 /// screens are all driven by this, so the three types share a single
 /// implementation instead of duplicated screens.
 class CoconutType {
+  /// Value stored in the database's product_type column - "RAW_COCONUT".
+  final String code;
+
   /// Plural label used in headings - "Raw Coconuts".
   final String label;
 
@@ -23,6 +26,7 @@ class CoconutType {
   final int pricePerNut;
 
   const CoconutType({
+    required this.code,
     required this.label,
     required this.singular,
     required this.subtitle,
@@ -33,6 +37,7 @@ class CoconutType {
   });
 
   static const CoconutType raw = CoconutType(
+    code: 'RAW_COCONUT',
     label: 'Raw Coconuts',
     singular: 'Raw coconut',
     subtitle: 'Whole nuts, husk intact',
@@ -43,6 +48,7 @@ class CoconutType {
   );
 
   static const CoconutType husked = CoconutType(
+    code: 'HUSKED_COCONUT',
     label: 'Husked Coconuts',
     singular: 'Husked coconut',
     subtitle: 'Husk partially removed',
@@ -53,6 +59,7 @@ class CoconutType {
   );
 
   static const CoconutType dehusked = CoconutType(
+    code: 'DEHUSKED_COCONUT',
     label: 'Dehusked Coconuts',
     singular: 'Dehusked coconut',
     subtitle: 'Husk fully removed',
@@ -63,4 +70,10 @@ class CoconutType {
   );
 
   static const List<CoconutType> all = [raw, husked, dehusked];
+
+  /// Falls back to raw for product types this app doesn't know about.
+  static CoconutType fromCode(String? code) => all.firstWhere(
+    (type) => type.code == code?.toUpperCase(),
+    orElse: () => raw,
+  );
 }

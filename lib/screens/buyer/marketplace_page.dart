@@ -1,71 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../services/api_client.dart';
+import '../../services/buyer_service.dart';
 import '../../widgets/buyer_widgets.dart';
+import '../auth_gate.dart';
+import 'buyer_format.dart';
 import 'coconut_type.dart';
 import 'estate_owner_request_page.dart';
+import 'my_activity_page.dart';
 
-class _Listing {
-  final String initial;
-  final Color initialBackground;
-  final String estateName;
-  final String ownerName;
-
-  /// Added to the coconut type's base price per nut.
-  final int priceOffset;
-  final double trustScore;
-  final int quantity;
-  final String availableDate;
-
-  const _Listing({
-    required this.initial,
-    required this.initialBackground,
-    required this.estateName,
-    required this.ownerName,
-    required this.priceOffset,
-    required this.trustScore,
-    required this.quantity,
-    required this.availableDate,
-  });
-}
-
-const List<_Listing> _listings = [
-  _Listing(
-    initial: 'A',
-    initialBackground: Color(0xFFDDEEE0),
-    estateName: 'ABC Estates',
-    ownerName: 'ABC Estate Owner',
-    priceOffset: 0,
-    trustScore: 4.8,
-    quantity: 1200,
-    availableDate: '18 Jul 2026',
-  ),
-  _Listing(
-    initial: 'P',
-    initialBackground: Color(0xFFDCE6F5),
-    estateName: 'Perera Plantations',
-    ownerName: 'Perera Group',
-    priceOffset: 10,
-    trustScore: 4.6,
-    quantity: 600,
-    availableDate: '20 Jul 2026',
-  ),
+const List<Color> _avatarColors = [
+  Color(0xFFDDEEE0),
+  Color(0xFFDCE6F5),
+  Color(0xFFF5E6DC),
+  Color(0xFFEDE3F5),
 ];
-
-enum _SortOrder {
-  nearest('Nearest first'),
-  priceLow('Price: low to high'),
-  priceHigh('Price: high to low'),
-  trust('Highest trust score');
-
-  final String label;
-  const _SortOrder(this.label);
-}
-
-/// 1200 -> "1,200"
-String _withCommas(int value) => value.toString().replaceAllMapped(
-  RegExp(r'(\d)(?=(\d{3})+$)'),
-  (m) => '${m[1]},',
-);
 
 class MarketplacePage extends StatefulWidget {
   /// Which coconut form this marketplace is for. All three types share
@@ -83,7 +32,19 @@ class _MarketplacePageState extends State<MarketplacePage> {
   final _dateController = TextEditingController();
   final _priceController = TextEditingController();
 
-  _SortOrder _sortOrder = _SortOrder.nearest;
+  ListingSort _sort = ListingSort.newest;
+  late Future<List<Listing>> _listings = _loadListings();
+  DateTime? _requiredDate;
+  bool _submitting = false;
+
+  Future<List<Listing>> _loadListings() =>
+      BuyerService.getListings(productType: widget.type.code, sort: _sort);
+
+  void _reloadListings() {
+    setState(() {
+      _listings = _loadListings();
+    });
+  }
 
   @override
   void dispose() {
@@ -103,6 +64,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
     );
 
     if (picked != null) {
+      _requiredDate = picked;
       _dateController.text =
           '${picked.month.toString().padLeft(2, '0')}/'
           '${picked.day.toString().padLeft(2, '0')}/'
@@ -116,14 +78,16 @@ class _MarketplacePageState extends State<MarketplacePage> {
       ..showSnackBar(SnackBar(content: Text(text), backgroundColor: color));
   }
 
-  void _submitRequest() {
+  Future<void> _submitRequest() async {
+    if (_submitting) return;
+
     final int? nuts = int.tryParse(_nutsController.text);
     final int? price = int.tryParse(_priceController.text);
 
     String? error;
     if (nuts == null || nuts <= 0) {
       error = 'Enter the number of nuts you need';
-    } else if (_dateController.text.isEmpty) {
+    } else if (_requiredDate == null) {
       error = 'Pick the date you need them by';
     } else if (price == null || price <= 0) {
       error = 'Enter your bidding price per nut';
@@ -135,33 +99,35 @@ class _MarketplacePageState extends State<MarketplacePage> {
     }
 
     FocusScope.of(context).unfocus();
-    _showSnack(
-      'Request for ${_withCommas(nuts!)} nuts at Rs. $price each '
-      'sent to nearby estate owners',
-      color: kBuyerGreen,
-    );
-    _nutsController.clear();
-    _dateController.clear();
-    _priceController.clear();
-  }
+    setState(() => _submitting = true);
 
-  List<_Listing> get _sortedListings {
-    final List<_Listing> list = [..._listings];
-    switch (_sortOrder) {
-      case _SortOrder.nearest:
-        break;
-      case _SortOrder.priceLow:
-        list.sort((a, b) => a.priceOffset.compareTo(b.priceOffset));
-      case _SortOrder.priceHigh:
-        list.sort((a, b) => b.priceOffset.compareTo(a.priceOffset));
-      case _SortOrder.trust:
-        list.sort((a, b) => b.trustScore.compareTo(a.trustScore));
+    try {
+      await BuyerService.createRequest(
+        productType: widget.type.code,
+        quantity: nuts!,
+        requiredDate: _requiredDate!,
+        pricePerUnit: price!.toDouble(),
+      );
+      if (!mounted) return;
+      _showSnack(
+        'Request for ${withCommas(nuts)} nuts at Rs. $price each '
+        'sent to estate owners',
+        color: kBuyerGreen,
+      );
+      _nutsController.clear();
+      _dateController.clear();
+      _priceController.clear();
+      _requiredDate = null;
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      _showSnack(error.message, color: const Color(0xFFC62828));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
-    return list;
   }
 
   Future<void> _openFilter() async {
-    final _SortOrder? picked = await showModalBottomSheet<_SortOrder>(
+    final ListingSort? picked = await showModalBottomSheet<ListingSort>(
       context: context,
       builder: (context) => SafeArea(
         child: Column(
@@ -177,33 +143,90 @@ class _MarketplacePageState extends State<MarketplacePage> {
                 ),
               ),
             ),
-            for (final order in _SortOrder.values)
+            for (final sort in ListingSort.values)
               ListTile(
-                title: Text(order.label),
-                trailing: order == _sortOrder
+                title: Text(sort.label),
+                trailing: sort == _sort
                     ? const Icon(Icons.check, color: kBuyerGreen)
                     : null,
-                onTap: () => Navigator.pop(context, order),
+                onTap: () => Navigator.pop(context, sort),
               ),
           ],
         ),
       ),
     );
-    if (picked != null) setState(() => _sortOrder = picked);
+    if (picked != null && picked != _sort) {
+      _sort = picked;
+      _reloadListings();
+    }
   }
 
-  void _openRequest(_Listing listing) {
+  void _openRequest(Listing listing) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => EstateOwnerRequestPage(
-          type: widget.type,
-          estateName: listing.estateName,
-          ownerName: listing.ownerName,
-          pricePerNut: widget.type.pricePerNut + listing.priceOffset,
-          quantity: listing.quantity,
-        ),
+        builder: (context) =>
+            EstateOwnerRequestPage(type: widget.type, listing: listing),
       ),
+    );
+  }
+
+  Widget _buildListings() {
+    return FutureBuilder<List<Listing>>(
+      future: _listings,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: CircularProgressIndicator(color: kBuyerGreen)),
+          );
+        }
+
+        if (snapshot.hasError) {
+          final Object error = snapshot.error!;
+          return _ListingsMessage(
+            icon: Icons.cloud_off_outlined,
+            text: error is ApiException
+                ? error.message
+                : 'Could not load listings',
+            onRetry: _reloadListings,
+          );
+        }
+
+        final List<Listing> listings = snapshot.data!;
+        if (listings.isEmpty) {
+          return _ListingsMessage(
+            icon: Icons.inventory_2_outlined,
+            text:
+                'No ${widget.type.label.toLowerCase()} listed yet. '
+                'Submit a request above and estate owners can respond.',
+            onRetry: _reloadListings,
+          );
+        }
+
+        return Column(
+          children: [
+            for (int i = 0; i < listings.length; i++) ...[
+              EstateListingCard(
+                initial: listings[i].estateName.isEmpty
+                    ? '?'
+                    : listings[i].estateName[0].toUpperCase(),
+                initialBackground: _avatarColors[i % _avatarColors.length],
+                estateName: listings[i].estateName,
+                ownerName: listings[i].ownerName,
+                price: rupees(listings[i].pricePerUnit),
+                trustScore: listings[i].trustScore == null
+                    ? 'New'
+                    : '${listings[i].trustScore}/5',
+                quantity: '${withCommas(listings[i].quantity)} nuts',
+                availableDate: shortDate(listings[i].availableDate),
+                onTap: () => _openRequest(listings[i]),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -211,14 +234,16 @@ class _MarketplacePageState extends State<MarketplacePage> {
   Widget build(BuildContext context) {
     return BuyerScaffold(
       bottomNavigation: BuyerBottomNavigation(
-        currentIndex: 1,
+        currentIndex: 0,
         onTabSelected: (index) {
           if (index == 0) {
             // Categories is the root of this flow - unwind back to it
             // rather than stacking another copy on top.
             Navigator.popUntil(context, (route) => route.isFirst);
+          } else if (index == 1) {
+            openMyActivity(context);
           } else if (index == 2) {
-            _showSnack('Profile screen not built yet');
+            showAccountSheet(context);
           }
         },
       ),
@@ -407,10 +432,10 @@ class _MarketplacePageState extends State<MarketplacePage> {
                   const SizedBox(height: 20),
 
                   BuyerPrimaryButton(
-                    label: 'Submit Request',
+                    label: _submitting ? 'Sending...' : 'Submit Request',
                     trailingIcon: Icons.arrow_forward,
                     color: kBuyerGreenDark,
-                    onPressed: _submitRequest,
+                    onPressed: _submitting ? null : _submitRequest,
                   ),
 
                   const SizedBox(height: 14),
@@ -432,7 +457,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
             const SizedBox(height: 26),
 
             const Text(
-              'Nearby Estate Owner Listings',
+              'Estate Owner Listings',
               style: TextStyle(
                 fontSize: 19,
                 fontWeight: FontWeight.bold,
@@ -445,20 +470,27 @@ class _MarketplacePageState extends State<MarketplacePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: const [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 14,
-                      color: kBuyerGreen,
-                    ),
-                    SizedBox(width: 5),
-                    Text(
-                      'Within 3km of your location',
-                      style: TextStyle(fontSize: 12, color: kBuyerGrey),
-                    ),
-                  ],
+                const Expanded(
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 14,
+                        color: kBuyerGreen,
+                      ),
+                      SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          'Open listings from estate owners',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, color: kBuyerGrey),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: _openFilter,
                   child: Container(
@@ -481,9 +513,9 @@ class _MarketplacePageState extends State<MarketplacePage> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          _sortOrder == _SortOrder.nearest
+                          _sort == ListingSort.newest
                               ? 'Filter'
-                              : _sortOrder.label,
+                              : _sort.shortLabel,
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -499,22 +531,48 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
             const SizedBox(height: 16),
 
-            for (final listing in _sortedListings) ...[
-              EstateListingCard(
-                initial: listing.initial,
-                initialBackground: listing.initialBackground,
-                estateName: listing.estateName,
-                ownerName: listing.ownerName,
-                price: 'Rs. ${widget.type.pricePerNut + listing.priceOffset}',
-                trustScore: '${listing.trustScore}/5',
-                quantity: '${_withCommas(listing.quantity)} nuts',
-                availableDate: listing.availableDate,
-                onTap: () => _openRequest(listing),
-              ),
-              const SizedBox(height: 16),
-            ],
+            _buildListings(),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ListingsMessage extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final VoidCallback onRetry;
+
+  const _ListingsMessage({
+    required this.icon,
+    required this.text,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return BuyerCard(
+      child: Column(
+        children: [
+          Icon(icon, size: 32, color: kBuyerGrey),
+          const SizedBox(height: 10),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: kBuyerGrey,
+            ),
+          ),
+          TextButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Try again'),
+            style: TextButton.styleFrom(foregroundColor: kBuyerGreen),
+          ),
+        ],
       ),
     );
   }
