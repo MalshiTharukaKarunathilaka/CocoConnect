@@ -1,17 +1,78 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../widgets/buyer_widgets.dart';
 import 'coconut_type.dart';
 import 'estate_owner_request_page.dart';
+
+class _Listing {
+  final String initial;
+  final Color initialBackground;
+  final String estateName;
+  final String ownerName;
+
+  /// Added to the coconut type's base price per nut.
+  final int priceOffset;
+  final double trustScore;
+  final int quantity;
+  final String availableDate;
+
+  const _Listing({
+    required this.initial,
+    required this.initialBackground,
+    required this.estateName,
+    required this.ownerName,
+    required this.priceOffset,
+    required this.trustScore,
+    required this.quantity,
+    required this.availableDate,
+  });
+}
+
+const List<_Listing> _listings = [
+  _Listing(
+    initial: 'A',
+    initialBackground: Color(0xFFDDEEE0),
+    estateName: 'ABC Estates',
+    ownerName: 'ABC Estate Owner',
+    priceOffset: 0,
+    trustScore: 4.8,
+    quantity: 1200,
+    availableDate: '18 Jul 2026',
+  ),
+  _Listing(
+    initial: 'P',
+    initialBackground: Color(0xFFDCE6F5),
+    estateName: 'Perera Plantations',
+    ownerName: 'Perera Group',
+    priceOffset: 10,
+    trustScore: 4.6,
+    quantity: 600,
+    availableDate: '20 Jul 2026',
+  ),
+];
+
+enum _SortOrder {
+  nearest('Nearest first'),
+  priceLow('Price: low to high'),
+  priceHigh('Price: high to low'),
+  trust('Highest trust score');
+
+  final String label;
+  const _SortOrder(this.label);
+}
+
+/// 1200 -> "1,200"
+String _withCommas(int value) => value.toString().replaceAllMapped(
+  RegExp(r'(\d)(?=(\d{3})+$)'),
+  (m) => '${m[1]},',
+);
 
 class MarketplacePage extends StatefulWidget {
   /// Which coconut form this marketplace is for. All three types share
   /// this screen; only the copy and prices differ.
   final CoconutType type;
 
-  const MarketplacePage({
-    super.key,
-    this.type = CoconutType.raw,
-  });
+  const MarketplacePage({super.key, this.type = CoconutType.raw});
 
   @override
   State<MarketplacePage> createState() => _MarketplacePageState();
@@ -21,6 +82,8 @@ class _MarketplacePageState extends State<MarketplacePage> {
   final _nutsController = TextEditingController();
   final _dateController = TextEditingController();
   final _priceController = TextEditingController();
+
+  _SortOrder _sortOrder = _SortOrder.nearest;
 
   @override
   void dispose() {
@@ -47,24 +110,98 @@ class _MarketplacePageState extends State<MarketplacePage> {
     }
   }
 
-  void _submitRequest() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Request submitted to nearby estate owners'),
-        backgroundColor: kBuyerGreen,
-      ),
-    );
+  void _showSnack(String text, {Color? color}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text), backgroundColor: color));
   }
 
-  void _openRequest(String estateName, String ownerName, int price) {
+  void _submitRequest() {
+    final int? nuts = int.tryParse(_nutsController.text);
+    final int? price = int.tryParse(_priceController.text);
+
+    String? error;
+    if (nuts == null || nuts <= 0) {
+      error = 'Enter the number of nuts you need';
+    } else if (_dateController.text.isEmpty) {
+      error = 'Pick the date you need them by';
+    } else if (price == null || price <= 0) {
+      error = 'Enter your bidding price per nut';
+    }
+
+    if (error != null) {
+      _showSnack(error, color: const Color(0xFFC62828));
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    _showSnack(
+      'Request for ${_withCommas(nuts!)} nuts at Rs. $price each '
+      'sent to nearby estate owners',
+      color: kBuyerGreen,
+    );
+    _nutsController.clear();
+    _dateController.clear();
+    _priceController.clear();
+  }
+
+  List<_Listing> get _sortedListings {
+    final List<_Listing> list = [..._listings];
+    switch (_sortOrder) {
+      case _SortOrder.nearest:
+        break;
+      case _SortOrder.priceLow:
+        list.sort((a, b) => a.priceOffset.compareTo(b.priceOffset));
+      case _SortOrder.priceHigh:
+        list.sort((a, b) => b.priceOffset.compareTo(a.priceOffset));
+      case _SortOrder.trust:
+        list.sort((a, b) => b.trustScore.compareTo(a.trustScore));
+    }
+    return list;
+  }
+
+  Future<void> _openFilter() async {
+    final _SortOrder? picked = await showModalBottomSheet<_SortOrder>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Sort listings',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            for (final order in _SortOrder.values)
+              ListTile(
+                title: Text(order.label),
+                trailing: order == _sortOrder
+                    ? const Icon(Icons.check, color: kBuyerGreen)
+                    : null,
+                onTap: () => Navigator.pop(context, order),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked != null) setState(() => _sortOrder = picked);
+  }
+
+  void _openRequest(_Listing listing) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => EstateOwnerRequestPage(
           type: widget.type,
-          estateName: estateName,
-          ownerName: ownerName,
-          pricePerNut: price,
+          estateName: listing.estateName,
+          ownerName: listing.ownerName,
+          pricePerNut: widget.type.pricePerNut + listing.priceOffset,
+          quantity: listing.quantity,
         ),
       ),
     );
@@ -81,9 +218,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
             // rather than stacking another copy on top.
             Navigator.popUntil(context, (route) => route.isFirst);
           } else if (index == 2) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Profile screen not built yet')),
-            );
+            _showSnack('Profile screen not built yet');
           }
         },
       ),
@@ -96,10 +231,17 @@ class _MarketplacePageState extends State<MarketplacePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
-                  children: const [
-                    Icon(Icons.menu, size: 22, color: Color(0xFF3A3A3A)),
-                    SizedBox(width: 12),
-                    Text(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Icon(
+                        Icons.arrow_back,
+                        size: 22,
+                        color: Color(0xFF3A3A3A),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
                       'CocoConnect',
                       style: TextStyle(
                         fontSize: 17,
@@ -109,27 +251,30 @@ class _MarketplacePageState extends State<MarketplacePage> {
                     ),
                   ],
                 ),
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(
-                      Icons.notifications_outlined,
-                      size: 22,
-                      color: Color(0xFF3A3A3A),
-                    ),
-                    Positioned(
-                      right: -1,
-                      top: -1,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFD32F2F),
-                          shape: BoxShape.circle,
+                GestureDetector(
+                  onTap: () => _showSnack('No new notifications'),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(
+                        Icons.notifications_outlined,
+                        size: 22,
+                        color: Color(0xFF3A3A3A),
+                      ),
+                      Positioned(
+                        right: -1,
+                        top: -1,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFD32F2F),
+                            shape: BoxShape.circle,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -204,6 +349,8 @@ class _MarketplacePageState extends State<MarketplacePage> {
                     controller: _nutsController,
                     hint: '1200',
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    textInputAction: TextInputAction.next,
                     prefix: const Padding(
                       padding: EdgeInsets.only(left: 12, right: 6),
                       child: Icon(
@@ -241,6 +388,9 @@ class _MarketplacePageState extends State<MarketplacePage> {
                     controller: _priceController,
                     hint: '${widget.type.pricePerNut - 20}',
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _submitRequest(),
                     prefix: const Padding(
                       padding: EdgeInsets.only(left: 14, right: 4),
                       child: Text(
@@ -309,30 +459,39 @@ class _MarketplacePageState extends State<MarketplacePage> {
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: kBuyerBorder),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.tune, size: 14, color: Color(0xFF3A3A3A)),
-                      SizedBox(width: 6),
-                      Text(
-                        'Filter',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                GestureDetector(
+                  onTap: _openFilter,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: kBuyerBorder),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.tune,
+                          size: 14,
                           color: Color(0xFF3A3A3A),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        Text(
+                          _sortOrder == _SortOrder.nearest
+                              ? 'Filter'
+                              : _sortOrder.label,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF3A3A3A),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -340,39 +499,20 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
             const SizedBox(height: 16),
 
-            EstateListingCard(
-              initial: 'A',
-              initialBackground: const Color(0xFFDDEEE0),
-              estateName: 'ABC Estates',
-              ownerName: 'ABC Estate Owner',
-              price: 'Rs. ${widget.type.pricePerNut}',
-              trustScore: '4.8/5',
-              quantity: '1,200 nuts',
-              availableDate: '18 Jul 2026',
-              onTap: () => _openRequest(
-                'ABC Estates',
-                'ABC Estate Owner',
-                widget.type.pricePerNut,
+            for (final listing in _sortedListings) ...[
+              EstateListingCard(
+                initial: listing.initial,
+                initialBackground: listing.initialBackground,
+                estateName: listing.estateName,
+                ownerName: listing.ownerName,
+                price: 'Rs. ${widget.type.pricePerNut + listing.priceOffset}',
+                trustScore: '${listing.trustScore}/5',
+                quantity: '${_withCommas(listing.quantity)} nuts',
+                availableDate: listing.availableDate,
+                onTap: () => _openRequest(listing),
               ),
-            ),
-
-            const SizedBox(height: 16),
-
-            EstateListingCard(
-              initial: 'P',
-              initialBackground: const Color(0xFFDCE6F5),
-              estateName: 'Perera Plantations',
-              ownerName: 'Perera Group',
-              price: 'Rs. ${widget.type.pricePerNut + 10}',
-              trustScore: '4.6/5',
-              quantity: '600 nuts',
-              availableDate: '20 Jul 2026',
-              onTap: () => _openRequest(
-                'Perera Plantations',
-                'Perera Group',
-                widget.type.pricePerNut + 10,
-              ),
-            ),
+              const SizedBox(height: 16),
+            ],
           ],
         ),
       ),

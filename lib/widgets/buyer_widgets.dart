@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 const Color kBuyerGreen = Color(0xFF2E7D32);
 const Color kBuyerGreenDark = Color(0xFF14432A);
@@ -12,27 +13,27 @@ class BuyerScaffold extends StatelessWidget {
   final Widget body;
   final Widget? bottomNavigation;
 
-  const BuyerScaffold({
-    super.key,
-    required this.body,
-    this.bottomNavigation,
-  });
+  const BuyerScaffold({super.key, required this.body, this.bottomNavigation});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFEFEFEF),
-      body: Center(
-        child: Container(
-          width: 390,
-          height: double.infinity,
-          color: kBuyerCream,
-          child: SafeArea(
-            child: Column(
-              children: [
-                Expanded(child: body),
-                ?bottomNavigation,
-              ],
+      // Tapping anywhere outside a text field closes the keyboard.
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Center(
+          child: Container(
+            width: 390,
+            height: double.infinity,
+            color: kBuyerCream,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Expanded(child: body),
+                  ?bottomNavigation,
+                ],
+              ),
             ),
           ),
         ),
@@ -167,10 +168,7 @@ class BuyerCard extends StatelessWidget {
 class BuyerFieldLabel extends StatelessWidget {
   final String text;
 
-  const BuyerFieldLabel({
-    super.key,
-    required this.text,
-  });
+  const BuyerFieldLabel({super.key, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -178,10 +176,7 @@ class BuyerFieldLabel extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Text(
         text,
-        style: const TextStyle(
-          fontSize: 12,
-          color: Color(0xFF5A5A5A),
-        ),
+        style: const TextStyle(fontSize: 12, color: Color(0xFF5A5A5A)),
       ),
     );
   }
@@ -194,7 +189,11 @@ class BuyerInputField extends StatelessWidget {
   final Widget? suffix;
   final TextInputType keyboardType;
   final bool readOnly;
+  final bool enabled;
   final VoidCallback? onTap;
+  final List<TextInputFormatter>? inputFormatters;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
 
   const BuyerInputField({
     super.key,
@@ -204,7 +203,11 @@ class BuyerInputField extends StatelessWidget {
     this.suffix,
     this.keyboardType = TextInputType.text,
     this.readOnly = false,
+    this.enabled = true,
     this.onTap,
+    this.inputFormatters,
+    this.textInputAction,
+    this.onSubmitted,
   });
 
   @override
@@ -213,7 +216,11 @@ class BuyerInputField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       readOnly: readOnly,
+      enabled: enabled,
       onTap: onTap,
+      inputFormatters: inputFormatters,
+      textInputAction: textInputAction,
+      onSubmitted: onSubmitted,
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
         hintText: hint,
@@ -235,6 +242,10 @@ class BuyerInputField extends StatelessWidget {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: kBuyerGreen),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: kBuyerBorder),
         ),
       ),
     );
@@ -275,10 +286,7 @@ class BuyerPrimaryButton extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
             if (trailingIcon != null) ...[
               const SizedBox(width: 8),
@@ -326,10 +334,7 @@ class BuyerOutlinedButton extends StatelessWidget {
             ],
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -343,11 +348,7 @@ class BuyerInfoPair extends StatelessWidget {
   final String label;
   final String value;
 
-  const BuyerInfoPair({
-    super.key,
-    required this.label,
-    required this.value,
-  });
+  const BuyerInfoPair({super.key, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -380,10 +381,7 @@ class BuyerInfoPair extends StatelessWidget {
 class BuyerSectionTitle extends StatelessWidget {
   final String text;
 
-  const BuyerSectionTitle({
-    super.key,
-    required this.text,
-  });
+  const BuyerSectionTitle({super.key, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -559,10 +557,7 @@ class EstateListingCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       ownerName,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: kBuyerGrey,
-                      ),
+                      style: const TextStyle(fontSize: 11, color: kBuyerGrey),
                     ),
                     const SizedBox(height: 5),
                     Row(
@@ -679,10 +674,7 @@ class BuyerCategoryCard extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             subtitle,
-            style: const TextStyle(
-              fontSize: 11,
-              color: kBuyerGrey,
-            ),
+            style: const TextStyle(fontSize: 11, color: kBuyerGrey),
           ),
         ],
       ),
@@ -705,8 +697,9 @@ class NegotiationBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment:
-          isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: isMine
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         Container(
           constraints: const BoxConstraints(maxWidth: 260),
@@ -726,10 +719,7 @@ class NegotiationBubble extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          time,
-          style: const TextStyle(fontSize: 10, color: kBuyerGrey),
-        ),
+        Text(time, style: const TextStyle(fontSize: 10, color: kBuyerGrey)),
       ],
     );
   }

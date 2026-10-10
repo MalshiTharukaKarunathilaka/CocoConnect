@@ -6,6 +6,14 @@ import 'marketplace_page.dart';
 class BuyerCategoriesPage extends StatelessWidget {
   const BuyerCategoriesPage({super.key});
 
+  void _comingSoon(BuildContext context, String category) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text('$category marketplace coming soon')),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BuyerScaffold(
@@ -15,9 +23,7 @@ class BuyerCategoriesPage extends StatelessWidget {
           if (index == 1) {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const MarketplacePage(),
-              ),
+              MaterialPageRoute(builder: (context) => const MarketplacePage()),
             );
           } else if (index == 2) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -102,29 +108,32 @@ class BuyerCategoriesPage extends StatelessWidget {
 
             const SizedBox(height: 14),
 
-            const BuyerCategoryCard(
+            BuyerCategoryCard(
               title: 'Vegetables',
               subtitle: 'Fresh produce',
               icon: Icons.eco,
               iconColor: kBuyerBrown,
+              onTap: () => _comingSoon(context, 'Vegetables'),
             ),
 
             const SizedBox(height: 14),
 
-            const BuyerCategoryCard(
+            BuyerCategoryCard(
               title: 'Livestock',
               subtitle: 'Animal products',
               icon: Icons.pets,
-              iconColor: Color(0xFF4A4A4A),
+              iconColor: const Color(0xFF4A4A4A),
+              onTap: () => _comingSoon(context, 'Livestock'),
             ),
 
             const SizedBox(height: 14),
 
-            const BuyerCategoryCard(
+            BuyerCategoryCard(
               title: 'Other Goods',
               subtitle: 'Farm goods',
               icon: Icons.inventory_2,
-              iconColor: Color(0xFF4A4A4A),
+              iconColor: const Color(0xFF4A4A4A),
+              onTap: () => _comingSoon(context, 'Other Goods'),
             ),
           ],
         ),

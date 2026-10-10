@@ -21,9 +21,9 @@ class EstateOwnerRequestPage extends StatelessWidget {
 
   /// 1200 -> "1,200"
   String get _formattedQuantity => quantity.toString().replaceAllMapped(
-        RegExp(r'(\d)(?=(\d{3})+$)'),
-        (m) => '${m[1]},',
-      );
+    RegExp(r'(\d)(?=(\d{3})+$)'),
+    (m) => '${m[1]},',
+  );
 
   String get _estimatedTotal => (quantity * pricePerNut)
       .toString()
@@ -187,7 +187,8 @@ class EstateOwnerRequestPage extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             BuyerSectionTitle(
-                              text: 'Order Request for '
+                              text:
+                                  'Order Request for '
                                   '${type.singular.toLowerCase()}s',
                             ),
                             const BuyerPill(
@@ -243,11 +244,7 @@ class EstateOwnerRequestPage extends StatelessWidget {
 
                         Row(
                           children: const [
-                            Icon(
-                              Icons.schedule,
-                              size: 14,
-                              color: kBuyerGrey,
-                            ),
+                            Icon(Icons.schedule, size: 14, color: kBuyerGrey),
                             SizedBox(width: 6),
                             Text(
                               'Posted 2 days ago  ·  Closes in 5 days',
@@ -272,10 +269,7 @@ class EstateOwnerRequestPage extends StatelessWidget {
                         const BuyerSectionTitle(text: 'Coconut Details'),
                         const SizedBox(height: 8),
                         BuyerDetailRow(label: 'Type', value: type.singular),
-                        const BuyerDetailRow(
-                          label: 'Grade',
-                          value: 'Grade A',
-                        ),
+                        const BuyerDetailRow(label: 'Grade', value: 'Grade A'),
                         BuyerDetailRow(label: 'Husk', value: type.husk),
                         const BuyerDetailRow(
                           label: 'Average nut size',
