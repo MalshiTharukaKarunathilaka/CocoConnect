@@ -3,6 +3,7 @@ const express = require("express");
 const {
   getEstate,
   updateEstate,
+  getSummary,
   getMyListings,
   createListing,
   getBuyerRequests,
@@ -47,12 +48,29 @@ router.use(requireAuth, requireRole("ESTATE_OWNER"));
  *             properties:
  *               estateName: { type: string, example: "Green Valley Estate" }
  *               location: { type: string, example: "Kurunegala" }
+ *               totalLandArea: { type: string, example: "25 acres" }
+ *               primaryCrop: { type: string, example: "Coconut" }
+ *               yearEstablished: { type: integer, example: 2015 }
  *     responses:
  *       200:
  *         description: Updated estate
  */
 router.get("/estate", getEstate);
 router.patch("/estate", updateEstate);
+
+/**
+ * @swagger
+ * /api/owner/summary:
+ *   get:
+ *     summary: Estate details and profile counts
+ *     tags: [Estate Owner]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Estate plus active listings, open chats, offers waiting and orders
+ */
+router.get("/summary", getSummary);
 
 /**
  * @swagger

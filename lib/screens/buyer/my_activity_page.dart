@@ -4,10 +4,10 @@ import '../../services/api_client.dart';
 import '../../services/buyer_service.dart';
 import '../../widgets/async_list.dart';
 import '../../widgets/buyer_widgets.dart';
-import '../auth_gate.dart';
 import 'buyer_format.dart';
 import 'buyer_negotiation_page.dart';
 import 'coconut_type.dart';
+import 'buyer_profile_page.dart';
 
 /// Opens My Activity from any buyer screen's ORDERS tab, on top of
 /// Buying Categories rather than stacking copies.
@@ -34,7 +34,7 @@ class MyActivityPage extends StatelessWidget {
             if (index == 0) {
               Navigator.popUntil(context, (route) => route.isFirst);
             } else if (index == 2) {
-              showAccountSheet(context);
+              openBuyerProfile(context);
             }
           },
         ),

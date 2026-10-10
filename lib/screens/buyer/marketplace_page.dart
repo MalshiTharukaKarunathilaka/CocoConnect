@@ -3,11 +3,11 @@ import 'package:flutter/services.dart';
 import '../../services/api_client.dart';
 import '../../services/buyer_service.dart';
 import '../../widgets/buyer_widgets.dart';
-import '../auth_gate.dart';
 import 'buyer_format.dart';
 import 'coconut_type.dart';
 import 'estate_owner_request_page.dart';
 import 'my_activity_page.dart';
+import 'buyer_profile_page.dart';
 
 const List<Color> _avatarColors = [
   Color(0xFFDDEEE0),
@@ -243,7 +243,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
           } else if (index == 1) {
             openMyActivity(context);
           } else if (index == 2) {
-            showAccountSheet(context);
+            openBuyerProfile(context);
           }
         },
       ),

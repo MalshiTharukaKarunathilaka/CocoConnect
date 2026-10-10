@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../widgets/buyer_widgets.dart';
-import '../auth_gate.dart';
 import 'coconut_types_page.dart';
 import 'my_activity_page.dart';
+import 'buyer_profile_page.dart';
 
 class BuyerCategoriesPage extends StatelessWidget {
   const BuyerCategoriesPage({super.key});
@@ -24,7 +24,7 @@ class BuyerCategoriesPage extends StatelessWidget {
           if (index == 1) {
             openMyActivity(context);
           } else if (index == 2) {
-            showAccountSheet(context);
+            openBuyerProfile(context);
           }
         },
       ),

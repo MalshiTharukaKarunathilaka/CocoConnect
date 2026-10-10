@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../widgets/buyer_widgets.dart';
-import '../auth_gate.dart';
 import 'coconut_type.dart';
 import 'marketplace_page.dart';
 import 'my_activity_page.dart';
+import 'buyer_profile_page.dart';
 
 /// Sits between Buying Categories and the marketplace - the buyer picks
 /// which form of coconut they want before seeing listings.
@@ -21,7 +21,7 @@ class CoconutTypesPage extends StatelessWidget {
           } else if (index == 1) {
             openMyActivity(context);
           } else if (index == 2) {
-            showAccountSheet(context);
+            openBuyerProfile(context);
           }
         },
       ),

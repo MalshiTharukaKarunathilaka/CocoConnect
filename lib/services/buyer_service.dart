@@ -302,6 +302,28 @@ class BuyerOrder {
   );
 }
 
+/// Counts shown on the buyer profile page.
+class BuyerSummary {
+  final int openRequests;
+  final int openChats;
+  final int ordersActive;
+  final int ordersCompleted;
+
+  const BuyerSummary({
+    required this.openRequests,
+    required this.openChats,
+    required this.ordersActive,
+    required this.ordersCompleted,
+  });
+
+  factory BuyerSummary.fromJson(Map<String, dynamic> json) => BuyerSummary(
+    openRequests: (json['open_requests'] as num).toInt(),
+    openChats: (json['open_chats'] as num).toInt(),
+    ordersActive: (json['orders_active'] as num).toInt(),
+    ordersCompleted: (json['orders_completed'] as num).toInt(),
+  );
+}
+
 enum ListingSort {
   newest('newest', 'Newest first', 'Newest'),
   priceLow('price_asc', 'Price: low to high', 'Lowest price'),
@@ -344,6 +366,11 @@ class BuyerService {
       'requiredDate': _isoDate(requiredDate),
       'biddingPricePerUnit': pricePerUnit,
     });
+  }
+
+  static Future<BuyerSummary> getSummary() async {
+    final data = await ApiClient.get('/api/buyer/summary');
+    return BuyerSummary.fromJson(data as Map<String, dynamic>);
   }
 
   static Future<List<BuyerRequest>> getMyRequests() async {

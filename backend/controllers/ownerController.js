@@ -48,24 +48,90 @@ const getEstate = async (req, res) => {
 
 const updateEstate = async (req, res) => {
   try {
-    const estateName = String(req.body.estateName || "").trim();
-    const location = String(req.body.location || "").trim();
+    const text = (value) => String(value ?? "").trim() || null;
+    const estateName = text(req.body.estateName);
+    const yearText = text(req.body.yearEstablished);
+    const year = yearText === null ? null : Number(yearText);
 
     if (!estateName) {
       return res.status(400).json({ message: "Estate name is required" });
     }
+    if (year !== null && !(Number.isInteger(year) && year >= 1800 && year <= 2100)) {
+      return res.status(400).json({ message: "Enter a valid year, e.g. 2015" });
+    }
 
     const estate = await getOwnEstate(pool, req.user.id);
     const result = await pool.query(
-      `UPDATE estate_owners SET estate_name = $2, location = $3
+      `UPDATE estate_owners
+       SET estate_name = $2, location = $3, total_land_area = $4,
+           primary_crop = $5, year_established = $6
        WHERE id = $1
        RETURNING *`,
-      [estate.id, estateName, location || null]
+      [
+        estate.id,
+        estateName,
+        text(req.body.location),
+        text(req.body.totalLandArea),
+        text(req.body.primaryCrop),
+        year,
+      ]
     );
 
     return res.status(200).json(result.rows[0]);
   } catch (error) {
     return serverError(res, "Update estate", error);
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| PROFILE SUMMARY
+|--------------------------------------------------------------------------
+| Estate details plus the counts shown on the profile page.
+*/
+const getSummary = async (req, res) => {
+  try {
+    const estate = await getOwnEstate(pool, req.user.id);
+    const count = async (sql) =>
+      Number((await pool.query(sql, [estate.id])).rows[0].count);
+
+    const myOrders = `FROM orders o
+      LEFT JOIN product_listings pl ON pl.id = o.listing_id
+      LEFT JOIN sell_requests sr
+        ON sr.buyer_request_id = o.buyer_request_id AND sr.status = 'accepted'
+      WHERE (pl.estate_owner_id = $1 OR sr.estate_owner_id = $1)`;
+
+    const activeListings = await count(
+      `SELECT COUNT(*) AS count FROM product_listings
+       WHERE estate_owner_id = $1
+         AND UPPER(COALESCE(status, 'ACTIVE')) = 'ACTIVE'`
+    );
+    const openChats = await count(
+      `SELECT COUNT(*) AS count FROM negotiations n
+       JOIN product_listings pl ON pl.id = n.listing_id
+       WHERE pl.estate_owner_id = $1 AND n.status = 'OPEN'`
+    );
+    const offersWaiting = await count(
+      `SELECT COUNT(*) AS count FROM sell_requests
+       WHERE estate_owner_id = $1 AND status = 'pending'`
+    );
+    const ordersActive = await count(
+      `SELECT COUNT(*) AS count ${myOrders} AND o.status = 'ACCEPTED'`
+    );
+    const ordersCompleted = await count(
+      `SELECT COUNT(*) AS count ${myOrders} AND o.status = 'COMPLETED'`
+    );
+
+    return res.status(200).json({
+      estate,
+      active_listings: activeListings,
+      open_chats: openChats,
+      offers_waiting: offersWaiting,
+      orders_active: ordersActive,
+      orders_completed: ordersCompleted,
+    });
+  } catch (error) {
+    return serverError(res, "Get owner summary", error);
   }
 };
 
@@ -456,6 +522,7 @@ const getMyOrders = async (req, res) => {
 module.exports = {
   getEstate,
   updateEstate,
+  getSummary,
   getMyListings,
   createListing,
   getBuyerRequests,

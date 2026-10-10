@@ -287,3 +287,40 @@ test("buyer request -> owner offers -> buyer accepts one", async () => {
   assert.equal(buyerSide.estate_name, "Hill Top Estate");
   assert.equal(buyerSide.quantity, 500);
 });
+
+test("profile: estate details and summary counts", async () => {
+  const bad = await call("PATCH", "/api/owner/estate", {
+    token: owner.token,
+    body: { estateName: "Hill Top Estate", yearEstablished: "20x5" },
+  });
+  assert.equal(bad.status, 400);
+
+  const saved = await call("PATCH", "/api/owner/estate", {
+    token: owner.token,
+    body: {
+      estateName: "Hill Top Estate",
+      location: "Kandy",
+      totalLandArea: "25 acres",
+      primaryCrop: "Coconut",
+      yearEstablished: "2015",
+    },
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.data.total_land_area, "25 acres");
+  assert.equal(saved.data.year_established, 2015);
+
+  // Earlier tests left: 1 active listing, 1 open chat (declined one closed),
+  // 1 accepted order from the chat and 1 from an accepted offer.
+  const summary = await call("GET", "/api/owner/summary", { token: owner.token });
+  assert.equal(summary.status, 200);
+  assert.equal(summary.data.estate.primary_crop, "Coconut");
+  assert.equal(summary.data.active_listings, 1);
+  assert.equal(summary.data.open_chats, 0);
+  assert.equal(summary.data.orders_active, 2);
+  assert.equal(summary.data.orders_completed, 0);
+
+  const buyerSummary = await call("GET", "/api/buyer/summary", { token: buyer.token });
+  assert.equal(buyerSummary.status, 200);
+  assert.equal(buyerSummary.data.orders_active, 2);
+  assert.equal(buyerSummary.data.open_requests, 0);
+});

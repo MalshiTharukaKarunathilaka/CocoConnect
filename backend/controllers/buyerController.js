@@ -273,6 +273,44 @@ const acceptResponse = async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
+| PROFILE SUMMARY
+|--------------------------------------------------------------------------
+*/
+const getSummary = async (req, res) => {
+  try {
+    const count = async (sql) =>
+      Number((await pool.query(sql, [req.user.id])).rows[0].count);
+
+    const openRequests = await count(
+      `SELECT COUNT(*) AS count FROM buyer_requests
+       WHERE buyer_id = $1 AND UPPER(COALESCE(status, 'PENDING')) = 'PENDING'`
+    );
+    const openChats = await count(
+      `SELECT COUNT(*) AS count FROM negotiations
+       WHERE buyer_id = $1 AND status = 'OPEN'`
+    );
+    const ordersActive = await count(
+      `SELECT COUNT(*) AS count FROM orders
+       WHERE buyer_id = $1 AND status = 'ACCEPTED'`
+    );
+    const ordersCompleted = await count(
+      `SELECT COUNT(*) AS count FROM orders
+       WHERE buyer_id = $1 AND status = 'COMPLETED'`
+    );
+
+    return res.status(200).json({
+      open_requests: openRequests,
+      open_chats: openChats,
+      orders_active: ordersActive,
+      orders_completed: ordersCompleted,
+    });
+  } catch (error) {
+    return serverError(res, "Get buyer summary", error);
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
 | UPDATE MY REQUEST (only while still PENDING)
 |--------------------------------------------------------------------------
 */
@@ -684,6 +722,7 @@ module.exports = {
   getListing,
   createRequest,
   getMyRequests,
+  getSummary,
   getRequestResponses,
   acceptResponse,
   updateRequest,

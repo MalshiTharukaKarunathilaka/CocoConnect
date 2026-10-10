@@ -24,12 +24,20 @@ class Estate {
   final String estateName;
   final String ownerName;
   final String? location;
+  final String? totalLandArea;
+  final String? primaryCrop;
+  final int? yearEstablished;
+  final double? trustScore;
 
   const Estate({
     required this.id,
     required this.estateName,
     required this.ownerName,
     required this.location,
+    this.totalLandArea,
+    this.primaryCrop,
+    this.yearEstablished,
+    this.trustScore,
   });
 
   factory Estate.fromJson(Map<String, dynamic> json) => Estate(
@@ -37,6 +45,38 @@ class Estate {
     estateName: json['estate_name'] as String? ?? '',
     ownerName: json['name'] as String? ?? '',
     location: json['location'] as String?,
+    totalLandArea: json['total_land_area'] as String?,
+    primaryCrop: json['primary_crop'] as String?,
+    yearEstablished: (json['year_established'] as num?)?.toInt(),
+    trustScore: _rating(json['trust_score']),
+  );
+}
+
+/// Everything the estate owner profile page shows.
+class OwnerSummary {
+  final Estate estate;
+  final int activeListings;
+  final int openChats;
+  final int offersWaiting;
+  final int ordersActive;
+  final int ordersCompleted;
+
+  const OwnerSummary({
+    required this.estate,
+    required this.activeListings,
+    required this.openChats,
+    required this.offersWaiting,
+    required this.ordersActive,
+    required this.ordersCompleted,
+  });
+
+  factory OwnerSummary.fromJson(Map<String, dynamic> json) => OwnerSummary(
+    estate: Estate.fromJson(json['estate'] as Map<String, dynamic>),
+    activeListings: (json['active_listings'] as num).toInt(),
+    openChats: (json['open_chats'] as num).toInt(),
+    offersWaiting: (json['offers_waiting'] as num).toInt(),
+    ordersActive: (json['orders_active'] as num).toInt(),
+    ordersCompleted: (json['orders_completed'] as num).toInt(),
   );
 }
 
@@ -93,13 +133,24 @@ class OwnerService {
     return Estate.fromJson(data as Map<String, dynamic>);
   }
 
+  static Future<OwnerSummary> getSummary() async {
+    final data = await ApiClient.get('/api/owner/summary');
+    return OwnerSummary.fromJson(data as Map<String, dynamic>);
+  }
+
   static Future<Estate> updateEstate({
     required String estateName,
     String? location,
+    String? totalLandArea,
+    String? primaryCrop,
+    String? yearEstablished,
   }) async {
     final data = await ApiClient.patch('/api/owner/estate', {
       'estateName': estateName,
       'location': location ?? '',
+      'totalLandArea': totalLandArea ?? '',
+      'primaryCrop': primaryCrop ?? '',
+      'yearEstablished': yearEstablished ?? '',
     });
     return Estate.fromJson(data as Map<String, dynamic>);
   }

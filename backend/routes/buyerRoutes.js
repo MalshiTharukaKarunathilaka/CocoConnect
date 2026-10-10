@@ -5,6 +5,7 @@ const {
   getListing,
   createRequest,
   getMyRequests,
+  getSummary,
   getRequestResponses,
   acceptResponse,
   updateRequest,
@@ -98,6 +99,20 @@ router.use(requireAuth, requireRole("BUYER"));
  */
 router.post("/requests", createRequest);
 router.get("/requests", getMyRequests);
+
+/**
+ * @swagger
+ * /api/buyer/summary:
+ *   get:
+ *     summary: Counts for the buyer profile page
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Open requests, open chats, active and completed orders
+ */
+router.get("/summary", getSummary);
 
 /**
  * @swagger
