@@ -30,8 +30,8 @@ const getOwnEstate = async (db, userId) => {
   const { name, location } = user.rows[0];
 
   const created = await db.query(
-    `INSERT INTO estate_owners (user_id, name, estate_name, location)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO estate_owners (user_id, name, estate_name, location, trust_score)
+     VALUES ($1, $2, $3, $4, NULL)
      RETURNING *`,
     [userId, name, `${name} Estate`, location]
   );

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'sell_request_page.dart';
-import '../services/api_service.dart';
+import '../services/api_client.dart';
+import '../services/owner_service.dart';
+import 'buyer/buyer_format.dart';
 
 class RawCoconutsPage extends StatefulWidget {
   const RawCoconutsPage({super.key});
@@ -21,6 +23,12 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
   TextEditingController(text: 'Rs. 130.00');
 
   bool showSummary = false;
+
+  // Open raw-coconut buyer requests, reloaded after sending an offer.
+  late Future<List<OpenBuyerRequest>> buyersFuture = loadBuyers();
+
+  Future<List<OpenBuyerRequest>> loadBuyers() =>
+      OwnerService.getBuyerRequests(productType: 'RAW_COCONUT');
 
   Future<void> pickAvailableDate() async {
     final DateTime today = DateTime.now();
@@ -107,10 +115,12 @@ Future<void> saveListingToDatabase() async {
     final String availableDate =
         convertDateToDatabaseFormat(dateController.text.trim());
 
-    await ApiService.createListing(
+    // Saved under the logged-in owner's estate.
+    await OwnerService.createListing(
+      productType: 'RAW_COCONUT',
       quantity: quantity,
       availableDate: availableDate,
-      offerPricePerUnit: price,
+      pricePerUnit: price,
     );
 
     if (!mounted) return;
@@ -318,71 +328,91 @@ Future<void> saveListingToDatabase() async {
                       ),
 
                       const SizedBox(height: 14),
-FutureBuilder<List<dynamic>>(
-  future: ApiService.getBuyerRequests(),
+FutureBuilder<List<OpenBuyerRequest>>(
+  future: buyersFuture,
   builder: (context, snapshot) {
-    if (snapshot.connectionState == ConnectionState.waiting) {
+    if (snapshot.connectionState != ConnectionState.done) {
       return const Center(
         child: CircularProgressIndicator(),
       );
     }
 
     if (snapshot.hasError) {
-      return const Text(
-        'Failed to load buyers',
-        style: TextStyle(color: Colors.red),
+      final Object error = snapshot.error!;
+      return Text(
+        error is ApiException ? error.message : 'Failed to load buyers',
+        style: const TextStyle(color: Colors.red),
       );
     }
 
     final buyers = snapshot.data ?? [];
 
     if (buyers.isEmpty) {
-      return const Text('No interested buyers found');
+      return const Text('No buyers are requesting raw coconuts right now');
     }
 
     return Column(
       children: buyers.map((buyer) {
-        final String buyerName = buyer['buyer_name'].toString();
-
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: InterestedBuyerCard(
-            iconLetter: buyerName.isNotEmpty ? buyerName[0] : '?',
-            buyerName: buyerName,
-            trustScore: '${buyer['trust_score']}/5',
-            price: 'Rs. ${buyer['bidding_price_per_unit']}',
-            quantity: '${buyer['requested_quantity']} nuts',
-            pickupDate: buyer['required_date'].toString().substring(0, 10),
-           onTap: () {
-  final double sellerOfferPrice = double.tryParse(
-        priceController.text
-            .replaceAll('Rs.', '')
-            .replaceAll('Rs', '')
-            .replaceAll(',', '')
-            .trim(),
-      ) ??
-      0;
+            iconLetter:
+                buyer.buyerName.isNotEmpty ? buyer.buyerName[0] : '?',
+            buyerName: buyer.buyerName,
+            trustScore: buyer.trustScore == null
+                ? 'NEW'
+                : '${buyer.trustScore}/5',
+            price: buyer.offerSent
+                ? 'Offered ${rupees(buyer.myOfferPrice!)}'
+                : rupees(buyer.bidPerUnit),
+            quantity: '${withCommas(buyer.quantity)} nuts',
+            pickupDate: shortDate(buyer.requiredDate),
+            onTap: () async {
+              if (buyer.offerSent) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'You already offered ${rupees(buyer.myOfferPrice!)} '
+                      'per nut to ${buyer.buyerName}',
+                    ),
+                  ),
+                );
+                return;
+              }
 
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => SellRequestPage(
-        buyerId: int.tryParse(buyer['id'].toString()) ?? 0,
-        buyerName: buyer['buyer_name'].toString(),
-        location: buyer['location'].toString(),
-        requestedQuantity:
-            int.tryParse(buyer['requested_quantity'].toString()) ?? 0,
-        requiredDate: buyer['required_date'].toString().substring(0, 10),
-        productType: buyer['product_type'].toString(),
-        buyerBiddingPrice: double.tryParse(
-              buyer['bidding_price_per_unit'].toString(),
-            ) ??
-            0,
-        sellerOfferPricePerUnit: sellerOfferPrice,
-      ),
-    ),
-  );
-},
+              final double sellerOfferPrice = double.tryParse(
+                    priceController.text
+                        .replaceAll('Rs.', '')
+                        .replaceAll('Rs', '')
+                        .replaceAll(',', '')
+                        .trim(),
+                  ) ??
+                  0;
+
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SellRequestPage(
+                    buyerId: buyer.id,
+                    buyerName: buyer.buyerName,
+                    location: buyer.location ?? '',
+                    requestedQuantity: buyer.quantity,
+                    requiredDate: buyer.requiredDate == null
+                        ? ''
+                        : buyer.requiredDate!.toIso8601String().substring(0, 10),
+                    productType: buyer.productType,
+                    buyerBiddingPrice: buyer.bidPerUnit,
+                    sellerOfferPricePerUnit: sellerOfferPrice > 0
+                        ? sellerOfferPrice
+                        : buyer.bidPerUnit,
+                  ),
+                ),
+              );
+              if (!mounted) return;
+              setState(() {
+                buyersFuture = loadBuyers();
+              });
+            },
           ),
         );
       }).toList(),

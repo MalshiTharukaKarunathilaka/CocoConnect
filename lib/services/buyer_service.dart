@@ -7,6 +7,12 @@ double _toDouble(dynamic value) =>
 double? _toDoubleOrNull(dynamic value) =>
     value == null ? null : _toDouble(value);
 
+/// Trust scores of 0 (the column default) mean "not rated yet".
+double? _rating(dynamic value) {
+  final double? score = _toDoubleOrNull(value);
+  return score == null || score <= 0 ? null : score;
+}
+
 class Listing {
   final int id;
   final String productType;
@@ -41,7 +47,7 @@ class Listing {
     estateName: json['estate_name'] as String? ?? 'Unknown estate',
     ownerName: json['owner_name'] as String? ?? '',
     location: json['location'] as String?,
-    trustScore: _toDoubleOrNull(json['trust_score']),
+    trustScore: _rating(json['trust_score']),
     createdAt: DateTime.tryParse('${json['created_at']}'),
   );
 }
@@ -79,6 +85,9 @@ class Negotiation {
   final Listing listing;
   final List<NegotiationMessage> messages;
 
+  /// Set when an estate owner opens the chat.
+  final String? buyerName;
+
   const Negotiation({
     required this.id,
     required this.status,
@@ -86,10 +95,12 @@ class Negotiation {
     required this.orderStatus,
     required this.listing,
     required this.messages,
+    this.buyerName,
   });
 
-  /// The estate owner's latest counter-offer, or the listed price. This is
-  /// the price "Accept Deal" agrees to - the backend uses the same rule.
+  /// The other side's latest counter-offer, or the listed price. For a buyer
+  /// this is the estate owner's price that "Accept Deal" agrees to - the
+  /// backend uses the same rule.
   double get priceOnTable {
     for (final message in messages.reversed) {
       if (!message.isMine && message.offerPrice != null) {
@@ -108,6 +119,7 @@ class Negotiation {
     messages: (json['messages'] as List)
         .map((m) => NegotiationMessage.fromJson(m as Map<String, dynamic>))
         .toList(),
+    buyerName: (json['buyer'] as Map<String, dynamic>?)?['name'] as String?,
   );
 }
 
@@ -117,8 +129,11 @@ class BuyerRequest {
   final int quantity;
   final DateTime? requiredDate;
   final double pricePerUnit;
-  final String status; // PENDING, or whatever estate owners move it to
+  final String status; // PENDING, ACCEPTED once an offer is accepted
   final DateTime? createdAt;
+
+  /// How many estate owners have sent an offer for this request.
+  final int responseCount;
 
   const BuyerRequest({
     required this.id,
@@ -128,6 +143,7 @@ class BuyerRequest {
     required this.pricePerUnit,
     required this.status,
     required this.createdAt,
+    this.responseCount = 0,
   });
 
   bool get isPending => status.toUpperCase() == 'PENDING';
@@ -140,6 +156,63 @@ class BuyerRequest {
     pricePerUnit: _toDouble(json['bidding_price_per_unit']),
     status: json['status'] as String? ?? 'PENDING',
     createdAt: DateTime.tryParse('${json['created_at']}')?.toLocal(),
+    responseCount: _toDouble(json['response_count']).toInt(),
+  );
+}
+
+/// An estate owner's offer (sell request) answering a buyer request.
+class SellOffer {
+  final int id;
+  final int buyerRequestId;
+  final String productType;
+  final int quantity;
+  final double pricePerUnit;
+  final DateTime? availableDate;
+  final String status; // pending / accepted / declined
+  final String estateName;
+  final String ownerName;
+  final String? location;
+  final double? trustScore;
+
+  // Filled in when an estate owner lists the offers they sent.
+  final String? buyerName;
+  final int? requestedQuantity;
+  final double? buyerBid;
+
+  const SellOffer({
+    required this.id,
+    required this.buyerRequestId,
+    required this.productType,
+    required this.quantity,
+    required this.pricePerUnit,
+    required this.availableDate,
+    required this.status,
+    required this.estateName,
+    required this.ownerName,
+    required this.location,
+    required this.trustScore,
+    this.buyerName,
+    this.requestedQuantity,
+    this.buyerBid,
+  });
+
+  bool get isPending => status.toLowerCase() == 'pending';
+
+  factory SellOffer.fromJson(Map<String, dynamic> json) => SellOffer(
+    id: json['id'] as int,
+    buyerRequestId: json['buyer_request_id'] as int,
+    productType: json['product_type'] as String? ?? '',
+    quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+    pricePerUnit: _toDouble(json['seller_price_per_unit']),
+    availableDate: DateTime.tryParse('${json['available_date']}'),
+    status: json['status'] as String? ?? 'pending',
+    estateName: json['estate_name'] as String? ?? '',
+    ownerName: json['owner_name'] as String? ?? '',
+    location: json['location'] as String?,
+    trustScore: _rating(json['trust_score']),
+    buyerName: json['buyer_name'] as String?,
+    requestedQuantity: (json['requested_quantity'] as num?)?.toInt(),
+    buyerBid: _toDoubleOrNull(json['bidding_price_per_unit']),
   );
 }
 
@@ -155,6 +228,9 @@ class NegotiationSummary {
   final int messageCount;
   final DateTime? createdAt;
 
+  /// Set when an estate owner lists the chats on their listings.
+  final String? buyerName;
+
   const NegotiationSummary({
     required this.id,
     required this.status,
@@ -166,6 +242,7 @@ class NegotiationSummary {
     required this.ownerName,
     required this.messageCount,
     required this.createdAt,
+    this.buyerName,
   });
 
   factory NegotiationSummary.fromJson(Map<String, dynamic> json) =>
@@ -180,6 +257,7 @@ class NegotiationSummary {
         ownerName: json['owner_name'] as String? ?? '',
         messageCount: _toDouble(json['message_count']).toInt(),
         createdAt: DateTime.tryParse('${json['created_at']}')?.toLocal(),
+        buyerName: json['buyer_name'] as String?,
       );
 }
 
@@ -194,6 +272,9 @@ class BuyerOrder {
   final String estateName;
   final DateTime? createdAt;
 
+  /// Set when an estate owner lists their orders.
+  final String? buyerName;
+
   const BuyerOrder({
     required this.id,
     required this.negotiationId,
@@ -204,6 +285,7 @@ class BuyerOrder {
     required this.totalValue,
     required this.estateName,
     required this.createdAt,
+    this.buyerName,
   });
 
   factory BuyerOrder.fromJson(Map<String, dynamic> json) => BuyerOrder(
@@ -216,6 +298,7 @@ class BuyerOrder {
     totalValue: _toDouble(json['total_value']),
     estateName: json['estate_name'] as String? ?? 'Unknown estate',
     createdAt: DateTime.tryParse('${json['created_at']}')?.toLocal(),
+    buyerName: json['buyer_name'] as String?,
   );
 }
 
@@ -282,6 +365,20 @@ class BuyerService {
       'biddingPricePerUnit': pricePerUnit,
     });
   }
+
+  static Future<List<SellOffer>> getRequestResponses(int requestId) async {
+    final data = await ApiClient.get(
+      '/api/buyer/requests/$requestId/responses',
+    );
+    return (data as List)
+        .map((item) => SellOffer.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Accepts one estate owner's offer; creates an order and closes the
+  /// request.
+  static Future<void> acceptResponse(int sellOfferId) =>
+      ApiClient.post('/api/buyer/responses/$sellOfferId/accept');
 
   static Future<void> deleteRequest(int id) =>
       ApiClient.delete('/api/buyer/requests/$id');

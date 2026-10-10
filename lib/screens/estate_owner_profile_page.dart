@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'auth_gate.dart';
 
 class EstateOwnerProfilePage extends StatelessWidget {
   const EstateOwnerProfilePage({super.key});
@@ -166,7 +167,7 @@ class EstateOwnerProfilePage extends StatelessWidget {
                             width: double.infinity,
                             height: 34,
                             child: ElevatedButton(
-                              onPressed: () {},
+                              onPressed: () => showAccountSheet(context),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF1F6B3D),
                                 foregroundColor: Colors.white,

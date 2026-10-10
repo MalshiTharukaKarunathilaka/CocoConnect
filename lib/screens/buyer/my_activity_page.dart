@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_client.dart';
 import '../../services/buyer_service.dart';
+import '../../widgets/async_list.dart';
 import '../../widgets/buyer_widgets.dart';
 import '../auth_gate.dart';
 import 'buyer_format.dart';
@@ -85,104 +86,6 @@ void _showSnack(BuildContext context, String text, {bool error = false}) {
     );
 }
 
-/// Loads a list, with spinner, error + retry, empty message and
-/// pull-to-refresh. [itemBuilder] gets a reload callback for after edits.
-class _AsyncList<T> extends StatefulWidget {
-  final Future<List<T>> Function() load;
-  final String emptyText;
-  final Widget Function(BuildContext context, T item, VoidCallback reload)
-  itemBuilder;
-
-  const _AsyncList({
-    super.key,
-    required this.load,
-    required this.emptyText,
-    required this.itemBuilder,
-  });
-
-  @override
-  State<_AsyncList<T>> createState() => _AsyncListState<T>();
-}
-
-class _AsyncListState<T> extends State<_AsyncList<T>> {
-  late Future<List<T>> _items = widget.load();
-
-  Future<void> _reload() async {
-    final Future<List<T>> next = widget.load();
-    setState(() {
-      _items = next;
-    });
-    try {
-      await next;
-    } catch (_) {
-      // Shown by the FutureBuilder below.
-    }
-  }
-
-  Widget _message(IconData icon, String text) {
-    // ListView so pull-to-refresh still works on an empty or failed list.
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(32, 60, 32, 20),
-      children: [
-        Icon(icon, size: 34, color: kBuyerGrey),
-        const SizedBox(height: 10),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 13, height: 1.4, color: kBuyerGrey),
-        ),
-        const SizedBox(height: 6),
-        Center(
-          child: TextButton.icon(
-            onPressed: _reload,
-            icon: const Icon(Icons.refresh, size: 18),
-            label: const Text('Refresh'),
-            style: TextButton.styleFrom(foregroundColor: kBuyerGreen),
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RefreshIndicator(
-      color: kBuyerGreen,
-      onRefresh: _reload,
-      child: FutureBuilder<List<T>>(
-        future: _items,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(
-              child: CircularProgressIndicator(color: kBuyerGreen),
-            );
-          }
-          if (snapshot.hasError) {
-            final Object error = snapshot.error!;
-            return _message(
-              Icons.cloud_off_outlined,
-              error is ApiException ? error.message : 'Could not load',
-            );
-          }
-          final List<T> items = snapshot.data!;
-          if (items.isEmpty) {
-            return _message(Icons.inbox_outlined, widget.emptyText);
-          }
-          return ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            itemCount: items.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) =>
-                widget.itemBuilder(context, items[index], _reload),
-          );
-        },
-      ),
-    );
-  }
-}
-
 BuyerPill _statusPill(String text, {bool good = false, bool bad = false}) {
   return BuyerPill(
     text: text,
@@ -206,7 +109,7 @@ class _RequestsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _AsyncList<BuyerRequest>(
+    return AsyncList<BuyerRequest>(
       load: BuyerService.getMyRequests,
       emptyText:
           'No requests yet. Submit one from the Marketplace and estate '
@@ -230,6 +133,18 @@ class _RequestCard extends StatelessWidget {
     );
     if (saved == true && context.mounted) {
       _showSnack(context, 'Request updated');
+      onChanged();
+    }
+  }
+
+  Future<void> _showOffers(BuildContext context) async {
+    final bool? accepted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _OffersSheet(request: request),
+    );
+    if (accepted == true && context.mounted) {
+      _showSnack(context, 'Offer accepted. It is now under Orders.');
       onChanged();
     }
   }
@@ -314,6 +229,35 @@ class _RequestCard extends StatelessWidget {
                   'Needed by ${shortDate(request.requiredDate)}',
                   style: const TextStyle(fontSize: 12, color: kBuyerGrey),
                 ),
+                if (request.responseCount > 0) ...[
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () => _showOffers(context),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.local_offer_outlined,
+                          size: 15,
+                          color: kBuyerGreen,
+                        ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            request.responseCount == 1
+                                ? '1 estate owner responded  ·  View offer'
+                                : '${request.responseCount} estate owners '
+                                      'responded  ·  View offers',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: kBuyerGreen,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -332,6 +276,185 @@ class _RequestCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Estate owners' offers on one request, cheapest first, with Accept.
+class _OffersSheet extends StatefulWidget {
+  final BuyerRequest request;
+
+  const _OffersSheet({required this.request});
+
+  @override
+  State<_OffersSheet> createState() => _OffersSheetState();
+}
+
+class _OffersSheetState extends State<_OffersSheet> {
+  late final Future<List<SellOffer>> _offers = BuyerService.getRequestResponses(
+    widget.request.id,
+  );
+  int? _accepting;
+
+  Future<void> _accept(SellOffer offer) async {
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Accept this offer?'),
+        content: Text(
+          '${offer.estateName}: ${withCommas(offer.quantity)} nuts at '
+          '${rupees(offer.pricePerUnit)} each\n'
+          'Total: ${rupees(offer.pricePerUnit * offer.quantity)}\n\n'
+          'Other offers on this request will be declined.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Accept'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    setState(() => _accepting = offer.id);
+    try {
+      await BuyerService.acceptResponse(offer.id);
+      if (mounted) Navigator.pop(context, true);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _accepting = null);
+      _showSnack(context, error.message, error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool open = widget.request.isPending;
+
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Offers from estate owners',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Your request: ${withCommas(widget.request.quantity)} nuts at '
+                '${rupees(widget.request.pricePerUnit)} each',
+                style: const TextStyle(fontSize: 12.5, color: kBuyerGrey),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: FutureBuilder<List<SellOffer>>(
+                  future: _offers,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(
+                          child: CircularProgressIndicator(color: kBuyerGreen),
+                        ),
+                      );
+                    }
+                    if (snapshot.hasError) {
+                      final Object error = snapshot.error!;
+                      return Text(
+                        error is ApiException
+                            ? error.message
+                            : 'Could not load offers',
+                        style: const TextStyle(color: Color(0xFFC62828)),
+                      );
+                    }
+                    final List<SellOffer> offers = snapshot.data!;
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: offers.length,
+                      separatorBuilder: (context, index) =>
+                          const Divider(height: 20),
+                      itemBuilder: (context, index) {
+                        final SellOffer offer = offers[index];
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    offer.estateName,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '${withCommas(offer.quantity)} nuts  ·  '
+                                    '${rupees(offer.pricePerUnit)} each',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF3A3A3A),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    [
+                                      if (offer.location != null)
+                                        offer.location!,
+                                      offer.trustScore == null
+                                          ? 'not rated yet'
+                                          : 'trust ${offer.trustScore}/5',
+                                    ].join('  ·  '),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: kBuyerGrey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (open)
+                              ElevatedButton(
+                                onPressed: _accepting == null
+                                    ? () => _accept(offer)
+                                    : null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: kBuyerGreen,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: Text(
+                                  _accepting == offer.id ? '...' : 'Accept',
+                                ),
+                              )
+                            else
+                              offer.status.toLowerCase() == 'accepted'
+                                  ? _statusPill('ACCEPTED', good: true)
+                                  : _statusPill('NOT CHOSEN'),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -482,7 +605,7 @@ class _NegotiationsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _AsyncList<NegotiationSummary>(
+    return AsyncList<NegotiationSummary>(
       load: BuyerService.getMyNegotiations,
       emptyText:
           'No negotiations yet. Open a listing in the Marketplace and tap '
@@ -557,16 +680,53 @@ class _NegotiationsTab extends StatelessWidget {
 class _OrdersTab extends StatelessWidget {
   const _OrdersTab();
 
+  Future<void> _completeOrder(
+    BuildContext context,
+    BuyerOrder order,
+    VoidCallback reload,
+  ) async {
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Complete transaction?'),
+        content: const Text(
+          'Confirm that you have collected the nuts and paid the estate owner.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Complete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await BuyerService.completeOrder(order.id);
+      if (!context.mounted) return;
+      _showSnack(context, 'Transaction completed');
+      reload();
+    } on ApiException catch (error) {
+      if (context.mounted) _showSnack(context, error.message, error: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return _AsyncList<BuyerOrder>(
+    return AsyncList<BuyerOrder>(
       load: BuyerService.getMyOrders,
       emptyText: 'No orders yet. Orders appear here when you accept a deal.',
       itemBuilder: (context, order, reload) {
         final bool completed = order.status == 'COMPLETED';
         return BuyerCard(
-          onTap: order.negotiationId == null
+          onTap: completed
               ? null
+              : order.negotiationId == null
+              ? () => _completeOrder(context, order, reload)
               : () async {
                   await Navigator.push(
                     context,

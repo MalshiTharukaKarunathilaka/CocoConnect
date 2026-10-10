@@ -274,7 +274,9 @@ class CustomBottomNavigation extends StatelessWidget {
             label: 'Orders',
             isActive: currentIndex == 1,
             onTap: () {
-              // Later you can link Orders page here.
+              if (currentIndex != 1) {
+                Navigator.pushNamed(context, '/owner-activity');
+              }
             },
           ),
 

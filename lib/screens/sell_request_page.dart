@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'negotiation_page.dart';
+import '../services/api_client.dart';
+import '../services/owner_service.dart';
 
 class SellRequestPage extends StatefulWidget {
   final int buyerId;
@@ -49,6 +50,55 @@ class _SellRequestPageState extends State<SellRequestPage> {
     quantityController.dispose();
     offerPriceController.dispose();
     super.dispose();
+  }
+
+  bool sending = false;
+
+  /// Saves the offer; the buyer sees it under My Activity > Requests.
+  Future<void> sendOffer() async {
+    final int? quantity = int.tryParse(
+      quantityController.text.replaceAll(',', '').trim(),
+    );
+    final double? price = double.tryParse(
+      offerPriceController.text
+          .replaceAll('Rs.', '')
+          .replaceAll('Rs', '')
+          .replaceAll(',', '')
+          .trim(),
+    );
+    if (quantity == null || quantity <= 0 || price == null || price <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a quantity and a price per nut')),
+      );
+      return;
+    }
+
+    setState(() => sending = true);
+    try {
+      await OwnerService.sendOffer(
+        buyerRequestId: widget.buyerId,
+        quantity: quantity,
+        pricePerUnit: price,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Offer sent to ${widget.buyerName}'),
+          backgroundColor: const Color(0xFF1F6B3D),
+        ),
+      );
+      Navigator.pop(context);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: const Color(0xFFC62828),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
   }
 
   String get productName {
@@ -316,19 +366,10 @@ class _SellRequestPageState extends State<SellRequestPage> {
                   width: double.infinity,
                   height: 54,
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => NegotiationPage(
-                            buyerName: widget.buyerName,
-                          ),
-                        ),
-                      );
-                    },
+                    onPressed: sending ? null : sendOffer,
                     icon: const Icon(Icons.send),
-                    label: const Text(
-                      'Send Request',
+                    label: Text(
+                      sending ? 'Sending...' : 'Send Request',
                       style: TextStyle(fontSize: 15),
                     ),
                     style: ElevatedButton.styleFrom(
