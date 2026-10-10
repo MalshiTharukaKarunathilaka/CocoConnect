@@ -19,9 +19,67 @@ const options = {
         name: "Listings",
         description: "Product listing and buyer/sell request operations",
       },
+      {
+        name: "Auth",
+        description: "Sign up and log in (all roles)",
+      },
+      {
+        name: "Buyer",
+        description: "Marketplace, buyer requests, negotiation and orders",
+      },
     ],
     components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
       schemas: {
+        SignupInput: {
+          type: "object",
+          required: ["name", "phone", "password", "role"],
+          properties: {
+            name: { type: "string", example: "Senuji Test" },
+            phone: { type: "string", example: "0771234567" },
+            password: { type: "string", example: "secret123" },
+            role: {
+              type: "string",
+              enum: ["BUYER", "ESTATE_OWNER", "ESTATE_MANAGER", "SERVICE_PROVIDER"],
+              example: "BUYER",
+            },
+            location: { type: "string", example: "Colombo" },
+          },
+        },
+        LoginInput: {
+          type: "object",
+          required: ["phone", "password"],
+          properties: {
+            phone: { type: "string", example: "0771234567" },
+            password: { type: "string", example: "secret123" },
+          },
+        },
+        MyBuyerRequestInput: {
+          type: "object",
+          required: [
+            "productType",
+            "requestedQuantity",
+            "requiredDate",
+            "biddingPricePerUnit",
+          ],
+          properties: {
+            productType: { type: "string", example: "RAW_COCONUT" },
+            requestedQuantity: { type: "integer", example: 1200 },
+            requiredDate: {
+              type: "string",
+              format: "date",
+              example: "2026-12-15",
+            },
+            biddingPricePerUnit: { type: "number", example: 115 },
+            location: { type: "string", example: "Colombo" },
+          },
+        },
         ListingInput: {
           type: "object",
           required: [

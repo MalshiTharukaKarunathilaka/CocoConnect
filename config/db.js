@@ -1,5 +1,18 @@
-const { Pool } = require("pg");
+const { Pool, types } = require("pg");
 require("dotenv").config();
+
+// Return DATE columns as plain "YYYY-MM-DD" strings. By default pg turns
+// them into midnight local time, which serialises as the previous day in UTC
+// (2026-07-18 came back as 2026-07-17T18:30:00.000Z in Sri Lanka).
+const DATE_OID = 1082;
+types.setTypeParser(DATE_OID, (value) => value);
+
+// TIMESTAMP (without time zone) columns hold UTC from Supabase's
+// current_timestamp, but pg reads them as local time, shifting them 5.5h.
+const TIMESTAMP_OID = 1114;
+types.setTypeParser(TIMESTAMP_OID, (value) =>
+  new Date(value.replace(" ", "T") + "Z")
+);
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
