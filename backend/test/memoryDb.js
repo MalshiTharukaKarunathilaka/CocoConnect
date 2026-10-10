@@ -10,13 +10,16 @@ const readSql = (file) => fs.readFileSync(path.join(__dirname, file), "utf8");
 
 db.public.none(readSql("schema.sql"));
 
-// pg-mem has no row level security; that part only matters on Supabase.
-db.public.none(
-  readSql("../sql/001_users_and_negotiations.sql")
-    .split("\n")
-    .filter((line) => !/row level security/i.test(line))
-    .join("\n")
-);
+// Every migration in sql/, in order. pg-mem has no row level security;
+// that part only matters on Supabase.
+for (const file of fs.readdirSync(path.join(__dirname, "../sql")).sort()) {
+  db.public.none(
+    readSql(`../sql/${file}`)
+      .split(/\r?\n/)
+      .filter((line) => !/row level security/i.test(line))
+      .join("\n")
+  );
+}
 
 db.public.none(`
   INSERT INTO estate_owners (name, estate_name, location, trust_score) VALUES

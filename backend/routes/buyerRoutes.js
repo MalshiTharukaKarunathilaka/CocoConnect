@@ -5,6 +5,8 @@ const {
   getListing,
   createRequest,
   getMyRequests,
+  getRequestResponses,
+  acceptResponse,
   updateRequest,
   deleteRequest,
   getMyNegotiations,
@@ -146,6 +148,49 @@ router.get("/requests", getMyRequests);
  */
 router.put("/requests/:id", updateRequest);
 router.delete("/requests/:id", deleteRequest);
+
+/**
+ * @swagger
+ * /api/buyer/requests/{id}/responses:
+ *   get:
+ *     summary: Estate owners' offers on one of my requests, cheapest first
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Offers with estate details
+ */
+router.get("/requests/:id/responses", getRequestResponses);
+
+/**
+ * @swagger
+ * /api/buyer/responses/{id}/accept:
+ *   post:
+ *     summary: Accept an estate owner's offer - creates an order
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: The offer (sell request) id
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       201:
+ *         description: Order created; other offers declined
+ *       409:
+ *         description: Request already closed
+ */
+router.post("/responses/:id/accept", acceptResponse);
 
 /**
  * @swagger

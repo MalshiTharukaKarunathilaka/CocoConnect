@@ -153,16 +153,121 @@ const createRequest = async (req, res) => {
 const getMyRequests = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT *
-       FROM buyer_requests
-       WHERE buyer_id = $1
-       ORDER BY created_at DESC`,
+      `SELECT br.*, COALESCE(rc.response_count, 0) AS response_count
+       FROM buyer_requests br
+       LEFT JOIN (
+         SELECT buyer_request_id, COUNT(*) AS response_count
+         FROM sell_requests
+         GROUP BY buyer_request_id
+       ) rc ON rc.buyer_request_id = br.id
+       WHERE br.buyer_id = $1
+       ORDER BY br.created_at DESC, br.id DESC`,
       [req.user.id]
     );
 
     return res.status(200).json(result.rows);
   } catch (error) {
     return serverError(res, "Get my requests", error);
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| ESTATE OWNERS' OFFERS ON MY REQUEST
+|--------------------------------------------------------------------------
+*/
+const getRequestResponses = async (req, res) => {
+  try {
+    const own = await pool.query(
+      "SELECT id FROM buyer_requests WHERE id = $1 AND buyer_id = $2",
+      [req.params.id, req.user.id]
+    );
+    if (own.rows.length === 0) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+
+    const result = await pool.query(
+      `SELECT
+        sr.*,
+        eo.estate_name,
+        eo.name AS owner_name,
+        eo.location,
+        eo.trust_score
+       FROM sell_requests sr
+       LEFT JOIN estate_owners eo ON eo.id = sr.estate_owner_id
+       WHERE sr.buyer_request_id = $1
+       ORDER BY sr.seller_price_per_unit ASC, sr.id ASC`,
+      [req.params.id]
+    );
+
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    return serverError(res, "Get request responses", error);
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| ACCEPT AN ESTATE OWNER'S OFFER -> creates an order
+|--------------------------------------------------------------------------
+| Closes the request: the chosen offer is accepted, the others declined.
+*/
+const acceptResponse = async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const offer = await client.query(
+      `SELECT sr.*, br.status AS request_status
+       FROM sell_requests sr
+       JOIN buyer_requests br ON br.id = sr.buyer_request_id
+       WHERE sr.id = $1 AND br.buyer_id = $2`,
+      [req.params.id, req.user.id]
+    );
+    const sellRequest = offer.rows[0];
+    if (!sellRequest) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Offer not found" });
+    }
+    if (String(sellRequest.request_status || "PENDING").toUpperCase() !== "PENDING") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "This request is already closed" });
+    }
+
+    const price = Number(sellRequest.seller_price_per_unit);
+    const total = price * Number(sellRequest.quantity);
+
+    const order = await client.query(
+      `INSERT INTO orders
+        (buyer_request_id, buyer_id, final_price_per_unit, total_value, status)
+       VALUES ($1, $2, $3, $4, 'ACCEPTED')
+       RETURNING *`,
+      [sellRequest.buyer_request_id, req.user.id, price, total]
+    );
+
+    await client.query(
+      `UPDATE sell_requests
+       SET status = CASE WHEN id = $1 THEN 'accepted' ELSE 'declined' END
+       WHERE buyer_request_id = $2`,
+      [sellRequest.id, sellRequest.buyer_request_id]
+    );
+    await client.query(
+      "UPDATE buyer_requests SET status = 'ACCEPTED' WHERE id = $1",
+      [sellRequest.buyer_request_id]
+    );
+
+    await client.query("COMMIT");
+
+    return res.status(201).json({
+      message: "Offer accepted",
+      order: order.rows[0],
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return serverError(res, "Accept offer", error);
+  } finally {
+    client.release();
   }
 };
 
@@ -526,14 +631,17 @@ const getMyOrders = async (req, res) => {
     const result = await pool.query(
       `SELECT
         o.*,
-        pl.product_type,
-        pl.quantity,
+        COALESCE(pl.product_type, sr.product_type) AS product_type,
+        COALESCE(pl.quantity, sr.quantity) AS quantity,
         eo.estate_name,
         eo.name AS owner_name,
         n.id AS negotiation_id
        FROM orders o
        LEFT JOIN product_listings pl ON pl.id = o.listing_id
-       LEFT JOIN estate_owners eo ON eo.id = pl.estate_owner_id
+       LEFT JOIN sell_requests sr
+         ON sr.buyer_request_id = o.buyer_request_id AND sr.status = 'accepted'
+       LEFT JOIN estate_owners eo
+         ON eo.id = COALESCE(pl.estate_owner_id, sr.estate_owner_id)
        LEFT JOIN negotiations n ON n.order_id = o.id
        WHERE o.buyer_id = $1
        ORDER BY o.created_at DESC, o.id DESC`,
@@ -576,6 +684,8 @@ module.exports = {
   getListing,
   createRequest,
   getMyRequests,
+  getRequestResponses,
+  acceptResponse,
   updateRequest,
   deleteRequest,
   getMyNegotiations,

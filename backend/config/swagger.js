@@ -27,6 +27,10 @@ const options = {
         name: "Buyer",
         description: "Marketplace, buyer requests, negotiation and orders",
       },
+      {
+        name: "Estate Owner",
+        description: "Estate, listings, offers to buyers, chats and orders",
+      },
     ],
     components: {
       securitySchemes: {
