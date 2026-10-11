@@ -3,7 +3,6 @@ import '../services/auth_service.dart';
 import '../widgets/auth_widgets.dart';
 import 'buyer/buyer_categories_page.dart';
 import 'estate_owner_dashboard.dart';
-import 'login_page.dart';
 import 'onboarding_page.dart';
 
 /// First screen: reopens a saved login, otherwise shows the welcome screen.
@@ -71,12 +70,12 @@ void openHomeFor(BuildContext context, AppUser user) {
   );
 }
 
-/// Logs out and returns to the Login screen.
+/// Logs out and returns to the welcome screen.
 Future<void> logOut(BuildContext context) async {
   await AuthService.logout();
   if (!context.mounted) return;
   Navigator.of(context).pushAndRemoveUntil(
-    MaterialPageRoute(builder: (context) => const LoginPage()),
+    MaterialPageRoute(builder: (context) => const OnboardingPage()),
     (route) => false,
   );
 }
