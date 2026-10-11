@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/buyer_widgets.dart';
+import '../../widgets/header_actions.dart';
 import 'coconut_types_page.dart';
 import 'my_activity_page.dart';
 import 'buyer_profile_page.dart';
@@ -33,9 +34,8 @@ class BuyerCategoriesPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
+            const Row(
+              children: [
                 Text(
                   'CocoConnect',
                   style: TextStyle(
@@ -44,6 +44,9 @@ class BuyerCategoriesPage extends StatelessWidget {
                     color: kBuyerGreen,
                   ),
                 ),
+                Spacer(),
+                HeaderActions(color: kBuyerGreen),
+                SizedBox(width: 4),
                 Text(
                   'EN | SI | TA',
                   style: TextStyle(

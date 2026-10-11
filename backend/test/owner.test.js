@@ -406,7 +406,10 @@ test("deals: owner accepts buyer's offer, completes with actual figures", async 
   assert.equal(stats.status, 200);
   assert.equal(stats.data.last_deal.quantity, 1950, "uses delivered figures");
   assert.equal(stats.data.last_deal.price, 127);
-  assert.ok(stats.data.week_avg_price > 0);
+  // Nothing is due today, so the next day with orders: 5 Dec (Rs. 126).
+  assert.equal(stats.data.avg_day, "2026-12-05");
+  assert.equal(stats.data.avg_day_is_today, false);
+  assert.equal(stats.data.avg_day_price, 126);
 
   const offers = await call("GET", "/api/owner/sell-requests", { token: owner.token });
   const acceptedOffer = offers.data.find((o) => o.status === "accepted");

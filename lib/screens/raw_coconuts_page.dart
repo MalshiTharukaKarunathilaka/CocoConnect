@@ -6,6 +6,7 @@ import '../services/owner_service.dart';
 import 'buyer/buyer_format.dart';
 import '../widgets/owner_widgets.dart';
 import '../widgets/nearby_filter.dart';
+import '../widgets/header_actions.dart';
 
 class RawCoconutsPage extends StatefulWidget {
   const RawCoconutsPage({super.key});
@@ -241,6 +242,7 @@ Future<void> saveListingToDatabase() async {
 
                           const Row(
                             children: [
+                              HeaderActions(),
                               Text(
                                 'EN',
                                 style: TextStyle(

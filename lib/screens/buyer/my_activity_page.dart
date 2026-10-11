@@ -5,28 +5,32 @@ import '../../services/buyer_service.dart';
 import '../../widgets/async_list.dart';
 import '../../widgets/buyer_widgets.dart';
 import 'buyer_format.dart';
-import 'buyer_negotiation_page.dart';
+import '../chat/chat_page.dart';
 import 'coconut_type.dart';
 import 'buyer_profile_page.dart';
 
 /// Opens My Activity from any buyer screen's ORDERS tab, on top of
 /// Buying Categories rather than stacking copies.
-void openMyActivity(BuildContext context) {
+/// [tab]: 0 requests, 1 negotiations, 2 orders.
+void openMyActivity(BuildContext context, {int tab = 0}) {
   final NavigatorState navigator = Navigator.of(context);
   navigator.popUntil((route) => route.isFirst);
   navigator.push(
-    MaterialPageRoute(builder: (context) => const MyActivityPage()),
+    MaterialPageRoute(builder: (context) => MyActivityPage(initialTab: tab)),
   );
 }
 
 /// The buyer's own requests, negotiations and orders.
 class MyActivityPage extends StatelessWidget {
-  const MyActivityPage({super.key});
+  final int initialTab;
+
+  const MyActivityPage({super.key, this.initialTab = 0});
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 3,
+      initialIndex: initialTab,
       child: BuyerScaffold(
         bottomNavigation: BuyerBottomNavigation(
           currentIndex: 1,
@@ -612,15 +616,7 @@ class _NegotiationsTab extends StatelessWidget {
           'Negotiate.',
       itemBuilder: (context, negotiation, reload) => BuyerCard(
         onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => BuyerNegotiationPage(
-                negotiationId: negotiation.id,
-                type: CoconutType.fromCode(negotiation.productType),
-              ),
-            ),
-          );
+          await openChat(context, negotiation.id);
           reload();
         },
         child: Column(
@@ -699,15 +695,7 @@ class _OrdersTab extends StatelessWidget {
           onTap: order.negotiationId == null
               ? null
               : () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => BuyerNegotiationPage(
-                        negotiationId: order.negotiationId!,
-                        type: CoconutType.fromCode(order.productType),
-                      ),
-                    ),
-                  );
+                  await openChat(context, order.negotiationId!);
                   reload();
                 },
           child: Column(

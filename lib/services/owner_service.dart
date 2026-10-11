@@ -206,14 +206,21 @@ class Deal {
 class MarketStats {
   final int? lastDealQuantity;
   final double? lastDealPrice;
-  final double? todayAvgPrice;
-  final double? weekAvgPrice;
+
+  /// Average price of the orders customers need on [avgDay]: today when
+  /// there are any, otherwise the next day with orders.
+  final DateTime? avgDay;
+  final bool avgDayIsToday;
+  final int avgDayOrderCount;
+  final double? avgDayPrice;
 
   const MarketStats({
     required this.lastDealQuantity,
     required this.lastDealPrice,
-    required this.todayAvgPrice,
-    required this.weekAvgPrice,
+    required this.avgDay,
+    required this.avgDayIsToday,
+    required this.avgDayOrderCount,
+    required this.avgDayPrice,
   });
 
   factory MarketStats.fromJson(Map<String, dynamic> json) {
@@ -222,8 +229,10 @@ class MarketStats {
     return MarketStats(
       lastDealQuantity: (last?['quantity'] as num?)?.toInt(),
       lastDealPrice: _toDoubleOrNull(last?['price']),
-      todayAvgPrice: _toDoubleOrNull(json['today_avg_price']),
-      weekAvgPrice: _toDoubleOrNull(json['week_avg_price']),
+      avgDay: DateTime.tryParse('${json['avg_day']}'),
+      avgDayIsToday: json['avg_day_is_today'] == true,
+      avgDayOrderCount: (json['avg_day_order_count'] as num?)?.toInt() ?? 0,
+      avgDayPrice: _toDoubleOrNull(json['avg_day_price']),
     );
   }
 }

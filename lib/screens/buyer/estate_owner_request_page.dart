@@ -3,7 +3,7 @@ import '../../services/api_client.dart';
 import '../../services/buyer_service.dart';
 import '../../widgets/buyer_widgets.dart';
 import 'buyer_format.dart';
-import 'buyer_negotiation_page.dart';
+import '../chat/chat_page.dart';
 import 'coconut_type.dart';
 
 class EstateOwnerRequestPage extends StatefulWidget {
@@ -32,15 +32,7 @@ class _EstateOwnerRequestPageState extends State<EstateOwnerRequestPage> {
         widget.listing.id,
       );
       if (!mounted) return;
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => BuyerNegotiationPage(
-            negotiationId: negotiationId,
-            type: widget.type,
-          ),
-        ),
-      );
+      await openChat(context, negotiationId);
     } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

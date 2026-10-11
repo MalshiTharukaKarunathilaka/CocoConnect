@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/header_actions.dart';
 import '../widgets/reusable_widgets.dart';
 import 'raw_coconuts_page.dart';
 import '../services/api_service.dart';
@@ -49,13 +50,18 @@ class CoconutsPage extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const Text(
-                        'EN | SI | TA',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF2E7D32),
-                          fontWeight: FontWeight.bold,
-                        ),
+                      const Row(
+                        children: [
+                          HeaderActions(),
+                          Text(
+                            'EN | SI | TA',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF2E7D32),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

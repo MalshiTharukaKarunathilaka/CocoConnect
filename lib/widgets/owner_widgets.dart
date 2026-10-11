@@ -329,8 +329,13 @@ class _MarketPulseState extends State<MarketPulse> {
       return const SizedBox.shrink();
     }
 
-    final double? today = stats.todayAvgPrice;
-    final double? week = stats.weekAvgPrice;
+    final double? average = stats.avgDayPrice;
+    final String orders = stats.avgDayOrderCount == 1
+        ? '1 order'
+        : '${stats.avgDayOrderCount} orders';
+    final String averageLabel = stats.avgDayIsToday
+        ? "Today's Avg Price"
+        : 'Avg Price for ${shortDate(stats.avgDay)}';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -403,20 +408,22 @@ class _MarketPulseState extends State<MarketPulse> {
               ],
             ),
           ),
-          if (today != null || week != null) ...[
+          // Average of the orders customers need on that day.
+          if (average != null) ...[
             const SizedBox(height: 8),
             Row(
               children: [
                 const Icon(Icons.trending_up, size: 15, color: kOwnerBrown),
                 const SizedBox(width: 5),
-                Text(
-                  today != null
-                      ? "Today's Avg Price: Rs. ${today.toStringAsFixed(2)} / nut"
-                      : '7-day Avg Price: Rs. ${week!.toStringAsFixed(2)} / nut',
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.bold,
-                    color: kOwnerBrown,
+                Expanded(
+                  child: Text(
+                    '$averageLabel: Rs. ${average.toStringAsFixed(2)} / nut'
+                    '  ($orders)',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: kOwnerBrown,
+                    ),
                   ),
                 ),
               ],

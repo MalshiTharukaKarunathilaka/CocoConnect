@@ -28,6 +28,10 @@ const options = {
         description: "Marketplace, buyer requests, negotiation and orders",
       },
       {
+        name: "Chats",
+        description: "Negotiation chats and notifications for buyers and estate owners",
+      },
+      {
         name: "Estate Owner",
         description: "Estate, listings, offers to buyers, chats and orders",
       },

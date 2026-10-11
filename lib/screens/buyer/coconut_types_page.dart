@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/buyer_widgets.dart';
+import '../../widgets/header_actions.dart';
 import 'coconut_type.dart';
 import 'marketplace_page.dart';
 import 'my_activity_page.dart';
@@ -50,6 +51,8 @@ class CoconutTypesPage extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
+                const HeaderActions(color: kBuyerGreen),
+                const SizedBox(width: 4),
                 const Text(
                   'EN | SI | TA',
                   style: TextStyle(

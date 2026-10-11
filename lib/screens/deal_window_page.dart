@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/owner_service.dart';
+import '../widgets/header_actions.dart';
 import '../widgets/owner_widgets.dart';
 import '../widgets/reusable_widgets.dart';
 import 'buyer/buyer_format.dart';
 import 'buyer/coconut_type.dart';
 import 'complete_deal_page.dart';
-import 'negotiation_page.dart';
+import 'chat/chat_page.dart';
 import 'order_status_page.dart';
-import 'owner_chats_page.dart';
 
 /// Estate owner's Orders tab: every deal made on their listings or offers,
 /// with delivery dates, and the way to complete each one.
@@ -63,11 +63,7 @@ class _DealWindowPageState extends State<DealWindowPage> {
             title: 'Deal Window',
             subtitle: 'ORDERS & DELIVERIES',
             actions: [
-              IconButton(
-                tooltip: 'Buyer chats',
-                icon: const Icon(Icons.forum_outlined, color: kOwnerGreen),
-                onPressed: () => _open(const OwnerChatsPage()),
-              ),
+              const HeaderActions(color: kOwnerGreen),
               IconButton(
                 tooltip: 'My sell requests',
                 icon: const Icon(Icons.assignment_outlined, color: kOwnerGreen),
@@ -176,9 +172,7 @@ class _DealWindowPageState extends State<DealWindowPage> {
             onComplete: () => _complete(deal),
             onChat: deal.negotiationId == null
                 ? null
-                : () => _open(
-                    NegotiationPage(negotiationId: deal.negotiationId!),
-                  ),
+                : () => _open(ChatPage(chatId: deal.negotiationId!)),
           ),
         ),
     ]);

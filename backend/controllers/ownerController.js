@@ -5,7 +5,17 @@ const {
   withDistance,
   byDistance,
   dayOf,
+  withDueDate,
+  DUE_DATE_COLUMNS,
 } = require("../utils/geo");
+const { postMessage } = require("./chatController");
+
+/** Today as "YYYY-MM-DD" in the server's local time zone. */
+const localToday = () => {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+};
 
 const serverError = (res, label, error) => {
   console.error(`${label} error:`, error);
@@ -491,15 +501,15 @@ const sendMessage = async (req, res) => {
       return res.status(409).json({ message: "This negotiation is closed" });
     }
 
-    const result = await pool.query(
-      `INSERT INTO negotiation_messages
-        (negotiation_id, sender_id, message, offer_price_per_unit)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *, true AS is_mine`,
-      [negotiation.id, req.user.id, text || null, offerPricePerUnit || null]
+    const saved = await postMessage(
+      pool,
+      negotiation.id,
+      req.user.id,
+      text,
+      offerPricePerUnit ? Number(offerPricePerUnit) : null
     );
 
-    return res.status(201).json(result.rows[0]);
+    return res.status(201).json(saved);
   } catch (error) {
     return serverError(res, "Owner send message", error);
   }
@@ -545,7 +555,7 @@ const getMyOrders = async (req, res) => {
         o.*,
         COALESCE(pl.product_type, sr.product_type) AS product_type,
         COALESCE(pl.quantity, sr.quantity) AS quantity,
-        COALESCE(pl.available_date, sr.available_date, br.required_date) AS due_date,
+        ${DUE_DATE_COLUMNS},
         COALESCE(u.name, br.buyer_name) AS buyer_name,
         COALESCE(u.location, br.location) AS buyer_location,
         n.id AS negotiation_id
@@ -561,7 +571,7 @@ const getMyOrders = async (req, res) => {
       [estate.id]
     );
 
-    return res.status(200).json(result.rows);
+    return res.status(200).json(result.rows.map(withDueDate));
   } catch (error) {
     return serverError(res, "Get owner orders", error);
   }
@@ -711,47 +721,54 @@ const getMarketStats = async (req, res) => {
 
     const result = await pool.query(
       `SELECT
+        o.id,
         o.created_at,
-        o.status,
         COALESCE(o.delivered_quantity, pl.quantity, sr.quantity) AS quantity,
-        COALESCE(o.delivered_price_per_unit, o.final_price_per_unit) AS price
+        COALESCE(o.delivered_price_per_unit, o.final_price_per_unit) AS price,
+        ${DUE_DATE_COLUMNS}
        FROM orders o
        LEFT JOIN product_listings pl ON pl.id = o.listing_id
        LEFT JOIN sell_requests sr
          ON sr.buyer_request_id = o.buyer_request_id AND sr.status = 'accepted'
+       LEFT JOIN buyer_requests br ON br.id = o.buyer_request_id
        WHERE UPPER(COALESCE(pl.product_type, sr.product_type)) = $1
        ORDER BY o.created_at DESC, o.id DESC
-       LIMIT 200`,
+       LIMIT 500`,
       [type]
     );
 
-    const rows = result.rows.map((row) => ({
+    const rows = result.rows.map(withDueDate).map((row) => ({
       at: new Date(row.created_at),
       quantity: Number(row.quantity),
       price: Number(row.price),
+      day: row.due_date,
     }));
 
-    // Average per nut, weighted by quantity, over deals since `since`.
-    const averageSince = (since) => {
-      const recent = rows.filter((row) => row.at >= since && row.quantity > 0);
-      const nuts = recent.reduce((sum, row) => sum + row.quantity, 0);
-      if (nuts === 0) return null;
-      const value = recent.reduce((sum, row) => sum + row.quantity * row.price, 0);
-      return Math.round((value / nuts) * 100) / 100;
-    };
+    // Average price per nut of the orders for one day - the day the
+    // customer needs them. Today when there are any; otherwise the next day
+    // with orders, or else the most recent one.
+    const today = localToday();
+    const days = [...new Set(rows.map((row) => row.day).filter(Boolean))].sort();
+    const day = days.includes(today)
+      ? today
+      : days.find((d) => d > today) ?? days[days.length - 1] ?? null;
+    const dayPrices = rows.filter((row) => row.day === day).map((row) => row.price);
+    const dayAverage = dayPrices.length
+      ? Math.round((dayPrices.reduce((sum, p) => sum + p, 0) / dayPrices.length) * 100) /
+        100
+      : null;
 
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
+    // The latest deal closed anywhere in the system.
     const last = rows[0];
     return res.status(200).json({
       product_type: type,
       last_deal: last
         ? { quantity: last.quantity, price: last.price, at: last.at }
         : null,
-      today_avg_price: averageSince(startOfToday),
-      week_avg_price: averageSince(weekAgo),
+      avg_day: day,
+      avg_day_is_today: day === today,
+      avg_day_order_count: dayPrices.length,
+      avg_day_price: dayAverage,
     });
   } catch (error) {
     return serverError(res, "Get market stats", error);

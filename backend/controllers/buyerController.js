@@ -7,6 +7,7 @@ const {
   dayOf,
   addDays,
 } = require("../utils/geo");
+const { postMessage } = require("./chatController");
 
 const serverError = (res, label, error) => {
   console.error(`${label} error:`, error);
@@ -596,15 +597,15 @@ const sendMessage = async (req, res) => {
       return res.status(409).json({ message: "This negotiation is closed" });
     }
 
-    const result = await pool.query(
-      `INSERT INTO negotiation_messages
-        (negotiation_id, sender_id, message, offer_price_per_unit)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *, true AS is_mine`,
-      [negotiation.id, req.user.id, text || null, offerPricePerUnit || null]
+    const result = await postMessage(
+      pool,
+      negotiation.id,
+      req.user.id,
+      text,
+      offerPricePerUnit ? Number(offerPricePerUnit) : null
     );
 
-    return res.status(201).json(result.rows[0]);
+    return res.status(201).json(result);
   } catch (error) {
     return serverError(res, "Send message", error);
   }

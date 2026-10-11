@@ -4,6 +4,7 @@ import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../services/buyer_service.dart';
 import '../../widgets/buyer_widgets.dart';
+import '../../widgets/header_actions.dart';
 import '../../widgets/nearby_filter.dart';
 import 'buyer_format.dart';
 import 'coconut_type.dart';
@@ -382,31 +383,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                     ),
                   ],
                 ),
-                GestureDetector(
-                  onTap: () => _showSnack('No new notifications'),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Icon(
-                        Icons.notifications_outlined,
-                        size: 22,
-                        color: Color(0xFF3A3A3A),
-                      ),
-                      Positioned(
-                        right: -1,
-                        top: -1,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFD32F2F),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                const HeaderActions(color: Color(0xFF3A3A3A)),
               ],
             ),
 

@@ -247,9 +247,10 @@ test("negotiation: start, message, counter-offer, accept, complete", async () =>
     body: { name: "Nimal", phone: "0713333333", password: "secret123", role: "ESTATE_OWNER", location: "Gampaha" },
   });
   await pool().query(
-    `INSERT INTO negotiation_messages (negotiation_id, sender_id, message, offer_price_per_unit)
-     VALUES ($1, $2, 'Best I can do', 124)`,
-    [id, ownerUser.data.user.id]
+    `INSERT INTO negotiation_messages
+       (negotiation_id, sender_id, message, offer_price_per_unit, created_at)
+     VALUES ($1, $2, 'Best I can do', 124, $3)`,
+    [id, ownerUser.data.user.id, new Date()]
   );
 
   const detail = await call("GET", `/api/buyer/negotiations/${id}`, { token });

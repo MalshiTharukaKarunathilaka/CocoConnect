@@ -1,4 +1,4 @@
-const { Pool, types } = require("pg");
+const { Pool, types, defaults } = require("pg");
 require("dotenv").config();
 
 // Return DATE columns as plain "YYYY-MM-DD" strings. By default pg turns
@@ -13,6 +13,10 @@ const TIMESTAMP_OID = 1114;
 types.setTypeParser(TIMESTAMP_OID, (value) =>
   new Date(value.replace(" ", "T") + "Z")
 );
+
+// ...and write JS Dates as UTC to match, so timestamps set from code (like
+// completed_at) agree with ones Postgres sets itself.
+defaults.parseInputDatesAsUTC = true;
 
 // DB_MODE=memory swaps Supabase for a throwaway in-memory database
 // (npm run dev:memory) so features can be tried without touching team data.

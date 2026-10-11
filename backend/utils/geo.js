@@ -64,7 +64,31 @@ const addDays = (day, days) => {
   return date.toISOString().slice(0, 10);
 };
 
+/**
+ * When an order is due: the customer's required date for orders from a
+ * buyer request, otherwise the listing's (or offer's) available date.
+ * Picked in JS: the in-memory test database mixes up COALESCE over dates
+ * from several LEFT JOINs.
+ */
+const dueDateOf = (row) =>
+  dayOf(row.br_required_date) ?? dayOf(row.pl_available_date) ?? dayOf(row.sr_available_date);
+
+const DUE_DATE_COLUMNS = `
+  br.required_date AS br_required_date,
+  pl.available_date AS pl_available_date,
+  sr.available_date AS sr_available_date
+`;
+
+/** Replaces the three raw date columns with due_date. */
+const withDueDate = ({ br_required_date, pl_available_date, sr_available_date, ...row }) => ({
+  ...row,
+  due_date: dueDateOf({ br_required_date, pl_available_date, sr_available_date }),
+});
+
 module.exports = {
+  dueDateOf,
+  withDueDate,
+  DUE_DATE_COLUMNS,
   parseCoords,
   distanceKm,
   parseRadius,
