@@ -6,7 +6,7 @@ import '../services/owner_service.dart';
 import 'buyer/buyer_format.dart';
 import '../widgets/owner_widgets.dart';
 import '../widgets/nearby_filter.dart';
-import '../widgets/header_actions.dart';
+import '../widgets/buyer_filter_sheet.dart';
 
 class RawCoconutsPage extends StatefulWidget {
   const RawCoconutsPage({super.key});
@@ -34,11 +34,85 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
   int? buyerRadiusKm;
   String buyerSort = 'price';
 
+  // Show only buyers whose request fits the harvest entered above.
+  bool matchHarvest = true;
+
+  DateTime? get harvestDate {
+    final parts = dateController.text.trim().split('/');
+    if (parts.length != 3) return null;
+    final int? month = int.tryParse(parts[0]);
+    final int? day = int.tryParse(parts[1]);
+    final int? year = int.tryParse(parts[2]);
+    if (month == null || day == null || year == null) return null;
+    return DateTime(year, month, day);
+  }
+
+  int? get harvestQuantity =>
+      int.tryParse(quantityController.text.replaceAll(',', '').trim());
+
+  bool get matching => matchHarvest && harvestDate != null;
+
   Future<List<OpenBuyerRequest>> loadBuyers() => OwnerService.getBuyerRequests(
         productType: 'RAW_COCONUT',
         radiusKm: buyerRadiusKm,
         sort: buyerSort,
+        availableDate: matching ? harvestDate : null,
+        maxQuantity: matching ? harvestQuantity : null,
       );
+
+  Future<void> openBuyerFilter() async {
+    final BuyerFilter? picked = await showBuyerFilterSheet(context, (
+      sort: buyerSort,
+      radiusKm: buyerRadiusKm,
+      matchHarvest: matchHarvest,
+    ));
+    if (picked == null) return;
+    buyerSort = picked.sort;
+    buyerRadiusKm = picked.radiusKm;
+    matchHarvest = picked.matchHarvest;
+    reloadBuyers();
+  }
+
+  Widget buildHarvestMatchNote() {
+    final DateTime date = harvestDate!;
+    final DateTime from = date.subtract(const Duration(days: 7));
+    final int? quantity = harvestQuantity;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F3EA),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFC5DFCB)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_awesome, size: 15, color: Color(0xFF2E7D32)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Matching your harvest: buyers needing '
+              '${quantity == null ? '' : 'up to ${withCommas(quantity)} nuts '}'
+              'between ${shortDate(from)} and ${shortDate(date)}',
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFF263238)),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              matchHarvest = false;
+              reloadBuyers();
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF2E7D32),
+              visualDensity: VisualDensity.compact,
+            ),
+            child: const Text('Show all'),
+          ),
+        ],
+      ),
+    );
+  }
 
   void reloadBuyers() {
     setState(() {
@@ -85,6 +159,9 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
         dateController.text =
         '${pickedDate.month.toString().padLeft(2, '0')}/${pickedDate.day.toString().padLeft(2, '0')}/${pickedDate.year}';
       });
+      // Show the buyers this harvest fits.
+      matchHarvest = true;
+      reloadBuyers();
     }
   }
 
@@ -99,6 +176,9 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
       );
       return;
     }
+
+    matchHarvest = true;
+    reloadBuyers();
 
     setState(() {
       showSummary = true;
@@ -232,7 +312,7 @@ Future<void> saveListingToDatabase() async {
                           ),
 
                           const Text(
-                            'KapConnect',
+                            'CocoConnect',
                             style: TextStyle(
                               color: Color(0xFF2E7D32),
                               fontSize: 15,
@@ -242,7 +322,6 @@ Future<void> saveListingToDatabase() async {
 
                           const Row(
                             children: [
-                              HeaderActions(),
                               Text(
                                 'EN',
                                 style: TextStyle(
@@ -318,7 +397,9 @@ Future<void> saveListingToDatabase() async {
                             ),
                           ),
 
-                          Container(
+                          GestureDetector(
+                            onTap: openBuyerFilter,
+                            child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 9,
                               vertical: 5,
@@ -345,6 +426,7 @@ Future<void> saveListingToDatabase() async {
                                 ),
                               ],
                             ),
+                          ),
                           ),
                         ],
                       ),
@@ -385,6 +467,7 @@ Future<void> saveListingToDatabase() async {
                       ),
 
                       const SizedBox(height: 14),
+if (matching) buildHarvestMatchNote(),
 FutureBuilder<List<OpenBuyerRequest>>(
   future: buyersFuture,
   builder: (context, snapshot) {
@@ -406,7 +489,10 @@ FutureBuilder<List<OpenBuyerRequest>>(
 
     if (buyers.isEmpty) {
       return Text(
-        buyerRadiusKm == null
+        matching
+            ? 'No buyer requests fit this harvest yet. Tap Show all to see '
+                  'every request.'
+            : buyerRadiusKm == null
             ? 'No buyers are requesting raw coconuts right now'
             : 'No buyers within $buyerRadiusKm km right now. Try a wider '
                   'distance.',
@@ -652,7 +738,7 @@ FutureBuilder<List<OpenBuyerRequest>>(
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text(
-              'READY TO POST',
+              'POSTED',
               style: TextStyle(
                 color: Color(0xFF2E7D32),
                 fontSize: 10,
@@ -709,7 +795,7 @@ FutureBuilder<List<OpenBuyerRequest>>(
           const SizedBox(height: 16),
 
           const Text(
-            'Buyers can view this sell offer after you confirm it. Payment will be handled outside the system.',
+            'Buyers can now see this listing in the marketplace. Payment will be handled outside the system.',
             style: TextStyle(
               fontSize: 11,
               color: Color(0xFF777777),
@@ -722,13 +808,14 @@ FutureBuilder<List<OpenBuyerRequest>>(
                 Row(
             children: [
               Expanded(
+                // The listing is saved; start a fresh one instead of editing.
                 child: OutlinedButton(
                   onPressed: () {
                     setState(() {
                       showSummary = false;
                     });
                   },
-                  child: const Text('Edit'),
+                  child: const Text('Post Another Listing'),
                 ),
               ),
 

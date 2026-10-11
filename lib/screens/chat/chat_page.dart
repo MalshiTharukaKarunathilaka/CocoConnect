@@ -312,9 +312,9 @@ class _ChatPageState extends State<ChatPage> {
           if (chat.isAccepted)
             _SystemNote(
               chat.isCompleted
-                  ? 'Deal completed and delivered.'
+                  ? 'Deal completed.'
                   : 'Deal accepted at ${rupees(chat.orderPrice ?? 0)} per nut. '
-                        '${chat.iAmBuyer ? 'The estate owner completes it once the nuts are delivered.' : 'Complete the transaction once the nuts are delivered.'}',
+                        '${chat.iAmBuyer ? 'The estate owner completes the order.' : 'Complete the order once it is fulfilled.'}',
               good: true,
             ),
           if (chat.status == 'REJECTED')
@@ -399,7 +399,7 @@ class _ChatPageState extends State<ChatPage> {
           chat.isCompleted
               ? 'Deal completed'
               : chat.isAccepted
-              ? 'Deal accepted - waiting for delivery'
+              ? 'Deal accepted - order in progress'
               : 'Negotiation closed',
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 13, color: _muted),
@@ -428,7 +428,10 @@ class _ChatHeader extends StatelessWidget {
           ].join('  ·  ');
 
     return Container(
-      color: _green,
+      decoration: const BoxDecoration(
+        color: kOwnerCream,
+        border: Border(bottom: BorderSide(color: Color(0xFFEDE7DA))),
+      ),
       child: SafeArea(
         bottom: false,
         child: Padding(
@@ -436,12 +439,12 @@ class _ChatHeader extends StatelessWidget {
           child: Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                icon: const Icon(Icons.arrow_back, color: kOwnerInk),
                 onPressed: () => Navigator.pop(context),
               ),
               CircleAvatar(
                 radius: 19,
-                backgroundColor: Colors.white24,
+                backgroundColor: _green,
                 child: Text(
                   name.isEmpty ? '?' : name[0].toUpperCase(),
                   style: const TextStyle(
@@ -460,7 +463,7 @@ class _ChatHeader extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: _green,
                         fontSize: 16.5,
                         fontWeight: FontWeight.bold,
                       ),
@@ -470,17 +473,14 @@ class _ChatHeader extends StatelessWidget {
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
+                        style: const TextStyle(color: _muted, fontSize: 12),
                       ),
                   ],
                 ),
               ),
               if (onClose != null)
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  icon: const Icon(Icons.more_vert, color: kOwnerInk),
                   onSelected: (_) => onClose!(),
                   itemBuilder: (context) => const [
                     PopupMenuItem(

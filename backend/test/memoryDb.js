@@ -44,6 +44,13 @@ db.public.none(`
     ('Mudalali A', 'Kurunegala', 'RAW_COCONUT', 1200, '2026-12-18', 136);
 `);
 
+// A demo admin for reviewing price disputes: 0700000000 / admin123.
+db.public.none(`
+  INSERT INTO users (name, phone, password_hash, role, location) VALUES
+    ('CocoConnect Admin', '0700000000',
+     '${require("bcryptjs").hashSync("admin123", 10)}', 'ADMIN', 'Colombo');
+`);
+
 const { Pool } = db.adapters.createPg();
 
 module.exports = new Pool();

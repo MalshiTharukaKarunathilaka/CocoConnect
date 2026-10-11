@@ -383,7 +383,7 @@ test("deals: owner accepts buyer's offer, completes with actual figures", async 
 
   const done = await call("POST", `/api/owner/orders/${orderId}/complete`, {
     token: owner.token,
-    body: { deliveredQuantity: 1950, finalPricePerUnit: 127 },
+    body: { deliveredQuantity: 1950, finalPricePerUnit: 128 },
   });
   assert.equal(done.status, 200);
   assert.equal(done.data.order.status, "COMPLETED");
@@ -393,7 +393,7 @@ test("deals: owner accepts buyer's offer, completes with actual figures", async 
 
   const twice = await call("POST", `/api/owner/orders/${orderId}/complete`, {
     token: owner.token,
-    body: { deliveredQuantity: 1950, finalPricePerUnit: 127 },
+    body: { deliveredQuantity: 1950, finalPricePerUnit: 128 },
   });
   assert.equal(twice.status, 409);
 
@@ -405,7 +405,7 @@ test("deals: owner accepts buyer's offer, completes with actual figures", async 
   });
   assert.equal(stats.status, 200);
   assert.equal(stats.data.last_deal.quantity, 1950, "uses delivered figures");
-  assert.equal(stats.data.last_deal.price, 127);
+  assert.equal(stats.data.last_deal.price, 128);
   // Nothing is due today, so the next day with orders: 5 Dec (Rs. 126).
   assert.equal(stats.data.avg_day, "2026-12-05");
   assert.equal(stats.data.avg_day_is_today, false);

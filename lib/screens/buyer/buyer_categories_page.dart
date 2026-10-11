@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../widgets/buyer_widgets.dart';
-import '../../widgets/header_actions.dart';
+import '../../widgets/app_bottom_nav.dart';
 import 'coconut_types_page.dart';
-import 'my_activity_page.dart';
-import 'buyer_profile_page.dart';
 
 class BuyerCategoriesPage extends StatelessWidget {
   const BuyerCategoriesPage({super.key});
@@ -19,16 +17,7 @@ class BuyerCategoriesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BuyerScaffold(
-      bottomNavigation: BuyerBottomNavigation(
-        currentIndex: 0,
-        onTabSelected: (index) {
-          if (index == 1) {
-            openMyActivity(context);
-          } else if (index == 2) {
-            openBuyerProfile(context);
-          }
-        },
-      ),
+      bottomNavigation: const AppBottomNav(current: AppTab.dashboard),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
         child: Column(
@@ -45,8 +34,6 @@ class BuyerCategoriesPage extends StatelessWidget {
                   ),
                 ),
                 Spacer(),
-                HeaderActions(color: kBuyerGreen),
-                SizedBox(width: 4),
                 Text(
                   'EN | SI | TA',
                   style: TextStyle(

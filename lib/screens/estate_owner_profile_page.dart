@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import '../services/owner_service.dart';
 import '../widgets/reusable_widgets.dart';
 import 'account_dialogs.dart';
+import 'auth_gate.dart';
 
 const Color _darkGreen = Color(0xFF1F6B3D);
 const Color _ink = Color(0xFF222222);
@@ -84,7 +85,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                       ),
                       const Expanded(
                         child: Text(
-                          'KapConnect',
+                          'CocoConnect',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Color(0xFF2E7D32),
@@ -229,7 +230,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                       Navigator.pushNamed(context, '/owner-activity'),
                   icon: const Icon(Icons.receipt_long, size: 17),
                   label: const Text(
-                    'Deal Window',
+                    'Orders',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                   style: OutlinedButton.styleFrom(
@@ -281,7 +282,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                     'buyer',
               if (summary.ordersActive > 0)
                 '${summary.ordersActive} order'
-                    '${summary.ordersActive == 1 ? '' : 's'} to deliver',
+                    '${summary.ordersActive == 1 ? '' : 's'} in progress',
             ].join('  ·  '),
             onTap: () => Navigator.pushNamed(context, '/owner-activity'),
           ),
@@ -550,6 +551,15 @@ class _ErrorView extends StatelessWidget {
             icon: const Icon(Icons.refresh, size: 18),
             label: const Text('Try again'),
             style: TextButton.styleFrom(foregroundColor: _darkGreen),
+          ),
+        ),
+        // Never leave the user stuck on an account that can't load.
+        Center(
+          child: TextButton.icon(
+            onPressed: () => logOut(context),
+            icon: const Icon(Icons.logout, size: 18),
+            label: const Text('Log out'),
+            style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
           ),
         ),
       ],

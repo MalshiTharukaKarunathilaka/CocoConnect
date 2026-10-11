@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/owner_service.dart';
+import 'chat/chat_page.dart';
 
 class SellRequestPage extends StatefulWidget {
   final int buyerId;
@@ -75,7 +76,7 @@ class _SellRequestPageState extends State<SellRequestPage> {
 
     setState(() => sending = true);
     try {
-      await OwnerService.sendOffer(
+      final int? chatId = await OwnerService.sendOffer(
         buyerRequestId: widget.buyerId,
         quantity: quantity,
         pricePerUnit: price,
@@ -87,7 +88,15 @@ class _SellRequestPageState extends State<SellRequestPage> {
           backgroundColor: const Color(0xFF1F6B3D),
         ),
       );
-      Navigator.pop(context);
+      if (chatId == null) {
+        Navigator.pop(context);
+        return;
+      }
+      // The offer starts a chat with the buyer - continue there.
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => ChatPage(chatId: chatId)),
+      );
     } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

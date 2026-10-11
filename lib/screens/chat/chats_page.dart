@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
 import '../../services/chat_service.dart';
+import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/owner_widgets.dart';
 import '../buyer/buyer_format.dart';
 import '../buyer/coconut_type.dart';
@@ -76,41 +77,16 @@ class _ChatsPageState extends State<ChatsPage> {
   Future<void> _open(ChatSummary chat) async {
     await openChat(context, chat.id);
     _load();
+    Unread.refresh();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
+    return OwnerPage(
+      bottom: const AppBottomNav(current: AppTab.chats),
+      child: Column(
         children: [
-          Container(
-            color: _green,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(4, 6, 16, 10),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const Expanded(
-                      child: Text(
-                        'Chats',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          const OwnerHeader(title: 'Chats', subtitle: 'NEGOTIATIONS'),
           Expanded(child: _buildList()),
         ],
       ),

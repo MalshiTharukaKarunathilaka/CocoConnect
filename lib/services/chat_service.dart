@@ -190,7 +190,7 @@ class ChatDetail {
   }
 }
 
-enum NotificationType { offer, sellOffer, delivery }
+enum NotificationType { offer, chat, sellOffer }
 
 class AppNotification {
   /// Stable id, used to remember which ones were already seen.
@@ -220,9 +220,9 @@ class AppNotification {
       AppNotification(
         key: json['key'] as String? ?? '',
         type: switch (json['type']) {
-          'OFFER' => NotificationType.offer,
+          'CHAT' => NotificationType.chat,
           'SELL_OFFER' => NotificationType.sellOffer,
-          _ => NotificationType.delivery,
+          _ => NotificationType.offer,
         },
         title: json['title'] as String? ?? '',
         body: json['body'] as String? ?? '',

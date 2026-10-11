@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { dayOf } = require("../utils/geo");
 
 /*
 |--------------------------------------------------------------------------
@@ -143,18 +144,108 @@ const checkMessageBody = (body) => {
 
 const createOrder = async (db, chat, price) => {
   const total = Number(price) * Number(chat.quantity);
+  const offer = chat.sell_request_id
+    ? (
+        await db.query("SELECT * FROM sell_requests WHERE id = $1", [
+          chat.sell_request_id,
+        ])
+      ).rows[0]
+    : null;
+
   const order = await db.query(
     `INSERT INTO orders
-      (listing_id, buyer_id, final_price_per_unit, total_value, status)
-     VALUES ($1, $2, $3, $4, 'ACCEPTED')
+      (listing_id, buyer_request_id, buyer_id, final_price_per_unit, total_value, status)
+     VALUES ($1, $2, $3, $4, $5, 'ACCEPTED')
      RETURNING *`,
-    [chat.listing_id, chat.buyer_id, Number(price), total]
+    [
+      chat.listing_id,
+      offer ? offer.buyer_request_id : null,
+      chat.buyer_id,
+      Number(price),
+      total,
+    ]
   );
   await db.query(
     `UPDATE negotiations SET status = 'ACCEPTED', order_id = $2 WHERE id = $1`,
     [chat.id, order.rows[0].id]
   );
+
+  if (offer) await settleRequest(db, offer, price, chat.id);
   return order.rows[0];
+};
+
+/**
+ * A buyer request got its deal: this estate's offer is accepted at the
+ * agreed price, the other estates' offers are declined and their chats
+ * closed.
+ */
+const settleRequest = async (db, offer, price, keepChatId) => {
+  await db.query(
+    `UPDATE sell_requests
+     SET status = CASE WHEN id = $1 THEN 'accepted' ELSE 'declined' END
+     WHERE buyer_request_id = $2`,
+    [offer.id, offer.buyer_request_id]
+  );
+  await db.query(
+    "UPDATE sell_requests SET seller_price_per_unit = $2 WHERE id = $1",
+    [offer.id, Number(price)]
+  );
+  await db.query("UPDATE buyer_requests SET status = 'ACCEPTED' WHERE id = $1", [
+    offer.buyer_request_id,
+  ]);
+
+  const others = await db.query(
+    `SELECT n.id
+     FROM negotiations n
+     JOIN sell_requests sr ON sr.id = n.sell_request_id
+     WHERE sr.buyer_request_id = $1 AND n.status = 'OPEN'`,
+    [offer.buyer_request_id]
+  );
+  for (const other of others.rows) {
+    if (other.id === keepChatId) continue;
+    await db.query("UPDATE negotiations SET status = 'REJECTED' WHERE id = $1", [
+      other.id,
+    ]);
+  }
+};
+
+/**
+ * Opens the chat for an estate's offer on a buyer request. The chat runs on
+ * a private listing (status OFFER, hidden from the marketplace) and starts
+ * with the offer itself, which the buyer can accept or reject.
+ */
+const openOfferChat = async (db, { estateId, ownerUserId, offer, request }) => {
+  const listing = await db.query(
+    `INSERT INTO product_listings
+      (estate_owner_id, product_type, quantity, available_date,
+       offer_price_per_unit, status)
+     VALUES ($1, $2, $3, $4, $5, 'OFFER')
+     RETURNING id`,
+    [
+      estateId,
+      offer.product_type,
+      offer.quantity,
+      offer.available_date || request.required_date,
+      offer.seller_price_per_unit,
+    ]
+  );
+  const chat = await db.query(
+    `INSERT INTO negotiations (listing_id, buyer_id, sell_request_id)
+     VALUES ($1, $2, $3)
+     RETURNING id`,
+    [listing.rows[0].id, request.buyer_id, offer.id]
+  );
+  const needed = dayOf(request.required_date);
+  await postMessage(
+    db,
+    chat.rows[0].id,
+    ownerUserId,
+    `Offer for your request of ${Number(request.requested_quantity).toLocaleString(
+      "en-US"
+    )} nuts${needed ? ` needed by ${needed}` : ""}.`,
+    Number(offer.seller_price_per_unit)
+  );
+  return chat.rows[0].id;
 };
 
 /** One row for the chats list, from the caller's side. */
@@ -165,6 +256,9 @@ const summarise = (chat, messages, userId) => {
   const last = statused[statused.length - 1];
   const waiting = statused
     .filter((m) => m.sender_id !== userId && m.offer_status === "PENDING")
+    .pop();
+  const mine = statused
+    .filter((m) => m.sender_id === userId && m.offer_status === "PENDING")
     .pop();
 
   return {
@@ -178,8 +272,11 @@ const summarise = (chat, messages, userId) => {
     product_type: chat.product_type,
     quantity: chat.quantity,
     listed_price: chat.listed_price,
+    // Set when the chat started from an estate's offer on a buyer request.
+    sell_request_id: chat.sell_request_id ?? null,
     last_message: last
       ? {
+          id: last.id,
           text: last.message,
           offer_price_per_unit: last.offer_price_per_unit,
           offer_status: last.offer_status,
@@ -201,6 +298,15 @@ const summarise = (chat, messages, userId) => {
             created_at: waiting.created_at,
           }
         : null,
+    // My own offer, waiting for the other side.
+    my_pending_offer:
+      chat.status === "OPEN" && mine
+        ? {
+            id: mine.id,
+            offer_price_per_unit: mine.offer_price_per_unit,
+            created_at: mine.created_at,
+          }
+        : null,
   };
 };
 
@@ -208,7 +314,7 @@ const summarise = (chat, messages, userId) => {
 const listChats = async (db, userId) => {
   const chats = await db.query(
     `SELECT
-      n.id, n.status, n.order_id, n.created_at, n.buyer_id,
+      n.id, n.status, n.order_id, n.created_at, n.buyer_id, n.sell_request_id,
       n.buyer_last_read_at, n.owner_last_read_at,
       o.status AS order_status,
       o.final_price_per_unit AS order_price,
@@ -329,6 +435,16 @@ const sendChatMessage = async (req, res) => {
       req.body.message ? String(req.body.message).trim() : "",
       req.body.offerPricePerUnit ? Number(req.body.offerPricePerUnit) : null
     );
+    // An estate's new price in an offer chat updates the offer itself, so
+    // the buyer's request shows the latest price.
+    if (chat.sell_request_id && chat.role === "ESTATE_OWNER" && req.body.offerPricePerUnit) {
+      await pool.query(
+        `UPDATE sell_requests SET seller_price_per_unit = $2
+         WHERE id = $1 AND LOWER(COALESCE(status, 'pending')) = 'pending'`,
+        [chat.sell_request_id, Number(req.body.offerPricePerUnit)]
+      );
+    }
+
     // Writing in a chat also means you've seen it.
     await pool.query(
       `UPDATE negotiations SET ${lastReadColumn(chat.role)} = $2 WHERE id = $1`,
@@ -480,4 +596,6 @@ module.exports = {
   // Shared with the older buyer/owner routes and notifications.
   listChats,
   postMessage,
+  openOfferChat,
+  settleRequest,
 };

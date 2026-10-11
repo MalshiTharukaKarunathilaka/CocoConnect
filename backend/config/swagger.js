@@ -28,6 +28,10 @@ const options = {
         description: "Marketplace, buyer requests, negotiation and orders",
       },
       {
+        name: "Admin",
+        description: "Price disputes (ADMIN accounts only)",
+      },
+      {
         name: "Chats",
         description: "Negotiation chats and notifications for buyers and estate owners",
       },

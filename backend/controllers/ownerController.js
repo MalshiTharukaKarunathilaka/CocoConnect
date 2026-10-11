@@ -5,10 +5,11 @@ const {
   withDistance,
   byDistance,
   dayOf,
+  addDays,
   withDueDate,
   DUE_DATE_COLUMNS,
 } = require("../utils/geo");
-const { postMessage } = require("./chatController");
+const { postMessage, openOfferChat } = require("./chatController");
 
 /** Today as "YYYY-MM-DD" in the server's local time zone. */
 const localToday = () => {
@@ -163,6 +164,7 @@ const getMyListings = async (req, res) => {
     const result = await pool.query(
       `SELECT * FROM product_listings
        WHERE estate_owner_id = $1
+         AND UPPER(COALESCE(status, 'ACTIVE')) <> 'OFFER'
        ORDER BY created_at DESC, id DESC`,
       [estate.id]
     );
@@ -252,11 +254,27 @@ const getBuyerRequests = async (req, res) => {
       origin = parseCoords(me.rows[0]?.latitude, me.rows[0]?.longitude);
     }
 
-    const rows = withDistance(
+    let rows = withDistance(
       result.rows,
       origin,
       parseRadius(req.query.radiusKm)
     );
+
+    // Match my harvest: buyers who need it on my available date or up to
+    // 7 days before it (the same rule buyers see from their side), and no
+    // more nuts than I have.
+    const available = dayOf(req.query.availableDate);
+    if (available && /^\d{4}-\d{2}-\d{2}$/.test(available)) {
+      const from = addDays(available, -7);
+      rows = rows.filter((row) => {
+        const needed = dayOf(row.required_date);
+        return needed !== null && needed >= from && needed <= available;
+      });
+    }
+    const maxQuantity = Number(req.query.maxQuantity);
+    if (maxQuantity > 0) {
+      rows = rows.filter((row) => Number(row.requested_quantity) <= maxQuantity);
+    }
 
     if (req.query.sort === "nearest") rows.sort(byDistance);
     if (req.query.sort === "date") {
@@ -328,9 +346,20 @@ const createSellRequest = async (req, res) => {
       ]
     );
 
+    // Start a chat with the buyer from this offer (buyers with an account).
+    const chatId = buyerRequest.buyer_id
+      ? await openOfferChat(pool, {
+          estateId: estate.id,
+          ownerUserId: req.user.id,
+          offer: result.rows[0],
+          request: buyerRequest,
+        })
+      : null;
+
     return res.status(201).json({
       message: "Offer sent to the buyer",
       sellRequest: result.rows[0],
+      negotiationId: chatId,
     });
   } catch (error) {
     return serverError(res, "Create sell request", error);
@@ -662,6 +691,8 @@ const completeOrder = async (req, res) => {
   try {
     const deliveredQuantity = Number(req.body.deliveredQuantity);
     const finalPrice = Number(req.body.finalPricePerUnit);
+    const flagged = req.body.requestPriceReview === true;
+    const note = req.body.disputeNote ? String(req.body.disputeNote).trim() : null;
 
     if (!Number.isInteger(deliveredQuantity) || deliveredQuantity <= 0) {
       return res.status(400).json({
@@ -674,7 +705,7 @@ const completeOrder = async (req, res) => {
 
     const estate = await getOwnEstate(pool, req.user.id);
     const mine = await pool.query(
-      `SELECT o.id, o.status
+      `SELECT o.id, o.status, o.final_price_per_unit
        FROM orders o
        LEFT JOIN product_listings pl ON pl.id = o.listing_id
        LEFT JOIN sell_requests sr
@@ -690,19 +721,48 @@ const completeOrder = async (req, res) => {
       return res.status(409).json({ message: "This deal is already completed" });
     }
 
-    const result = await pool.query(
-      `UPDATE orders
-       SET status = 'COMPLETED',
-           delivered_quantity = $2,
-           delivered_price_per_unit = $3,
-           completed_at = $4
-       WHERE id = $1
-       RETURNING *`,
-      [order.id, deliveredQuantity, finalPrice, new Date()]
-    );
+    // A different price than agreed needs an admin's approval. Until then
+    // the agreed price is what counts.
+    const agreed = Number(order.final_price_per_unit);
+    const differs = Math.abs(finalPrice - agreed) > 0.001;
+    if (differs && !flagged) {
+      return res.status(409).json({
+        code: "PRICE_REVIEW_REQUIRED",
+        message:
+          `The final price differs from the agreed Rs. ${agreed}. ` +
+          "Flag a price dispute for admin approval to complete the deal.",
+      });
+    }
+
+    const result = differs
+      ? await pool.query(
+          `UPDATE orders
+           SET status = 'COMPLETED',
+               delivered_quantity = $2,
+               delivered_price_per_unit = $3,
+               dispute_price_per_unit = $4,
+               dispute_status = 'PENDING',
+               dispute_note = $5,
+               completed_at = $6
+           WHERE id = $1
+           RETURNING *`,
+          [order.id, deliveredQuantity, agreed, finalPrice, note, new Date()]
+        )
+      : await pool.query(
+          `UPDATE orders
+           SET status = 'COMPLETED',
+               delivered_quantity = $2,
+               delivered_price_per_unit = $3,
+               completed_at = $4
+           WHERE id = $1
+           RETURNING *`,
+          [order.id, deliveredQuantity, finalPrice, new Date()]
+        );
 
     return res.status(200).json({
-      message: "Deal completed",
+      message: differs
+        ? "Deal completed - new price sent for admin approval"
+        : "Deal completed",
       order: result.rows[0],
     });
   } catch (error) {

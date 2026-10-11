@@ -4,13 +4,11 @@ import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../services/buyer_service.dart';
 import '../../widgets/buyer_widgets.dart';
-import '../../widgets/header_actions.dart';
+import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/nearby_filter.dart';
 import 'buyer_format.dart';
 import 'coconut_type.dart';
 import 'estate_owner_request_page.dart';
-import 'my_activity_page.dart';
-import 'buyer_profile_page.dart';
 
 const List<Color> _avatarColors = [
   Color(0xFFDDEEE0),
@@ -235,7 +233,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
             icon: Icons.inventory_2_outlined,
             text: match != null
                 ? 'No listings$where match your request yet. Estate owners '
-                      'can still send you offers - check My Activity.'
+                      'can still send you offers - check Orders.'
                 : _radiusKm != null
                 ? 'No ${widget.type.label.toLowerCase()} listed$where. '
                       'Try a wider distance.'
@@ -340,20 +338,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
   @override
   Widget build(BuildContext context) {
     return BuyerScaffold(
-      bottomNavigation: BuyerBottomNavigation(
-        currentIndex: 0,
-        onTabSelected: (index) {
-          if (index == 0) {
-            // Categories is the root of this flow - unwind back to it
-            // rather than stacking another copy on top.
-            Navigator.popUntil(context, (route) => route.isFirst);
-          } else if (index == 1) {
-            openMyActivity(context);
-          } else if (index == 2) {
-            openBuyerProfile(context);
-          }
-        },
-      ),
+      bottomNavigation: const AppBottomNav(current: AppTab.dashboard),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
         child: Column(
@@ -383,7 +368,14 @@ class _MarketplacePageState extends State<MarketplacePage> {
                     ),
                   ],
                 ),
-                const HeaderActions(color: Color(0xFF3A3A3A)),
+                const Text(
+                  'EN | SI | TA',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: kBuyerGrey,
+                  ),
+                ),
               ],
             ),
 

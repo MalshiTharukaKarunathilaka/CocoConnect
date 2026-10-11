@@ -178,22 +178,21 @@ test("a new offer replaces the pending one; accepting creates the order", async 
   assert.equal(closed.status, 409);
 });
 
-test("upcoming deliveries show as notifications on both sides", async () => {
-  const ownerNotes = (await call("GET", "/api/notifications", { token: owner.token })).data;
-  const delivery = ownerNotes.find((n) => n.type === "DELIVERY");
-  assert.ok(delivery, JSON.stringify(ownerNotes));
-  assert.match(delivery.title, /due tomorrow/);
-  assert.equal(delivery.urgent, true);
-  assert.equal(ownerNotes[0].type, "DELIVERY", "urgent deliveries come first");
+test("alerts show new chat messages, not deliveries", async () => {
+  const later = await open(await list(500, day(1), 140));
+  await say(owner, later, { message: "Harvest is ready tomorrow" });
 
   const buyerNotes = (await call("GET", "/api/notifications", { token: buyer.token })).data;
-  assert.ok(buyerNotes.some((n) => n.type === "DELIVERY" && /Kelani Palms/.test(n.body)));
+  const message = buyerNotes.find((n) => n.type === "CHAT" && n.negotiation_id === later);
+  assert.ok(message, JSON.stringify(buyerNotes));
+  assert.match(message.title, /Kelani Palms/);
+  assert.equal(message.body, "Harvest is ready tomorrow");
+  assert.ok(buyerNotes.every((n) => n.type !== "DELIVERY"));
 
-  // Far-off orders aren't "upcoming" yet.
-  const later = await open(await list(500, day(30), 140));
-  await call("POST", `/api/chats/${later}/accept-listing`, { token: buyer.token });
-  const notes = (await call("GET", "/api/notifications", { token: owner.token })).data;
-  assert.equal(notes.filter((n) => n.type === "DELIVERY").length, 1);
+  // Reading the chat clears the alert.
+  await chatOf(buyer, later);
+  const after = (await call("GET", "/api/notifications", { token: buyer.token })).data;
+  assert.ok(!after.some((n) => n.negotiation_id === later));
 });
 
 test("the buyer can take the listed price only before any offer", async () => {

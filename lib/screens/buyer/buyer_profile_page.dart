@@ -4,7 +4,7 @@ import '../../services/auth_service.dart';
 import '../../services/buyer_service.dart';
 import '../../widgets/buyer_widgets.dart';
 import '../account_dialogs.dart';
-import 'my_activity_page.dart';
+import '../../widgets/app_bottom_nav.dart';
 
 /// Opens the profile from any buyer screen's PROFILE tab, on top of
 /// Buying Categories rather than stacking copies.
@@ -52,16 +52,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
     final AppUser? user = AuthService.currentUser;
 
     return BuyerScaffold(
-      bottomNavigation: BuyerBottomNavigation(
-        currentIndex: 2,
-        onTabSelected: (index) {
-          if (index == 0) {
-            Navigator.popUntil(context, (route) => route.isFirst);
-          } else if (index == 1) {
-            openMyActivity(context);
-          }
-        },
-      ),
+      bottomNavigation: const AppBottomNav(current: AppTab.profile),
       body: RefreshIndicator(
         color: kBuyerGreen,
         onRefresh: _reload,
@@ -134,10 +125,10 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                   ),
                   const Divider(height: 1, indent: 56, color: kBuyerBorder),
                   _ActionRow(
-                    icon: Icons.assignment_outlined,
-                    label: 'My Activity',
-                    subtitle: 'Requests, negotiations and orders',
-                    onTap: () => openMyActivity(context),
+                    icon: Icons.receipt_long_outlined,
+                    label: 'My Orders',
+                    subtitle: 'Pending orders, deals and transactions',
+                    onTap: () => openTab(context, AppTab.orders),
                   ),
                   const Divider(height: 1, indent: 56, color: kBuyerBorder),
                   _ActionRow(
@@ -319,7 +310,7 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BuyerCard(
-      onTap: () => openMyActivity(context),
+      onTap: () => openTab(context, AppTab.orders),
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

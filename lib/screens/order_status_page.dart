@@ -131,7 +131,7 @@ class _OrderStatusPageState extends State<OrderStatusPage> {
               _Stage.pending =>
                 'No requests waiting. Open Coconuts on the dashboard and '
                     'tap a buyer to send one.',
-              _Stage.accepted => 'No accepted requests to deliver.',
+              _Stage.accepted => 'No accepted requests yet.',
               _Stage.completed => 'No completed deals yet.',
               _Stage.notChosen => 'No requests were turned down.',
             },

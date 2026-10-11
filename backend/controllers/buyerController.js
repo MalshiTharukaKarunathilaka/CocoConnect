@@ -7,7 +7,7 @@ const {
   dayOf,
   addDays,
 } = require("../utils/geo");
-const { postMessage } = require("./chatController");
+const { postMessage, settleRequest } = require("./chatController");
 
 const serverError = (res, label, error) => {
   console.error(`${label} error:`, error);
@@ -291,16 +291,30 @@ const acceptResponse = async (req, res) => {
       [sellRequest.buyer_request_id, req.user.id, price, total]
     );
 
-    await client.query(
-      `UPDATE sell_requests
-       SET status = CASE WHEN id = $1 THEN 'accepted' ELSE 'declined' END
-       WHERE buyer_request_id = $2`,
-      [sellRequest.id, sellRequest.buyer_request_id]
+    // Its chat (if any) becomes the deal; the other estates' chats close.
+    const chat = await client.query(
+      "SELECT id FROM negotiations WHERE sell_request_id = $1 AND status = 'OPEN'",
+      [sellRequest.id]
     );
-    await client.query(
-      "UPDATE buyer_requests SET status = 'ACCEPTED' WHERE id = $1",
-      [sellRequest.buyer_request_id]
-    );
+    const chatId = chat.rows[0]?.id ?? null;
+    if (chatId) {
+      await client.query(
+        "UPDATE negotiations SET status = 'ACCEPTED', order_id = $2 WHERE id = $1",
+        [chatId, order.rows[0].id]
+      );
+      await client.query(
+        `UPDATE negotiation_messages SET offer_status = 'ACCEPTED'
+         WHERE negotiation_id = $1 AND offer_status = 'PENDING'
+           AND offer_price_per_unit = $2`,
+        [chatId, price]
+      );
+      await client.query(
+        `UPDATE negotiation_messages SET offer_status = 'SUPERSEDED'
+         WHERE negotiation_id = $1 AND offer_status = 'PENDING'`,
+        [chatId]
+      );
+    }
+    await settleRequest(client, sellRequest, price, chatId);
 
     await client.query("COMMIT");
 

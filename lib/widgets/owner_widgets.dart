@@ -609,3 +609,131 @@ class OwnerMessage extends StatelessWidget {
     );
   }
 }
+
+/// The dashed line above a card's total, as in the Deal Window design.
+class DashedDivider extends StatelessWidget {
+  const DashedDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final int dashes = (constraints.maxWidth / 8).floor();
+          return Row(
+            children: [
+              for (int i = 0; i < dashes; i++)
+                Expanded(
+                  child: Container(
+                    height: 1,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    color: const Color(0xFFD9D6CF),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Photo card for a product category, used on the buyer's and estate
+/// owner's category screens alike.
+class CategoryImageCard extends StatelessWidget {
+  final String title;
+  final String imageUrl;
+  final String? trailing;
+  final VoidCallback? onTap;
+
+  const CategoryImageCard({
+    super.key,
+    required this.title,
+    required this.imageUrl,
+    this.trailing,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(4),
+        side: const BorderSide(color: Color(0xFFE0E0E0)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          children: [
+            SizedBox(
+              height: 130,
+              width: double.infinity,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                // Wikimedia asks apps to say who they are.
+                headers: const {
+                  'User-Agent': 'CocoConnect/1.0 (university project)',
+                },
+                loadingBuilder: (context, child, progress) => progress == null
+                    ? child
+                    : const ColoredBox(color: Color(0xFFF1F1EC)),
+                errorBuilder: (context, error, stackTrace) => const ColoredBox(
+                  color: Color(0xFFE8F5E9),
+                  child: Center(
+                    child: Icon(Icons.image, size: 40, color: kOwnerGreen),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.arrow_forward,
+                    size: 18,
+                    color: Color(0xFF1B5E20),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1B5E20),
+                      ),
+                    ),
+                  ),
+                  if (trailing != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: kOwnerGreenSoft,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        trailing!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: kOwnerGreen,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

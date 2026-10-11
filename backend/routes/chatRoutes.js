@@ -10,6 +10,7 @@ const {
   closeChat,
 } = require("../controllers/chatController");
 const { getNotifications } = require("../controllers/notificationController");
+const { getActivity } = require("../controllers/activityController");
 const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
@@ -180,5 +181,19 @@ router.post("/chats/:id/close", closeChat);
  *         description: Items with key, type (OFFER / SELL_OFFER / DELIVERY), title, body, at
  */
 router.get("/notifications", getNotifications);
+
+/**
+ * @swagger
+ * /api/activity:
+ *   get:
+ *     summary: Orders tab - pending offers, open negotiations, deals and transactions
+ *     tags: [Chats]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: "{ pending, negotiations, deals, transactions } for the logged-in user"
+ */
+router.get("/activity", getActivity);
 
 module.exports = router;

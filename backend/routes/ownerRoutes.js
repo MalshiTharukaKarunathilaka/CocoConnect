@@ -133,6 +133,14 @@ router.post("/listings", createListing);
  *         schema:
  *           type: string
  *           enum: [price, date, nearest]
+ *       - in: query
+ *         name: availableDate
+ *         description: Match my harvest - buyers needing it on this day or up to 7 days before
+ *         schema: { type: string, example: "2026-10-20" }
+ *       - in: query
+ *         name: maxQuantity
+ *         description: Match my harvest - buyers needing at most this many nuts
+ *         schema: { type: integer, example: 1200 }
  *     responses:
  *       200:
  *         description: Pending buyer requests (highest bid first by default), with distance_km
@@ -319,11 +327,15 @@ router.get("/orders", getMyOrders);
  *             properties:
  *               deliveredQuantity: { type: integer, example: 1950 }
  *               finalPricePerUnit: { type: number, example: 130 }
+ *               requestPriceReview:
+ *                 type: boolean
+ *                 description: Required when the price differs from the agreed one
+ *               disputeNote: { type: string, example: "Buyer graded the lot higher" }
  *     responses:
  *       200:
  *         description: Deal completed
  *       409:
- *         description: Already completed
+ *         description: Already completed, or the price differs and needs requestPriceReview
  */
 router.post("/orders/:id/complete", completeOrder);
 

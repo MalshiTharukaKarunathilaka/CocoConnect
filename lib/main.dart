@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/auth_gate.dart';
 import 'screens/estate_owner_profile_page.dart';
-import 'screens/deal_window_page.dart';
+import 'screens/orders/orders_page.dart';
 
 void main() {
   runApp(const KapConnectApp());
@@ -13,7 +13,7 @@ class KapConnectApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'KapConnect',
+      title: 'CocoConnect',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true, fontFamily: 'Arial'),
 
@@ -25,7 +25,7 @@ class KapConnectApp extends StatelessWidget {
       // App routes
       routes: {
         '/profile': (context) => const EstateOwnerProfilePage(),
-        '/owner-activity': (context) => const DealWindowPage(),
+        '/owner-activity': (context) => const OrdersPage(initialTab: 1),
       },
     );
   }

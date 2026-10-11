@@ -2,82 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_client.dart';
 import '../../services/buyer_service.dart';
-import '../../widgets/async_list.dart';
 import '../../widgets/buyer_widgets.dart';
-import 'buyer_format.dart';
-import '../chat/chat_page.dart';
-import 'coconut_type.dart';
-import 'buyer_profile_page.dart';
-
-/// Opens My Activity from any buyer screen's ORDERS tab, on top of
-/// Buying Categories rather than stacking copies.
-/// [tab]: 0 requests, 1 negotiations, 2 orders.
-void openMyActivity(BuildContext context, {int tab = 0}) {
-  final NavigatorState navigator = Navigator.of(context);
-  navigator.popUntil((route) => route.isFirst);
-  navigator.push(
-    MaterialPageRoute(builder: (context) => MyActivityPage(initialTab: tab)),
-  );
-}
-
-/// The buyer's own requests, negotiations and orders.
-class MyActivityPage extends StatelessWidget {
-  final int initialTab;
-
-  const MyActivityPage({super.key, this.initialTab = 0});
-
-  @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      initialIndex: initialTab,
-      child: BuyerScaffold(
-        bottomNavigation: BuyerBottomNavigation(
-          currentIndex: 1,
-          onTabSelected: (index) {
-            if (index == 0) {
-              Navigator.popUntil(context, (route) => route.isFirst);
-            } else if (index == 2) {
-              openBuyerProfile(context);
-            }
-          },
-        ),
-        body: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
-              child: Text(
-                'My Activity',
-                style: TextStyle(
-                  fontSize: 27,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A1A1A),
-                ),
-              ),
-            ),
-            TabBar(
-              labelColor: kBuyerGreen,
-              unselectedLabelColor: kBuyerGrey,
-              indicatorColor: kBuyerGreen,
-              labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-              tabs: [
-                Tab(text: 'Requests'),
-                Tab(text: 'Negotiations'),
-                Tab(text: 'Orders'),
-              ],
-            ),
-            Expanded(
-              child: TabBarView(
-                children: [_RequestsTab(), _NegotiationsTab(), _OrdersTab()],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+import '../buyer/buyer_format.dart';
+import '../buyer/coconut_type.dart';
 
 void _showSnack(BuildContext context, String text, {bool error = false}) {
   ScaffoldMessenger.of(context)
@@ -106,29 +33,17 @@ BuyerPill _statusPill(String text, {bool good = false, bool bad = false}) {
   );
 }
 
-// ---------------------------------------------------------------- Requests
-
-class _RequestsTab extends StatelessWidget {
-  const _RequestsTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return AsyncList<BuyerRequest>(
-      load: BuyerService.getMyRequests,
-      emptyText:
-          'No requests yet. Submit one from the Marketplace and estate '
-          'owners can respond.',
-      itemBuilder: (context, request, reload) =>
-          _RequestCard(request: request, onChanged: reload),
-    );
-  }
-}
-
-class _RequestCard extends StatelessWidget {
+/// One of the buyer's own requests: edit, delete, and see estate owners'
+/// offers on it (accept one to make a deal).
+class BuyerRequestCard extends StatelessWidget {
   final BuyerRequest request;
   final VoidCallback onChanged;
 
-  const _RequestCard({required this.request, required this.onChanged});
+  const BuyerRequestCard({
+    super.key,
+    required this.request,
+    required this.onChanged,
+  });
 
   Future<void> _edit(BuildContext context) async {
     final bool? saved = await showDialog<bool>(
@@ -148,7 +63,7 @@ class _RequestCard extends StatelessWidget {
       builder: (context) => _OffersSheet(request: request),
     );
     if (accepted == true && context.mounted) {
-      _showSnack(context, 'Offer accepted. It is now under Orders.');
+      _showSnack(context, 'Offer accepted. It is now under Deals.');
       onChanged();
     }
   }
@@ -603,151 +518,3 @@ class _EditRequestDialogState extends State<_EditRequestDialog> {
 }
 
 // ------------------------------------------------------------ Negotiations
-
-class _NegotiationsTab extends StatelessWidget {
-  const _NegotiationsTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return AsyncList<NegotiationSummary>(
-      load: BuyerService.getMyNegotiations,
-      emptyText:
-          'No negotiations yet. Open a listing in the Marketplace and tap '
-          'Negotiate.',
-      itemBuilder: (context, negotiation, reload) => BuyerCard(
-        onTap: () async {
-          await openChat(context, negotiation.id);
-          reload();
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    negotiation.estateName,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                  ),
-                ),
-                _negotiationPill(negotiation),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${CoconutType.fromCode(negotiation.productType).label}  ·  '
-              '${withCommas(negotiation.quantity)} nuts  ·  listed at '
-              '${rupees(negotiation.listedPrice)}',
-              style: const TextStyle(fontSize: 12.5, color: Color(0xFF3A3A3A)),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              negotiation.messageCount == 1
-                  ? '1 message'
-                  : '${negotiation.messageCount} messages',
-              style: const TextStyle(fontSize: 12, color: kBuyerGrey),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  BuyerPill _negotiationPill(NegotiationSummary negotiation) {
-    switch (negotiation.status) {
-      case 'REJECTED':
-        return _statusPill('REJECTED', bad: true);
-      case 'ACCEPTED':
-        return negotiation.orderStatus == 'COMPLETED'
-            ? _statusPill('COMPLETED', good: true)
-            : _statusPill('DEAL ACCEPTED', good: true);
-      default:
-        return _statusPill('OPEN');
-    }
-  }
-}
-
-// ------------------------------------------------------------------ Orders
-
-class _OrdersTab extends StatelessWidget {
-  const _OrdersTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return AsyncList<BuyerOrder>(
-      load: BuyerService.getMyOrders,
-      emptyText: 'No orders yet. Orders appear here when you accept a deal.',
-      itemBuilder: (context, order, reload) {
-        final bool completed = order.status == 'COMPLETED';
-        // Once completed, show what the estate owner actually delivered.
-        final bool delivered = completed && order.deliveredQuantity != null;
-        final int quantity = delivered
-            ? order.deliveredQuantity!
-            : order.quantity;
-        final double price = delivered
-            ? order.deliveredPrice ?? order.pricePerUnit
-            : order.pricePerUnit;
-        return BuyerCard(
-          onTap: order.negotiationId == null
-              ? null
-              : () async {
-                  await openChat(context, order.negotiationId!);
-                  reload();
-                },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Order #${order.id}  ·  ${order.estateName}',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A1A1A),
-                      ),
-                    ),
-                  ),
-                  completed
-                      ? _statusPill('COMPLETED', good: true)
-                      : _statusPill('AWAITING DELIVERY'),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: BuyerInfoPair(
-                      label: delivered ? 'DELIVERED' : 'QUANTITY',
-                      value: '${withCommas(quantity)} nuts',
-                    ),
-                  ),
-                  Expanded(
-                    child: BuyerInfoPair(
-                      label: 'TOTAL',
-                      value: rupees(
-                        delivered ? quantity * price : order.totalValue,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${CoconutType.fromCode(order.productType).label}  ·  '
-                '${rupees(price)} per nut'
-                '${delivered && quantity != order.quantity ? '  ·  agreed ${withCommas(order.quantity)}' : ''}',
-                style: const TextStyle(fontSize: 12, color: kBuyerGrey),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}

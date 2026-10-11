@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
-import '../../services/auth_service.dart';
 import '../../services/chat_service.dart';
 import '../../widgets/owner_widgets.dart';
-import '../buyer/my_activity_page.dart';
-import '../deal_window_page.dart';
+import '../../widgets/app_bottom_nav.dart';
 import 'chat_page.dart';
 import 'chats_page.dart';
 
 const Color _green = Color(0xFF256B45);
 const Color _muted = Color(0xFF6B7280);
-const Color _red = Color(0xFFC62828);
 const Color _brown = Color(0xFF8B4A1C);
 
 /// Offers from the other side and upcoming orders, for buyers and estate
@@ -28,6 +25,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Future<List<AppNotification>> _load() async {
     final List<AppNotification> items = await ChatService.getNotifications();
     await ChatService.markSeen(items);
+    Unread.refresh();
     return items;
   }
 
@@ -44,32 +42,24 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Future<void> _open(AppNotification item) async {
-    final bool buyer = AuthService.currentUser?.isBuyer ?? false;
     switch (item.type) {
       case NotificationType.offer:
+      case NotificationType.chat:
         await openChat(context, item.negotiationId!);
+        if (mounted) _reload();
       case NotificationType.sellOffer:
-        openMyActivity(context, tab: 0);
-        return;
-      case NotificationType.delivery:
-        if (buyer) {
-          openMyActivity(context, tab: 2);
-          return;
-        }
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const DealWindowPage()),
-        );
+        // The buyer's request with the estate's offer: Pending Orders.
+        openTab(context, AppTab.orders, ordersTab: 0);
     }
-    if (mounted) _reload();
   }
 
   @override
   Widget build(BuildContext context) {
     return OwnerPage(
+      bottom: const AppBottomNav(current: AppTab.alerts),
       child: Column(
         children: [
-          const OwnerHeader(title: 'Notifications'),
+          const OwnerHeader(title: 'Alerts', subtitle: 'OFFERS & MESSAGES'),
           Expanded(
             child: RefreshIndicator(
               color: _green,
@@ -105,7 +95,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           icon: Icons.notifications_none,
                           text:
                               "You're all caught up. Offers you receive and "
-                              'orders due in the next week show up here.',
+                              'new chat messages show up here.',
                         ),
                       ],
                     );
@@ -142,11 +132,7 @@ class _NotificationCard extends StatelessWidget {
     final (IconData icon, Color color, String label) = switch (item.type) {
       NotificationType.offer => (Icons.local_offer, _brown, 'Offer'),
       NotificationType.sellOffer => (Icons.storefront, _brown, 'Offer'),
-      NotificationType.delivery => (
-        Icons.local_shipping,
-        item.urgent ? _red : _green,
-        'Upcoming order',
-      ),
+      NotificationType.chat => (Icons.chat_bubble, _green, 'Message'),
     };
 
     return InkWell(
@@ -179,11 +165,10 @@ class _NotificationCard extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      if (item.type != NotificationType.delivery)
-                        Text(
-                          chatTime(item.at),
-                          style: const TextStyle(fontSize: 11, color: _muted),
-                        ),
+                      Text(
+                        chatTime(item.at),
+                        style: const TextStyle(fontSize: 11, color: _muted),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),

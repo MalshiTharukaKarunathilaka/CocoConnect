@@ -50,7 +50,7 @@ class OnboardingPage extends StatelessWidget {
                       child: Column(
                         children: [
                           const Text(
-                            'WELCOME TO COCOCONNECT',
+                            'WELCOME TO KAPCONNECT',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 22,
