@@ -324,3 +324,92 @@ test("profile: estate details and summary counts", async () => {
   assert.equal(buyerSummary.data.orders_active, 2);
   assert.equal(buyerSummary.data.open_requests, 0);
 });
+
+test("deals: owner accepts buyer's offer, completes with actual figures", async () => {
+  const listing = (await call("POST", "/api/owner/listings", {
+    token: owner.token,
+    body: {
+      productType: "RAW_COCONUT",
+      quantity: 2000,
+      availableDate: "2026-12-10",
+      offerPricePerUnit: 135,
+    },
+  })).data.listing;
+
+  const chat = (await call("POST", "/api/buyer/negotiations", {
+    token: buyer.token,
+    body: { listingId: listing.id },
+  })).data;
+  await call("POST", `/api/buyer/negotiations/${chat.id}/messages`, {
+    token: buyer.token,
+    body: { offerPricePerUnit: 128 },
+  });
+
+  const notMine = await call("POST", `/api/owner/negotiations/${chat.id}/accept`, {
+    token: otherOwner.token,
+  });
+  assert.equal(notMine.status, 404);
+
+  const accepted = await call("POST", `/api/owner/negotiations/${chat.id}/accept`, {
+    token: owner.token,
+  });
+  assert.equal(accepted.status, 201);
+  assert.equal(Number(accepted.data.order.final_price_per_unit), 128, "buyer's offer");
+  assert.equal(Number(accepted.data.order.total_value), 128 * 2000);
+  const orderId = accepted.data.order.id;
+
+  const buyerView = await call("GET", `/api/buyer/negotiations/${chat.id}`, {
+    token: buyer.token,
+  });
+  assert.equal(buyerView.data.status, "ACCEPTED");
+
+  const orders = await call("GET", "/api/owner/orders", { token: owner.token });
+  const deal = orders.data.find((o) => o.id === orderId);
+  assert.match(String(deal.due_date), /^2026-12-10/);
+  assert.equal(deal.buyer_name, "Senuji Test");
+  assert.equal(deal.quantity, 2000);
+
+  const bad = await call("POST", `/api/owner/orders/${orderId}/complete`, {
+    token: owner.token,
+    body: { deliveredQuantity: 0, finalPricePerUnit: 128 },
+  });
+  assert.equal(bad.status, 400);
+
+  const other = await call("POST", `/api/owner/orders/${orderId}/complete`, {
+    token: otherOwner.token,
+    body: { deliveredQuantity: 1950, finalPricePerUnit: 128 },
+  });
+  assert.equal(other.status, 404, "another owner can't complete it");
+
+  const done = await call("POST", `/api/owner/orders/${orderId}/complete`, {
+    token: owner.token,
+    body: { deliveredQuantity: 1950, finalPricePerUnit: 127 },
+  });
+  assert.equal(done.status, 200);
+  assert.equal(done.data.order.status, "COMPLETED");
+  assert.equal(done.data.order.delivered_quantity, 1950);
+  assert.equal(Number(done.data.order.final_price_per_unit), 128, "agreed price kept");
+  assert.ok(done.data.order.completed_at);
+
+  const twice = await call("POST", `/api/owner/orders/${orderId}/complete`, {
+    token: owner.token,
+    body: { deliveredQuantity: 1950, finalPricePerUnit: 127 },
+  });
+  assert.equal(twice.status, 409);
+
+  const buyerOrders = await call("GET", "/api/buyer/orders", { token: buyer.token });
+  assert.equal(buyerOrders.data.find((o) => o.id === orderId).status, "COMPLETED");
+
+  const stats = await call("GET", "/api/owner/market-stats?type=RAW_COCONUT", {
+    token: owner.token,
+  });
+  assert.equal(stats.status, 200);
+  assert.equal(stats.data.last_deal.quantity, 1950, "uses delivered figures");
+  assert.equal(stats.data.last_deal.price, 127);
+  assert.ok(stats.data.week_avg_price > 0);
+
+  const offers = await call("GET", "/api/owner/sell-requests", { token: owner.token });
+  const acceptedOffer = offers.data.find((o) => o.status === "accepted");
+  assert.ok(acceptedOffer.order_id, "accepted offer links to its order");
+  assert.equal(acceptedOffer.order_status, "ACCEPTED");
+});

@@ -4,8 +4,9 @@ import '../widgets/auth_widgets.dart';
 import 'buyer/buyer_categories_page.dart';
 import 'estate_owner_dashboard.dart';
 import 'login_page.dart';
+import 'onboarding_page.dart';
 
-/// First screen: reopens a saved login, otherwise shows Login.
+/// First screen: reopens a saved login, otherwise shows the welcome screen.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -29,7 +30,7 @@ class _AuthGateState extends State<AuthGate> {
 
         final AppUser? user = snapshot.data;
         final Widget? home = user == null ? null : homeFor(user);
-        return home ?? const LoginPage();
+        return home ?? const OnboardingPage();
       },
     );
   }

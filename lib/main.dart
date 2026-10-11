@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/auth_gate.dart';
 import 'screens/estate_owner_profile_page.dart';
-import 'screens/owner_activity_page.dart';
+import 'screens/deal_window_page.dart';
 
 void main() {
   runApp(const KapConnectApp());
@@ -25,7 +25,7 @@ class KapConnectApp extends StatelessWidget {
       // App routes
       routes: {
         '/profile': (context) => const EstateOwnerProfilePage(),
-        '/owner-activity': (context) => const OwnerActivityPage(),
+        '/owner-activity': (context) => const DealWindowPage(),
       },
     );
   }

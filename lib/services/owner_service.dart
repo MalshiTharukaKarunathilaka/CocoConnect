@@ -125,6 +125,104 @@ class OpenBuyerRequest {
       );
 }
 
+/// An order on one of this estate's listings or accepted offers, as shown
+/// in the Deal Window.
+class Deal {
+  final int id;
+  final int? negotiationId;
+  final int? buyerRequestId;
+  final String status; // ACCEPTED / COMPLETED
+  final String productType;
+  final int quantity;
+  final double pricePerUnit;
+  final double totalValue;
+  final String buyerName;
+  final String? buyerLocation;
+  final DateTime? dueDate;
+  final DateTime? createdAt;
+  final int? deliveredQuantity;
+  final double? deliveredPrice;
+  final DateTime? completedAt;
+
+  const Deal({
+    required this.id,
+    required this.negotiationId,
+    required this.buyerRequestId,
+    required this.status,
+    required this.productType,
+    required this.quantity,
+    required this.pricePerUnit,
+    required this.totalValue,
+    required this.buyerName,
+    required this.buyerLocation,
+    required this.dueDate,
+    required this.createdAt,
+    required this.deliveredQuantity,
+    required this.deliveredPrice,
+    required this.completedAt,
+  });
+
+  bool get isCompleted => status == 'COMPLETED';
+
+  /// "DL-2026-081": year the deal was made plus its order number.
+  String get reference =>
+      'DL-${(createdAt ?? DateTime.now()).year}-${id.toString().padLeft(3, '0')}';
+
+  /// Whole days from today until delivery; negative when overdue.
+  int? get daysUntilDue {
+    final DateTime? due = dueDate;
+    if (due == null) return null;
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    return DateTime(due.year, due.month, due.day).difference(today).inDays;
+  }
+
+  factory Deal.fromJson(Map<String, dynamic> json) => Deal(
+    id: json['id'] as int,
+    negotiationId: json['negotiation_id'] as int?,
+    buyerRequestId: json['buyer_request_id'] as int?,
+    status: json['status'] as String? ?? 'ACCEPTED',
+    productType: json['product_type'] as String? ?? '',
+    quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+    pricePerUnit: _toDouble(json['final_price_per_unit']),
+    totalValue: _toDouble(json['total_value']),
+    buyerName: json['buyer_name'] as String? ?? 'Buyer',
+    buyerLocation: json['buyer_location'] as String?,
+    // Plain dates come back as "YYYY-MM-DD"; keep them as local calendar days.
+    dueDate: DateTime.tryParse('${json['due_date']}'.split('T').first),
+    createdAt: DateTime.tryParse('${json['created_at']}')?.toLocal(),
+    deliveredQuantity: (json['delivered_quantity'] as num?)?.toInt(),
+    deliveredPrice: _toDoubleOrNull(json['delivered_price_per_unit']),
+    completedAt: DateTime.tryParse('${json['completed_at']}')?.toLocal(),
+  );
+}
+
+/// Recent prices for one product type, across all estates.
+class MarketStats {
+  final int? lastDealQuantity;
+  final double? lastDealPrice;
+  final double? todayAvgPrice;
+  final double? weekAvgPrice;
+
+  const MarketStats({
+    required this.lastDealQuantity,
+    required this.lastDealPrice,
+    required this.todayAvgPrice,
+    required this.weekAvgPrice,
+  });
+
+  factory MarketStats.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic>? last =
+        json['last_deal'] as Map<String, dynamic>?;
+    return MarketStats(
+      lastDealQuantity: (last?['quantity'] as num?)?.toInt(),
+      lastDealPrice: _toDoubleOrNull(last?['price']),
+      todayAvgPrice: _toDoubleOrNull(json['today_avg_price']),
+      weekAvgPrice: _toDoubleOrNull(json['week_avg_price']),
+    );
+  }
+}
+
 class OwnerService {
   OwnerService._();
 
@@ -226,10 +324,32 @@ class OwnerService {
   static Future<void> decline(int id) =>
       ApiClient.post('/api/owner/negotiations/$id/decline');
 
-  static Future<List<BuyerOrder>> getOrders() async {
+  static Future<List<Deal>> getDeals() async {
     final data = await ApiClient.get('/api/owner/orders');
     return (data as List)
-        .map((item) => BuyerOrder.fromJson(item as Map<String, dynamic>))
+        .map((item) => Deal.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Accepts the buyer's latest offer in a chat; creates the order.
+  static Future<void> acceptChat(int negotiationId) =>
+      ApiClient.post('/api/owner/negotiations/$negotiationId/accept');
+
+  /// Marks a deal delivered with the actual quantity and price.
+  static Future<void> completeDeal(
+    int orderId, {
+    required int deliveredQuantity,
+    required double finalPricePerUnit,
+  }) => ApiClient.post('/api/owner/orders/$orderId/complete', {
+    'deliveredQuantity': deliveredQuantity,
+    'finalPricePerUnit': finalPricePerUnit,
+  });
+
+  static Future<MarketStats> getMarketStats(String productType) async {
+    final data = await ApiClient.get(
+      '/api/owner/market-stats',
+      query: {'type': productType},
+    );
+    return MarketStats.fromJson(data as Map<String, dynamic>);
   }
 }

@@ -229,7 +229,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                       Navigator.pushNamed(context, '/owner-activity'),
                   icon: const Icon(Icons.receipt_long, size: 17),
                   label: const Text(
-                    'Buyers & Orders',
+                    'Deal Window',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                   style: OutlinedButton.styleFrom(
@@ -281,7 +281,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                     'buyer',
               if (summary.ordersActive > 0)
                 '${summary.ordersActive} order'
-                    '${summary.ordersActive == 1 ? '' : 's'} awaiting pickup',
+                    '${summary.ordersActive == 1 ? '' : 's'} to deliver',
             ].join('  ·  '),
             onTap: () => Navigator.pushNamed(context, '/owner-activity'),
           ),

@@ -194,19 +194,6 @@ class _BuyerNegotiationPageState extends State<BuyerNegotiationPage> {
     );
   }
 
-  Future<void> _complete() async {
-    final bool ok = await _confirm(
-      'Complete transaction?',
-      'Confirm that you have collected the nuts and paid the estate owner.',
-      'Complete',
-    );
-    if (!ok) return;
-    _run(
-      () => BuyerService.completeOrder(_negotiation!.orderId!),
-      'Transaction completed',
-    );
-  }
-
   BuyerPill get _statusPill {
     switch (_status) {
       case _DealStatus.negotiating:
@@ -595,16 +582,19 @@ class _BuyerNegotiationPageState extends State<BuyerNegotiationPage> {
             ],
           ),
 
-          const SizedBox(height: 12),
-
-          // Only possible once a deal has been accepted.
-          BuyerOutlinedButton(
-            label: 'Complete Transaction',
-            leadingIcon: Icons.check_circle_outline,
-            onPressed: _status == _DealStatus.accepted && !_busy
-                ? _complete
-                : null,
-          ),
+          if (_status == _DealStatus.accepted ||
+              _status == _DealStatus.completed) ...[
+            const SizedBox(height: 12),
+            // The estate owner completes the deal with the delivered figures.
+            Text(
+              _status == _DealStatus.completed
+                  ? 'Deal completed by the estate owner.'
+                  : 'The estate owner completes the deal once the nuts '
+                        'are delivered.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12.5, color: kBuyerGrey),
+            ),
+          ],
         ],
       ),
     );

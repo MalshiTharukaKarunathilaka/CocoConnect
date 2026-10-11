@@ -178,6 +178,9 @@ class SellOffer {
   final String? buyerName;
   final int? requestedQuantity;
   final double? buyerBid;
+  final DateTime? createdAt;
+  final int? orderId;
+  final String? orderStatus;
 
   const SellOffer({
     required this.id,
@@ -194,6 +197,9 @@ class SellOffer {
     this.buyerName,
     this.requestedQuantity,
     this.buyerBid,
+    this.createdAt,
+    this.orderId,
+    this.orderStatus,
   });
 
   bool get isPending => status.toLowerCase() == 'pending';
@@ -213,6 +219,9 @@ class SellOffer {
     buyerName: json['buyer_name'] as String?,
     requestedQuantity: (json['requested_quantity'] as num?)?.toInt(),
     buyerBid: _toDoubleOrNull(json['bidding_price_per_unit']),
+    createdAt: DateTime.tryParse('${json['created_at']}')?.toLocal(),
+    orderId: json['order_id'] as int?,
+    orderStatus: json['order_status'] as String?,
   );
 }
 
@@ -275,6 +284,10 @@ class BuyerOrder {
   /// Set when an estate owner lists their orders.
   final String? buyerName;
 
+  /// Filled in when the estate owner completes the deal.
+  final int? deliveredQuantity;
+  final double? deliveredPrice;
+
   const BuyerOrder({
     required this.id,
     required this.negotiationId,
@@ -286,6 +299,8 @@ class BuyerOrder {
     required this.estateName,
     required this.createdAt,
     this.buyerName,
+    this.deliveredQuantity,
+    this.deliveredPrice,
   });
 
   factory BuyerOrder.fromJson(Map<String, dynamic> json) => BuyerOrder(
@@ -299,6 +314,8 @@ class BuyerOrder {
     estateName: json['estate_name'] as String? ?? 'Unknown estate',
     createdAt: DateTime.tryParse('${json['created_at']}')?.toLocal(),
     buyerName: json['buyer_name'] as String?,
+    deliveredQuantity: (json['delivered_quantity'] as num?)?.toInt(),
+    deliveredPrice: _toDoubleOrNull(json['delivered_price_per_unit']),
   );
 }
 
@@ -456,9 +473,6 @@ class BuyerService {
 
   static Future<void> rejectDeal(int negotiationId) =>
       ApiClient.post('/api/buyer/negotiations/$negotiationId/reject');
-
-  static Future<void> completeOrder(int orderId) =>
-      ApiClient.patch('/api/buyer/orders/$orderId/complete');
 
   static String _isoDate(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-'

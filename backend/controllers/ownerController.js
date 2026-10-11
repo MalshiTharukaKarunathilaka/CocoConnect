@@ -296,9 +296,13 @@ const getMySellRequests = async (req, res) => {
         br.location AS buyer_location,
         br.requested_quantity,
         br.required_date,
-        br.bidding_price_per_unit
+        br.bidding_price_per_unit,
+        o.id AS order_id,
+        o.status AS order_status
        FROM sell_requests sr
        JOIN buyer_requests br ON br.id = sr.buyer_request_id
+       LEFT JOIN orders o
+         ON o.buyer_request_id = sr.buyer_request_id AND sr.status = 'accepted'
        WHERE sr.estate_owner_id = $1
        ORDER BY sr.created_at DESC, sr.id DESC`,
       [estate.id]
@@ -500,12 +504,15 @@ const getMyOrders = async (req, res) => {
         o.*,
         COALESCE(pl.product_type, sr.product_type) AS product_type,
         COALESCE(pl.quantity, sr.quantity) AS quantity,
-        u.name AS buyer_name,
+        COALESCE(pl.available_date, sr.available_date, br.required_date) AS due_date,
+        COALESCE(u.name, br.buyer_name) AS buyer_name,
+        COALESCE(u.location, br.location) AS buyer_location,
         n.id AS negotiation_id
        FROM orders o
        LEFT JOIN product_listings pl ON pl.id = o.listing_id
        LEFT JOIN sell_requests sr
          ON sr.buyer_request_id = o.buyer_request_id AND sr.status = 'accepted'
+       LEFT JOIN buyer_requests br ON br.id = o.buyer_request_id
        LEFT JOIN users u ON u.id = o.buyer_id
        LEFT JOIN negotiations n ON n.order_id = o.id
        WHERE pl.estate_owner_id = $1 OR sr.estate_owner_id = $1
@@ -519,7 +526,201 @@ const getMyOrders = async (req, res) => {
   }
 };
 
+/*
+|--------------------------------------------------------------------------
+| ACCEPT THE BUYER'S OFFER -> creates an order
+|--------------------------------------------------------------------------
+| The estate owner agrees to the buyer's latest counter-offer, or the listed
+| price if the buyer hasn't made one.
+*/
+const acceptNegotiation = async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const estate = await getOwnEstate(client, req.user.id);
+    const found = await client.query(
+      `SELECT n.*, pl.quantity, pl.offer_price_per_unit
+       FROM negotiations n
+       JOIN product_listings pl ON pl.id = n.listing_id
+       WHERE n.id = $1 AND pl.estate_owner_id = $2`,
+      [req.params.id, estate.id]
+    );
+    const negotiation = found.rows[0];
+    if (!negotiation) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Negotiation not found" });
+    }
+    if (negotiation.status !== "OPEN") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "This negotiation is closed" });
+    }
+
+    const buyerOffer = await client.query(
+      `SELECT offer_price_per_unit
+       FROM negotiation_messages
+       WHERE negotiation_id = $1
+         AND sender_id = $2
+         AND offer_price_per_unit IS NOT NULL
+       ORDER BY created_at DESC, id DESC
+       LIMIT 1`,
+      [negotiation.id, negotiation.buyer_id]
+    );
+
+    const finalPrice = Number(
+      buyerOffer.rows[0]?.offer_price_per_unit ?? negotiation.offer_price_per_unit
+    );
+    const totalValue = finalPrice * Number(negotiation.quantity);
+
+    const order = await client.query(
+      `INSERT INTO orders
+        (listing_id, buyer_id, final_price_per_unit, total_value, status)
+       VALUES ($1, $2, $3, $4, 'ACCEPTED')
+       RETURNING *`,
+      [negotiation.listing_id, negotiation.buyer_id, finalPrice, totalValue]
+    );
+
+    await client.query(
+      `UPDATE negotiations
+       SET status = 'ACCEPTED', order_id = $2
+       WHERE id = $1`,
+      [negotiation.id, order.rows[0].id]
+    );
+
+    await client.query("COMMIT");
+
+    return res.status(201).json({
+      message: "Deal accepted",
+      order: order.rows[0],
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return serverError(res, "Owner accept negotiation", error);
+  } finally {
+    client.release();
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| COMPLETE A DEAL with what was actually delivered
+|--------------------------------------------------------------------------
+*/
+const completeOrder = async (req, res) => {
+  try {
+    const deliveredQuantity = Number(req.body.deliveredQuantity);
+    const finalPrice = Number(req.body.finalPricePerUnit);
+
+    if (!Number.isInteger(deliveredQuantity) || deliveredQuantity <= 0) {
+      return res.status(400).json({
+        message: "Enter the number of nuts actually delivered",
+      });
+    }
+    if (!(finalPrice > 0)) {
+      return res.status(400).json({ message: "Enter the final price per nut" });
+    }
+
+    const estate = await getOwnEstate(pool, req.user.id);
+    const mine = await pool.query(
+      `SELECT o.id, o.status
+       FROM orders o
+       LEFT JOIN product_listings pl ON pl.id = o.listing_id
+       LEFT JOIN sell_requests sr
+         ON sr.buyer_request_id = o.buyer_request_id AND sr.status = 'accepted'
+       WHERE o.id = $1 AND (pl.estate_owner_id = $2 OR sr.estate_owner_id = $2)`,
+      [req.params.id, estate.id]
+    );
+    const order = mine.rows[0];
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+    if (order.status !== "ACCEPTED") {
+      return res.status(409).json({ message: "This deal is already completed" });
+    }
+
+    const result = await pool.query(
+      `UPDATE orders
+       SET status = 'COMPLETED',
+           delivered_quantity = $2,
+           delivered_price_per_unit = $3,
+           completed_at = $4
+       WHERE id = $1
+       RETURNING *`,
+      [order.id, deliveredQuantity, finalPrice, new Date()]
+    );
+
+    return res.status(200).json({
+      message: "Deal completed",
+      order: result.rows[0],
+    });
+  } catch (error) {
+    return serverError(res, "Complete order", error);
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| MARKET PULSE: last deal closed and average prices for a product type
+|--------------------------------------------------------------------------
+*/
+const getMarketStats = async (req, res) => {
+  try {
+    const type = String(req.query.type || "RAW_COCONUT").toUpperCase();
+
+    const result = await pool.query(
+      `SELECT
+        o.created_at,
+        o.status,
+        COALESCE(o.delivered_quantity, pl.quantity, sr.quantity) AS quantity,
+        COALESCE(o.delivered_price_per_unit, o.final_price_per_unit) AS price
+       FROM orders o
+       LEFT JOIN product_listings pl ON pl.id = o.listing_id
+       LEFT JOIN sell_requests sr
+         ON sr.buyer_request_id = o.buyer_request_id AND sr.status = 'accepted'
+       WHERE UPPER(COALESCE(pl.product_type, sr.product_type)) = $1
+       ORDER BY o.created_at DESC, o.id DESC
+       LIMIT 200`,
+      [type]
+    );
+
+    const rows = result.rows.map((row) => ({
+      at: new Date(row.created_at),
+      quantity: Number(row.quantity),
+      price: Number(row.price),
+    }));
+
+    // Average per nut, weighted by quantity, over deals since `since`.
+    const averageSince = (since) => {
+      const recent = rows.filter((row) => row.at >= since && row.quantity > 0);
+      const nuts = recent.reduce((sum, row) => sum + row.quantity, 0);
+      if (nuts === 0) return null;
+      const value = recent.reduce((sum, row) => sum + row.quantity * row.price, 0);
+      return Math.round((value / nuts) * 100) / 100;
+    };
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const last = rows[0];
+    return res.status(200).json({
+      product_type: type,
+      last_deal: last
+        ? { quantity: last.quantity, price: last.price, at: last.at }
+        : null,
+      today_avg_price: averageSince(startOfToday),
+      week_avg_price: averageSince(weekAgo),
+    });
+  } catch (error) {
+    return serverError(res, "Get market stats", error);
+  }
+};
+
 module.exports = {
+  acceptNegotiation,
+  completeOrder,
+  getMarketStats,
   getEstate,
   updateEstate,
   getSummary,

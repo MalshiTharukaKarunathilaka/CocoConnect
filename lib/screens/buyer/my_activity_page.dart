@@ -680,41 +680,6 @@ class _NegotiationsTab extends StatelessWidget {
 class _OrdersTab extends StatelessWidget {
   const _OrdersTab();
 
-  Future<void> _completeOrder(
-    BuildContext context,
-    BuyerOrder order,
-    VoidCallback reload,
-  ) async {
-    final bool? ok = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Complete transaction?'),
-        content: const Text(
-          'Confirm that you have collected the nuts and paid the estate owner.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Complete'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    try {
-      await BuyerService.completeOrder(order.id);
-      if (!context.mounted) return;
-      _showSnack(context, 'Transaction completed');
-      reload();
-    } on ApiException catch (error) {
-      if (context.mounted) _showSnack(context, error.message, error: true);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return AsyncList<BuyerOrder>(
@@ -722,11 +687,17 @@ class _OrdersTab extends StatelessWidget {
       emptyText: 'No orders yet. Orders appear here when you accept a deal.',
       itemBuilder: (context, order, reload) {
         final bool completed = order.status == 'COMPLETED';
+        // Once completed, show what the estate owner actually delivered.
+        final bool delivered = completed && order.deliveredQuantity != null;
+        final int quantity = delivered
+            ? order.deliveredQuantity!
+            : order.quantity;
+        final double price = delivered
+            ? order.deliveredPrice ?? order.pricePerUnit
+            : order.pricePerUnit;
         return BuyerCard(
-          onTap: completed
+          onTap: order.negotiationId == null
               ? null
-              : order.negotiationId == null
-              ? () => _completeOrder(context, order, reload)
               : () async {
                   await Navigator.push(
                     context,
@@ -756,7 +727,7 @@ class _OrdersTab extends StatelessWidget {
                   ),
                   completed
                       ? _statusPill('COMPLETED', good: true)
-                      : _statusPill('TO COLLECT'),
+                      : _statusPill('AWAITING DELIVERY'),
                 ],
               ),
               const SizedBox(height: 10),
@@ -764,14 +735,16 @@ class _OrdersTab extends StatelessWidget {
                 children: [
                   Expanded(
                     child: BuyerInfoPair(
-                      label: 'QUANTITY',
-                      value: '${withCommas(order.quantity)} nuts',
+                      label: delivered ? 'DELIVERED' : 'QUANTITY',
+                      value: '${withCommas(quantity)} nuts',
                     ),
                   ),
                   Expanded(
                     child: BuyerInfoPair(
                       label: 'TOTAL',
-                      value: rupees(order.totalValue),
+                      value: rupees(
+                        delivered ? quantity * price : order.totalValue,
+                      ),
                     ),
                   ),
                 ],
@@ -779,8 +752,8 @@ class _OrdersTab extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 '${CoconutType.fromCode(order.productType).label}  ·  '
-                '${rupees(order.pricePerUnit)} per nut'
-                '${completed ? '' : '  ·  tap to complete'}',
+                '${rupees(price)} per nut'
+                '${delivered && quantity != order.quantity ? '  ·  agreed ${withCommas(order.quantity)}' : ''}',
                 style: const TextStyle(fontSize: 12, color: kBuyerGrey),
               ),
             ],

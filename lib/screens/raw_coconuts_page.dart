@@ -4,6 +4,7 @@ import 'sell_request_page.dart';
 import '../services/api_client.dart';
 import '../services/owner_service.dart';
 import 'buyer/buyer_format.dart';
+import '../widgets/owner_widgets.dart';
 
 class RawCoconutsPage extends StatefulWidget {
   const RawCoconutsPage({super.key});
@@ -29,6 +30,24 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
   Future<List<OpenBuyerRequest>> loadBuyers() =>
       OwnerService.getBuyerRequests(productType: 'RAW_COCONUT');
+
+  // Shown in the header and as the seller on the summary.
+  String estateName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    loadEstateName();
+  }
+
+  Future<void> loadEstateName() async {
+    try {
+      final Estate estate = await OwnerService.getEstate();
+      if (mounted) setState(() => estateName = estate.estateName);
+    } on ApiException {
+      // Leave the header blank if the estate can't be loaded.
+    }
+  }
 
   Future<void> pickAvailableDate() async {
     final DateTime today = DateTime.now();
@@ -167,9 +186,9 @@ Future<void> saveListingToDatabase() async {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'ABC Estate Owner',
-                        style: TextStyle(
+                      Text(
+                        estateName,
+                        style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFF1B5E20),
                           fontWeight: FontWeight.bold,
@@ -254,6 +273,9 @@ Future<void> saveListingToDatabase() async {
                       ),
 
                       const SizedBox(height: 20),
+
+                      // Latest deal and today's average price
+                      const MarketPulse(),
 
                       // This line changes form to summary after clicking Sell
                       showSummary
@@ -610,9 +632,9 @@ FutureBuilder<List<OpenBuyerRequest>>(
 
           const SizedBox(height: 16),
 
-          const SummaryRow(
+          SummaryRow(
             title: 'Seller',
-            value: 'ABC Estate Owner',
+            value: estateName,
           ),
 
           const Divider(height: 24),

@@ -4,6 +4,9 @@ const {
   getEstate,
   updateEstate,
   getSummary,
+  acceptNegotiation,
+  completeOrder,
+  getMarketStats,
   getMyListings,
   createListing,
   getBuyerRequests,
@@ -249,6 +252,28 @@ router.post("/negotiations/:id/decline", declineNegotiation);
 
 /**
  * @swagger
+ * /api/owner/negotiations/{id}/accept:
+ *   post:
+ *     summary: Accept the buyer's latest offer - creates an order
+ *     tags: [Estate Owner]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       201:
+ *         description: Order created at the buyer's latest offer (or listed price)
+ *       409:
+ *         description: Negotiation is closed
+ */
+router.post("/negotiations/:id/accept", acceptNegotiation);
+
+/**
+ * @swagger
  * /api/owner/orders:
  *   get:
  *     summary: Orders for my estate
@@ -260,5 +285,57 @@ router.post("/negotiations/:id/decline", declineNegotiation);
  *         description: Orders from chats and from accepted offers
  */
 router.get("/orders", getMyOrders);
+
+/**
+ * @swagger
+ * /api/owner/orders/{id}/complete:
+ *   post:
+ *     summary: Complete a deal with the quantity and price actually delivered
+ *     tags: [Estate Owner]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [deliveredQuantity, finalPricePerUnit]
+ *             properties:
+ *               deliveredQuantity: { type: integer, example: 1950 }
+ *               finalPricePerUnit: { type: number, example: 130 }
+ *     responses:
+ *       200:
+ *         description: Deal completed
+ *       409:
+ *         description: Already completed
+ */
+router.post("/orders/:id/complete", completeOrder);
+
+/**
+ * @swagger
+ * /api/owner/market-stats:
+ *   get:
+ *     summary: Last deal closed and average price per nut
+ *     tags: [Estate Owner]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           example: RAW_COCONUT
+ *     responses:
+ *       200:
+ *         description: last_deal, today_avg_price and week_avg_price
+ */
+router.get("/market-stats", getMarketStats);
 
 module.exports = router;
