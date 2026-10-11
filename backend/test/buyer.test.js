@@ -52,8 +52,14 @@ test("signup validates input and rejects duplicate phones", async () => {
   });
   assert.equal(badRole.status, 400);
 
+  const noLocation = await call("POST", "/api/auth/signup", {
+    body: { name: "A", phone: "0711111111", password: "secret1", role: "BUYER" },
+  });
+  assert.equal(noLocation.status, 400);
+  assert.equal(noLocation.data.message, "Location is required");
+
   const created = await call("POST", "/api/auth/signup", {
-    body: { name: "Test Buyer", phone: "077 123 4567", password: "secret123", role: "Buyer" },
+    body: { name: "Test Buyer", phone: "077 123 4567", password: "secret123", role: "Buyer", location: "Colombo" },
   });
   assert.equal(created.status, 201);
   assert.equal(created.data.user.role, "BUYER");
@@ -63,12 +69,12 @@ test("signup validates input and rejects duplicate phones", async () => {
   buyer = created.data;
 
   const duplicate = await call("POST", "/api/auth/signup", {
-    body: { name: "Again", phone: "0771234567", password: "secret123", role: "BUYER" },
+    body: { name: "Again", phone: "0771234567", password: "secret123", role: "BUYER", location: "Colombo" },
   });
   assert.equal(duplicate.status, 409);
 
   const other = await call("POST", "/api/auth/signup", {
-    body: { name: "Other Buyer", phone: "0779999999", password: "secret123", role: "BUYER" },
+    body: { name: "Other Buyer", phone: "0779999999", password: "secret123", role: "BUYER", location: "Kandy" },
   });
   otherBuyer = other.data;
 });
@@ -107,7 +113,7 @@ test("buyer routes need a buyer login", async () => {
   assert.equal((await call("GET", "/api/buyer/requests")).status, 401);
 
   const owner = await call("POST", "/api/auth/signup", {
-    body: { name: "Owner", phone: "0712222222", password: "secret123", role: "Estate Owner" },
+    body: { name: "Owner", phone: "0712222222", password: "secret123", role: "Estate Owner", location: "Kurunegala" },
   });
   const asOwner = await call("GET", "/api/buyer/requests", { token: owner.data.token });
   assert.equal(asOwner.status, 403);
@@ -238,7 +244,7 @@ test("negotiation: start, message, counter-offer, accept, complete", async () =>
 
   // The estate owner replies with a counter-offer from their side.
   const ownerUser = await call("POST", "/api/auth/signup", {
-    body: { name: "Nimal", phone: "0713333333", password: "secret123", role: "ESTATE_OWNER" },
+    body: { name: "Nimal", phone: "0713333333", password: "secret123", role: "ESTATE_OWNER", location: "Gampaha" },
   });
   await pool().query(
     `INSERT INTO negotiation_messages (negotiation_id, sender_id, message, offer_price_per_unit)

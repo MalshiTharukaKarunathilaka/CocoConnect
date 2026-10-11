@@ -1,4 +1,11 @@
 const pool = require("../config/db");
+const {
+  parseCoords,
+  parseRadius,
+  withDistance,
+  byDistance,
+  dayOf,
+} = require("../utils/geo");
 
 const serverError = (res, label, error) => {
   console.error(`${label} error:`, error);
@@ -193,6 +200,10 @@ const createListing = async (req, res) => {
 | BUYER REQUESTS + MY OFFERS ON THEM
 |--------------------------------------------------------------------------
 */
+/*
+| Open buyer requests. Optional: type, radiusKm (from the owner's location,
+| or lat/lng), sort = price (highest bid first) | date | nearest.
+*/
 const getBuyerRequests = async (req, res) => {
   try {
     const estate = await getOwnEstate(pool, req.user.id);
@@ -209,17 +220,47 @@ const getBuyerRequests = async (req, res) => {
         br.*,
         sr.id AS my_offer_id,
         sr.seller_price_per_unit AS my_offer_price,
-        sr.status AS my_offer_status
+        sr.status AS my_offer_status,
+        u.latitude,
+        u.longitude
        FROM buyer_requests br
        LEFT JOIN sell_requests sr
          ON sr.buyer_request_id = br.id AND sr.estate_owner_id = $1
+       LEFT JOIN users u ON u.id = br.buyer_id
        WHERE UPPER(COALESCE(br.status, 'PENDING')) = 'PENDING'
        ${typeFilter}
        ORDER BY br.bidding_price_per_unit DESC, br.id DESC`,
       params
     );
 
-    return res.status(200).json(result.rows);
+    let origin = parseCoords(req.query.lat, req.query.lng);
+    if (!origin) {
+      const me = await pool.query(
+        "SELECT latitude, longitude FROM users WHERE id = $1",
+        [req.user.id]
+      );
+      origin = parseCoords(me.rows[0]?.latitude, me.rows[0]?.longitude);
+    }
+
+    const rows = withDistance(
+      result.rows,
+      origin,
+      parseRadius(req.query.radiusKm)
+    );
+
+    if (req.query.sort === "nearest") rows.sort(byDistance);
+    if (req.query.sort === "date") {
+      rows.sort((a, b) =>
+        String(dayOf(a.required_date) ?? "9999").localeCompare(
+          String(dayOf(b.required_date) ?? "9999")
+        )
+      );
+    }
+
+    // Buyers' coordinates stay on the server; owners only see the distance.
+    return res
+      .status(200)
+      .json(rows.map(({ latitude, longitude, ...row }) => row));
   } catch (error) {
     return serverError(res, "Get buyer requests", error);
   }

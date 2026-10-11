@@ -81,6 +81,8 @@ router.get("/me", requireAuth, me);
  *             properties:
  *               name: { type: string, example: "Senuji Perera" }
  *               location: { type: string, example: "Kandy" }
+ *               latitude: { type: number, example: 7.2906 }
+ *               longitude: { type: number, example: 80.6337 }
  *     responses:
  *       200:
  *         description: Updated user

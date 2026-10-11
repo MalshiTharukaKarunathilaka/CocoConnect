@@ -124,9 +124,18 @@ router.post("/listings", createListing);
  *         schema:
  *           type: string
  *           enum: [RAW_COCONUT, HUSKED_COCONUT, DEHUSKED_COCONUT]
+ *       - in: query
+ *         name: radiusKm
+ *         description: Only buyers within this distance of my location
+ *         schema: { type: number, example: 10 }
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [price, date, nearest]
  *     responses:
  *       200:
- *         description: Pending buyer requests, highest bid first
+ *         description: Pending buyer requests (highest bid first by default), with distance_km
  */
 router.get("/buyer-requests", getBuyerRequests);
 

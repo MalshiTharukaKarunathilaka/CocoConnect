@@ -95,6 +95,9 @@ class OpenBuyerRequest {
   final double? myOfferPrice;
   final String? myOfferStatus;
 
+  /// From this estate owner's location; null when either side has none.
+  final double? distanceKm;
+
   const OpenBuyerRequest({
     required this.id,
     required this.buyerName,
@@ -106,6 +109,7 @@ class OpenBuyerRequest {
     required this.trustScore,
     required this.myOfferPrice,
     required this.myOfferStatus,
+    this.distanceKm,
   });
 
   bool get offerSent => myOfferPrice != null;
@@ -122,6 +126,7 @@ class OpenBuyerRequest {
         trustScore: _rating(json['trust_score']),
         myOfferPrice: _toDoubleOrNull(json['my_offer_price']),
         myOfferStatus: json['my_offer_status'] as String?,
+        distanceKm: _toDoubleOrNull(json['distance_km']),
       );
 }
 
@@ -267,12 +272,20 @@ class OwnerService {
     });
   }
 
+  /// [sort] is 'price' (highest bid first), 'date' or 'nearest';
+  /// [radiusKm] keeps buyers within that distance of the owner.
   static Future<List<OpenBuyerRequest>> getBuyerRequests({
     String? productType,
+    int? radiusKm,
+    String sort = 'price',
   }) async {
     final data = await ApiClient.get(
       '/api/owner/buyer-requests',
-      query: productType == null ? null : {'type': productType},
+      query: {
+        'type': ?productType,
+        if (radiusKm != null) 'radiusKm': '$radiusKm',
+        'sort': sort,
+      },
     );
     return (data as List)
         .map((item) => OpenBuyerRequest.fromJson(item as Map<String, dynamic>))

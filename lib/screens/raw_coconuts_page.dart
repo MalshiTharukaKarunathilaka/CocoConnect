@@ -5,6 +5,7 @@ import '../services/api_client.dart';
 import '../services/owner_service.dart';
 import 'buyer/buyer_format.dart';
 import '../widgets/owner_widgets.dart';
+import '../widgets/nearby_filter.dart';
 
 class RawCoconutsPage extends StatefulWidget {
   const RawCoconutsPage({super.key});
@@ -28,8 +29,26 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
   // Open raw-coconut buyer requests, reloaded after sending an offer.
   late Future<List<OpenBuyerRequest>> buyersFuture = loadBuyers();
 
-  Future<List<OpenBuyerRequest>> loadBuyers() =>
-      OwnerService.getBuyerRequests(productType: 'RAW_COCONUT');
+  // Interested Buyers filters: distance from the estate and sort order.
+  int? buyerRadiusKm;
+  String buyerSort = 'price';
+
+  Future<List<OpenBuyerRequest>> loadBuyers() => OwnerService.getBuyerRequests(
+        productType: 'RAW_COCONUT',
+        radiusKm: buyerRadiusKm,
+        sort: buyerSort,
+      );
+
+  void reloadBuyers() {
+    setState(() {
+      buyersFuture = loadBuyers();
+    });
+  }
+
+  void sortBuyers(String sort) {
+    buyerSort = sort;
+    reloadBuyers();
+  }
 
   // Shown in the header and as the seller on the summary.
   String estateName = '';
@@ -330,21 +349,35 @@ Future<void> saveListingToDatabase() async {
 
                       const SizedBox(height: 10),
 
-                      const Row(
+                      NearbyFilter(
+                        radiusKm: buyerRadiusKm,
+                        onRadiusChanged: (km) {
+                          buyerRadiusKm = km;
+                          reloadBuyers();
+                        },
+                        onLocationChanged: reloadBuyers,
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Row(
                         children: [
                           FilterChipButton(
                             text: 'Best Price',
-                            isActive: true,
+                            isActive: buyerSort == 'price',
+                            onTap: () => sortBuyers('price'),
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           FilterChipButton(
                             text: 'Earliest Pickup Date',
-                            isActive: false,
+                            isActive: buyerSort == 'date',
+                            onTap: () => sortBuyers('date'),
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           FilterChipButton(
                             text: 'Nearest Location',
-                            isActive: false,
+                            isActive: buyerSort == 'nearest',
+                            onTap: () => sortBuyers('nearest'),
                           ),
                         ],
                       ),
@@ -370,7 +403,12 @@ FutureBuilder<List<OpenBuyerRequest>>(
     final buyers = snapshot.data ?? [];
 
     if (buyers.isEmpty) {
-      return const Text('No buyers are requesting raw coconuts right now');
+      return Text(
+        buyerRadiusKm == null
+            ? 'No buyers are requesting raw coconuts right now'
+            : 'No buyers within $buyerRadiusKm km right now. Try a wider '
+                  'distance.',
+      );
     }
 
     return Column(
@@ -389,6 +427,7 @@ FutureBuilder<List<OpenBuyerRequest>>(
                 : rupees(buyer.bidPerUnit),
             quantity: '${withCommas(buyer.quantity)} nuts',
             pickupDate: shortDate(buyer.requiredDate),
+            distance: distanceLabel(buyer.distanceKm),
             onTap: () async {
               if (buyer.offerSent) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -777,16 +816,20 @@ class CustomInputField extends StatelessWidget {
 class FilterChipButton extends StatelessWidget {
   final String text;
   final bool isActive;
+  final VoidCallback? onTap;
 
   const FilterChipButton({
     super.key,
     required this.text,
     required this.isActive,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 11,
         vertical: 6,
@@ -806,6 +849,7 @@ class FilterChipButton extends StatelessWidget {
           fontWeight: FontWeight.bold,
         ),
       ),
+    ),
     );
   }
 }
@@ -818,6 +862,7 @@ class InterestedBuyerCard extends StatelessWidget {
   final String quantity;
   final String pickupDate;
   final VoidCallback? onTap;
+  final String? distance;
 
   const InterestedBuyerCard({
     super.key,
@@ -828,6 +873,7 @@ class InterestedBuyerCard extends StatelessWidget {
     required this.quantity,
     required this.pickupDate,
     this.onTap,
+    this.distance,
   });
 
   @override
@@ -890,6 +936,17 @@ class InterestedBuyerCard extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (distance != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          distance!,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: Color(0xFF555555),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

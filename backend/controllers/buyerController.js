@@ -1,4 +1,12 @@
 const pool = require("../config/db");
+const {
+  parseCoords,
+  parseRadius,
+  withDistance,
+  byDistance,
+  dayOf,
+  addDays,
+} = require("../utils/geo");
 
 const serverError = (res, label, error) => {
   console.error(`${label} error:`, error);
@@ -31,10 +39,20 @@ const SORTS = {
   newest: "pl.created_at DESC",
 };
 
+// Coordinates stay on the server; clients only see the distance.
+const hideCoords = ({ latitude, longitude, ...row }) => row;
+
 /*
 |--------------------------------------------------------------------------
-| GET ACTIVE LISTINGS (optionally by product type)
+| GET ACTIVE LISTINGS
 |--------------------------------------------------------------------------
+| Optional filters:
+|   type                        product type
+|   lat, lng, radiusKm          only estates within radiusKm of that point
+|   minQuantity, requiredDate   match a buyer's request: at least that many
+|                               nuts, available on requiredDate or up to
+|                               7 days after it
+|   sort                        newest | price_asc | price_desc | trust | nearest
 */
 const getListings = async (req, res) => {
   try {
@@ -49,15 +67,41 @@ const getListings = async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT ${LISTING_COLUMNS}
+      `SELECT ${LISTING_COLUMNS}, u.latitude, u.longitude
        FROM product_listings pl
        LEFT JOIN estate_owners eo ON eo.id = pl.estate_owner_id
+       LEFT JOIN users u ON u.id = eo.user_id
        ${where}
-       ORDER BY ${orderBy}`,
+       ORDER BY ${orderBy}, pl.id DESC`,
       params
     );
 
-    return res.status(200).json(result.rows);
+    let rows = withDistance(
+      result.rows,
+      parseCoords(req.query.lat, req.query.lng),
+      parseRadius(req.query.radiusKm)
+    );
+
+    const minQuantity = Number(req.query.minQuantity);
+    if (minQuantity > 0) {
+      rows = rows.filter((row) => Number(row.quantity) >= minQuantity);
+    }
+
+    const from = dayOf(req.query.requiredDate);
+    if (req.query.requiredDate && !/^\d{4}-\d{2}-\d{2}$/.test(from)) {
+      return res.status(400).json({ message: "requiredDate must be YYYY-MM-DD" });
+    }
+    if (from) {
+      const to = addDays(from, 7);
+      rows = rows.filter((row) => {
+        const day = dayOf(row.available_date);
+        return day !== null && day >= from && day <= to;
+      });
+    }
+
+    if (sort === "nearest") rows.sort(byDistance);
+
+    return res.status(200).json(rows.map(hideCoords));
   } catch (error) {
     return serverError(res, "Get listings", error);
   }

@@ -9,10 +9,7 @@ const Color kAuthPrefixFill = Color(0xFFF2EBE0);
 class AuthScaffold extends StatelessWidget {
   final List<Widget> children;
 
-  const AuthScaffold({
-    super.key,
-    required this.children,
-  });
+  const AuthScaffold({super.key, required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -42,11 +39,7 @@ class AuthHeading extends StatelessWidget {
   final String title;
   final String subtitle;
 
-  const AuthHeading({
-    super.key,
-    required this.title,
-    required this.subtitle,
-  });
+  const AuthHeading({super.key, required this.title, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -65,10 +58,7 @@ class AuthHeading extends StatelessWidget {
         Text(
           subtitle,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 14,
-            color: Color(0xFF5A5A5A),
-          ),
+          style: const TextStyle(fontSize: 14, color: Color(0xFF5A5A5A)),
         ),
       ],
     );
@@ -78,10 +68,7 @@ class AuthHeading extends StatelessWidget {
 class AuthCard extends StatelessWidget {
   final Widget child;
 
-  const AuthCard({
-    super.key,
-    required this.child,
-  });
+  const AuthCard({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -107,10 +94,7 @@ class AuthCard extends StatelessWidget {
 class AuthLabel extends StatelessWidget {
   final String text;
 
-  const AuthLabel({
-    super.key,
-    required this.text,
-  });
+  const AuthLabel({super.key, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -135,6 +119,11 @@ class AuthTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
+  final Widget? prefixIcon;
+
+  /// For fields filled by tapping, like the location picker.
+  final bool readOnly;
+  final VoidCallback? onTap;
 
   const AuthTextField({
     super.key,
@@ -144,12 +133,17 @@ class AuthTextField extends StatelessWidget {
     this.suffixIcon,
     this.keyboardType = TextInputType.text,
     this.validator,
+    this.prefixIcon,
+    this.readOnly = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      readOnly: readOnly,
+      onTap: onTap,
       obscureText: obscureText,
       keyboardType: keyboardType,
       validator: validator,
@@ -158,6 +152,7 @@ class AuthTextField extends StatelessWidget {
         hintText: hint,
         hintStyle: const TextStyle(fontSize: 14, color: Color(0xFFAAAAAA)),
         suffixIcon: suffixIcon,
+        prefixIcon: prefixIcon,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
@@ -188,10 +183,7 @@ class AuthTextField extends StatelessWidget {
 class AuthPhoneField extends StatelessWidget {
   final TextEditingController controller;
 
-  const AuthPhoneField({
-    super.key,
-    required this.controller,
-  });
+  const AuthPhoneField({super.key, required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -223,8 +215,7 @@ class AuthPhoneField extends StatelessWidget {
             hint: '77 123 4567',
             keyboardType: TextInputType.phone,
             validator: (value) {
-              final digits =
-                  (value ?? '').replaceAll(RegExp(r'\D'), '');
+              final digits = (value ?? '').replaceAll(RegExp(r'\D'), '');
               if (digits.isEmpty) {
                 return 'Phone number is required';
               }
@@ -244,11 +235,7 @@ class AuthPrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
 
-  const AuthPrimaryButton({
-    super.key,
-    required this.label,
-    this.onPressed,
-  });
+  const AuthPrimaryButton({super.key, required this.label, this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -266,10 +253,7 @@ class AuthPrimaryButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -362,9 +346,7 @@ class RoleChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected ? kAuthGreen : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? kAuthGreen : kAuthBorder,
-          ),
+          border: Border.all(color: isSelected ? kAuthGreen : kAuthBorder),
         ),
         child: Text(
           label,

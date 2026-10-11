@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../services/location_service.dart';
 import '../widgets/auth_widgets.dart';
 import 'auth_gate.dart';
+import 'location_picker_page.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -24,6 +26,10 @@ class _SignupPageState extends State<SignupPage> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+  final _locationController = TextEditingController();
+
+  /// Where the user is; required, used for "near me" filters.
+  PickedLocation? _location;
 
   String _selectedRole = _roles.first;
   bool _obscurePassword = true;
@@ -36,7 +42,21 @@ class _SignupPageState extends State<SignupPage> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
+    _locationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickLocation() async {
+    FocusScope.of(context).unfocus();
+    final PickedLocation? picked = await pickLocation(
+      context,
+      initial: _location,
+    );
+    if (picked == null) return;
+    setState(() {
+      _location = picked;
+      _locationController.text = picked.name;
+    });
   }
 
   Future<void> _submit() async {
@@ -53,6 +73,9 @@ class _SignupPageState extends State<SignupPage> {
         phone: _phoneController.text,
         password: _passwordController.text,
         role: _selectedRole,
+        location: _location!.name,
+        latitude: _location!.latitude,
+        longitude: _location!.longitude,
       );
       if (!mounted) return;
       openHomeFor(context, user);
@@ -107,6 +130,35 @@ class _SignupPageState extends State<SignupPage> {
                 const AuthLabel(text: 'Phone Number'),
                 const SizedBox(height: 8),
                 AuthPhoneField(controller: _phoneController),
+
+                const SizedBox(height: 18),
+
+                const AuthLabel(text: 'Location'),
+                const SizedBox(height: 8),
+                AuthTextField(
+                  controller: _locationController,
+                  hint: 'Pick your location on the map',
+                  readOnly: true,
+                  onTap: _pickLocation,
+                  prefixIcon: const Icon(
+                    Icons.place_outlined,
+                    size: 20,
+                    color: kAuthGreen,
+                  ),
+                  suffixIcon: IconButton(
+                    tooltip: 'Open map',
+                    icon: const Icon(
+                      Icons.map_outlined,
+                      size: 20,
+                      color: kAuthGrey,
+                    ),
+                    onPressed: _pickLocation,
+                  ),
+                  validator: (_) => _location == null
+                      ? 'Pick your location so nearby buyers and estates '
+                            'can find you'
+                      : null,
+                ),
 
                 const SizedBox(height: 18),
 

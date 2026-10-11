@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
+const { parseCoords } = require("../utils/geo");
 
 const ROLES = ["BUYER", "ESTATE_OWNER", "ESTATE_MANAGER", "SERVICE_PROVIDER"];
 
@@ -16,7 +17,12 @@ const publicUser = (user) => ({
   phone: user.phone,
   role: user.role,
   location: user.location,
+  latitude: user.latitude ?? null,
+  longitude: user.longitude ?? null,
 });
+
+const hasCoords = (body) =>
+  body.latitude !== undefined || body.longitude !== undefined;
 
 const createToken = (user) =>
   jwt.sign(
@@ -42,6 +48,16 @@ const signup = async (req, res) => {
       });
     }
 
+    if (!String(location || "").trim()) {
+      return res.status(400).json({ message: "Location is required" });
+    }
+
+    // Picked on the map in the app; optional for API clients.
+    const coords = parseCoords(req.body.latitude, req.body.longitude);
+    if (hasCoords(req.body) && !coords) {
+      return res.status(400).json({ message: "Invalid location coordinates" });
+    }
+
     if (!ROLES.includes(role)) {
       return res.status(400).json({ message: "Unknown account type" });
     }
@@ -65,10 +81,19 @@ const signup = async (req, res) => {
     const passwordHash = await bcrypt.hash(String(password), 10);
 
     const result = await pool.query(
-      `INSERT INTO users (name, phone, password_hash, role, location)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO users
+        (name, phone, password_hash, role, location, latitude, longitude)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [String(name).trim(), phone, passwordHash, role, location || null]
+      [
+        String(name).trim(),
+        phone,
+        passwordHash,
+        role,
+        String(location).trim(),
+        coords ? coords.lat : null,
+        coords ? coords.lng : null,
+      ]
     );
 
     const user = result.rows[0];
@@ -175,12 +200,26 @@ const updateMe = async (req, res) => {
       return res.status(400).json({ message: "Name is required" });
     }
 
-    const result = await pool.query(
-      `UPDATE users SET name = $2, location = $3
-       WHERE id = $1
-       RETURNING *`,
-      [req.user.id, name, location || null]
-    );
+    // Coordinates only change when new ones are sent.
+    const coords = parseCoords(req.body.latitude, req.body.longitude);
+    if (hasCoords(req.body) && !coords) {
+      return res.status(400).json({ message: "Invalid location coordinates" });
+    }
+
+    const result = coords
+      ? await pool.query(
+          `UPDATE users
+           SET name = $2, location = $3, latitude = $4, longitude = $5
+           WHERE id = $1
+           RETURNING *`,
+          [req.user.id, name, location || null, coords.lat, coords.lng]
+        )
+      : await pool.query(
+          `UPDATE users SET name = $2, location = $3
+           WHERE id = $1
+           RETURNING *`,
+          [req.user.id, name, location || null]
+        );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "Account not found" });

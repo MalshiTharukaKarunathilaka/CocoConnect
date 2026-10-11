@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_client.dart';
+import '../../services/auth_service.dart';
 import '../../services/buyer_service.dart';
 import '../../widgets/buyer_widgets.dart';
+import '../../widgets/nearby_filter.dart';
 import 'buyer_format.dart';
 import 'coconut_type.dart';
 import 'estate_owner_request_page.dart';
@@ -15,6 +17,18 @@ const List<Color> _avatarColors = [
   Color(0xFFF5E6DC),
   Color(0xFFEDE3F5),
 ];
+
+/// The request a buyer just submitted; listings are matched against it.
+class _RequestMatch {
+  final int quantity;
+  final DateTime requiredDate;
+  final int price;
+
+  const _RequestMatch(this.quantity, this.requiredDate, this.price);
+
+  /// Listings available up to a week after the required date still match.
+  DateTime get latestDate => requiredDate.add(const Duration(days: 7));
+}
 
 class MarketplacePage extends StatefulWidget {
   /// Which coconut form this marketplace is for. All three types share
@@ -33,12 +47,26 @@ class _MarketplacePageState extends State<MarketplacePage> {
   final _priceController = TextEditingController();
 
   ListingSort _sort = ListingSort.newest;
+  int? _radiusKm;
+  _RequestMatch? _match;
   late Future<List<Listing>> _listings = _loadListings();
   DateTime? _requiredDate;
   bool _submitting = false;
 
-  Future<List<Listing>> _loadListings() =>
-      BuyerService.getListings(productType: widget.type.code, sort: _sort);
+  Future<List<Listing>> _loadListings() {
+    final AppUser? me = AuthService.currentUser;
+    final _RequestMatch? match = _match;
+    return BuyerService.getListings(
+      productType: widget.type.code,
+      // Matches are always cheapest first.
+      sort: match == null ? _sort : ListingSort.priceLow,
+      latitude: me?.latitude,
+      longitude: me?.longitude,
+      radiusKm: _radiusKm,
+      minQuantity: match?.quantity,
+      requiredDate: match?.requiredDate,
+    );
+  }
 
   void _reloadListings() {
     setState(() {
@@ -110,10 +138,11 @@ class _MarketplacePageState extends State<MarketplacePage> {
       );
       if (!mounted) return;
       _showSnack(
-        'Request for ${withCommas(nuts)} nuts at Rs. $price each '
-        'sent to estate owners',
+        'Request sent to estate owners. Matching listings are shown below.',
         color: kBuyerGreen,
       );
+      _match = _RequestMatch(nuts, _requiredDate!, price);
+      _reloadListings();
       _nutsController.clear();
       _dateController.clear();
       _priceController.clear();
@@ -127,6 +156,10 @@ class _MarketplacePageState extends State<MarketplacePage> {
   }
 
   Future<void> _openFilter() async {
+    if (_match != null) {
+      _showSnack('Matching listings are sorted cheapest first');
+      return;
+    }
     final ListingSort? picked = await showModalBottomSheet<ListingSort>(
       context: context,
       builder: (context) => SafeArea(
@@ -194,12 +227,19 @@ class _MarketplacePageState extends State<MarketplacePage> {
         }
 
         final List<Listing> listings = snapshot.data!;
+        final _RequestMatch? match = _match;
         if (listings.isEmpty) {
+          final String where = _radiusKm == null ? '' : ' within $_radiusKm km';
           return _ListingsMessage(
             icon: Icons.inventory_2_outlined,
-            text:
-                'No ${widget.type.label.toLowerCase()} listed yet. '
-                'Submit a request above and estate owners can respond.',
+            text: match != null
+                ? 'No listings$where match your request yet. Estate owners '
+                      'can still send you offers - check My Activity.'
+                : _radiusKm != null
+                ? 'No ${widget.type.label.toLowerCase()} listed$where. '
+                      'Try a wider distance.'
+                : 'No ${widget.type.label.toLowerCase()} listed yet. '
+                      'Submit a request above and estate owners can respond.',
             onRetry: _reloadListings,
           );
         }
@@ -220,6 +260,10 @@ class _MarketplacePageState extends State<MarketplacePage> {
                     : '${listings[i].trustScore}/5',
                 quantity: '${withCommas(listings[i].quantity)} nuts',
                 availableDate: shortDate(listings[i].availableDate),
+                distance: distanceLabel(listings[i].distanceKm),
+                note: match == null ? null : _bidNote(listings[i], match),
+                noteGood:
+                    match == null || listings[i].pricePerUnit <= match.price,
                 onTap: () => _openRequest(listings[i]),
               ),
               const SizedBox(height: 16),
@@ -227,6 +271,68 @@ class _MarketplacePageState extends State<MarketplacePage> {
           ],
         );
       },
+    );
+  }
+
+  /// "Within your bid" / "Rs. 5 above your bid".
+  String _bidNote(Listing listing, _RequestMatch match) {
+    final double over = listing.pricePerUnit - match.price;
+    if (over <= 0) return 'Within your bid of Rs. ${match.price}';
+    return '${rupees(over)} above your bid';
+  }
+
+  Widget _buildMatchBanner(_RequestMatch match) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(14, 10, 6, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F3EA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFC5DFCB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, size: 16, color: kBuyerGreen),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'Matches for your request',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                    color: kBuyerGreen,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  _match = null;
+                  _reloadListings();
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: kBuyerGreen,
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: const Text('Show all'),
+              ),
+            ],
+          ),
+          Text(
+            '${withCommas(match.quantity)} nuts or more  ·  available '
+            '${shortDate(match.requiredDate)} to '
+            '${shortDate(match.latestDate)}  ·  cheapest first',
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: Color(0xFF3A3A3A),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -456,16 +562,28 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
             const SizedBox(height: 26),
 
-            const Text(
-              'Estate Owner Listings',
-              style: TextStyle(
+            Text(
+              _match == null ? 'Estate Owner Listings' : 'Matching Listings',
+              style: const TextStyle(
                 fontSize: 19,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF1A1A1A),
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+
+            NearbyFilter(
+              radiusKm: _radiusKm,
+              accent: kBuyerGreen,
+              onRadiusChanged: (km) {
+                _radiusKm = km;
+                _reloadListings();
+              },
+              onLocationChanged: _reloadListings,
+            ),
+
+            const SizedBox(height: 10),
 
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -530,6 +648,8 @@ class _MarketplacePageState extends State<MarketplacePage> {
             ),
 
             const SizedBox(height: 16),
+
+            if (_match != null) _buildMatchBanner(_match!),
 
             _buildListings(),
           ],

@@ -39,10 +39,29 @@ const router = express.Router();
  *         name: sort
  *         schema:
  *           type: string
- *           enum: [newest, price_asc, price_desc, trust]
+ *           enum: [newest, price_asc, price_desc, trust, nearest]
+ *       - in: query
+ *         name: lat
+ *         description: Buyer's latitude, for distance_km
+ *         schema: { type: number, example: 6.9271 }
+ *       - in: query
+ *         name: lng
+ *         schema: { type: number, example: 79.8612 }
+ *       - in: query
+ *         name: radiusKm
+ *         description: Only estates within this distance of lat/lng
+ *         schema: { type: number, example: 10 }
+ *       - in: query
+ *         name: minQuantity
+ *         description: Match a request - at least this many nuts
+ *         schema: { type: integer, example: 1000 }
+ *       - in: query
+ *         name: requiredDate
+ *         description: Match a request - available on this day or up to 7 days after
+ *         schema: { type: string, example: "2026-11-18" }
  *     responses:
  *       200:
- *         description: Listings with estate name, owner, location and trust score
+ *         description: Listings with estate name, owner, location, trust score and distance_km
  */
 router.get("/listings", getListings);
 

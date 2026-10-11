@@ -501,6 +501,13 @@ class EstateListingCard extends StatelessWidget {
   final String availableDate;
   final VoidCallback? onTap;
 
+  /// "7.4 km away", when both sides have a location.
+  final String? distance;
+
+  /// How the price compares to the buyer's bid, when matching a request.
+  final String? note;
+  final bool noteGood;
+
   const EstateListingCard({
     super.key,
     required this.initial,
@@ -512,6 +519,9 @@ class EstateListingCard extends StatelessWidget {
     required this.quantity,
     required this.availableDate,
     this.onTap,
+    this.distance,
+    this.note,
+    this.noteGood = true,
   });
 
   @override
@@ -623,6 +633,55 @@ class EstateListingCard extends StatelessWidget {
               ),
             ],
           ),
+
+          if (distance != null || note != null) const SizedBox(height: 10),
+          if (distance != null || note != null)
+            Wrap(
+              spacing: 14,
+              runSpacing: 6,
+              children: [
+                if (distance != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.near_me, size: 13, color: kBuyerGrey),
+                      const SizedBox(width: 4),
+                      Text(
+                        distance!,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF3A3A3A),
+                        ),
+                      ),
+                    ],
+                  ),
+                if (note != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        noteGood
+                            ? Icons.thumb_up_alt_outlined
+                            : Icons.info_outline,
+                        size: 13,
+                        color: noteGood ? kBuyerGreen : const Color(0xFFB26A2C),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        note!,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: noteGood
+                              ? kBuyerGreen
+                              : const Color(0xFFB26A2C),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
         ],
       ),
     );

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../services/location_service.dart';
 import '../services/owner_service.dart';
 import 'auth_gate.dart';
+import 'location_picker_page.dart';
 
 const Color _green = Color(0xFF2E7D32);
 const Color _grey = Color(0xFF777777);
@@ -87,11 +89,35 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   String? _error;
   bool _saving = false;
 
+  /// Set when a new place is picked on the map.
+  PickedLocation? _picked;
+
   @override
   void dispose() {
     _nameController.dispose();
     _locationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openMap() async {
+    final AppUser user = widget.user;
+    final PickedLocation? picked = await pickLocation(
+      context,
+      initial:
+          _picked ??
+          (user.hasCoordinates
+              ? PickedLocation(
+                  name: user.location ?? '',
+                  latitude: user.latitude!,
+                  longitude: user.longitude!,
+                )
+              : null),
+    );
+    if (picked == null) return;
+    setState(() {
+      _picked = picked;
+      _locationController.text = picked.name;
+    });
   }
 
   Future<void> _save() async {
@@ -109,6 +135,8 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
       await AuthService.updateProfile(
         name: name,
         location: _locationController.text.trim(),
+        latitude: _picked?.latitude,
+        longitude: _picked?.longitude,
       );
       if (!mounted) return;
       _saved(context, 'Profile updated');
@@ -141,9 +169,14 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
             TextField(
               controller: _locationController,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Location',
                 hintText: 'e.g. Colombo',
+                suffixIcon: IconButton(
+                  tooltip: 'Pick on the map',
+                  icon: const Icon(Icons.map_outlined),
+                  onPressed: _saving ? null : _openMap,
+                ),
               ),
             ),
             const SizedBox(height: 12),

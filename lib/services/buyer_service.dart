@@ -25,6 +25,9 @@ class Listing {
   final double? trustScore;
   final DateTime? createdAt;
 
+  /// From the buyer's saved location; null when either side has none.
+  final double? distanceKm;
+
   const Listing({
     required this.id,
     required this.productType,
@@ -36,6 +39,7 @@ class Listing {
     required this.location,
     required this.trustScore,
     required this.createdAt,
+    this.distanceKm,
   });
 
   factory Listing.fromJson(Map<String, dynamic> json) => Listing(
@@ -49,6 +53,7 @@ class Listing {
     location: json['location'] as String?,
     trustScore: _rating(json['trust_score']),
     createdAt: DateTime.tryParse('${json['created_at']}'),
+    distanceKm: _toDoubleOrNull(json['distance_km']),
   );
 }
 
@@ -345,7 +350,8 @@ enum ListingSort {
   newest('newest', 'Newest first', 'Newest'),
   priceLow('price_asc', 'Price: low to high', 'Lowest price'),
   priceHigh('price_desc', 'Price: high to low', 'Highest price'),
-  trust('trust', 'Highest trust score', 'Top trust');
+  trust('trust', 'Highest trust score', 'Top trust'),
+  nearest('nearest', 'Nearest first', 'Nearest');
 
   final String apiValue;
   final String label;
@@ -361,10 +367,26 @@ class BuyerService {
   static Future<List<Listing>> getListings({
     required String productType,
     ListingSort sort = ListingSort.newest,
+    double? latitude,
+    double? longitude,
+    int? radiusKm,
+    int? minQuantity,
+    DateTime? requiredDate,
   }) async {
     final data = await ApiClient.get(
       '/api/buyer/listings',
-      query: {'type': productType, 'sort': sort.apiValue},
+      query: {
+        'type': productType,
+        'sort': sort.apiValue,
+        if (latitude != null && longitude != null) ...{
+          'lat': '$latitude',
+          'lng': '$longitude',
+        },
+        if (radiusKm != null) 'radiusKm': '$radiusKm',
+        // Matching a request: enough nuts, available within 7 days of it.
+        if (minQuantity != null) 'minQuantity': '$minQuantity',
+        if (requiredDate != null) 'requiredDate': _isoDate(requiredDate),
+      },
     );
     return (data as List)
         .map((item) => Listing.fromJson(item as Map<String, dynamic>))

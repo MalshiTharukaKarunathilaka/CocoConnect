@@ -43,7 +43,7 @@ const options = {
       schemas: {
         SignupInput: {
           type: "object",
-          required: ["name", "phone", "password", "role"],
+          required: ["name", "phone", "password", "role", "location"],
           properties: {
             name: { type: "string", example: "Senuji Test" },
             phone: { type: "string", example: "0771234567" },
@@ -54,6 +54,8 @@ const options = {
               example: "BUYER",
             },
             location: { type: "string", example: "Colombo" },
+            latitude: { type: "number", example: 6.9271 },
+            longitude: { type: "number", example: 79.8612 },
           },
         },
         LoginInput: {
