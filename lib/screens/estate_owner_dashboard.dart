@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'coconuts_page.dart';
+import 'machinery_map_page.dart';
 
 class EstateOwnerDashboard extends StatelessWidget {
   const EstateOwnerDashboard({super.key});
@@ -146,11 +147,17 @@ class EstateOwnerDashboard extends StatelessWidget {
                                 iconColor: Color(0xFFB26A2C),
                               ),
 
-                              const DashboardCategoryCard(
+                              DashboardCategoryCard(
                                 title: 'Machinery',
                                 subtitle: 'Rent or buy',
                                 icon: Icons.agriculture,
-                                iconColor: Color(0xFFB26A2C),
+                                iconColor: const Color(0xFFB26A2C),
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const MachineryMapPage(),
+                                  ),
+                                ),
                               ),
 
                               const DashboardCategoryCard(
