@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'sell_request_page.dart';
-import '../services/api_service.dart';
+import '../services/api_client.dart';
+import '../services/owner_service.dart';
+import 'buyer/buyer_format.dart';
+import '../widgets/owner_widgets.dart';
+import '../widgets/nearby_filter.dart';
+import '../widgets/buyer_filter_sheet.dart';
 
 class RawCoconutsPage extends StatefulWidget {
   const RawCoconutsPage({super.key});
@@ -22,6 +27,122 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
   bool showSummary = false;
 
+  // Open raw-coconut buyer requests, reloaded after sending an offer.
+  late Future<List<OpenBuyerRequest>> buyersFuture = loadBuyers();
+
+  // Interested Buyers filters: distance from the estate and sort order.
+  int? buyerRadiusKm;
+  String buyerSort = 'price';
+
+  // Show only buyers whose request fits the harvest entered above.
+  bool matchHarvest = true;
+
+  DateTime? get harvestDate {
+    final parts = dateController.text.trim().split('/');
+    if (parts.length != 3) return null;
+    final int? month = int.tryParse(parts[0]);
+    final int? day = int.tryParse(parts[1]);
+    final int? year = int.tryParse(parts[2]);
+    if (month == null || day == null || year == null) return null;
+    return DateTime(year, month, day);
+  }
+
+  int? get harvestQuantity =>
+      int.tryParse(quantityController.text.replaceAll(',', '').trim());
+
+  bool get matching => matchHarvest && harvestDate != null;
+
+  Future<List<OpenBuyerRequest>> loadBuyers() => OwnerService.getBuyerRequests(
+        productType: 'RAW_COCONUT',
+        radiusKm: buyerRadiusKm,
+        sort: buyerSort,
+        availableDate: matching ? harvestDate : null,
+        maxQuantity: matching ? harvestQuantity : null,
+      );
+
+  Future<void> openBuyerFilter() async {
+    final BuyerFilter? picked = await showBuyerFilterSheet(context, (
+      sort: buyerSort,
+      radiusKm: buyerRadiusKm,
+      matchHarvest: matchHarvest,
+    ));
+    if (picked == null) return;
+    buyerSort = picked.sort;
+    buyerRadiusKm = picked.radiusKm;
+    matchHarvest = picked.matchHarvest;
+    reloadBuyers();
+  }
+
+  Widget buildHarvestMatchNote() {
+    final DateTime date = harvestDate!;
+    final DateTime from = date.subtract(const Duration(days: 7));
+    final int? quantity = harvestQuantity;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F3EA),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFC5DFCB)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_awesome, size: 15, color: Color(0xFF2E7D32)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Matching your harvest: buyers needing '
+              '${quantity == null ? '' : 'up to ${withCommas(quantity)} nuts '}'
+              'between ${shortDate(from)} and ${shortDate(date)}',
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFF263238)),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              matchHarvest = false;
+              reloadBuyers();
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF2E7D32),
+              visualDensity: VisualDensity.compact,
+            ),
+            child: const Text('Show all'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void reloadBuyers() {
+    setState(() {
+      buyersFuture = loadBuyers();
+    });
+  }
+
+  void sortBuyers(String sort) {
+    buyerSort = sort;
+    reloadBuyers();
+  }
+
+  // Shown in the header and as the seller on the summary.
+  String estateName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    loadEstateName();
+  }
+
+  Future<void> loadEstateName() async {
+    try {
+      final Estate estate = await OwnerService.getEstate();
+      if (mounted) setState(() => estateName = estate.estateName);
+    } on ApiException {
+      // Leave the header blank if the estate can't be loaded.
+    }
+  }
+
   Future<void> pickAvailableDate() async {
     final DateTime today = DateTime.now();
     final DateTime todayOnly = DateTime(today.year, today.month, today.day);
@@ -38,6 +159,9 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
         dateController.text =
         '${pickedDate.month.toString().padLeft(2, '0')}/${pickedDate.day.toString().padLeft(2, '0')}/${pickedDate.year}';
       });
+      // Show the buyers this harvest fits.
+      matchHarvest = true;
+      reloadBuyers();
     }
   }
 
@@ -52,6 +176,9 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
       );
       return;
     }
+
+    matchHarvest = true;
+    reloadBuyers();
 
     setState(() {
       showSummary = true;
@@ -107,10 +234,12 @@ Future<void> saveListingToDatabase() async {
     final String availableDate =
         convertDateToDatabaseFormat(dateController.text.trim());
 
-    await ApiService.createListing(
+    // Saved under the logged-in owner's estate.
+    await OwnerService.createListing(
+      productType: 'RAW_COCONUT',
       quantity: quantity,
       availableDate: availableDate,
-      offerPricePerUnit: price,
+      pricePerUnit: price,
     );
 
     if (!mounted) return;
@@ -157,9 +286,9 @@ Future<void> saveListingToDatabase() async {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'ABC Estate Owner',
-                        style: TextStyle(
+                      Text(
+                        estateName,
+                        style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFF1B5E20),
                           fontWeight: FontWeight.bold,
@@ -183,7 +312,7 @@ Future<void> saveListingToDatabase() async {
                           ),
 
                           const Text(
-                            'KapConnect',
+                            'CocoConnect',
                             style: TextStyle(
                               color: Color(0xFF2E7D32),
                               fontSize: 15,
@@ -245,6 +374,9 @@ Future<void> saveListingToDatabase() async {
 
                       const SizedBox(height: 20),
 
+                      // Latest deal and today's average price
+                      const MarketPulse(),
+
                       // This line changes form to summary after clicking Sell
                       showSummary
                           ? buildSellSummaryCard()
@@ -265,7 +397,9 @@ Future<void> saveListingToDatabase() async {
                             ),
                           ),
 
-                          Container(
+                          GestureDetector(
+                            onTap: openBuyerFilter,
+                            child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 9,
                               vertical: 5,
@@ -293,96 +427,141 @@ Future<void> saveListingToDatabase() async {
                               ],
                             ),
                           ),
+                          ),
                         ],
                       ),
 
                       const SizedBox(height: 10),
 
-                      const Row(
+                      NearbyFilter(
+                        radiusKm: buyerRadiusKm,
+                        onRadiusChanged: (km) {
+                          buyerRadiusKm = km;
+                          reloadBuyers();
+                        },
+                        onLocationChanged: reloadBuyers,
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Row(
                         children: [
                           FilterChipButton(
                             text: 'Best Price',
-                            isActive: true,
+                            isActive: buyerSort == 'price',
+                            onTap: () => sortBuyers('price'),
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           FilterChipButton(
                             text: 'Earliest Pickup Date',
-                            isActive: false,
+                            isActive: buyerSort == 'date',
+                            onTap: () => sortBuyers('date'),
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           FilterChipButton(
                             text: 'Nearest Location',
-                            isActive: false,
+                            isActive: buyerSort == 'nearest',
+                            onTap: () => sortBuyers('nearest'),
                           ),
                         ],
                       ),
 
                       const SizedBox(height: 14),
-FutureBuilder<List<dynamic>>(
-  future: ApiService.getBuyerRequests(),
+if (matching) buildHarvestMatchNote(),
+FutureBuilder<List<OpenBuyerRequest>>(
+  future: buyersFuture,
   builder: (context, snapshot) {
-    if (snapshot.connectionState == ConnectionState.waiting) {
+    if (snapshot.connectionState != ConnectionState.done) {
       return const Center(
         child: CircularProgressIndicator(),
       );
     }
 
     if (snapshot.hasError) {
-      return const Text(
-        'Failed to load buyers',
-        style: TextStyle(color: Colors.red),
+      final Object error = snapshot.error!;
+      return Text(
+        error is ApiException ? error.message : 'Failed to load buyers',
+        style: const TextStyle(color: Colors.red),
       );
     }
 
     final buyers = snapshot.data ?? [];
 
     if (buyers.isEmpty) {
-      return const Text('No interested buyers found');
+      return Text(
+        matching
+            ? 'No buyer requests fit this harvest yet. Tap Show all to see '
+                  'every request.'
+            : buyerRadiusKm == null
+            ? 'No buyers are requesting raw coconuts right now'
+            : 'No buyers within $buyerRadiusKm km right now. Try a wider '
+                  'distance.',
+      );
     }
 
     return Column(
       children: buyers.map((buyer) {
-        final String buyerName = buyer['buyer_name'].toString();
-
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: InterestedBuyerCard(
-            iconLetter: buyerName.isNotEmpty ? buyerName[0] : '?',
-            buyerName: buyerName,
-            trustScore: '${buyer['trust_score']}/5',
-            price: 'Rs. ${buyer['bidding_price_per_unit']}',
-            quantity: '${buyer['requested_quantity']} nuts',
-            pickupDate: buyer['required_date'].toString().substring(0, 10),
-           onTap: () {
-  final double sellerOfferPrice = double.tryParse(
-        priceController.text
-            .replaceAll('Rs.', '')
-            .replaceAll('Rs', '')
-            .replaceAll(',', '')
-            .trim(),
-      ) ??
-      0;
+            iconLetter:
+                buyer.buyerName.isNotEmpty ? buyer.buyerName[0] : '?',
+            buyerName: buyer.buyerName,
+            trustScore: buyer.trustScore == null
+                ? 'NEW'
+                : '${buyer.trustScore}/5',
+            price: buyer.offerSent
+                ? 'Offered ${rupees(buyer.myOfferPrice!)}'
+                : rupees(buyer.bidPerUnit),
+            quantity: '${withCommas(buyer.quantity)} nuts',
+            pickupDate: shortDate(buyer.requiredDate),
+            distance: distanceLabel(buyer.distanceKm),
+            onTap: () async {
+              if (buyer.offerSent) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'You already offered ${rupees(buyer.myOfferPrice!)} '
+                      'per nut to ${buyer.buyerName}',
+                    ),
+                  ),
+                );
+                return;
+              }
 
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => SellRequestPage(
-        buyerId: int.tryParse(buyer['id'].toString()) ?? 0,
-        buyerName: buyer['buyer_name'].toString(),
-        location: buyer['location'].toString(),
-        requestedQuantity:
-            int.tryParse(buyer['requested_quantity'].toString()) ?? 0,
-        requiredDate: buyer['required_date'].toString().substring(0, 10),
-        productType: buyer['product_type'].toString(),
-        buyerBiddingPrice: double.tryParse(
-              buyer['bidding_price_per_unit'].toString(),
-            ) ??
-            0,
-        sellerOfferPricePerUnit: sellerOfferPrice,
-      ),
-    ),
-  );
-},
+              final double sellerOfferPrice = double.tryParse(
+                    priceController.text
+                        .replaceAll('Rs.', '')
+                        .replaceAll('Rs', '')
+                        .replaceAll(',', '')
+                        .trim(),
+                  ) ??
+                  0;
+
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SellRequestPage(
+                    buyerId: buyer.id,
+                    buyerName: buyer.buyerName,
+                    location: buyer.location ?? '',
+                    requestedQuantity: buyer.quantity,
+                    requiredDate: buyer.requiredDate == null
+                        ? ''
+                        : buyer.requiredDate!.toIso8601String().substring(0, 10),
+                    productType: buyer.productType,
+                    buyerBiddingPrice: buyer.bidPerUnit,
+                    sellerOfferPricePerUnit: sellerOfferPrice > 0
+                        ? sellerOfferPrice
+                        : buyer.bidPerUnit,
+                  ),
+                ),
+              );
+              if (!mounted) return;
+              setState(() {
+                buyersFuture = loadBuyers();
+              });
+            },
           ),
         );
       }).toList(),
@@ -559,7 +738,7 @@ FutureBuilder<List<dynamic>>(
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text(
-              'READY TO POST',
+              'POSTED',
               style: TextStyle(
                 color: Color(0xFF2E7D32),
                 fontSize: 10,
@@ -580,9 +759,9 @@ FutureBuilder<List<dynamic>>(
 
           const SizedBox(height: 16),
 
-          const SummaryRow(
+          SummaryRow(
             title: 'Seller',
-            value: 'ABC Estate Owner',
+            value: estateName,
           ),
 
           const Divider(height: 24),
@@ -616,7 +795,7 @@ FutureBuilder<List<dynamic>>(
           const SizedBox(height: 16),
 
           const Text(
-            'Buyers can view this sell offer after you confirm it. Payment will be handled outside the system.',
+            'Buyers can now see this listing in the marketplace. Payment will be handled outside the system.',
             style: TextStyle(
               fontSize: 11,
               color: Color(0xFF777777),
@@ -629,13 +808,14 @@ FutureBuilder<List<dynamic>>(
                 Row(
             children: [
               Expanded(
+                // The listing is saved; start a fresh one instead of editing.
                 child: OutlinedButton(
                   onPressed: () {
                     setState(() {
                       showSummary = false;
                     });
                   },
-                  child: const Text('Edit'),
+                  child: const Text('Post Another Listing'),
                 ),
               ),
 
@@ -725,16 +905,20 @@ class CustomInputField extends StatelessWidget {
 class FilterChipButton extends StatelessWidget {
   final String text;
   final bool isActive;
+  final VoidCallback? onTap;
 
   const FilterChipButton({
     super.key,
     required this.text,
     required this.isActive,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 11,
         vertical: 6,
@@ -754,6 +938,7 @@ class FilterChipButton extends StatelessWidget {
           fontWeight: FontWeight.bold,
         ),
       ),
+    ),
     );
   }
 }
@@ -766,6 +951,7 @@ class InterestedBuyerCard extends StatelessWidget {
   final String quantity;
   final String pickupDate;
   final VoidCallback? onTap;
+  final String? distance;
 
   const InterestedBuyerCard({
     super.key,
@@ -776,6 +962,7 @@ class InterestedBuyerCard extends StatelessWidget {
     required this.quantity,
     required this.pickupDate,
     this.onTap,
+    this.distance,
   });
 
   @override
@@ -838,6 +1025,17 @@ class InterestedBuyerCard extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (distance != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          distance!,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: Color(0xFF555555),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

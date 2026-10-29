@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_bottom_nav.dart';
 
 class DashboardHeading extends StatelessWidget {
   final String title;
@@ -241,55 +242,13 @@ class CustomBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1ECE1),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(18),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          BottomMenuItem(
-            icon: Icons.dashboard,
-            label: 'Dashboard',
-            isActive: currentIndex == 0,
-            onTap: () {
-              if (currentIndex != 0) {
-                Navigator.popUntil(context, (route) => route.isFirst);
-              }
-            },
-          ),
-
-          BottomMenuItem(
-            icon: Icons.receipt_long,
-            label: 'Orders',
-            isActive: currentIndex == 1,
-            onTap: () {
-              // Later you can link Orders page here.
-            },
-          ),
-
-          BottomMenuItem(
-            icon: Icons.person,
-            label: 'Profile',
-            isActive: currentIndex == 2,
-            onTap: () {
-              if (currentIndex != 2) {
-                Navigator.pushNamed(context, '/profile');
-              }
-            },
-          ),
-        ],
-      ),
+    // Same bar as the buyer side: Dashboard, Orders, Chats, Alerts, Profile.
+    return AppBottomNav(
+      current: const [
+        AppTab.dashboard,
+        AppTab.orders,
+        AppTab.profile,
+      ][currentIndex.clamp(0, 2)],
     );
   }
 }

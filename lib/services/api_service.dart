@@ -20,7 +20,7 @@ class ApiService {
   required String availableDate,
 }) async {
   final response = await http.post(
-    Uri.parse('$baseUrl/api/listings/sell-request'),
+    Uri.parse('$baseUrl/api/listings/sell-requests'),
     headers: {
       'Content-Type': 'application/json',
     },

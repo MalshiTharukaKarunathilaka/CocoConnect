@@ -25,7 +25,7 @@ class BuyingCategoriesPage extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: const [
                       Text(
-                        'KapConnect',
+                        'CocoConnect',
                         style: TextStyle(
                           color: Color(0xFF2E7D32),
                           fontSize: 20,
