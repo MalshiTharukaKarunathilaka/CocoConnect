@@ -66,6 +66,7 @@ flutter:
   # Service photos for the machinery schedule screen.
   assets:
     - assets/services/
+    - assets/machines/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

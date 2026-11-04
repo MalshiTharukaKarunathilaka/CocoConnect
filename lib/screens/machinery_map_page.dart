@@ -2,114 +2,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/auth_service.dart';
+import '../widgets/machinery_widgets.dart';
 import '../widgets/owner_widgets.dart';
 import 'buyer/buyer_format.dart';
+import 'my_bookings_page.dart';
 import 'service_schedule_page.dart';
 
-/// A machine shown on the demo map.
-class _Machine {
-  final String name;
-  final String provider;
-  final String type; // TRACTOR / BACKHOE
-  final String services;
-  final int rate;
-  final String unit;
-
-  /// Offset from the estate, in degrees, so the demo always sits nearby.
-  final double dLat;
-  final double dLng;
-
-  const _Machine(
-    this.name,
-    this.provider,
-    this.type,
-    this.services,
-    this.rate,
-    this.unit,
-    this.dLat,
-    this.dLng,
-  );
-}
-
-// Sample machinery for showing the idea to clients. Not from the database.
-const List<_Machine> _machines = [
-  _Machine(
-    'Massey Ferguson 240',
-    'Sunil Machinery',
-    'TRACTOR',
-    'Slasher · Disc Ploughing · Rotary',
-    5000,
-    'acre',
-    0.018,
-    0.022,
-  ),
-  _Machine(
-    'Kubota M6040 4WD',
-    'Nimal Farm Mechanization',
-    'TRACTOR',
-    'Slasher · Trailer haulage',
-    4800,
-    'acre',
-    -0.024,
-    0.031,
-  ),
-  _Machine(
-    'Mahindra 575 DI',
-    'Dambokka Agro',
-    'TRACTOR',
-    'Koku Nagula · Rotary',
-    4500,
-    'acre',
-    0.035,
-    -0.019,
-  ),
-  _Machine(
-    'Swaraj 744 FE',
-    'Ruwan Tractor Service',
-    'TRACTOR',
-    'Disc Ploughing · Trailer',
-    6800,
-    'acre',
-    -0.041,
-    -0.028,
-  ),
-  _Machine(
-    'JCB 3CX',
-    'Kithsiri Earthmovers',
-    'BACKHOE',
-    'Ditch & drainage · Pit digging',
-    4200,
-    'hour',
-    0.006,
-    -0.043,
-  ),
-  _Machine(
-    'CAT 424B',
-    'Lanka Excavations',
-    'BACKHOE',
-    'Canal digging · Land clearing',
-    6500,
-    'hour',
-    -0.052,
-    0.009,
-  ),
-];
-
-IconData _iconFor(String type) =>
-    type == 'BACKHOE' ? Icons.construction : Icons.agriculture;
-
-/// Estate owners see tractors and backhoes around their estate on a map.
+/// Estate owners see tractors, backhoes and hand tractors around their estate.
+/// Pass [type] (TRACTOR / BACKHOE / HAND_TRACTOR) to start on one type.
 class MachineryMapPage extends StatefulWidget {
-  const MachineryMapPage({super.key});
+  final String? type;
+
+  const MachineryMapPage({super.key, this.type});
 
   @override
-  State<MachineryMapPage> createState() => _MachineryMapPageState();
+  State<MachineryMapPage> createState() => MachineInforyMapPageState();
 }
 
-class _MachineryMapPageState extends State<MachineryMapPage> {
+class MachineInforyMapPageState extends State<MachineryMapPage> {
   final _map = MapController();
-  String _filter = 'ALL';
-  _Machine? _selected = _machines.first;
+  late String _filter = widget.type ?? 'ALL';
+  late MachineInfo? _selected = _shown.isEmpty ? null : _shown.first;
+
+  void _openCalendar(MachineInfo m) => Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ServiceSchedulePage(
+        machineName: m.name,
+        provider: m.provider,
+        type: m.type,
+        info: m,
+        machineAt: _at(m),
+        estateAt: _estate,
+        km: _km(m),
+      ),
+    ),
+  );
 
   LatLng get _estate {
     final AppUser? me = AuthService.currentUser;
@@ -119,14 +47,20 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
     );
   }
 
-  LatLng _at(_Machine m) =>
+  /// The bottom card covers the lower part of the map, so look at a point a
+  /// little south of the estate; that puts the estate and every machine in
+  /// the visible part above the card.
+  static const double _homeZoom = 11.5;
+  LatLng get _home => LatLng(_estate.latitude - 0.055, _estate.longitude);
+
+  LatLng _at(MachineInfo m) =>
       LatLng(_estate.latitude + m.dLat, _estate.longitude + m.dLng);
 
-  double _km(_Machine m) =>
+  double _km(MachineInfo m) =>
       const Distance().as(LengthUnit.Meter, _estate, _at(m)) / 1000;
 
-  List<_Machine> get _shown =>
-      _machines.where((m) => _filter == 'ALL' || m.type == _filter).toList()
+  List<MachineInfo> get _shown =>
+      demoMachines.where((m) => _filter == 'ALL' || m.type == _filter).toList()
         ..sort((a, b) => _km(a).compareTo(_km(b)));
 
   @override
@@ -137,24 +71,24 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<_Machine> shown = _shown;
+    final List<MachineInfo> shown = _shown;
     return OwnerPage(
       child: Column(
         children: [
           OwnerHeader(
             title: 'Machinery Near You',
-            subtitle: 'TRACTORS & BACKHOES',
+            subtitle: 'TRACTORS, BACKHOES & HAND TRACTORS',
             actions: [
               IconButton(
-                tooltip: 'Service schedule',
+                tooltip: 'My bookings',
                 icon: const Icon(
-                  Icons.calendar_month_outlined,
+                  Icons.receipt_long_outlined,
                   color: kOwnerGreen,
                 ),
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const ServiceSchedulePage(),
+                    builder: (context) => const MyBookingsPage(),
                   ),
                 ),
               ),
@@ -166,8 +100,8 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
                 FlutterMap(
                   mapController: _map,
                   options: MapOptions(
-                    initialCenter: _estate,
-                    initialZoom: 11.6,
+                    initialCenter: _home,
+                    initialZoom: _homeZoom,
                   ),
                   children: [
                     TileLayer(
@@ -234,7 +168,7 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
                   child: FloatingActionButton.small(
                     heroTag: 'recenter',
                     backgroundColor: Colors.white,
-                    onPressed: () => _map.move(_estate, 11.6),
+                    onPressed: () => _map.move(_home, _homeZoom),
                     child: const Icon(Icons.my_location, color: kOwnerGreen),
                   ),
                 ),
@@ -247,7 +181,7 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
     );
   }
 
-  Marker _marker(_Machine m) {
+  Marker _marker(MachineInfo m) {
     final bool on = identical(m, _selected);
     final double size = on ? 54 : 44;
     return Marker(
@@ -280,7 +214,7 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
                 ],
               ),
               child: Icon(
-                _iconFor(m.type),
+                machineIcon(m.type),
                 color: on ? Colors.white : kOwnerGreen,
                 size: on ? 28 : 22,
               ),
@@ -313,8 +247,8 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
     Widget chip(String code, String label, IconData? icon) {
       final bool on = _filter == code;
       final int count = code == 'ALL'
-          ? _machines.length
-          : _machines.where((m) => m.type == code).length;
+          ? demoMachines.length
+          : demoMachines.where((m) => m.type == code).length;
       return Padding(
         padding: const EdgeInsets.only(right: 8),
         child: Material(
@@ -364,18 +298,21 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
           chip('ALL', 'All', null),
           chip('TRACTOR', 'Tractors', Icons.agriculture),
           chip('BACKHOE', 'Backhoes', Icons.construction),
+          chip('HAND_TRACTOR', 'Hand Tractors', Icons.grass),
         ],
       ),
     );
   }
 
-  Widget _sheet(List<_Machine> shown) {
-    final _Machine? m = _selected;
+  Widget _sheet(List<MachineInfo> shown) {
+    final MachineInfo? m = _selected;
+    final bool nearest =
+        m != null && shown.isNotEmpty && identical(m, shown.first);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         boxShadow: [
           BoxShadow(
             color: Color(0x22000000),
@@ -388,6 +325,7 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const SizedBox(height: 8),
           Center(
             child: Container(
               width: 40,
@@ -398,95 +336,171 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            '${shown.length} available near your estate',
-            style: const TextStyle(
-              fontSize: 12.5,
-              color: kOwnerMuted,
-              fontWeight: FontWeight.w600,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            child: Text(
+              '${shown.length} available near your estate · tap a marker',
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: kOwnerMuted,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-          const SizedBox(height: 10),
-          if (m != null)
-            Row(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: const BoxDecoration(
-                    color: kOwnerGreenSoft,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(_iconFor(m.type), color: kOwnerGreen, size: 28),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        m.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: kOwnerInk,
-                        ),
-                      ),
-                      Text(
-                        m.provider,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: kOwnerMuted,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${_km(m).toStringAsFixed(1)} km away · ~${(_km(m) / 20 * 60 + 5).round()} min',
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: kOwnerGreen,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+          if (m == null)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 20),
+              child: Text(
+                'No machines of this type nearby right now.',
+                style: TextStyle(fontSize: 13.5, color: kOwnerMuted),
+              ),
+            )
+          else ...[
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _openCalendar(m),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      rupees(m.rate),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: kOwnerBrown,
-                      ),
+                    Stack(
+                      children: [
+                        MachinePhoto(m, width: 116, height: 116, radius: 14),
+                        if (nearest)
+                          const Positioned(
+                            left: 6,
+                            top: 6,
+                            child: PhotoChip(
+                              'Nearest',
+                              icon: Icons.star,
+                              filled: true,
+                            ),
+                          ),
+                        Positioned(
+                          left: 6,
+                          bottom: 6,
+                          child: PhotoChip(machineLabel(m.type)),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '/ ${m.unit}',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: kOwnerMuted,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 116,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  m.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: kOwnerInk,
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        m.provider,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: kOwnerMuted,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.verified,
+                                      size: 15,
+                                      color: kOwnerGreen,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.star,
+                                      size: 15,
+                                      color: Color(0xFFF2A900),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '${m.rating}',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: kOwnerInk,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        ' (${m.jobs}) · ${_km(m).toStringAsFixed(1)} km · ~${(_km(m) / 20 * 60 + 5).round()} min',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          color: kOwnerMuted,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Text(
+                              m.services,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: kOwnerInk,
+                              ),
+                            ),
+                            Text.rich(
+                              TextSpan(
+                                text: rupees(m.rate),
+                                children: [
+                                  TextSpan(
+                                    text: ' / ${m.unit}',
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.normal,
+                                      color: kOwnerMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              style: const TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                                color: kOwnerBrown,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
-          if (m != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              m.services,
-              style: const TextStyle(fontSize: 12.5, color: kOwnerInk),
-            ),
-            const SizedBox(height: 12),
-            OwnerPrimaryButton(
-              label:
-                  'Book ${m.type == 'BACKHOE' ? 'this Backhoe' : 'this Tractor'}',
-              arrow: true,
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Booking is coming soon')),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: OwnerPrimaryButton(
+                label: 'View Calendar & Book',
+                arrow: true,
+                onPressed: () => _openCalendar(m),
               ),
             ),
           ],
