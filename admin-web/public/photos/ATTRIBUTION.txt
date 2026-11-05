@@ -1,0 +1,17 @@
+Photo credits and notes
+
+rotary.jpg, koku_nagula.jpg, slasher.jpg, disc_plough.jpg, trailer.jpg,
+backhoe.jpg, hand_tractor.jpg
+  Copied from the CocoConnect mobile app (assets/services, assets/machines).
+  Stand-in demo photos; see assets/machines/README.txt in the mobile app.
+
+copra.jpg
+  "Copra drying on Teraina.jpg" by Dr. James P. McVey, NOAA Sea Grant Program,
+  Wikimedia Commons. Public domain.
+
+husking.jpg
+  "Coconut husks.jpg" by Prillytee, Wikimedia Commons. CC BY-SA 4.0
+  (https://creativecommons.org/licenses/by-sa/4.0/). Resized.
+
+Replace any of these with your own photos of the real work before showing
+customers. Keep the same file names.
