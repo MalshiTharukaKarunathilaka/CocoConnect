@@ -1,11 +1,12 @@
 # Running CocoConnect
 
-The app has two parts, both in this repository on branch `integration-senuji`:
+The app has three parts on branch `integration-senuji` (and feature branches based on it):
 
-- **Mobile app** (Flutter) — the project root (`lib/`, `pubspec.yaml`)
+- **Mobile app** (Flutter) — the project root (`lib/`, `pubspec.yaml`) for Buyer / Estate Owner
 - **Backend** (Node.js + Express) — the `backend/` folder, connected to the team's Supabase database
+- **Admin web** (React) — the `admin-web/` folder for administrators in the browser
 
-The backend must be running for the app to log in or load any data.
+The backend must be running for the app and admin to log in or load any data.
 
 ---
 
@@ -112,6 +113,29 @@ Backend automated tests (also use the test database):
 cd backend
 npm test
 ```
+
+## Admin web (browser)
+
+```bash
+# Terminal 1 — backend already running on port 5000
+
+# Terminal 2
+cd admin-web
+npm install
+npm run dev
+```
+
+Open http://127.0.0.1:5174 and sign in with an **ADMIN** account (phone + password).
+
+Promote a user in Supabase SQL (once):
+
+```sql
+update public.users
+set role = 'ADMIN', status = 'ACTIVE'
+where phone = '07XXXXXXXX';
+```
+
+If admin APIs fail on missing columns/tables, run `backend/sql/008_admin_extensions.sql` once in the Supabase SQL editor.
 
 ## Running on a real phone
 

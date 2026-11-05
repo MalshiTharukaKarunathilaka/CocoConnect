@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Node / admin-web
+**/node_modules/
+backend/.env
+admin-web/dist/
+admin-web/.env
+.env
