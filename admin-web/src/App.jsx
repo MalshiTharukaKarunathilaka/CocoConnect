@@ -28,7 +28,7 @@ function Login({ onLogin }) {
   return (
     <main className="login-page">
       <form className="login-card" onSubmit={submit}>
-        <h1>CocoConnect Admin</h1>
+        <h1>KapConnect Admin</h1>
         <p>Sign in with an ADMIN account to manage the marketplace.</p>
         {error && <div className="error">{error}</div>}
         <label>

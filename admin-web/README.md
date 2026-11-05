@@ -1,6 +1,6 @@
-# CocoConnect Admin Web
+# KapConnect Admin Web
 
-React admin dashboard for CocoConnect. Talks to the shared Node backend on port **5000** (same API the Flutter app uses).
+React admin dashboard for KapConnect. Talks to the shared Node backend on port **5000** (same API the Flutter app uses).
 
 ## Run
 

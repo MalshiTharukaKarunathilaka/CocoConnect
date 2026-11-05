@@ -1,12 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from './api'
 import './AdminApp.css'
+import Analysis from './analysis/AnalysisPages'
+import './analysis/analysis.css'
 
 const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`
 const shortDate = (value) => (value ? new Date(value).toLocaleDateString() : '—')
 const pill = (status) => <span className={`adm-pill ${String(status || '').toLowerCase()}`}>{String(status || '').replaceAll('_', ' ')}</span>
 
 const NAV = [
+  {
+    section: 'Analysis dashboard',
+    items: [
+      ['an-overview', 'Overview & estates'],
+      ['an-workers', 'Day workers'],
+      ['an-fert', 'Fertilizer'],
+      ['an-mach', 'Machinery'],
+      ['an-sales', 'Sales'],
+    ],
+  },
   { section: 'Overview', items: [['dashboard', 'Dashboard']] },
   { section: 'People', items: [['users', 'Users'], ['verify', 'Verification']] },
   {
@@ -29,6 +41,11 @@ const NAV = [
 ]
 
 const TITLES = {
+  'an-overview': 'Analysis dashboard',
+  'an-workers': 'Analysis · Day workers',
+  'an-fert': 'Analysis · Fertilizer',
+  'an-mach': 'Analysis · Machinery',
+  'an-sales': 'Analysis · Sales',
   dashboard: 'Dashboard',
   users: 'Users',
   verify: 'Verification queue',
@@ -77,7 +94,7 @@ const MAP_CITIES = [
 ]
 
 export default function AdminApp({ user, logout }) {
-  const [view, setView] = useState('dashboard')
+  const [view, setView] = useState(() => window.location.hash.slice(1).split('/')[0] || 'an-overview')
   const [search, setSearch] = useState('')
   const [userFilter, setUserFilter] = useState('all')
   const [dealFilter, setDealFilter] = useState('ALL')
@@ -305,13 +322,16 @@ export default function AdminApp({ user, logout }) {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = 'cococonnect-admin-export.json'
+    a.download = 'kapconnect-admin-export.json'
     a.click()
     showToast('JSON downloaded')
   }
 
   let content = null
-  if (loading && !data.users.length) {
+  const isAnalysis = view.startsWith('an-')
+  if (isAnalysis) {
+    content = <Analysis view={view} />
+  } else if (loading && !data.users.length) {
     content = <div className="adm-empty">Loading admin console…</div>
   } else if (view === 'dashboard') {
     const d = data.dashboard
@@ -786,7 +806,7 @@ export default function AdminApp({ user, logout }) {
     <div className="adm-shell">
       <aside className="adm-sidebar">
         <div className="adm-brand">
-          <strong>CocoConnect</strong>
+          <strong>KapConnect</strong>
           <small>Administration</small>
         </div>
         <nav className="adm-nav">
@@ -814,7 +834,7 @@ export default function AdminApp({ user, logout }) {
         <header className="adm-topbar">
           <div>
             <h1>{TITLES[view]}</h1>
-            <p className="adm-top-sub">Synced {new Date().toLocaleTimeString()}</p>
+            <p className="adm-top-sub">{view.startsWith('an-') ? `${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, ${user.name.split(' ')[0]}` : `Synced ${new Date().toLocaleTimeString()}`}</p>
           </div>
           <div className="adm-top-actions">
             <input className="adm-search" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -822,7 +842,7 @@ export default function AdminApp({ user, logout }) {
           </div>
         </header>
         <div className="adm-content">
-          {error && <div className="adm-error">{error}<button onClick={() => setError('')}>Close</button></div>}
+          {error && !view.startsWith('an-') && <div className="adm-error">{error}<button onClick={() => setError('')}>Close</button></div>}
           {content}
         </div>
       </div>
