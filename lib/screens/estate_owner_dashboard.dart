@@ -35,7 +35,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                           ),
                           SizedBox(width: 5),
                           Text(
-                            'CocoConnect',
+                            'KapConnect',
                             style: TextStyle(
                               color: Color(0xFF2E7D32),
                               fontSize: 18,
@@ -168,7 +168,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                               ),
 
                               const DashboardCategoryCard(
-                                title: 'Labour',
+                                title: 'Day Jobs',
                                 subtitle: 'Hire workers',
                                 icon: Icons.groups,
                                 iconColor: Color(0xFF777777),
