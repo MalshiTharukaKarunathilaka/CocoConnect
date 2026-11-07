@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'accepted_workers_page.dart';
 
 const Color _detailGreen = Color(0xFF245F48);
 const Color _detailBackground = Color(0xFFFCF9F3);
@@ -33,9 +34,10 @@ class JobDetailPage extends StatelessWidget {
                       _progress(),
                       const SizedBox(height: 24),
                       _button('View Accepted Workers', () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('No accepted workers yet'),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AcceptedWorkersPage(),
                           ),
                         );
                       }),
