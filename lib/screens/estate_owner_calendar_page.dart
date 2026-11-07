@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/app_bottom_nav.dart';
+import 'post_day_job_page.dart';
 
 const Color _calendarGreen = Color(0xFF246B45);
 const Color _calendarBackground = Color(0xFFFCF8F3);
@@ -115,8 +116,11 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
         date: selectedDay,
         onAddJob: () {
           Navigator.pop(context);
-          ScaffoldMessenger.of(this.context).showSnackBar(
-            const SnackBar(content: Text('Add job for this date')),
+          Navigator.push(
+            this.context,
+            MaterialPageRoute(
+              builder: (_) => PostDayJobPage(requiredDate: selectedDay),
+            ),
           );
         },
         onViewJobs: () {
