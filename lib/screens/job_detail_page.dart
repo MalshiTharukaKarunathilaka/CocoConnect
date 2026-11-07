@@ -40,7 +40,7 @@ class JobDetailPage extends StatelessWidget {
                             builder: (_) => const AcceptedWorkersPage(),
                           ),
                         );
-                      }),
+                      }, trailing: true),
                       const SizedBox(height: 14),
                       _button('Complete Job', () {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -48,7 +48,7 @@ class JobDetailPage extends StatelessWidget {
                             content: Text('Job marked for completion'),
                           ),
                         );
-                      }, trailing: true),
+                      }),
                     ],
                   ),
                 ),
