@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'worker_chat_page.dart';
 
 const Color _rosterGreen = Color(0xFF246B45);
 const Color _rosterBackground = Color(0xFFFCF9F3);
@@ -26,13 +27,28 @@ class AcceptedWorkersPage extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
               children: [
-                const Text(
-                  'Nut Gatherer',
-                  style: TextStyle(
-                    color: _rosterInk,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        size: 32,
+                        color: _rosterInk,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Nut Gatherer',
+                      style: TextStyle(
+                        color: _rosterInk,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -175,8 +191,11 @@ class AcceptedWorkersPage extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Contact ${worker.name}')),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => WorkerChatPage(workerName: worker.name),
+                    ),
                   ),
                   icon: const Icon(Icons.send, color: Colors.white, size: 24),
                   style: IconButton.styleFrom(
