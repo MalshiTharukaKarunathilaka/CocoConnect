@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'coconuts_page.dart';
+import 'estate_owner_calendar_page.dart';
 import 'machinery_map_page.dart';
 
 class EstateOwnerDashboard extends StatelessWidget {
@@ -167,11 +168,20 @@ class EstateOwnerDashboard extends StatelessWidget {
                                 iconColor: Color(0xFF777777),
                               ),
 
-                              const DashboardCategoryCard(
+                              DashboardCategoryCard(
                                 title: 'Day Jobs',
                                 subtitle: 'Hire workers',
                                 icon: Icons.groups,
-                                iconColor: Color(0xFF777777),
+                                iconColor: const Color(0xFF777777),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const EstateOwnerCalendarPage(),
+                                    ),
+                                  );
+                                },
                               ),
 
                               const DashboardCategoryCard(
