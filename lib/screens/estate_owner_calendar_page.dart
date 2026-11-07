@@ -97,6 +97,36 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     setState(() {
       _selectedDay = DateTime(_month.year, _month.month, day);
     });
+    if (day == 15) {
+      _showDayActions();
+    }
+  }
+
+  void _showDayActions() {
+    final selectedDay = DateTime(_month.year, _month.month, 15);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
+      ),
+      builder: (context) => _DayActionsSheet(
+        date: selectedDay,
+        onAddJob: () {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(this.context).showSnackBar(
+            const SnackBar(content: Text('Add job for this date')),
+          );
+        },
+        onViewJobs: () {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(this.context).showSnackBar(
+            const SnackBar(content: Text('View jobs for this date')),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -457,7 +487,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
         );
 
     return GestureDetector(
-      onTap: () => _selectDay(day),
+      onTap: isPreviewDay ? null : () => _selectDay(day),
       child: SizedBox(
         height: 78,
         child: Container(
@@ -550,6 +580,199 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DayActionsSheet extends StatelessWidget {
+  final DateTime date;
+  final VoidCallback onAddJob;
+  final VoidCallback onViewJobs;
+
+  const _DayActionsSheet({
+    required this.date,
+    required this.onAddJob,
+    required this.onViewJobs,
+  });
+
+  static const List<String> _weekdays = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+
+  static const List<String> _months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final label =
+        '${_weekdays[date.weekday - 1]}, ${date.day} '
+        '${_months[date.month - 1]} ${date.year}';
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(36, 16, 36, 26),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 10,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE5E1DA),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            const SizedBox(height: 34),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 25),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF4ED),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFD4E7D9)),
+              ),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _calendarGreen,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 38),
+            _ActionButton(
+              icon: Icons.add,
+              label: 'Add Job for This Date',
+              backgroundColor: const Color(0xFF197549),
+              foregroundColor: Colors.white,
+              onTap: onAddJob,
+            ),
+            const SizedBox(height: 18),
+            _ActionButton(
+              icon: Icons.format_list_bulleted,
+              label: 'View Jobs',
+              backgroundColor: const Color(0xFFF0F5EF),
+              foregroundColor: _calendarGreen,
+              onTap: onViewJobs,
+            ),
+            const SizedBox(height: 38),
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F4EC),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 58,
+                    height: 58,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: _calendarGreen,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${date.day}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 21,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Text(
+                      'Schedule Day',
+                      style: TextStyle(
+                        color: Colors.black87,
+                        fontSize: 25,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: onViewJobs,
+                    icon: const Icon(Icons.arrow_forward, size: 18),
+                    label: const Text('Manage'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _calendarGreen,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 86,
+      child: FilledButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 32),
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: backgroundColor,
+          foregroundColor: foregroundColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(25),
           ),
         ),
       ),
