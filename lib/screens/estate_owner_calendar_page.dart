@@ -478,6 +478,45 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
         ? day - daysInMonth
         : day;
     final bool isPreviewDay = isPreviousMonth || isNextMonth;
+    final DateTime cellDate = DateTime(
+      _month.year,
+      _month.month,
+      displayDay,
+    );
+    final DateTime today = DateTime.now();
+    final DateTime todayDate = DateTime(today.year, today.month, today.day);
+    final bool isGreenDate =
+        !isPreviewDay &&
+        ((_month.year == 2026 &&
+                _month.month == DateTime.november &&
+                const {
+                  6,
+                  7,
+                  9,
+                  10,
+                  11,
+                  12,
+                  13,
+                  14,
+                  18,
+                  20,
+                  21,
+                  23,
+                  24,
+                  27,
+                  29,
+                  30,
+                }.contains(displayDay)) ||
+            (_month.year == 2026 && _month.month == DateTime.december) ||
+            _month.year == 2027);
+    final bool isPastDay = !isPreviewDay && cellDate.isBefore(todayDate);
+    final bool isTodayOrTomorrow =
+        !isPreviewDay &&
+        !isPastDay &&
+        (cellDate.isAtSameMomentAs(todayDate) ||
+            cellDate.isAtSameMomentAs(
+              todayDate.add(const Duration(days: 1)),
+            ));
 
     final selected =
         !isPreviewDay &&
@@ -506,9 +545,15 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                 ? _calendarGreen
                 : isPreviewDay
                 ? const Color(0xFFF4F3F0)
-                : statusColor == null
+                : isGreenDate
+                ? const Color(0xFFBDD3C4)
+                : isPastDay
                 ? const Color(0xFFEBE9E3)
-                : statusColor == const Color(0xFFF0A315)
+              : isTodayOrTomorrow
+              ? const Color(0xFFBDD3C4)
+              : statusColor == null
+              ? const Color(0xFFEBE9E3)
+              : statusColor == const Color(0xFFF0A315)
                 ? const Color(0xFFF0EEE8)
                 : const Color(0xFFBDD3C4),
             borderRadius: BorderRadius.circular(17),
