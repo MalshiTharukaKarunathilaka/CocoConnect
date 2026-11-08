@@ -58,7 +58,13 @@ const options = {
             password: { type: "string", example: "secret123" },
             role: {
               type: "string",
-              enum: ["BUYER", "ESTATE_OWNER", "ESTATE_MANAGER", "SERVICE_PROVIDER"],
+              enum: [
+                "BUYER",
+                "ESTATE_OWNER",
+                "ESTATE_MANAGER",
+                "SERVICE_PROVIDER",
+                "WORKER",
+              ],
               example: "BUYER",
             },
             location: { type: "string", example: "Colombo" },
