@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/owner_service.dart';
 
 const Color _jobGreen = Color(0xFF245F48);
 const Color _jobBackground = Color(0xFFFCF9F3);
@@ -52,10 +53,35 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
     'December',
   ];
 
-  void _broadcast() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Day job ready to broadcast')));
+  Future<void> _broadcast() async {
+    final rate = double.tryParse(_rateController.text.trim());
+    if (rate == null || rate < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid daily rate')),
+      );
+      return;
+    }
+
+    try {
+      await OwnerService.createDayJob(
+        category: _category,
+        workersNeeded: _workers,
+        requiredDate: widget.requiredDate,
+        location: 'Green Valley Estate, Wattagama Rd, Kurunegala',
+        dailyRate: rate,
+        paymentMethod: _paymentMethod,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Day job broadcast successfully')),
+      );
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not broadcast job: $error')));
+    }
   }
 
   @override

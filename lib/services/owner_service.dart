@@ -19,6 +19,42 @@ String _isoDate(DateTime date) =>
     '${date.month.toString().padLeft(2, '0')}-'
     '${date.day.toString().padLeft(2, '0')}';
 
+class DayJob {
+  final int id;
+  final String category;
+  final int workersNeeded;
+  final DateTime requiredDate;
+  final String location;
+  final double dailyRate;
+  final String paymentMethod;
+  final String status;
+  final int confirmedWorkers;
+
+  const DayJob({
+    required this.id,
+    required this.category,
+    required this.workersNeeded,
+    required this.requiredDate,
+    required this.location,
+    required this.dailyRate,
+    required this.paymentMethod,
+    required this.status,
+    required this.confirmedWorkers,
+  });
+
+  factory DayJob.fromJson(Map<String, dynamic> json) => DayJob(
+    id: (json['id'] as num).toInt(),
+    category: json['category'] as String? ?? '',
+    workersNeeded: (json['workers_needed'] as num?)?.toInt() ?? 0,
+    requiredDate: DateTime.parse('${json['required_date']}'),
+    location: json['location'] as String? ?? '',
+    dailyRate: _toDouble(json['daily_rate']),
+    paymentMethod: json['payment_method'] as String? ?? '',
+    status: json['status'] as String? ?? 'OPEN',
+    confirmedWorkers: (json['confirmed_workers'] as num?)?.toInt() ?? 0,
+  );
+}
+
 class Estate {
   final int id;
   final String estateName;
@@ -207,6 +243,35 @@ class OwnerService {
       'availableDate': availableDate,
       'offerPricePerUnit': pricePerUnit,
     });
+  }
+
+  static Future<DayJob> createDayJob({
+    required String category,
+    required int workersNeeded,
+    required DateTime requiredDate,
+    required String location,
+    required double dailyRate,
+    required String paymentMethod,
+  }) async {
+    final data = await ApiClient.post('/api/owner/day-jobs', {
+      'category': category,
+      'workersNeeded': workersNeeded,
+      'requiredDate': _isoDate(requiredDate),
+      'location': location,
+      'dailyRate': dailyRate,
+      'paymentMethod': paymentMethod,
+    });
+    return DayJob.fromJson(data as Map<String, dynamic>);
+  }
+
+  static Future<List<DayJob>> getDayJobs(DateTime date) async {
+    final data = await ApiClient.get(
+      '/api/owner/day-jobs',
+      query: {'date': _isoDate(date)},
+    );
+    return (data as List)
+        .map((item) => DayJob.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   /// [sort] is 'price' (highest bid first), 'date' or 'nearest';
