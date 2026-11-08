@@ -835,6 +835,89 @@ const getMarketStats = async (req, res) => {
   }
 };
 
+const getDayJobs = async (req, res) => {
+  try {
+    const estate = await getOwnEstate(pool, req.user.id);
+    const date = String(req.query.date || "").trim();
+    const params = [estate.id];
+    const dateFilter = date ? "AND required_date = $2" : "";
+    if (date) params.push(date);
+
+    const result = await pool.query(
+      `SELECT * FROM day_jobs
+       WHERE estate_owner_id = $1 ${dateFilter}
+       ORDER BY required_date, created_at DESC, id DESC`,
+      params
+    );
+
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    if (error.code === "42P01") {
+      return res.status(500).json({
+        message:
+          "Day jobs are not configured. Run backend/sql/008_day_jobs.sql in Supabase.",
+      });
+    }
+    return serverError(res, "Get day jobs", error);
+  }
+};
+
+const createDayJob = async (req, res) => {
+  try {
+    const {
+      category,
+      workersNeeded,
+      requiredDate,
+      location,
+      dailyRate,
+      paymentMethod,
+    } = req.body;
+    const workers = Number(workersNeeded);
+    const rate = Number(dailyRate);
+
+    if (
+      !String(category || "").trim() ||
+      !Number.isInteger(workers) ||
+      workers < 1 ||
+      !String(requiredDate || "").trim() ||
+      !String(location || "").trim() ||
+      !Number.isFinite(rate) ||
+      rate < 0 ||
+      !String(paymentMethod || "").trim()
+    ) {
+      return res.status(400).json({ message: "All day job fields are required" });
+    }
+
+    const estate = await getOwnEstate(pool, req.user.id);
+    const result = await pool.query(
+      `INSERT INTO day_jobs
+        (estate_owner_id, category, workers_needed, required_date, location,
+         daily_rate, payment_method)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        estate.id,
+        String(category).trim(),
+        workers,
+        String(requiredDate).trim(),
+        String(location).trim(),
+        rate,
+        String(paymentMethod).trim(),
+      ]
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (error) {
+    if (error.code === "42P01") {
+      return res.status(500).json({
+        message:
+          "Day jobs are not configured. Run backend/sql/008_day_jobs.sql in Supabase.",
+      });
+    }
+    return serverError(res, "Create day job", error);
+  }
+};
+
 module.exports = {
   acceptNegotiation,
   completeOrder,
@@ -852,4 +935,6 @@ module.exports = {
   sendMessage,
   declineNegotiation,
   getMyOrders,
+  getDayJobs,
+  createDayJob,
 };

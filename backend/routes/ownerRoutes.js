@@ -17,6 +17,8 @@ const {
   sendMessage,
   declineNegotiation,
   getMyOrders,
+  getDayJobs,
+  createDayJob,
 } = require("../controllers/ownerController");
 const { requireAuth, requireRole } = require("../middleware/auth");
 
@@ -358,5 +360,8 @@ router.post("/orders/:id/complete", completeOrder);
  *         description: last_deal, today_avg_price and week_avg_price
  */
 router.get("/market-stats", getMarketStats);
+
+router.get("/day-jobs", getDayJobs);
+router.post("/day-jobs", createDayJob);
 
 module.exports = router;
