@@ -136,3 +136,7 @@ flutter run --dart-define=API_URL=http://192.168.1.25:5000
 ## Database changes (already done — for reference)
 
 The SQL scripts in `backend/sql/` have already been run on the shared Supabase database. Don't run them again unless setting up a **new** database. They only add tables and columns; they never remove anything.
+
+If the day-jobs screen says that day jobs are not configured, open the Supabase
+SQL Editor and run [`backend/sql/008_day_jobs.sql`](backend/sql/008_day_jobs.sql)
+once. This migration creates the table used by the "View Jobs" screen.
