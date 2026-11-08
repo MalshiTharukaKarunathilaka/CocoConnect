@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'coconuts_page.dart';
+import 'fertilizer/fertilizer_map_page.dart';
 import 'machinery_map_page.dart';
 
 class EstateOwnerDashboard extends StatelessWidget {
@@ -133,11 +134,20 @@ class EstateOwnerDashboard extends StatelessWidget {
                                 },
                               ),
 
-                              const DashboardCategoryCard(
+                              DashboardCategoryCard(
                                 title: 'Fertilizer',
                                 subtitle: 'Quality nutrients',
                                 icon: Icons.eco,
-                                iconColor: Color(0xFF3B8F65),
+                                iconColor: const Color(0xFF3B8F65),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const FertilizerMapPage(),
+                                    ),
+                                  );
+                                },
                               ),
 
                               const DashboardCategoryCard(
