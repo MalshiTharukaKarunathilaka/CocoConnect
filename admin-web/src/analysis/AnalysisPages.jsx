@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts'
 import DrillMap, { GREEN_SCALE } from './DrillMap'
 import { Character, Pair } from './People'
+import { glyphHtml } from './pins'
 import {
   AGE_GROUPS, BOOKING_STATUSES, DISTRICTS, ESTATE_TYPES, FERT_TYPES, FERT_YEARS, GENDERS, JOB_CATEGORIES,
   MACHINE_TYPES, MONTHS, PRODUCTS, PROVINCE_COLORS, PROVINCE_NAMES, byDistrict, compact, districtsOf, inScope, kgText, label,
@@ -258,7 +259,7 @@ function EstateCard({ e }) {
   return (
     <article className="an-estate">
       <div className="an-estate-img" style={{ backgroundImage: `url(${estatePhoto(e)})` }}>
-        <span className={`an-plan ${e.plan.toLowerCase()}`}>{e.plan}</span>
+        <span className={`an-plan ${e.plan.split(' ')[0].toLowerCase()}`}>{e.plan}</span>
       </div>
       <div className="an-estate-body">
         <b>{e.name}</b>
@@ -340,21 +341,15 @@ function ProvinceStrip({ byD, fmt, unit, sel, setSel, title = 'Province comparis
 }
 
 const JOB_INFO = {
-  'Coconut Plucking': { photo: 'koku_nagula', text: 'Climbers and pole-pickers who bring the nuts down every six to eight weeks.' },
-  'Husking & Dehusking': { photo: 'husking', text: 'Removing the husk from harvested nuts, ready for sale or copra.' },
-  'Weeding & Land Clearing': { photo: 'slasher', text: 'Keeping the ground under the palms clear so they grow well.' },
-  'Fertilizer Application': { photo: 'disc_plough', text: 'Spreading fertilizer around each palm, usually twice a year.' },
-  'Copra Making & Drying': { photo: 'copra', text: 'Cutting, drying and smoking the kernel into copra.' },
-  'Planting & Nursery': { photo: 'rotary', text: 'Raising seedlings and planting new palms.' },
-  'Irrigation & Maintenance': { photo: 'backhoe', text: 'Digging channels, mending fences and watering in dry months.' },
-  'Transport & Loading': { photo: 'trailer', text: 'Moving nuts from the palms to the road and onto lorries.' },
+  'Manual work': { photo: 'husking', text: 'Hand work on the estate such as weeding, husking, fertilizing and clearing.' },
+  'Nut Gatherer': { photo: 'koku_nagula', text: 'Gathering fallen and plucked nuts and bringing them together for collection.' },
+  'Machine work': { photo: 'rotary', text: 'Operating tractors, hand tractors and other machines on the estate.' },
 }
 
 const EST_PHOTOS = {
   'Small holding': 'disc_plough',
   'Medium estate': 'rotary',
   'Large plantation': 'slasher',
-  'Copra mill & processing': 'copra',
 }
 const jobPhotos = () => Object.fromEntries(Object.entries(JOB_INFO).map(([k, v]) => [k, v.photo]))
 
@@ -470,7 +465,7 @@ function Overview({ d, sel, setSel, extra }) {
     return out
   }, [estates])
 
-  const plans = ['Basic', 'Standard', 'Premium'].map((p, i) => ({ name: p, value: estates.filter((e) => e.plan === p).length, color: ['#9fd0b0', '#5fa47b', '#256b45'][i] }))
+  const plans = ['Small holding', 'Medium estate', 'Large plantation'].map((p, i) => ({ name: p, value: estates.filter((e) => e.plan === p).length, color: ['#9fd0b0', '#5fa47b', '#256b45'][i] }))
   const markers = d.estates.map((e) => ({
     lat: e.lat, lng: e.lng, icon: 'palm', size: 24 + Math.min(12, Math.round(e.acres / 9)),
     dim: !inScope(sel, e.district), color: '#2f8a4f',
@@ -488,11 +483,11 @@ function Overview({ d, sel, setSel, extra }) {
     <PageHead title="Analysis dashboard" sub="Every subscribed estate and what it brings to the platform" name="Estate overview" sel={sel} onSel={setSel} sections={sections}>
       <ProvinceStrip byD={perD} fmt={num} unit="estates" sel={sel} setSel={setSel} title="Estates by province" />
       <div className="an-kpis">
-        <Kpi icon="palm" label="Registered estates" value={num(estates.length)} sub={`${num(sumBy(estates, (e) => e.acres))} acres · ${compact(sumBy(estates, (e) => e.palms))} palms`} />
-        <Kpi icon="users" tone="amber" label="Day workers available" value={num(workers)} sub="looking for estate work" />
-        <Kpi icon="flask" tone="blue" label="Fertilizer distributed (2025)" value={kgText(fert25)} />
-        <Kpi icon="tractor" tone="brown" label="Machines listed" value={num(machines)} sub="tractors · backhoes · hand tractors" />
-        <Kpi icon="wallet" tone="purple" label="Sales this year" value={rs(sales)} sub="Jan – Oct 2026" />
+        <Kpi photo="rotary" icon="palm" label="Registered estates" value={num(estates.length)} sub={`${num(sumBy(estates, (e) => e.acres))} acres · ${compact(sumBy(estates, (e) => e.palms))} palms`} />
+        <Kpi photo="koku_nagula" icon="users" tone="amber" label="Day workers available" value={num(workers)} sub="looking for estate work" />
+        <Kpi photo="disc_plough" icon="flask" tone="blue" label="Fertilizer distributed (2025)" value={kgText(fert25)} />
+        <Kpi photo="backhoe" icon="tractor" tone="brown" label="Machines listed" value={num(machines)} sub="tractors · backhoes · hand tractors" />
+        <Kpi photo="trailer" icon="wallet" tone="purple" label="Sales this year" value={rs(sales)} sub="Jan – Oct 2026" />
       </div>
       <Split
         map={
@@ -511,7 +506,7 @@ function Overview({ d, sel, setSel, extra }) {
             <Card title="Subscription growth" sub="Cumulative registered estates">
               <Trend data={growth} keys={['Estates']} colors={['#256b45']} area fmt={num} height={190} />
             </Card>
-            <Card title="Plan mix">
+            <Card title="Estate types">
               <Donut data={plans} height={150} />
             </Card>
           </>
@@ -564,11 +559,11 @@ function Workers({ d, sel, setSel, extra }) {
       </div>
       <ProvinceStrip byD={perD} fmt={num} unit="workers" sel={sel} setSel={setSel} color="#d9a441" title="Day workers by province" />
       <div className="an-kpis">
-        <Kpi icon="users" label={cat ? `${cat} workers` : 'Day workers'} value={num(total)} sub={scopeName(sel)} />
-        <Kpi icon="user" tone="amber" label="Women / Men" value={`${pct(women, total)} / ${pct(gender[0].value, total)}`} sub={`${num(women)} women · ${num(gender[0].value)} men`} />
-        <Kpi icon="clock" tone="blue" label="Biggest age group" value={topAge?.name} sub={`${pct(topAge?.value, total)} of workers`} />
-        <Kpi icon="pin" tone="brown" label={sel.province ? 'Top district' : 'Top province'} value={topDistrict?.name || '—'} sub={`${num(topDistrict?.value)} workers`} />
-        <Kpi icon="briefcase" tone="purple" label="Job categories" value={cat ? '1 of 8' : '8'} sub="from plucking to transport" />
+        <Kpi photo="koku_nagula" icon="users" label={cat ? `${cat} workers` : 'Day workers'} value={num(total)} sub={scopeName(sel)} />
+        <Kpi photo="hand_tractor" icon="user" tone="amber" label="Women / Men" value={`${pct(women, total)} / ${pct(gender[0].value, total)}`} sub={`${num(women)} women · ${num(gender[0].value)} men`} />
+        <Kpi photo="slasher" icon="clock" tone="blue" label="Biggest age group" value={topAge?.name} sub={`${pct(topAge?.value, total)} of workers`} />
+        <Kpi photo="rotary" icon="pin" tone="brown" label={sel.province ? 'Top district' : 'Top province'} value={topDistrict?.name || '—'} sub={`${num(topDistrict?.value)} workers`} />
+        <Kpi photo="backhoe" icon="briefcase" tone="purple" label="Job categories" value={cat ? '1 of 3' : '3'} sub="manual, nuts and machines" />
       </div>
       <Split
         map={
@@ -613,7 +608,9 @@ const FERT_METRICS = {
   farm: { name: 'Farmers reached', label: 'Farmers reached', val: (r) => r.farmers, fmt: num, color: '#7a4fb0', note: 'Farmers who received fertilizer' },
 }
 
+const FERT_TABS = [['overview', 'Overview'], ['donations', 'By donation']]
 function Fertilizer({ d, sel, setSel, extra }) {
+  const [tab, setTab] = useState(extra === 'donations' ? 'donations' : 'overview')
   const [year, setYear] = useState(2025)
   const [type, setType] = useState('')
   const [metric, setMetric] = useState('dist')
@@ -657,9 +654,12 @@ function Fertilizer({ d, sel, setSel, extra }) {
     { title: `Monthly - ${year} (${M.name})`, columns: ['Month', M.name], rows: monthly.map((m) => [m.name, m[M.label]]) },
   ]
 
+  if (tab === 'donations') return <Donations d={d} sel={sel} setSel={setSel} tabs={<Segmented value={tab} onChange={setTab} options={FERT_TABS} />} />
+
   return (
     <PageHead title="Fertilizer" sub="What donors gave, and where it went" name="Fertilizer" sel={sel} onSel={setSel} sections={sections}>
       <div className="an-filterbar">
+        <Segmented value={tab} onChange={setTab} options={FERT_TABS} />
         <span>Year</span>
         <Segmented value={year} onChange={setYear} options={FERT_YEARS.map((y) => [y, y === 2025 ? '2025 · last year' : y === 2026 ? '2026 · so far' : String(y)])} />
         <span>Type</span>
@@ -667,11 +667,11 @@ function Fertilizer({ d, sel, setSel, extra }) {
       </div>
       <ProvinceStrip byD={perD} fmt={M.fmt} unit={M.label.toLowerCase()} sel={sel} setSel={setSel} title={`${M.name} by province · ${year}`} />
       <div className="an-kpis">
-        <Kpi icon="gift" tone="blue" label={`Donation ${year}`} value={kgText(tot('don'))} sub={island ? 'given by donors, island-wide' : scopeName(sel)} onClick={() => choose('don')} active={metric === 'don'} />
-        <Kpi icon="truck" label="Distribution" value={kgText(tot('dist'))} sub={`${pct(tot('dist'), tot('don'))} of the donation delivered`} onClick={() => choose('dist')} active={metric === 'dist'} />
-        <Kpi icon="clock" tone="amber" label="Yet to distribute" value={kgText(tot('pend'))} sub="donated, still waiting" onClick={() => choose('pend')} active={metric === 'pend'} />
-        <Kpi icon="users" tone="purple" label="Farmers reached" value={num(farmers)} sub={farmers ? `${Math.round(tot('dist') / farmers)} kg per farmer` : scopeName(sel)} onClick={() => choose('farm')} active={metric === 'farm'} />
-        <Kpi icon="trophy" tone="brown" label={sel.province ? 'Top district' : 'Top province'} value={top?.name || '\u2014'} sub={M.fmt(top?.value)} />
+        <Kpi photo="disc_plough" icon="gift" tone="blue" label={`Donation ${year}`} value={kgText(tot('don'))} sub={island ? 'given by donors, island-wide' : scopeName(sel)} onClick={() => choose('don')} active={metric === 'don'} />
+        <Kpi photo="trailer" icon="truck" label="Distribution" value={kgText(tot('dist'))} sub={`${pct(tot('dist'), tot('don'))} of the donation delivered`} onClick={() => choose('dist')} active={metric === 'dist'} />
+        <Kpi photo="copra" icon="clock" tone="amber" label="Yet to distribute" value={kgText(tot('pend'))} sub="donated, still waiting" onClick={() => choose('pend')} active={metric === 'pend'} />
+        <Kpi photo="koku_nagula" icon="users" tone="purple" label="Farmers reached" value={num(farmers)} sub={farmers ? `${Math.round(tot('dist') / farmers)} kg per farmer` : scopeName(sel)} onClick={() => choose('farm')} active={metric === 'farm'} />
+        <Kpi photo="rotary" icon="trophy" tone="brown" label={sel.province ? 'Top district' : 'Top province'} value={top?.name || '\u2014'} sub={M.fmt(top?.value)} />
       </div>
       {top && (
         <Insight>
@@ -746,6 +746,95 @@ function Fertilizer({ d, sel, setSel, extra }) {
   )
 }
 
+// ---- one donation at a time: where its fertilizer went ---------------------
+const SACK = '#a5651e'
+function Donations({ d, sel, setSel, tabs }) {
+  const [type, setType] = useState('')
+  const list = useMemo(() => d.donations.filter((x) => !type || x.type === type), [d, type])
+  const [picked, setPicked] = useState(d.donations[0]?.id)
+  const don = list.find((x) => x.id === picked) || list[0]
+
+  const rows = useMemo(() => (don ? don.areas : []), [don])
+  const perD = useMemo(() => byDistrict(rows, (r) => r.kg), [rows])
+  const inArea = rows.filter((r) => inScope(sel, r.district))
+  const delivered = sumBy(inArea, (r) => r.kg)
+  const farmers = sumBy(inArea, (r) => r.farmers)
+  const island = !sel.province
+  const left = don ? don.kg - don.delivered : 0
+  const maxKg = Math.max(...rows.map((r) => r.kg), 1)
+  const byArea = areaBars(sel, perD)
+
+  const markers = inArea.map((r) => {
+    const [lat, lng] = d.shapes[r.district].c
+    return {
+      lat, lng, icon: 'sack', color: SACK, size: Math.round(24 + (r.kg / maxKg) * 14),
+      tip: <div><b>{label(r.district)}</b><br />{kgText(r.kg)} delivered<br />{num(r.farmers)} farmers</div>,
+    }
+  })
+
+  const sections = () => don && [
+    { title: `${don.donor} · ${don.type} · ${don.date}`, columns: ['Donated (kg)', 'Distributed (kg)', 'Yet to distribute (kg)', 'Districts reached'], rows: [[don.kg, don.delivered, left, rows.length]] },
+    { title: 'Where it was distributed', columns: ['District', 'Province', 'Distributed (kg)', 'Farmers'], rows: [...rows].sort((a, b) => b.kg - a.kg).map((r) => [label(r.district), r.province, r.kg, r.farmers]) },
+  ]
+
+  return (
+    <PageHead title="Fertilizer" sub="Pick a donation to see where it went" name="Fertilizer donations" sel={sel} onSel={setSel} sections={sections}>
+      <div className="an-filterbar">
+        {tabs}
+        <span>Type</span>
+        <Chips value={type} onChange={setType} options={FERT_TYPES} all="All types" />
+      </div>
+      <div className="an-don-list">
+        {list.map((x) => (
+          <button key={x.id} className={`an-don ${don?.id === x.id ? 'on' : ''}`} onClick={() => setPicked(x.id)}>
+            <span className="an-don-sack" dangerouslySetInnerHTML={{ __html: glyphHtml('sack', SACK, 26) }} />
+            <b>{x.donor}</b>
+            <small>{x.type} · {kgText(x.kg)}</small>
+            <small>{x.date}</small>
+            <i><u style={{ width: `${(x.delivered / x.kg) * 100}%` }} /></i>
+            <small>{pct(x.delivered, x.kg)} distributed</small>
+          </button>
+        ))}
+        {!list.length && <p className="an-empty">No donations of this type yet.</p>}
+      </div>
+      {don && (
+        <>
+          <div className="an-kpis">
+            <Kpi photo="disc_plough" icon="gift" tone="blue" label="Donated" value={kgText(don.kg)} sub={`${don.donor} · ${don.type}`} />
+            <Kpi photo="trailer" icon="truck" label="Distributed" value={kgText(island ? don.delivered : delivered)} sub={island ? `${pct(don.delivered, don.kg)} of this donation` : scopeName(sel)} />
+            <Kpi photo="copra" icon="clock" tone="amber" label="Yet to distribute" value={kgText(left)} sub={`${pct(left, don.kg)} still waiting`} />
+            <Kpi photo="koku_nagula" icon="users" tone="purple" label="Farmers reached" value={num(farmers)} sub={farmers ? `${Math.round(delivered / farmers)} kg per farmer` : scopeName(sel)} />
+            <Kpi photo="rotary" icon="pin" tone="brown" label="Districts reached" value={`${island ? rows.length : inArea.length} of ${island ? DISTRICTS.length : districtsOf(sel.province).length}`} sub={island ? 'across the island' : scopeName(sel)} />
+          </div>
+          <Split
+            map={
+              <Card title={`Where ${don.donor}'s ${don.type.toLowerCase()} went`} sub="Each sack marks a district that received it. Bigger sack, more fertilizer" className="an-card-map">
+                <DrillMap
+                  geo={d.geo} values={perD} fmt={kgText} unit="delivered" sel={sel} onSel={setSel} markers={markers} markerKey={`don-${don.id}`} height={540}
+                  legend={[{ icon: 'sack', color: SACK, text: 'Received this donation' }]}
+                />
+              </Card>
+            }
+            side={
+              <>
+                <Card title="Distributed vs remaining" sub={`${don.donor} · ${kgText(don.kg)} donated`}>
+                  <Donut data={[{ name: 'Distributed', value: don.delivered, color: '#256b45' }, { name: 'Yet to distribute', value: left, color: '#e0b45a' }]} height={170} fmt={kgText} />
+                </Card>
+                <Card title={sel.province ? 'By district' : 'By province'} sub="Fertilizer delivered">
+                  <Bars data={byArea} horizontal single height={Math.max(200, byArea.length * 28)} fmt={kgText} axisFmt={(v) => compact(v / 1000) + 't'} />
+                </Card>
+              </>
+            }
+          />
+          <Card title="Districts that received it" sub={`${don.donor} · ${don.date}`}>
+            <DataTable columns={['District', 'Province', 'Distributed', 'Farmers', 'Share']} rows={[...inArea].sort((a, b) => b.kg - a.kg).map((r) => [label(r.district), r.province, kgText(r.kg), num(r.farmers), pct(r.kg, don.delivered)])} />
+          </Card>
+        </>
+      )}
+    </PageHead>
+  )
+}
+
 // =============================================================================
 // 4. Machinery
 // =============================================================================
@@ -797,11 +886,11 @@ function Machinery({ d, sel, setSel, extra }) {
       </div>
       <ProvinceStrip byD={perD} fmt={num} unit="machines" sel={sel} setSel={setSel} color="#8b4a1c" title="Machines by province" />
       <div className="an-kpis">
-        <Kpi icon="tractor" tone="brown" label="Machines listed" value={num(scoped.length)} sub={scopeName(sel)} />
-        <Kpi icon="check" label="Available now" value={num(available)} sub={pct(available, scoped.length) + ' of fleet'} />
-        <Kpi icon="calendar" tone="blue" label="Bookings" value={num(bookings.length)} sub="Nov 2025 – Dec 2026" />
-        <Kpi icon="tag" tone="amber" label="Saved by negotiating" value={listV ? pct(listV - agreedV, listV) : '—'} sub={`${rs(listV - agreedV)} off list price`} />
-        <Kpi icon="wallet" tone="purple" label="Booking value" value={rs(agreedV)} sub="agreed prices" />
+        <Kpi photo="backhoe" icon="tractor" tone="brown" label="Machines listed" value={num(scoped.length)} sub={scopeName(sel)} />
+        <Kpi photo="rotary" icon="check" label="Available now" value={num(available)} sub={pct(available, scoped.length) + ' of fleet'} />
+        <Kpi photo="hand_tractor" icon="calendar" tone="blue" label="Bookings" value={num(bookings.length)} sub="Nov 2025 – Dec 2026" />
+        <Kpi photo="disc_plough" icon="tag" tone="amber" label="Saved by negotiating" value={listV ? pct(listV - agreedV, listV) : '—'} sub={`${rs(listV - agreedV)} off list price`} />
+        <Kpi photo="trailer" icon="wallet" tone="purple" label="Booking value" value={rs(agreedV)} sub="agreed prices" />
       </div>
       <Split
         map={
@@ -902,11 +991,11 @@ function Sales({ d, sel, setSel, extra }) {
       </div>
       <ProvinceStrip byD={perD} fmt={rs} unit="revenue" sel={sel} setSel={setSel} color="#7a4fb0" title="Sales by province · 2026" />
       <div className="an-kpis">
-        <Kpi icon="wallet" tone="purple" label="Revenue 2026" value={rs(rev26)} sub="Jan – Oct" />
-        <Kpi icon="trend" label="vs same months 2025" value={`${growth >= 0 ? '+' : ''}${growth}%`} sub={rs(rev25) + ' last year'} />
-        <Kpi icon="receipt" tone="blue" label="Orders" value={num(orders)} sub={scopeName(sel)} />
-        <Kpi icon="trophy" tone="amber" label="Best seller" value={topProd?.name || '—'} sub={rs(topProd?.value)} />
-        <Kpi icon="pin" tone="brown" label={sel.province ? 'Top district' : 'Top province'} value={byArea[0]?.name || '—'} sub={rs(byArea[0]?.value)} />
+        <Kpi photo="trailer" icon="wallet" tone="purple" label="Revenue 2026" value={rs(rev26)} sub="Jan – Oct" />
+        <Kpi photo="copra" icon="trend" label="vs same months 2025" value={`${growth >= 0 ? '+' : ''}${growth}%`} sub={rs(rev25) + ' last year'} />
+        <Kpi photo="husking" icon="receipt" tone="blue" label="Orders" value={num(orders)} sub={scopeName(sel)} />
+        <Kpi photo="koku_nagula" icon="trophy" tone="amber" label="Best seller" value={topProd?.name || '—'} sub={rs(topProd?.value)} />
+        <Kpi photo="rotary" icon="pin" tone="brown" label={sel.province ? 'Top district' : 'Top province'} value={byArea[0]?.name || '—'} sub={rs(byArea[0]?.value)} />
       </div>
       <Split
         map={
@@ -925,6 +1014,7 @@ function Sales({ d, sel, setSel, extra }) {
           </>
         }
       />
+      <SalesCalendar rows={scoped} />
       <div className="an-grid2">
         <Card title="Revenue through the year" sub="Compare 2024, 2025 and 2026 month by month">
           <Trend data={monthly} keys={['2024', '2025', '2026']} colors={['#c9b3e3', '#8c5fbf', '#3d1e6d']} fmt={rs} axisFmt={compact} height={250} />
@@ -937,6 +1027,97 @@ function Sales({ d, sel, setSel, extra }) {
         <DataTable columns={['Product', 'Revenue', 'Share']} rows={prod.map((p) => [p.name, `Rs. ${num(p.value)}`, pct(p.value, sumBy(prod, (x) => x.value))])} />
       </Card>
     </PageHead>
+  )
+}
+
+// ---- sales calendar: revenue day by day ------------------------------------
+const dayWeight = (y, m, day) => {
+  const x = Math.sin(y * 374.7 + m * 91.3 + day * 17.9) * 10000
+  const wd = new Date(y, m - 1, day).getDay()
+  return (0.55 + (x - Math.floor(x))) * (wd === 0 ? 0.6 : wd === 6 ? 1.25 : 1)
+}
+function SalesCalendar({ rows }) {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30000) // keeps today's figure moving
+    return () => clearInterval(t)
+  }, [])
+  const ty = now.getFullYear()
+  const tm = now.getMonth() + 1
+  const td = now.getDate()
+  const maxYM = ty * 12 + tm > 2026 * 12 + 10 ? [ty, tm] : [2026, 10]
+  const [ym, setYm] = useState(maxYM)
+  const [day, setDay] = useState(null)
+  const [y, m] = ym
+  const isCur = y === ty && m === tm
+  const days = new Date(y, m, 0).getDate()
+  const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7 // weeks start on Monday
+
+  // A month with no records yet (the current one) is projected from the last full month.
+  const own = rows.filter((r) => r.year === y && r.month === m)
+  const src = own.length ? own : rows.filter((r) => r.year === 2026 && r.month === 10)
+  const rev = sumBy(src, (r) => r.revenue)
+  const ord = sumBy(src, (r) => r.orders)
+  const w = Array.from({ length: days }, (_, i) => dayWeight(y, m, i + 1))
+  const wSum = sumBy(w, (v) => v)
+  const frac = Math.min(1, Math.max(0.03, (now.getHours() * 60 + now.getMinutes()) / 1440))
+  const daily = w.map((v, i) => {
+    const d = i + 1
+    if (isCur && d > td) return null // the future
+    const f = isCur && d === td ? frac : 1
+    return { rev: Math.round(((rev * v) / wSum) * f), ord: Math.round(((ord * v) / wSum) * f) }
+  })
+  const seen = daily.filter(Boolean)
+  const max = Math.max(...seen.map((x) => x.rev), 1)
+  const shownRev = sumBy(seen, (x) => x.rev)
+  const shownOrd = sumBy(seen, (x) => x.ord)
+  const step = (n) => {
+    const t = new Date(y, m - 1 + n, 1)
+    const next = [t.getFullYear(), t.getMonth() + 1]
+    if (next[0] < 2024 || next[0] * 12 + next[1] > maxYM[0] * 12 + maxYM[1]) return
+    setYm(next)
+    setDay(null)
+  }
+  const sel = day ? daily[day - 1] : null
+  const bestDay = seen.length ? daily.reduce((b, x, i) => (x && x.rev > (daily[b]?.rev || 0) ? i : b), 0) : 0
+  const mix = (p) => {
+    const v = sumBy(src.filter((r) => r.product === p), (r) => r.revenue)
+    return Math.round(v * ((sel ? sel.rev : shownRev) / (rev || 1)))
+  }
+  return (
+    <Card title="Sales calendar" sub={`Revenue day by day · today is ${now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`}>
+      <div className="an-cal-wrap">
+        <div>
+          <div className="an-cal-nav">
+            <button onClick={() => step(-1)} disabled={y === 2024 && m === 1} aria-label="Previous month">‹</button>
+            <b>{MONTHS[m - 1]} {y}</b>
+            <button onClick={() => step(1)} disabled={y * 12 + m >= maxYM[0] * 12 + maxYM[1]} aria-label="Next month">›</button>
+          </div>
+          <div className="an-cal">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((n) => <div key={n} className="an-cal-h">{n}</div>)}
+            {Array.from({ length: lead }, (_, i) => <div key={`b${i}`} className="an-cal-blank" />)}
+            {daily.map((x, i) => {
+              const d = i + 1
+              const today = isCur && d === td
+              return (
+                <button key={d} disabled={!x} className={`an-cal-d ${day === d ? 'on' : ''} ${today ? 'today' : ''} ${x ? '' : 'future'}`} onClick={() => setDay(day === d ? null : d)}>
+                  <span>{today && <em>Today</em>}{d}</span>
+                  <strong>{x ? rs(x.rev) : '–'}</strong>
+                  <i><u style={{ width: x ? `${(x.rev / max) * 100}%` : 0 }} /></i>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <div className="an-cal-side">
+          <h4>{day ? `${day} ${MONTHS[m - 1]} ${y}` : isCur ? `${MONTHS[m - 1]} so far` : `${MONTHS[m - 1]} ${y}`}</h4>
+          <b className="big">{rs(sel ? sel.rev : shownRev)}</b>
+          <div><span>Orders</span><strong>{num(sel ? sel.ord : shownOrd)}</strong></div>
+          {!sel && seen.length > 0 && <div><span>Best day</span><strong>{bestDay + 1} {MONTHS[m - 1]} · {rs(daily[bestDay]?.rev)}</strong></div>}
+          {PRODUCTS.map((p) => <div key={p}><span>{p}</span><strong>{rs(mix(p))}</strong></div>)}
+        </div>
+      </div>
+    </Card>
   )
 }
 

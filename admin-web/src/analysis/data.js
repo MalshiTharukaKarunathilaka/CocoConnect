@@ -107,18 +107,13 @@ function pointIn(ring, x, y) {
 // ---- catalogues ------------------------------------------------------------
 export const JOB_CATEGORIES = [
   // name, share, age weights (18-25,26-35,36-45,46-55,56+), female share, estate-type weights
-  { name: 'Coconut Plucking', share: 0.2, age: [2, 5, 4, 2, 0.5], female: 0.02, est: [3, 4, 3, 1] },
-  { name: 'Husking & Dehusking', share: 0.14, age: [2, 4, 4, 3, 1.5], female: 0.45, est: [2, 3, 3, 4] },
-  { name: 'Weeding & Land Clearing', share: 0.15, age: [3, 4, 3, 2, 1], female: 0.3, est: [4, 4, 2, 1] },
-  { name: 'Fertilizer Application', share: 0.1, age: [2, 4, 3, 2, 1], female: 0.35, est: [3, 4, 3, 1] },
-  { name: 'Copra Making & Drying', share: 0.12, age: [1.5, 3, 4, 3, 2], female: 0.5, est: [2, 2, 2, 5] },
-  { name: 'Planting & Nursery', share: 0.08, age: [3, 4, 3, 1.5, 0.5], female: 0.55, est: [2, 3, 3, 2] },
-  { name: 'Irrigation & Maintenance', share: 0.09, age: [2, 3, 3, 3, 1.5], female: 0.1, est: [2, 3, 4, 1] },
-  { name: 'Transport & Loading', share: 0.12, age: [4, 5, 3, 1.5, 0.3], female: 0.04, est: [2, 3, 3, 4] },
+  { name: 'Manual work', share: 0.45, age: [3, 4, 3, 2, 1], female: 0.35, est: [4, 4, 3] },
+  { name: 'Nut Gatherer', share: 0.35, age: [2, 5, 4, 2, 0.5], female: 0.1, est: [3, 4, 3] },
+  { name: 'Machine work', share: 0.2, age: [3, 5, 3, 1.5, 0.5], female: 0.03, est: [2, 3, 4] },
 ]
 export const AGE_GROUPS = ['18–25', '26–35', '36–45', '46–55', '56+']
 export const GENDERS = ['Male', 'Female', 'Other']
-export const ESTATE_TYPES = ['Small holding (< 5 ac)', 'Medium estate (5–25 ac)', 'Large plantation (25+ ac)', 'Copra mill & processing']
+export const ESTATE_TYPES = ['Small holding (< 5 ac)', 'Medium estate (5–25 ac)', 'Large plantation (25+ ac)']
 
 export const FERT_TYPES = ['Urea', 'TSP', 'MOP', 'Dolomite', 'Organic compost', 'Coconut special mix']
 export const FERT_YEARS = [2022, 2023, 2024, 2025, 2026]
@@ -181,7 +176,7 @@ export function buildDataset(geo) {
       lng,
       acres,
       palms: Math.round(acres * (60 + rng() * 25)),
-      plan: acres > 25 ? 'Premium' : acres > 5 ? 'Standard' : 'Basic',
+      plan: acres > 25 ? 'Large plantation' : acres > 5 ? 'Medium estate' : 'Small holding',
       registeredOn: when.toISOString().slice(0, 10),
     })
   }
@@ -299,7 +294,34 @@ export function buildDataset(geo) {
     }
   }
 
-  return { shapes, estates, workers, fert, donated, machines, bookings, sales }
+  // Named donations and where each one was distributed ---------------------
+  const DONORS = ['Ministry of Agriculture', 'Coconut Cultivation Board', 'Lanka Fertilizer Ltd', 'FAO Sri Lanka', 'Rotary Club of Colombo', 'Ceylon Agro Foundation', 'Hayleys Agriculture', 'JICA Sri Lanka', 'Sarvodaya', 'CIC Holdings', 'World Vision Lanka', 'Lions Club Kurunegala']
+  const donations = DONORS.map((donor, i) => {
+    const type = FERT_TYPES[Math.floor(rng() * FERT_TYPES.length)]
+    const when = new Date(Date.parse('2024-03-01') + (i / (DONORS.length - 1)) * (Date.parse('2026-09-15') - Date.parse('2024-03-01')))
+    const kg = Math.round((30 + rng() * 140) * 1000 / 500) * 500
+    const age = (Date.parse('2026-10-28') - when) / (86400000 * 365)
+    const delivered = Math.min(1, 0.45 + age * 0.35 + rng() * 0.12)
+    const reach = 7 + Math.floor(rng() * 14)
+    const picked = []
+    while (picked.length < reach) {
+      const dd = wpick(rng, DISTRICTS, (x) => x.w + 0.05)
+      if (!picked.includes(dd)) picked.push(dd)
+    }
+    const total = Math.round(kg * delivered)
+    const parts = split(rng, total, picked.map((x) => x.w + 0.2))
+    return {
+      id: `D-${String(i + 1).padStart(2, '0')}`,
+      donor,
+      type,
+      date: when.toISOString().slice(0, 10),
+      kg,
+      delivered: total,
+      areas: picked.map((x, j) => ({ district: x.name, province: x.province, kg: parts[j], farmers: Math.max(1, Math.round(parts[j] / (45 + rng() * 25))) })).filter((a) => a.kg > 0),
+    }
+  }).reverse()
+
+  return { shapes, estates, workers, fert, donated, machines, bookings, sales, donations }
 }
 
 let cache

@@ -20,6 +20,11 @@ const palm = (size) => `
 </svg>`
 
 const GLYPH = {
+  // burlap fertilizer sack: tied neck, round belly, a plus mark cut out of it
+  sack: (bg) => `
+    <path d="M11.2 3.6 L20.8 3.6 L19.4 9 C26.2 12 28.4 19 26.4 25 C25.4 28.4 22 29.6 16 29.6 C10 29.6 6.6 28.4 5.6 25 C3.6 19 5.8 12 12.6 9 Z" fill="#fff"/>
+    <path d="M12.4 9.8 Q16 11.8 19.6 9.8" stroke="${bg}" stroke-width="1.7" stroke-linecap="round" fill="none"/>
+    <path d="M16 15.4 V24 M11.8 19.7 H20.2" stroke="${bg}" stroke-width="2.4" stroke-linecap="round" fill="none"/>`,
   // farm tractor: hood and exhaust at the front, glass cab, huge rear wheel
   tractor: (bg) => `
     <rect x="5.4" y="5" width="2.2" height="9" rx="1" fill="#fff"/>

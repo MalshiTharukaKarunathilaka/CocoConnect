@@ -79,8 +79,10 @@ const KPI_PHOTO = {
   briefcase: ['koku_nagula', '85% 60%'], scale: ['disc_plough', '25% 40%'], gift: ['disc_plough', '75% 60%'],
 }
 
-export function Kpi({ label, value, sub, tone = 'green', icon, onClick, active }) {
-  const [photo, pos] = KPI_PHOTO[icon] || KPI_PHOTO.palm
+const PHOTO_POS = { koku_nagula: '70% 45%', rotary: '50% 45%', hand_tractor: '70% 50%', husking: '50% 40%', copra: '50% 60%', slasher: '60% 45%' }
+
+export function Kpi({ label, value, sub, tone = 'green', icon, onClick, active, photo: picked }) {
+  const [photo, pos] = picked ? [picked, PHOTO_POS[picked] || '50% 50%'] : KPI_PHOTO[icon] || KPI_PHOTO.palm
   return (
     <div
       className={`an-kpi ${tone} ${onClick ? 'clickable' : ''} ${active ? 'active' : ''}`}

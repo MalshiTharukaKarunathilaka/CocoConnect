@@ -19,26 +19,30 @@ const NAV = [
       ['an-sales', 'Sales'],
     ],
   },
-  { section: 'Overview', items: [['dashboard', 'Dashboard']] },
-  { section: 'People', items: [['users', 'Users'], ['verify', 'Verification']] },
+]
+
+// Each of these is one sidebar entry; its pages show as tabs above the content.
+const GROUPS = [
   {
-    section: 'Marketplace',
-    items: [
-      ['orders', 'Orders'],
-      ['deal', 'Deal'],
-      ['transactions', 'Transactions'],
-      ['disputes', 'Disputes'],
-    ],
+    id: 'user-mgmt',
+    label: 'User management',
+    heading: 'People',
+    tabs: [['users', 'Users'], ['verify', 'Verification']],
   },
   {
-    section: 'System',
-    items: [
-      ['regions', 'Regions & prices'],
-      ['reports', 'Reports'],
-      ['settings', 'Settings'],
-    ],
+    id: 'marketplace',
+    label: 'Marketplace',
+    flat: true, // every page is its own sidebar link
+    tabs: [['orders', 'Orders'], ['deal', 'Deals'], ['transactions', 'Transactions'], ['disputes', 'Disputes']],
+  },
+  {
+    id: 'system',
+    label: 'System',
+    heading: 'Platform',
+    tabs: [['settings', 'Settings'], ['regions', 'Regions & prices'], ['reports', 'Reports']],
   },
 ]
+const groupOf = (v) => GROUPS.find((g) => g.tabs.some(([id]) => id === v))
 
 const TITLES = {
   'an-overview': 'Analysis dashboard',
@@ -94,7 +98,10 @@ const MAP_CITIES = [
 ]
 
 export default function AdminApp({ user, logout }) {
-  const [view, setView] = useState(() => window.location.hash.slice(1).split('/')[0] || 'an-overview')
+  const [view, setView] = useState(() => {
+    const h = window.location.hash.slice(1).split('/')[0]
+    return !h || h === 'dashboard' ? 'an-overview' : h
+  })
   const [search, setSearch] = useState('')
   const [userFilter, setUserFilter] = useState('all')
   const [dealFilter, setDealFilter] = useState('ALL')
@@ -802,11 +809,14 @@ export default function AdminApp({ user, logout }) {
     )
   }
 
+  const activeGroup = groupOf(view)
+  const badgeFor = (id) => (id === 'verify' ? pendingUsers.length : id === 'deal' ? dealRows.length : id === 'disputes' ? openDisputes.length : 0)
+
   return (
     <div className="adm-shell">
       <aside className="adm-sidebar">
         <div className="adm-brand">
-          <strong>KapConnect</strong>
+          <img className="adm-logo" src="/logo.png" alt="KapConnect" />
           <small>Administration</small>
         </div>
         <nav className="adm-nav">
@@ -816,13 +826,31 @@ export default function AdminApp({ user, logout }) {
               {group.items.map(([id, label]) => (
                 <button key={id} className={`adm-link ${view === id ? 'active' : ''}`} onClick={() => setView(id)}>
                   {label}
-                  {id === 'verify' && pendingUsers.length > 0 && <span className="adm-badge">{pendingUsers.length}</span>}
-                  {id === 'deal' && dealRows.length > 0 && <span className="adm-badge">{dealRows.length}</span>}
-                  {id === 'disputes' && openDisputes.length > 0 && <span className="adm-badge">{openDisputes.length}</span>}
                 </button>
               ))}
             </div>
           ))}
+          {GROUPS.map((g) =>
+            g.flat ? (
+              <div key={g.id}>
+                <div className="adm-sec">{g.label}</div>
+                {g.tabs.map(([id, label]) => (
+                  <button key={id} className={`adm-link ${view === id ? 'active' : ''}`} onClick={() => setView(id)}>
+                    {label}
+                    {badgeFor(id) > 0 && <span className="adm-badge">{badgeFor(id)}</span>}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div key={g.id}>
+                <div className="adm-sec">{g.heading}</div>
+              <button className={`adm-link adm-link-group ${activeGroup?.id === g.id ? 'active' : ''}`} onClick={() => setView(g.tabs[0][0])}>
+                {g.label}
+                {g.tabs.reduce((n, [id]) => n + badgeFor(id), 0) > 0 && <span className="adm-badge">{g.tabs.reduce((n, [id]) => n + badgeFor(id), 0)}</span>}
+              </button>
+              </div>
+            ),
+          )}
         </nav>
         <div className="adm-foot">
           <div className="adm-avatar">{user.name.slice(0, 1)}</div>
@@ -842,6 +870,16 @@ export default function AdminApp({ user, logout }) {
           </div>
         </header>
         <div className="adm-content">
+          {activeGroup && !activeGroup.flat && (
+            <div className="adm-tabs" role="tablist">
+              {activeGroup.tabs.map(([id, label]) => (
+                <button key={id} role="tab" aria-selected={view === id} className={`adm-tab ${view === id ? 'active' : ''}`} onClick={() => setView(id)}>
+                  {label}
+                  {badgeFor(id) > 0 && <span className="adm-tab-n">{badgeFor(id)}</span>}
+                </button>
+              ))}
+            </div>
+          )}
           {error && !view.startsWith('an-') && <div className="adm-error">{error}<button onClick={() => setError('')}>Close</button></div>}
           {content}
         </div>

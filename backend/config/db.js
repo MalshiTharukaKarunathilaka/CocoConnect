@@ -26,8 +26,13 @@ if (process.env.DB_MODE === "memory") {
   return;
 }
 
+// Supabase's session-mode pooler (port 5432) allows only ~15 connections for
+// the whole team. Keep each backend small and let idle connections go quickly,
+// otherwise a few running backends exhaust it (EMAXCONNSESSION).
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  max: Number(process.env.DB_POOL_MAX) || 4,
+  idleTimeoutMillis: 10000,
   ssl:
     process.env.DATABASE_SSL === "false"
       ? false
