@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../services/api_client.dart';
+import '../services/machinery_service.dart';
 import '../widgets/machinery_widgets.dart';
 import '../widgets/owner_widgets.dart';
 import 'buyer/buyer_format.dart';
@@ -44,11 +46,15 @@ class MachineryBookingStatusPage extends StatelessWidget {
       ),
     );
     if (yes != true || !context.mounted) return;
-    machineBookings[booking.machineName]?.removeWhere(
-      (x) => x.id == booking.id,
-    );
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-    Navigator.pop(context);
+    final NavigatorState navigator = Navigator.of(context);
+    try {
+      await MachineryService.cancelBooking(booking);
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    }
+    navigator.pop();
     messenger.showSnackBar(
       SnackBar(content: Text('Booking ${booking.id} cancelled')),
     );
@@ -410,7 +416,7 @@ class MachineryBookingStatusPage extends StatelessWidget {
                         ),
                         const SizedBox(width: 3),
                         Text(
-                          '${b.info?.rating ?? 4.9}',
+                          b.info?.ratingText ?? 'New',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -418,7 +424,7 @@ class MachineryBookingStatusPage extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '  (${b.info?.jobs ?? 114} field bookings)',
+                          '  (${b.info?.jobs ?? 0} field bookings)',
                           style: const TextStyle(
                             fontSize: 12.5,
                             color: kOwnerMuted,

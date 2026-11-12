@@ -1,9 +1,32 @@
 import 'package:flutter/material.dart';
 import 'owner_widgets.dart';
 
-/// A machine shown on the map, calendar and chat. Demo data, not from the
-/// database.
+/// One service a machine offers (from machinery_services).
+class MachineService {
+  final int id;
+  final String name;
+  final String unit; // acre / hour / day
+  final int rate;
+
+  const MachineService({
+    required this.id,
+    required this.name,
+    required this.unit,
+    required this.rate,
+  });
+
+  factory MachineService.fromJson(Map<String, dynamic> json) => MachineService(
+    id: (json['id'] as num).toInt(),
+    name: json['name'] as String? ?? '',
+    unit: json['unit'] as String? ?? 'acre',
+    rate: (json['rate'] as num?)?.toInt() ?? 0,
+  );
+}
+
+/// A machine shown on the map, calendar and chat. Comes from the backend
+/// (`GET /api/machinery/machines`).
 class MachineInfo {
+  final int id;
   final String name;
   final String provider;
   final String type; // TRACTOR / BACKHOE / HAND_TRACTOR
@@ -11,29 +34,61 @@ class MachineInfo {
   final int rate;
   final String unit; // acre / hour
 
-  /// Offset from the estate, in degrees, so the demo always sits nearby.
-  final double dLat;
-  final double dLng;
+  /// Where the machine is based.
+  final double lat;
+  final double lng;
 
-  final double rating;
+  final double? rating;
   final int jobs;
 
   /// Picks which tractor photo to show (tractors only).
   final int photo;
 
-  const MachineInfo(
-    this.name,
-    this.provider,
-    this.type,
-    this.services,
-    this.rate,
-    this.unit,
-    this.dLat,
-    this.dLng,
-    this.rating,
-    this.jobs,
-    this.photo,
+  /// Everything the machine does, with its rate. Bookings are made from these.
+  final List<MachineService> serviceList;
+
+  /// How far from where it is based the provider will travel.
+  final int? radiusKm;
+
+  const MachineInfo({
+    required this.id,
+    required this.name,
+    required this.provider,
+    required this.type,
+    required this.services,
+    required this.rate,
+    required this.unit,
+    required this.lat,
+    required this.lng,
+    required this.rating,
+    required this.jobs,
+    required this.photo,
+    this.serviceList = const [],
+    this.radiusKm,
+  });
+
+  factory MachineInfo.fromJson(Map<String, dynamic> json) => MachineInfo(
+    id: (json['id'] as num).toInt(),
+    name: json['name'] as String? ?? '',
+    provider: json['provider'] as String? ?? '',
+    type: json['type'] as String? ?? 'TRACTOR',
+    services: json['services'] as String? ?? '',
+    rate: (json['rate'] as num?)?.toInt() ?? 0,
+    unit: json['unit'] as String? ?? 'acre',
+    lat: (json['latitude'] as num).toDouble(),
+    lng: (json['longitude'] as num).toDouble(),
+    rating: (json['rating'] as num?)?.toDouble(),
+    jobs: (json['jobs'] as num?)?.toInt() ?? 0,
+    photo: (json['photo'] as num?)?.toInt() ?? 0,
+    serviceList: [
+      for (final s in (json['service_list'] as List? ?? const []))
+        MachineService.fromJson(s as Map<String, dynamic>),
+    ],
+    radiusKm: (json['radius_km'] as num?)?.toInt(),
   );
+
+  /// "4.8" or "New" for a machine nobody has rated yet.
+  String get ratingText => rating == null ? 'New' : rating!.toStringAsFixed(1);
 }
 
 IconData machineIcon(String type) => switch (type) {
@@ -55,114 +110,6 @@ Color machineColor(String type) => switch (type) {
   'HAND_TRACTOR' => const Color(0xFF8B4A1C),
   _ => const Color(0xFF0288D1),
 };
-
-// Sample machinery for showing the idea to clients. Not from the database.
-const List<MachineInfo> demoMachines = [
-  MachineInfo(
-    'Massey Ferguson 240',
-    'Sunil Machinery',
-    'TRACTOR',
-    'Slasher · Disc Ploughing · Rotary',
-    5000,
-    'acre',
-    0.018,
-    0.022,
-    4.8,
-    126,
-    0,
-  ),
-  MachineInfo(
-    'Kubota M6040 4WD',
-    'Nimal Farm Mechanization',
-    'TRACTOR',
-    'Slasher · Trailer haulage',
-    4800,
-    'acre',
-    -0.024,
-    0.031,
-    4.7,
-    98,
-    1,
-  ),
-  MachineInfo(
-    'Mahindra 575 DI',
-    'Dambokka Agro',
-    'TRACTOR',
-    'Koku Nagula · Rotary',
-    4500,
-    'acre',
-    0.035,
-    -0.019,
-    4.6,
-    74,
-    2,
-  ),
-  MachineInfo(
-    'Swaraj 744 FE',
-    'Ruwan Tractor Service',
-    'TRACTOR',
-    'Disc Ploughing · Trailer',
-    6800,
-    'acre',
-    -0.041,
-    -0.028,
-    4.5,
-    52,
-    3,
-  ),
-  MachineInfo(
-    'Kubota Power Tiller',
-    'Saman Agro Services',
-    'HAND_TRACTOR',
-    'Weeding · Inter-row tilling',
-    3200,
-    'acre',
-    0.027,
-    0.004,
-    4.9,
-    114,
-    0,
-  ),
-  MachineInfo(
-    'Yanmar 2-Wheel Tractor',
-    'Perera Farm Tools',
-    'HAND_TRACTOR',
-    'Tilling · Small trailer',
-    3000,
-    'acre',
-    -0.013,
-    -0.036,
-    4.6,
-    61,
-    0,
-  ),
-  MachineInfo(
-    'JCB 3CX',
-    'Kithsiri Earthmovers',
-    'BACKHOE',
-    'Ditch & drainage · Pit digging',
-    4200,
-    'hour',
-    0.006,
-    -0.043,
-    4.8,
-    88,
-    0,
-  ),
-  MachineInfo(
-    'CAT 424B',
-    'Lanka Excavations',
-    'BACKHOE',
-    'Canal digging · Land clearing',
-    6500,
-    'hour',
-    -0.052,
-    0.009,
-    4.7,
-    67,
-    0,
-  ),
-];
 
 const List<String> _tractorPhotos = [
   'disc_plough',

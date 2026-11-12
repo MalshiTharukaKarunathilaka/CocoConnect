@@ -19,6 +19,8 @@ for (const file of fs.readdirSync(path.join(__dirname, "../sql")).sort()) {
       .filter((line) => !/row level security/i.test(line))
       .join("\n")
   );
+  // The machinery tables point at users, so they are added right after it exists.
+  if (file.startsWith("001_")) db.public.none(readSql("schema_machinery.sql"));
 }
 
 db.public.none(`
@@ -55,3 +57,8 @@ const { Pool } = db.adapters.createPg();
 
 module.exports = new Pool();
 module.exports.memoryDb = db;
+
+// Sample machines, so the machinery map has something to show.
+require("../utils/demoMachines")
+  .seedDemoMachines(module.exports)
+  .catch((error) => console.error("Could not add the sample machines:", error));

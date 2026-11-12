@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../services/machinery_service.dart';
 import '../widgets/machinery_widgets.dart';
 import '../widgets/owner_widgets.dart';
 import 'buyer/buyer_format.dart';
@@ -37,6 +39,8 @@ const List<String> _months = [
 
 /// A machinery service with its photo and rate.
 class _Service {
+  /// The machinery_services row, empty for services drawn from other people's bookings.
+  final int? id;
   final String name;
   final String photo;
   final String description;
@@ -50,8 +54,9 @@ class _Service {
     this.description,
     this.rate,
     this.unit,
-    this.note,
-  );
+    this.note, {
+    this.id,
+  });
 }
 
 const List<_Service> _services = [
@@ -151,11 +156,27 @@ const List<_Service> _handTractorServices = [
   ),
 ];
 
-List<_Service> _servicesFor(String? type) => switch (type) {
-  'BACKHOE' => _backhoeServices,
-  'HAND_TRACTOR' => _handTractorServices,
-  _ => _services,
-};
+/// The machine's own services and rates from the database. The photo and
+/// the description come from the app's catalogue when the name matches one.
+List<_Service> _servicesOf(MachineInfo? machine) {
+  if (machine == null) return const [];
+  final Map<String, _Service> catalogue = {
+    for (final s in [..._services, ..._backhoeServices, ..._handTractorServices])
+      s.name: s,
+  };
+  return [
+    for (final s in machine.serviceList)
+      _Service(
+        s.name,
+        catalogue[s.name]?.photo ?? '',
+        catalogue[s.name]?.description ?? 'Offered by ${machine.provider}',
+        s.rate,
+        s.unit,
+        catalogue[s.name]?.note ?? '',
+        id: s.id,
+      ),
+  ];
+}
 
 /// "4.5 acres", "6 hrs" or "1 day" for a booked quantity.
 String _qty(_Service s, double n) {
@@ -167,6 +188,10 @@ String _qty(_Service s, double n) {
   };
 }
 
+// `pending` is a request the provider has not accepted yet. Nothing creates one
+// until providers can accept bookings in the app, but the calendar already
+// draws it in amber.
+// ignore: unused_field
 enum _Status { confirmed, pending }
 
 /// A service booked on a day.
@@ -191,80 +216,6 @@ class _Job {
 
   int get amount =>
       service.unit == 'day' ? service.rate : (service.rate * acres).round();
-}
-
-/// Sample bookings around today for one machine, for showing the idea to
-/// clients. [seed] shifts the days so each machine has its own calendar.
-Map<String, List<_Job>> _demoJobs(List<_Service> svc, int seed) {
-  final DateTime t = DateTime.now();
-  String key(int offset) =>
-      _key(DateTime(t.year, t.month, t.day + offset + seed));
-  _Service s(int i) => svc[i % svc.length];
-  return {
-    key(0): [
-      _Job(
-        s(0),
-        _Status.confirmed,
-        'Green Valley Estate',
-        4.5,
-        '07:00 AM - 12:00 PM',
-      ),
-      _Job(
-        s(1),
-        _Status.confirmed,
-        'Green Valley Estate',
-        4.5,
-        '01:00 PM - 05:00 PM',
-      ),
-    ],
-    key(2): [
-      _Job(
-        s(2),
-        _Status.pending,
-        'Malkaduwawa Plantation',
-        8,
-        '06:00 AM - 12:00 PM',
-      ),
-    ],
-    key(4): [
-      _Job(s(4), _Status.confirmed, 'Serenity Palms Estate', 6, 'Full day'),
-      _Job(s(3), _Status.pending, 'Kelani Palms', 3, '01:00 PM - 05:00 PM'),
-    ],
-    key(7): [
-      _Job(
-        s(3),
-        _Status.confirmed,
-        'Sirisena Estate',
-        5,
-        '07:00 AM - 11:00 AM',
-      ),
-    ],
-    key(9): [
-      _Job(
-        s(0),
-        _Status.pending,
-        'Kiribathgoda Estate',
-        2,
-        '08:00 AM - 10:00 AM',
-      ),
-      _Job(
-        s(1),
-        _Status.pending,
-        'Kiribathgoda Estate',
-        2,
-        '10:00 AM - 01:00 PM',
-      ),
-    ],
-    key(12): [
-      _Job(
-        s(2),
-        _Status.confirmed,
-        'Green Serenity Estate',
-        4.5,
-        '06:00 AM - 12:00 PM',
-      ),
-    ],
-  };
 }
 
 String _key(DateTime d) => '${d.year}-${d.month}-${d.day}';
@@ -317,12 +268,10 @@ class ServiceSchedulePage extends StatefulWidget {
 }
 
 class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
-  late final List<_Service> _svc = _servicesFor(widget.type);
-  late final Map<String, List<_Job>> _jobs = _demoJobs(
-    _svc,
-    // Stable per machine, so each one shows its own bookings.
-    (widget.machineName ?? '').codeUnits.fold(0, (a, b) => a + b) % 3,
-  );
+  late final List<_Service> _svc = _servicesOf(widget.info);
+  /// Other estates' bookings on this machine, from the backend. The owner's
+  /// own bookings are added from [machineBookings] in [_on].
+  Map<String, List<_Job>> _jobs = {};
   late DateTime _day = _firstBookable();
   late DateTime _month = DateTime(_day.year, _day.month);
   final _selKey = GlobalKey();
@@ -336,6 +285,73 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   void initState() {
     super.initState();
     _pickDefault();
+    _loadCalendar();
+  }
+
+  /// Fetches the owner's bookings and everything already booked on this
+  /// machine, so days other people have taken show as booked.
+  Future<void> _loadCalendar() async {
+    try {
+      await MachineryService.refreshBookings();
+      final Map<String, List<_Job>> jobs = {};
+      final MachineInfo? machine = widget.info;
+      if (machine != null) {
+        final MachineCalendar calendar = await MachineryService.schedule(
+          machine.id,
+        );
+        // Days the provider has blocked: every service is taken.
+        for (final day in calendar.blocked) {
+          for (final s in _svc) {
+            jobs
+                .putIfAbsent(_key(day.date), () => [])
+                .add(
+                  _Job(
+                    s,
+                    _Status.confirmed,
+                    day.state == 'MAINTENANCE'
+                        ? 'In maintenance'
+                        : 'Not available',
+                    1,
+                    '',
+                  ),
+                );
+          }
+        }
+        for (final slot in calendar.slots) {
+          if (slot.mine) continue; // drawn from my own bookings
+          for (final i in slot.items) {
+            jobs
+                .putIfAbsent(_key(slot.date), () => [])
+                .add(
+                  _Job(
+                    _Service(i.name, '', 'Booked', i.rate, i.unit, ''),
+                    _Status.confirmed,
+                    'Another estate',
+                    i.qty,
+                    slot.time,
+                  ),
+                );
+          }
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _jobs = jobs;
+        if (!_bookable(_day)) {
+          _day = _firstBookable();
+          _month = DateTime(_day.year, _day.month);
+        }
+        // Drop ticks on services that turned out to be taken.
+        final Set<String> free = {for (final s in _freeSvc(_day)) s.name};
+        _picked.removeWhere((name) => !free.contains(name));
+        if (_picked.isEmpty) _pickDefault();
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not load the calendar: ${e.message}')),
+      );
+    }
   }
 
   /// Start with the first free service ticked, so there is always a sensible
@@ -458,7 +474,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
           category: _categoryOf(widget.type),
           items: [
             for (final s in selected)
-              BookingItem(s.name, s.unit, _amountOf(s), s.rate),
+              BookingItem(s.name, s.unit, _amountOf(s), s.rate, serviceId: s.id),
           ],
           date: _day,
           startTime: _startTime,
@@ -649,7 +665,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
                   const Icon(Icons.star, size: 14, color: Color(0xFFF2A900)),
                   const SizedBox(width: 3),
                   Text(
-                    '${m.rating}',
+                    m.ratingText,
                     style: const TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.bold,

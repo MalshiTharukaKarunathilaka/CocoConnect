@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
-import '../services/auth_service.dart';
+import '../services/api_client.dart';
+import '../services/machinery_service.dart';
 import '../widgets/machinery_widgets.dart';
 import '../widgets/owner_widgets.dart';
 import 'buyer/buyer_format.dart';
@@ -51,7 +52,10 @@ class BookingItem {
   final double qty;
   final int rate; // list rate per unit (per day for 'day')
 
-  const BookingItem(this.name, this.unit, this.qty, this.rate);
+  /// The machinery_services row this comes from; the backend prices from it.
+  final int? serviceId;
+
+  const BookingItem(this.name, this.unit, this.qty, this.rate, {this.serviceId});
 
   /// The list price for this service.
   int get lineTotal => unit == 'day' ? rate : (rate * qty).round();
@@ -71,7 +75,11 @@ String describeItems(List<BookingItem> items) {
 /// A machinery booking the estate owner agreed with a provider. It can hold
 /// several services; [agreedTotal] is the price agreed for all of them.
 class MachineBooking {
+  /// The code shown to people, like #MC-1012.
   final String id;
+
+  /// The backend's row id, used to cancel. Empty only for unsaved bookings.
+  final int? serverId;
   final String machineName;
   final String provider;
   final String category; // Tractor / Backhoe / Hand Tractor
@@ -89,6 +97,7 @@ class MachineBooking {
 
   const MachineBooking({
     required this.id,
+    this.serverId,
     required this.machineName,
     required this.provider,
     required this.category,
@@ -125,89 +134,22 @@ class MachineBooking {
   }
 }
 
-/// Confirmed bookings, kept in memory for the demo (machine name -> bookings).
-/// The calendar reads this so a booked day turns red straight away.
-final Map<String, List<MachineBooking>> machineBookings = _sampleBookings();
+/// The owner's confirmed bookings (machine name -> bookings), copied from the
+/// backend by MachineryService.refreshBookings(). The calendar reads this so a
+/// booked day turns red straight away.
+final Map<String, List<MachineBooking>> machineBookings = {};
 
 /// Every booking, across all machines.
 List<MachineBooking> allMachineBookings() => [
   for (final list in machineBookings.values) ...list,
 ];
 
-/// A few bookings to start with, so My Bookings has something to show:
-/// three finished jobs and two upcoming ones on the same day (a tractor and
-/// a backhoe), which shows as two different coloured dots on the calendar.
-Map<String, List<MachineBooking>> _sampleBookings() {
-  final AppUser? me = AuthService.currentUser;
-  final LatLng estate = LatLng(
-    me?.latitude ?? 7.4863,
-    me?.longitude ?? 80.3647,
-  );
-  final DateTime n = DateTime.now();
-  DateTime day(int offset) => DateTime(n.year, n.month, n.day + offset);
-
-  MachineBooking make(
-    String id,
-    MachineInfo m,
-    String service,
-    int offset,
-    double qty,
-    String start,
-  ) {
-    final LatLng at = LatLng(
-      estate.latitude + m.dLat,
-      estate.longitude + m.dLng,
-    );
-    return MachineBooking(
-      id: id,
-      machineName: m.name,
-      provider: m.provider,
-      category: machineLabel(m.type),
-      items: [BookingItem(service, m.unit, qty, m.rate)],
-      agreedTotal: BookingItem(service, m.unit, qty, m.rate).lineTotal,
-      date: day(offset),
-      time: start,
-      estate: me?.location ?? 'Your estate',
-      createdAt: DateTime(n.year, n.month, n.day + offset - 3, 10, 14),
-      machineAt: at,
-      estateAt: estate,
-      km: const Distance().as(LengthUnit.Meter, estate, at) / 1000,
-      info: m,
-      chat: [
-        ChatLine(
-          true,
-          'Hi, I would like to book $service (${qtyText(m.unit, qty)}) on '
-          '${fullDate(day(offset))}. Your listed total is '
-          '${rupees(BookingItem(service, m.unit, qty, m.rate).lineTotal)}.',
-        ),
-        ChatLine(
-          false,
-          'Thanks for the request! That works for me. I can start at $start.',
-        ),
-      ],
-    );
-  }
-
-  final List<MachineBooking> all = [
-    make('#MC-2031', demoMachines[2], 'Koku Nagula', -12, 3, '06:00 AM'),
-    make('#MC-2054', demoMachines[6], 'Pit Digging', -6, 5, '06:00 AM'),
-    make('#MC-2077', demoMachines[5], 'Inter-row Tilling', -20, 2, '12:00 PM'),
-    make('#MC-3102', demoMachines[3], 'Disc Ploughing', 3, 4.5, '06:00 AM'),
-    make('#MC-3118', demoMachines[7], 'Land Clearing', 3, 6, '06:00 AM'),
-  ];
-  final Map<String, List<MachineBooking>> byMachine = {};
-  for (final b in all) {
-    byMachine.putIfAbsent(b.machineName, () => []).add(b);
-  }
-  return byMachine;
-}
-
 class ChatLine {
   final bool mine;
   final String text;
   final DateTime at;
 
-  ChatLine(this.mine, this.text) : at = DateTime.now();
+  ChatLine(this.mine, this.text, {DateTime? at}) : at = at ?? DateTime.now();
 }
 
 /// One chat message bubble (mine on the right, the provider's on the left).
@@ -517,29 +459,44 @@ class _MachineryNegotiationPageState extends State<MachineryNegotiationPage> {
     }
   }
 
-  void _accept() {
-    final MachineBooking b = MachineBooking(
-      id: '#MC-${DateTime.now().millisecondsSinceEpoch % 9000 + 1000}',
-      machineName: widget.machineName,
-      provider: widget.provider,
-      category: widget.category,
-      items: widget.items,
-      agreedTotal: _total,
-      date: widget.date,
-      time: _start,
-      estate: widget.estate,
-      createdAt: DateTime.now(),
-      chat: List.of(_msgs),
-      machineAt: widget.machineAt,
-      estateAt: widget.estateAt,
-      km: widget.km,
-      info: widget.info,
-    );
-    machineBookings.putIfAbsent(widget.machineName, () => []).add(b);
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => BookingConfirmedPage(booking: b)),
-    );
+  bool _saving = false;
+
+  Future<void> _accept() async {
+    final MachineInfo? machine = widget.info;
+    if (_saving) return;
+    if (machine == null) {
+      _say('This machine cannot be booked right now');
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final MachineBooking b = await MachineryService.createBooking(
+        machine: machine,
+        items: widget.items,
+        agreedTotal: _total,
+        date: widget.date,
+        time: _start,
+        estate: widget.estate,
+        chat: List.of(_msgs),
+      );
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BookingConfirmedPage(booking: b),
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _say(e.message);
+    }
+  }
+
+  void _say(String text) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
   }
 
   @override
@@ -796,11 +753,11 @@ class _MachineryNegotiationPageState extends State<MachineryNegotiationPage> {
               child: SizedBox(
                 height: 46,
                 child: ElevatedButton.icon(
-                  onPressed: _accept,
+                  onPressed: _saving ? null : _accept,
                   icon: const Icon(Icons.check, size: 18),
-                  label: const Text(
-                    'Accept Offer',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                  label: Text(
+                    _saving ? 'Booking…' : 'Accept Offer',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kOwnerGreen,

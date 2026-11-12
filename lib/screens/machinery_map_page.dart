@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../services/machinery_service.dart';
 import '../widgets/machinery_widgets.dart';
 import '../widgets/owner_widgets.dart';
 import 'buyer/buyer_format.dart';
@@ -22,7 +24,40 @@ class MachineryMapPage extends StatefulWidget {
 class MachineInforyMapPageState extends State<MachineryMapPage> {
   final _map = MapController();
   late String _filter = widget.type ?? 'ALL';
-  late MachineInfo? _selected = _shown.isEmpty ? null : _shown.first;
+  MachineInfo? _selected;
+  List<MachineInfo> _machines = const [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  /// Machines come from the backend, nearest first.
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final List<MachineInfo> list = await MachineryService.machines();
+      if (!mounted) return;
+      setState(() {
+        _machines = list;
+        _loading = false;
+        final List<MachineInfo> shown = _shown;
+        _selected = shown.isEmpty ? null : shown.first;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    }
+  }
 
   void _openCalendar(MachineInfo m) => Navigator.push(
     context,
@@ -53,14 +88,13 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
   static const double _homeZoom = 11.5;
   LatLng get _home => LatLng(_estate.latitude - 0.055, _estate.longitude);
 
-  LatLng _at(MachineInfo m) =>
-      LatLng(_estate.latitude + m.dLat, _estate.longitude + m.dLng);
+  LatLng _at(MachineInfo m) => LatLng(m.lat, m.lng);
 
   double _km(MachineInfo m) =>
       const Distance().as(LengthUnit.Meter, _estate, _at(m)) / 1000;
 
   List<MachineInfo> get _shown =>
-      demoMachines.where((m) => _filter == 'ALL' || m.type == _filter).toList()
+      _machines.where((m) => _filter == 'ALL' || m.type == _filter).toList()
         ..sort((a, b) => _km(a).compareTo(_km(b)));
 
   @override
@@ -162,6 +196,33 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
                   ],
                 ),
                 Positioned(left: 12, right: 12, top: 12, child: _chips()),
+                if (_loading)
+                  const Center(
+                    child: CircularProgressIndicator(color: kOwnerGreen),
+                  ),
+                if (_error != null)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: OwnerCard(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _error!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: kOwnerInk),
+                            ),
+                            const SizedBox(height: 10),
+                            TextButton(
+                              onPressed: _load,
+                              child: const Text('Try again'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 Positioned(
                   right: 12,
                   top: 64,
@@ -182,7 +243,7 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
   }
 
   Marker _marker(MachineInfo m) {
-    final bool on = identical(m, _selected);
+    final bool on = m.id == _selected?.id;
     final double size = on ? 54 : 44;
     return Marker(
       point: _at(m),
@@ -247,8 +308,8 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
     Widget chip(String code, String label, IconData? icon) {
       final bool on = _filter == code;
       final int count = code == 'ALL'
-          ? demoMachines.length
-          : demoMachines.where((m) => m.type == code).length;
+          ? _machines.length
+          : _machines.where((m) => m.type == code).length;
       return Padding(
         padding: const EdgeInsets.only(right: 8),
         child: Material(
@@ -307,7 +368,7 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
   Widget _sheet(List<MachineInfo> shown) {
     final MachineInfo? m = _selected;
     final bool nearest =
-        m != null && shown.isNotEmpty && identical(m, shown.first);
+        m != null && shown.isNotEmpty && m.id == shown.first.id;
 
     return Container(
       decoration: const BoxDecoration(
@@ -436,7 +497,7 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
-                                      '${m.rating}',
+                                      m.ratingText,
                                       style: const TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.bold,

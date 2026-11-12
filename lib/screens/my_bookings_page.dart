@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../widgets/machinery_widgets.dart';
 import '../widgets/owner_widgets.dart';
 import 'buyer/buyer_format.dart';
+import '../services/api_client.dart';
+import '../services/machinery_service.dart';
 import 'machinery_booking_status_page.dart';
 import 'machinery_negotiation_page.dart';
 
@@ -37,6 +39,33 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   int _tab = 0; // 0 upcoming, 1 completed
   late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _day;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  /// The bookings live on the server; this pulls the latest copy.
+  Future<void> _refresh() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await MachineryService.refreshBookings();
+      if (!mounted) return;
+      setState(() => _loading = false);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    }
+  }
 
   DateTime get _today {
     final DateTime n = DateTime.now();
@@ -111,6 +140,26 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
               children: [
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: OwnerCard(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(color: kOwnerRed),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _refresh,
+                            child: const Text('Try again'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 _calendar(byDay),
                 const SizedBox(height: 16),
                 if (_day != null)
@@ -135,7 +184,14 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                       ],
                     ),
                   ),
-                if (shown.isEmpty)
+                if (_loading && all.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                      child: CircularProgressIndicator(color: kOwnerGreen),
+                    ),
+                  )
+                else if (shown.isEmpty)
                   _empty()
                 else
                   for (final b in shown) _card(b),

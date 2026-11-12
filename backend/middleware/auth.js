@@ -48,4 +48,12 @@ const requireRole = (role) => (req, res, next) => {
   return next();
 };
 
-module.exports = { requireAuth, requireRole };
+/** Like requireRole, but any of several account types may pass. */
+const requireAnyRole = (...roles) => (req, res, next) => {
+  if (!roles.includes(req.user?.role)) {
+    return res.status(403).json({ message: "Not allowed for this account type" });
+  }
+  return next();
+};
+
+module.exports = { requireAuth, requireRole, requireAnyRole };
