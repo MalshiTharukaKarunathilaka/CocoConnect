@@ -4,6 +4,7 @@ import 'screens/estate_owner_profile_page.dart';
 import 'screens/orders/orders_page.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const KapConnectApp());
 }
 
