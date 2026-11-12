@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
-require("dotenv").config();
+require("dotenv").config({path: require("path").join(__dirname, ".env")});
 
 const listingRoutes = require("./routes/listingRoutes");
 const authRoutes = require("./routes/authRoutes");
@@ -11,6 +11,7 @@ const chatRoutes = require("./routes/chatRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const swaggerDocument = require("./config/swagger");
 
+const { getHealth } = require("./controllers/healthController");
 const app = express();
 
 app.use(cors());
@@ -26,6 +27,9 @@ app.get("/", (req, res) => {
   });
 });
 
+app.get("/api/health", getHealth);
+
+app.use("/api/machinery", require("./routes/machineryRoutes"));
 app.use("/api/listings", listingRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/buyer", buyerRoutes);
