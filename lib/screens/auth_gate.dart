@@ -4,6 +4,7 @@ import '../widgets/auth_widgets.dart';
 import 'buyer/buyer_categories_page.dart';
 import 'estate_owner_dashboard.dart';
 import 'onboarding_page.dart';
+import 'provider/provider_calendar_page.dart';
 
 /// First screen: reopens a saved login, otherwise shows the welcome screen.
 class AuthGate extends StatefulWidget {
@@ -43,6 +44,8 @@ Widget? homeFor(AppUser user) {
       return const BuyerCategoriesPage();
     case 'ESTATE_OWNER':
       return const EstateOwnerDashboard();
+    case 'SERVICE_PROVIDER':
+      return const ProviderCalendarPage();
     default:
       return null;
   }
@@ -59,7 +62,7 @@ void openHomeFor(BuildContext context, AppUser user) {
     return;
   }
 
-  // Estate Manager and Service Provider screens aren't built yet.
+  // Estate Manager screens aren't built yet.
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(
