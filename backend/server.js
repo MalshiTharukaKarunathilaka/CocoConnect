@@ -10,6 +10,7 @@ const ownerRoutes = require("./routes/ownerRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const workerRoutes = require("./routes/workerRoutes");
+const dayJobChatRoutes = require("./routes/dayJobChatRoutes");
 const swaggerDocument = require("./config/swagger");
 
 const app = express();
@@ -33,6 +34,7 @@ app.use("/api/buyer", buyerRoutes);
 app.use("/api/owner", ownerRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/worker", workerRoutes);
+app.use("/api", dayJobChatRoutes);
 app.use("/api", chatRoutes);
 
 const PORT = process.env.PORT || 5000;
