@@ -13,6 +13,8 @@ db.public.none(readSql("schema.sql"));
 // Every migration in sql/, in order. pg-mem has no row level security;
 // that part only matters on Supabase.
 for (const file of fs.readdirSync(path.join(__dirname, "../sql")).sort()) {
+  // PostgreSQL's GiST exclusion constraint is verified separately in real PG.
+  if (file === '010_machinery_overlap_constraint.sql') continue;
   db.public.none(
     readSql(`../sql/${file}`)
       .split(/\r?\n/)
