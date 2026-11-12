@@ -7,7 +7,9 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "dev:memory": "nodemon --exec \"node -r ./test/useMemoryDb.js\" server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "dev:supabase": "nodemon --exec \"node -r ./config/usePersistentDb.js\" server.js",
+    "start:supabase": "node -r ./config/usePersistentDb.js server.js"
   },
   "keywords": [],
   "author": "",
