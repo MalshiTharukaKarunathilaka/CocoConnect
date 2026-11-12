@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { ResponsiveContainer, Tooltip } from 'recharts'
 import { loadDataset, num, scopeName } from './data'
 
@@ -201,7 +201,10 @@ export function PrintHead({ name, sel }) {
   )
 }
 
+export const RegionSlot = createContext(null)
+
 export function PageHead({ title, sub, sel, onSel, name, sections, children }) {
+  const regionPanel = useContext(RegionSlot)
   return (
     <>
       <PrintHead name={name} sel={sel} />
@@ -219,6 +222,7 @@ export function PageHead({ title, sub, sel, onSel, name, sections, children }) {
         </div>
         <ReportBar name={name} sel={sel} sections={sections} />
       </div>
+      {sel.region && regionPanel}
       {children}
     </>
   )

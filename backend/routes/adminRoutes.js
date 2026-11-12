@@ -19,6 +19,7 @@ const {
   resolveDisputeAction,
   createDisputeOnDeal,
   getRegions,
+  getDistrictPrices,
   putRegionBand,
   getReports,
   getSettings,
@@ -80,6 +81,7 @@ router.post("/disputes/:id/approve", approveDispute);
 router.post("/disputes/:id/reject", rejectDispute);
 
 router.get("/regions", getRegions);
+router.get("/prices/districts", getDistrictPrices);
 router.put("/regions/band", putRegionBand);
 
 router.get("/reports", getReports);

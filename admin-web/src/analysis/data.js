@@ -94,7 +94,7 @@ const split = (rng, total, weights) => {
 const pad = (n) => String(n).padStart(2, '0')
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-function pointIn(ring, x, y) {
+export function pointIn(ring, x, y) {
   let inside = false
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
     const [xi, yi] = ring[i]
@@ -182,6 +182,13 @@ export function buildDataset(geo) {
   }
   estates.sort((a, b) => a.registeredOn.localeCompare(b.registeredOn))
   estates.forEach((e, i) => (e.id = `E-${String(i + 1).padStart(3, '0')}`))
+  // Who owns them. A separate generator, so the other sample numbers stay exactly as they were.
+  const orng = rngOf(7102026)
+  for (const e of estates) {
+    const big = e.plan === 'Large plantation'
+    e.ownerAge = wpick(orng, [0, 1, 2, 3, 4], (i) => [0.04, 0.17, 0.3, 0.29, 0.2][i] * (big && i === 0 ? 0.3 : 1))
+    e.ownerGender = orng() < (big ? 0.84 : 0.7) ? 0 : 1 // 0 = male, 1 = female
+  }
 
   // Day workers ----------------------------------------------------------
   const workers = [] // one row per district x category, with its own breakdowns

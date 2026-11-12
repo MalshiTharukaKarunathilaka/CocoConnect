@@ -3,12 +3,14 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, Line
 import DrillMap, { GREEN_SCALE } from './DrillMap'
 import { Character, Pair } from './People'
 import { glyphHtml } from './pins'
+import PriceMap from './PriceMap'
+import { loadRegions, regionFigures } from './regions'
 import {
   AGE_GROUPS, BOOKING_STATUSES, DISTRICTS, ESTATE_TYPES, FERT_TYPES, FERT_YEARS, GENDERS, JOB_CATEGORIES,
   MACHINE_TYPES, MONTHS, PRODUCTS, PROVINCE_COLORS, PROVINCE_NAMES, byDistrict, compact, districtsOf, inScope, kgText, label,
   num, pct, provinceOf, rs, scopeName, sumBy, ym,
 } from './data'
-import { Card, Chart, Chips, DataTable, GradDefs, Kpi, Loading, Modal, PALETTE, PageHead, Segmented, gid, tipEl, useData } from './ui'
+import { Card, Chart, Chips, DataTable, GradDefs, Kpi, Loading, Modal, PALETTE, PageHead, RegionSlot, Segmented, gid, tipEl, useData } from './ui'
 
 const ax = { tick: { fontSize: 11, fill: '#66736c' }, axisLine: false, tickLine: false }
 const BLUE = ['#e4eff5', '#bad7e6', '#86b6cf', '#4f8fb0', '#25607f']
@@ -166,11 +168,11 @@ function Donut({ data, height = 190, fmt = num, pick = -1, onPick, legend = true
   )
 }
 
-function GenderCard({ gender }) {
+function GenderCard({ gender, title = 'Gender' }) {
   const total = sumBy(gender, (g) => g.value) || 1
   const [pick, setPick] = useState(0)
   return (
-    <Card title="Gender" sub="Tap a person or a slice">
+    <Card title={title} sub="Tap a person or a slice">
       <div className="an-gender">
         <div className="an-gender-left">
           <Donut data={gender} height={160} legend={false} pick={pick} onPick={setPick} />
@@ -189,12 +191,12 @@ function GenderCard({ gender }) {
   )
 }
 
-function AgeCard({ age }) {
+function AgeCard({ age, title = 'Age' }) {
   const total = sumBy(age, (a) => a.value) || 1
   const [pick, setPick] = useState(1)
   const data = age.map((a, i) => ({ ...a, color: i === pick ? '#256b45' : '#a9cdb7' }))
   return (
-    <Card title="Age" sub="Tap an age group to meet them">
+    <Card title={title} sub="Tap an age group to meet them">
       <div className="an-age">
         <div className="an-age-left">
           <Bars data={data} height={190} fmt={num} single />
@@ -474,9 +476,29 @@ function Overview({ d, sel, setSel, extra }) {
   const rows = [...estates].reverse().map((e) => [e.id, e.name, e.owner, label(e.district), e.province, e.acres, num(e.palms), e.plan, e.registeredOn])
   const top = areaBars(sel, perD)[0]
 
+  // estate owners: age and gender, and how they compare with the day workers
+  const ownerAge = AGE_GROUPS.map((a, i) => ({ name: a, value: estates.filter((e) => e.ownerAge === i).length }))
+  const ownerGender = GENDERS.slice(0, 2).map((g, i) => ({ name: g, value: estates.filter((e) => e.ownerGender === i).length, color: ['#256b45', '#d9741a'][i] }))
+  const ageByGender = AGE_GROUPS.map((a, i) => ({
+    name: a,
+    Male: estates.filter((e) => e.ownerAge === i && e.ownerGender === 0).length,
+    Female: estates.filter((e) => e.ownerAge === i && e.ownerGender === 1).length,
+  }))
+  const wRows = d.workers.filter((w) => inScope(sel, w.district))
+  const workerAgeTotal = sumBy(wRows, (w) => w.total) || 1
+  const ownerTotal = estates.length || 1
+  const ownersVsWorkers = AGE_GROUPS.map((a, i) => ({
+    name: a,
+    Owners: Math.round((ownerAge[i].value / ownerTotal) * 1000) / 10,
+    'Day workers': Math.round((sumBy(wRows, (w) => w.age[i]) / workerAgeTotal) * 1000) / 10,
+  }))
+  const women = ownerGender[1].value
+
   const sections = () => [
     { title: `Registered estates - ${scopeName(sel)}`, columns: ['ID', 'Estate', 'Owner', 'District', 'Province', 'Acres', 'Palms', 'Plan', 'Registered'], rows },
     { title: 'Estates by area', columns: ['Area', 'Estates'], rows: areaBars(sel, perD).map((r) => [r.name, r.value]) },
+    { title: 'Estate owners by age and gender', columns: ['Age group', 'Male', 'Female'], rows: ageByGender.map((r) => [r.name, r.Male, r.Female]) },
+    { title: 'Age mix: owners vs day workers (%)', columns: ['Age group', 'Owners', 'Day workers'], rows: ownersVsWorkers.map((r) => [r.name, r.Owners, r['Day workers']]) },
   ]
 
   return (
@@ -512,6 +534,18 @@ function Overview({ d, sel, setSel, extra }) {
           </>
         }
       />
+      <div className="an-grid2">
+        <AgeCard age={ownerAge} title="Estate owners by age" />
+        <GenderCard gender={ownerGender} title="Estate owners by gender" />
+      </div>
+      <div className="an-grid2">
+        <Card title="Age and gender compared" sub={`${estates.length} owners · ${pct(women, estates.length)} women`}>
+          <Bars data={ageByGender} keys={['Male', 'Female']} colors={['#256b45', '#d9741a']} height={240} fmt={num} />
+        </Card>
+        <Card title="Owners vs day workers" sub="Share of each group in every age band (%)">
+          <Bars data={ownersVsWorkers} keys={['Owners', 'Day workers']} colors={['#256b45', '#d9a441']} height={240} fmt={(v) => `${v}%`} />
+        </Card>
+      </div>
       <EstateCards estates={estates} title={`Estates in ${scopeName(sel)}`} sub="Newest subscribers first" />
       <Card title={`Registered estates · ${scopeName(sel)}`} sub={`${estates.length} estates, newest first`}>
         <DataTable columns={['ID', 'Estate', 'Owner', 'District', 'Province', 'Acres', 'Palms', 'Plan', 'Registered']} rows={rows} />
@@ -967,6 +1001,9 @@ function Sales({ d, sel, setSel, extra }) {
 
   return (
     <PageHead title="Sales" sub="Raw coconuts, dehusked coconuts and husks sold through the app" name="Sales" sel={sel} onSel={setSel} sections={sections}>
+      <Card title="Coconut price by district" sub="Average price per nut from live listings and deals. Pick a district">
+        <PriceMap geo={d.geo} />
+      </Card>
       <div className="an-cats">
         {PRODUCTS.map((p) => {
           const c = SALE_CATS[p]
@@ -1122,6 +1159,40 @@ function SalesCalendar({ rows }) {
 }
 
 // =============================================================================
+// ---- statistics for one small region of a district -------------------------
+function RegionStats({ d, sel }) {
+  const [geo, setGeo] = useState(null)
+  useEffect(() => {
+    let live = true
+    loadRegions().then((g) => live && setGeo(g)).catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [])
+  const district = sel.district
+  const f = useMemo(
+    () => (geo ? regionFigures(geo, sel.region, d.estates.filter((e) => e.district === district), d.machines.filter((m) => m.district === district)) : null),
+    [geo, d, sel.region, district],
+  )
+  if (!f) return null
+  const workers = sumBy(d.workers.filter((w) => w.district === district), (w) => w.total) * f.share
+  const fert = sumBy(d.fert.filter((x) => x.year === 2025 && x.district === district), (x) => x.kg) * f.share
+  const sales = sumBy(d.sales.filter((x) => x.year === 2026 && x.district === district), (x) => x.revenue) * f.share
+  return (
+    <Card title={sel.region} sub={`${label(district)} district · figures for this region only`} className="an-region">
+      <div className="an-kpis an-kpis-auto">
+        <Kpi photo="rotary" icon="palm" label="Estates" value={num(f.estates.length)} sub={`${num(f.acres)} acres`} />
+        <Kpi photo="koku_nagula" icon="palm" tone="brown" label="Palms" value={compact(f.palms)} sub="counted on the estates here" />
+        <Kpi photo="backhoe" icon="tractor" tone="blue" label="Machines" value={num(f.machines)} sub="listed in this region" />
+        <Kpi photo="husking" icon="users" tone="amber" label="Day workers" value={num(workers)} sub="estimated share" />
+        <Kpi photo="disc_plough" icon="flask" tone="purple" label="Fertilizer (2025)" value={kgText(fert)} sub="estimated share" />
+        <Kpi photo="trailer" icon="wallet" label="Sales (2026)" value={rs(sales)} sub="estimated share" />
+      </div>
+      <p className="an-region-note">Estates, palms and machines are counted from their map positions inside the region. Workers, fertilizer and sales are recorded per district, so this region gets about {Math.round(f.share * 100)}% of {label(district)}.</p>
+    </Card>
+  )
+}
+
 export default function Analysis({ view }) {
   const { data, error } = useData()
   const [sel, setSel] = useState(() => {
@@ -1133,6 +1204,7 @@ export default function Analysis({ view }) {
   if (!data) return <Loading error={error} />
   const props = { d: data, sel, setSel, extra }
   return (
+    <RegionSlot.Provider value={sel.region ? <RegionStats d={data} sel={sel} /> : null}>
     <div className="an-root">
       {view === 'an-overview' && <Overview {...props} />}
       {view === 'an-workers' && <Workers {...props} />}
@@ -1140,5 +1212,6 @@ export default function Analysis({ view }) {
       {view === 'an-mach' && <Machinery {...props} />}
       {view === 'an-sales' && <Sales {...props} />}
     </div>
+    </RegionSlot.Provider>
   )
 }

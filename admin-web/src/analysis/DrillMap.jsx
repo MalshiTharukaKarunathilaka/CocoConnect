@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { GeoJSON, MapContainer, Marker, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { DISTRICTS, PROVINCE_COLORS, label, provinceOf, rampOf } from './data'
+import { DISTRICTS, PROVINCE_COLORS, label, pointIn, provinceOf, rampOf } from './data'
 import { glyphHtml, pinIcon } from './pins'
 
 export const GREEN_SCALE = ['#e3f0e6', '#bcdcc6', '#86be9c', '#4f9a6f', '#256b45']
@@ -17,12 +17,19 @@ function Fitter({ geo, sel }) {
   const map = useMap()
   useEffect(() => {
     map.invalidateSize()
-    const feats = geo.features.filter((f) => !sel.province || provinceOf(f.properties.district) === sel.province)
+    const feats = geo.features.filter((f) => (sel.district ? f.properties.district === sel.district : !sel.province || provinceOf(f.properties.district) === sel.province))
     const bounds = L.geoJSON({ type: 'FeatureCollection', features: feats }).getBounds()
-    map.fitBounds(bounds, { padding: [16, 16], animate: true, maxZoom: 10 })
-  }, [map, geo, sel.province])
+    map.fitBounds(bounds, { padding: [16, 16], animate: true, maxZoom: sel.district ? 11 : 10 })
+  }, [map, geo, sel.province, sel.district])
   return null
 }
+
+// Districts that can be split further. Only Kurunegala for now: 10 CDO regions.
+const SUB_FILES = { Kurunegala: '/geo/kurunegala-cdo.json' }
+const subCache = {}
+const loadSub = (district) => (subCache[district] ||= fetch(SUB_FILES[district]).then((r) => r.json()))
+const ringArea = (ring) => Math.abs(ring.reduce((a, p, i) => a + (p[0] * ring[(i + 1) % ring.length][1] - ring[(i + 1) % ring.length][0] * p[1]), 0) / 2)
+const jitter = (n) => 0.75 + ((Math.sin(n * 91.7) * 10000) % 1 + 1) % 1 * 0.5
 
 /**
  * Sri Lanka choropleth that drills down: island -> province -> district.
@@ -43,6 +50,29 @@ export default function DrillMap({
 }) {
   const [tiles, setTiles] = useState(false)
   const level = sel.district ? 2 : sel.province ? 1 : 0
+  const [subGeo, setSubGeo] = useState(null)
+  const region = sel.region || null
+  const setRegion = (name) => onSel(name ? { province: sel.province, district: sel.district, region: name } : { province: sel.province, district: sel.district })
+  const subDistrict = sel.district && SUB_FILES[sel.district] ? sel.district : null
+  useEffect(() => {
+    if (!subDistrict) return setSubGeo(null)
+    let live = true
+    loadSub(subDistrict).then((g) => live && setSubGeo(g)).catch(() => live && setSubGeo(null))
+    return () => { live = false }
+  }, [subDistrict])
+
+  // value of each region: its share of the district, from the pins inside it (or its area if there are none)
+  const subValues = useMemo(() => {
+    if (!subGeo) return {}
+    const total = values[subDistrict] || 0
+    const feats = subGeo.features
+    const counts = feats.map((f) => markers.filter((m) => pointIn(f.geometry.coordinates[0], m.lng, m.lat)).length)
+    const useCounts = counts.some((c) => c > 0)
+    const weights = feats.map((f, i) => (useCounts ? counts[i] : ringArea(f.geometry.coordinates[0]) * jitter(f.properties.id)))
+    const sum = weights.reduce((a, b) => a + b, 0) || 1
+    return Object.fromEntries(feats.map((f, i) => [f.properties.region, (total * weights[i]) / sum]))
+  }, [subGeo, subDistrict, values, markers])
+  const subMax = Math.max(...Object.values(subValues), 0)
 
   const provTotals = useMemo(() => {
     const t = {}
@@ -57,6 +87,7 @@ export default function DrillMap({
 
   const sig = Object.values(values).join(',')
   const key = `${level}|${sel.province}|${sel.district}|${sig}|${tiles}`
+  const subKey = `${subDistrict}|${Object.values(subValues).join(',')}|${tiles}`
 
   const rampFor = (prov) => rampOf(PROVINCE_COLORS[prov])
   const style = (f) => {
@@ -66,6 +97,7 @@ export default function DrillMap({
     if (level === 0) return { ...base, fillColor: colorFor(provTotals[prov], max, rampFor(prov)) }
     if (prov !== sel.province) return { ...base, fillColor: OFF, fillOpacity: tiles ? 0.25 : 0.8 }
     const chosen = sel.district === name
+    if (chosen && subGeo) return { ...base, fillColor: rampFor(prov)[0], fillOpacity: 0.3, weight: 2.5, color: '#15201a' }
     return {
       ...base,
       fillColor: colorFor(values[name] || 0, max, rampFor(prov)),
@@ -92,7 +124,8 @@ export default function DrillMap({
   const crumbs = [
     { text: 'Sri Lanka', go: () => onSel({}) },
     sel.province && { text: sel.province, go: () => onSel({ province: sel.province }) },
-    sel.district && { text: label(sel.district) },
+    sel.district && (region ? { text: label(sel.district), go: () => setRegion(null) } : { text: label(sel.district) }),
+    region && { text: region },
   ].filter(Boolean)
 
   return (
@@ -110,6 +143,30 @@ export default function DrillMap({
       >
         {tiles && <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />}
         <GeoJSON key={key} data={geo} style={style} onEachFeature={onEach} />
+        {subGeo && (
+          <GeoJSON
+            key={`${subKey}|${region}`}
+            data={subGeo}
+            style={(f) => {
+              const on = region === f.properties.region
+              return {
+                weight: on ? 3.5 : 1.6,
+                color: on ? '#15201a' : '#ffffff',
+                fillOpacity: tiles ? 0.7 : 0.97,
+                fillColor: colorFor(subValues[f.properties.region] || 0, subMax, rampFor(provinceOf(subDistrict))),
+              }
+            }}
+            onEachFeature={(f, layer) => {
+              const name = f.properties.region
+              layer.bindTooltip(`<b>${name}</b><br/>${fmt(subValues[name] || 0)} ${unit}`, { sticky: true, direction: 'top' })
+              layer.on({
+                click: () => setRegion(region === name ? null : name),
+                mouseover: () => layer.setStyle({ weight: 3, color: '#15201a' }),
+                mouseout: () => layer.setStyle({ weight: region === name ? 3.5 : 1.6, color: region === name ? '#15201a' : '#ffffff' }),
+              })
+            }}
+          />
+        )}
         {markers.map((m, i) => (
           <Marker
             key={`${markerKey}-${i}`}
@@ -134,7 +191,7 @@ export default function DrillMap({
         {tiles ? 'Street map: on' : 'Street map'}
       </button>
       <div className="an-map-hint">
-        {level === 0 ? 'Click a province to drill down' : level === 1 ? 'Click a district to pinpoint' : 'Use the path at the top-left to go back'}
+        {level === 0 ? 'Click a province to drill down' : level === 1 ? 'Click a district to pinpoint' : subGeo ? `${subGeo.features.length} CDO regions in ${label(subDistrict)}. Click a region to pinpoint` : 'Use the path at the top-left to go back'}
       </div>
 
       <div className="an-map-legend">

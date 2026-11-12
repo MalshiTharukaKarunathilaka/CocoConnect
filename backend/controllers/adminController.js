@@ -645,6 +645,82 @@ const getRegions = async (_req, res) => {
   }
 };
 
+/* ── Average coconut price per district ───────────────────────────────── */
+
+const bandMid = (band) => {
+  const nums = String(band || "").match(/\d+(?:\.\d+)?/g);
+  if (!nums || !nums.length) return null;
+  const v = nums.map(Number);
+  return { min: Math.min(...v), max: Math.max(...v), avg: v.reduce((a, b) => a + b, 0) / v.length };
+};
+
+/**
+ * Prices come from what people really asked and paid: active coconut listings
+ * and completed orders, grouped by the estate's district. A district with no
+ * deals yet falls back to the middle of its published price band.
+ */
+const getDistrictPrices = async (_req, res) => {
+  try {
+    const [listings, orders, bands] = await Promise.all([
+      pool.query(
+        `SELECT eo.location, pl.offer_price_per_unit::float AS price
+         FROM product_listings pl
+         LEFT JOIN estate_owners eo ON eo.id = pl.estate_owner_id
+         WHERE pl.offer_price_per_unit IS NOT NULL
+           AND pl.product_type ILIKE '%COCONUT%'
+           AND UPPER(COALESCE(pl.status, 'ACTIVE')) <> 'HIDDEN'`
+      ),
+      pool.query(
+        `SELECT eo.location,
+                COALESCE(o.delivered_price_per_unit, o.final_price_per_unit)::float AS price
+         FROM orders o
+         JOIN product_listings pl ON pl.id = o.listing_id
+         LEFT JOIN estate_owners eo ON eo.id = pl.estate_owner_id
+         WHERE UPPER(COALESCE(o.status, '')) = 'COMPLETED'
+           AND pl.product_type ILIKE '%COCONUT%'
+           AND COALESCE(o.delivered_price_per_unit, o.final_price_per_unit) IS NOT NULL`
+      ),
+      pool.query(`SELECT name, band FROM region_price_bands`),
+    ]);
+
+    const samples = {};
+    const placeSamples = {}; // district -> town/area text from the location -> prices
+    for (const r of [...listings.rows, ...orders.rows]) {
+      const name = districtFromLocation(r.location);
+      if (!name || !(r.price > 0)) continue;
+      (samples[name] ||= []).push(r.price);
+      for (const part of String(r.location || "").split(",")) {
+        const key = part.toLowerCase().replace(/[^a-z]/g, "");
+        if (!key || key === name.toLowerCase().replace(/[^a-z]/g, "")) continue;
+        ((placeSamples[name] ||= {})[key] ||= []).push(r.price);
+      }
+    }
+    const stat = (list) => {
+      const sum = list.reduce((a, b) => a + b, 0);
+      return { avg: sum / list.length, min: Math.min(...list), max: Math.max(...list), samples: list.length };
+    };
+    const custom = Object.fromEntries(bands.rows.map((b) => [b.name, b.band]));
+    const names = new Set([...Object.keys(DEFAULT_BANDS), ...Object.keys(custom), ...Object.keys(samples)]);
+
+    const out = [...names].map((name) => {
+      const list = samples[name];
+      const band = custom[name] || DEFAULT_BANDS[name] || null;
+      const places = Object.fromEntries(Object.entries(placeSamples[name] || {}).map(([k, v]) => [k, stat(v)]));
+      if (list && list.length) {
+        return { name, ...stat(list), source: "deals", band, places };
+      }
+      const mid = bandMid(band);
+      return mid
+        ? { name, avg: mid.avg, min: mid.min, max: mid.max, samples: 0, source: "band", band, places }
+        : { name, avg: null, min: null, max: null, samples: 0, source: "none", band, places };
+    });
+    out.sort((a, b) => a.name.localeCompare(b.name));
+    return res.status(200).json({ currency: "LKR", unit: "nut", updatedAt: new Date().toISOString(), districts: out });
+  } catch (error) {
+    return serverError(res, "Admin district prices", error);
+  }
+};
+
 const putRegionBand = async (req, res) => {
   try {
     const name = String(req.body.name || "").trim();
@@ -766,6 +842,7 @@ module.exports = {
   resolveDisputeAction,
   createDisputeOnDeal,
   getRegions,
+  getDistrictPrices,
   putRegionBand,
   getReports,
   getSettings,
