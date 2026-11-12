@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import '../widgets/machinery_widgets.dart';
 import '../widgets/owner_widgets.dart';
 import 'buyer/buyer_format.dart';
-import 'machinery_booking_status_page.dart';
 import 'machinery_negotiation_page.dart';
+import '../models/provider_booking_request.dart';
+import '../services/machinery_api.dart';
+import '../services/api_client.dart';
+import 'provider/provider_request_page.dart';
+import 'provider/provider_request_widgets.dart';
 
 const List<String> _weekdayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const List<String> _monthNames = [
@@ -34,6 +38,54 @@ class MyBookingsPage extends StatefulWidget {
 }
 
 class _MyBookingsPageState extends State<MyBookingsPage> {
+  List<ProviderBookingRequest> _records = [];
+  bool _loading = true;
+  String? _error;
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final rows = await const MachineryApi().bookings();
+      if (mounted) setState(() => _records = rows);
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  MachineBooking _view(ProviderBookingRequest r) => MachineBooking(
+    id: r.id,
+    machineName: r.machineName ?? r.machinery,
+    provider: r.providerName ?? 'Provider',
+    category: r.machinery,
+    items: r.items
+        .map(
+          (i) => BookingItem(
+            '${i['name']}',
+            '${i['unit']}',
+            double.parse('${i['quantity']}'),
+            double.parse('${i['rate']}'),
+          ),
+        )
+        .toList(),
+    agreedTotal: (r.agreedRate ?? r.proposedRate) * r.quantity,
+    date: r.startsAt,
+    time: clockTime(r.startsAt),
+    estate: r.estateName,
+    createdAt: r.messages.isEmpty ? r.startsAt : r.messages.first.sentAt,
+    chat: const [],
+    machineAt: r.providerAt,
+    estateAt: r.estateAt,
+  );
   int _tab = 0; // 0 upcoming, 1 completed
   late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _day;
@@ -57,19 +109,56 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   }
 
   Future<void> _open(MachineBooking b) async {
+    final record = _records.firstWhere((r) => r.id == b.id);
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => MachineryBookingStatusPage(booking: b),
+        builder: (_) => ProviderRequestPage(
+          request: record,
+          api: const MachineryApi(),
+          isOwner: true,
+        ),
       ),
     );
-    // It may have been cancelled in there.
-    if (mounted) setState(() {});
+    if (mounted) _load();
   }
 
   @override
   Widget build(BuildContext context) {
-    final List<MachineBooking> all = allMachineBookings();
+    if (_loading) {
+      return const OwnerPage(
+        child: Column(
+          children: [
+            OwnerHeader(title: 'My Bookings', subtitle: 'MACHINERY'),
+            Expanded(child: Center(child: CircularProgressIndicator())),
+          ],
+        ),
+      );
+    }
+    if (_error != null) {
+      return OwnerPage(
+        child: Column(
+          children: [
+            const OwnerHeader(title: 'My Bookings'),
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_error!),
+                      TextButton(onPressed: _load, child: const Text('Retry')),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    final List<MachineBooking> all = _records.map(_view).toList();
     final List<MachineBooking> upcoming =
         all.where((b) => !b.isCompleted).toList()
           ..sort((a, b) => a.date.compareTo(b.date));
@@ -89,13 +178,20 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     return OwnerPage(
       child: Column(
         children: [
-          const OwnerHeader(title: 'My Bookings', subtitle: 'MACHINERY'),
+          OwnerHeader(
+            title: 'My Bookings',
+            subtitle: 'MACHINERY',
+            actions: [
+              IconButton(
+                tooltip: 'Refresh bookings',
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           OwnerTabs(
-            labels: [
-              'Upcoming (${upcoming.length})',
-              'Completed (${done.length})',
-            ],
+            labels: ['Upcoming (${upcoming.length})', 'Past (${done.length})'],
             selected: _tab,
             onSelected: (i) => setState(() {
               _tab = i;
@@ -411,7 +507,9 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                                   ),
                                   const SizedBox(width: 6),
                                   OwnerPill(
-                                    done ? 'Completed' : 'Confirmed',
+                                    requestStatusLabel(
+                                      _records.firstWhere((r) => r.id == b.id),
+                                    ),
                                     icon: done
                                         ? Icons.done_all
                                         : Icons.check_circle_outline,

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/auth_service.dart';
+import '../services/machinery_api.dart';
+import '../services/api_client.dart';
+import '../models/provider_calendar.dart';
+import 'live_machinery_booking.dart';
 import '../widgets/machinery_widgets.dart';
 import '../widgets/owner_widgets.dart';
 import 'buyer/buyer_format.dart';
@@ -40,7 +44,7 @@ class _Service {
   final String name;
   final String photo;
   final String description;
-  final int rate;
+  final num rate;
   final String unit; // acre / day
   final String note;
 
@@ -189,8 +193,7 @@ class _Job {
     this.mine,
   });
 
-  int get amount =>
-      service.unit == 'day' ? service.rate : (service.rate * acres).round();
+  num get amount => service.rate * (service.unit == 'day' ? 1 : acres);
 }
 
 /// Sample bookings around today for one machine, for showing the idea to
@@ -317,12 +320,49 @@ class ServiceSchedulePage extends StatefulWidget {
 }
 
 class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
-  late final List<_Service> _svc = _servicesFor(widget.type);
-  late final Map<String, List<_Job>> _jobs = _demoJobs(
-    _svc,
-    // Stable per machine, so each one shows its own bookings.
-    (widget.machineName ?? '').codeUnits.fold(0, (a, b) => a + b) % 3,
-  );
+  bool get _live => widget.info?.databaseId != null;
+  Map<String, dynamic> _liveCalendar = const {};
+  Future<void> _loadLiveCalendar() async {
+    if (!_live) return;
+    try {
+      final data = await const MachineryApi().ownerCalendar(
+        widget.info!.databaseId!,
+        _month,
+      );
+      if (mounted) setState(() => _liveCalendar = data);
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+
+  late final List<_Service> _svc = _live
+      ? widget.info!.liveServices
+            .map(
+              (row) => _Service(
+                '${row['name']}',
+                _servicesFor(
+                      widget.type,
+                    ).where((s) => s.name == row['name']).firstOrNull?.photo ??
+                    '',
+                'Registered service',
+                double.parse('${row['rate']}'),
+                '${row['unit']}',
+                '',
+              ),
+            )
+            .toList()
+      : _servicesFor(widget.type);
+  late final Map<String, List<_Job>> _jobs = _live
+      ? {}
+      : _demoJobs(
+          _svc,
+          // Stable per machine, so each one shows its own bookings.
+          (widget.machineName ?? '').codeUnits.fold(0, (a, b) => a + b) % 3,
+        );
   late DateTime _day = _firstBookable();
   late DateTime _month = DateTime(_day.year, _day.month);
   final _selKey = GlobalKey();
@@ -336,6 +376,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   void initState() {
     super.initState();
     _pickDefault();
+    _loadLiveCalendar();
   }
 
   /// Start with the first free service ticked, so there is always a sensible
@@ -349,8 +390,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   double _amountOf(_Service s) =>
       s.unit == 'day' ? 1 : (_amounts[s.name] ?? (s.unit == 'hour' ? 4 : 4.5));
 
-  int _lineCost(_Service s) =>
-      s.unit == 'day' ? s.rate : (s.rate * _amountOf(s)).round();
+  num _lineCost(_Service s) => s.rate * (s.unit == 'day' ? 1 : _amountOf(s));
 
   List<_Service> _selectedOn(List<_Service> free) =>
       free.where((s) => _picked.contains(s.name)).toList();
@@ -376,8 +416,26 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   /// Demo jobs plus the bookings made while the app has been open.
   List<_Job> _on(DateTime d) => [
     ...(_jobs[_key(d)] ?? const <_Job>[]),
+    if (_live)
+      for (final slot in (_liveCalendar['reserved'] as List? ?? []))
+        if (providerDateKey(
+                  DateTime.parse(
+                    '${slot['starts_at']}',
+                  ).toUtc().add(const Duration(minutes: 330)),
+                ) ==
+                providerDateKey(d) &&
+            _svc.isNotEmpty)
+          _Job(
+            _svc.first,
+            _Status.confirmed,
+            'Reserved time slot',
+            0,
+            '${clockTime(DateTime.parse('${slot['starts_at']}').toUtc().add(const Duration(minutes: 330)))} - ${clockTime(DateTime.parse('${slot['ends_at']}').toUtc().add(const Duration(minutes: 330)))}',
+          ),
     for (final b
-        in machineBookings[widget.machineName] ?? const <MachineBooking>[])
+        in (_live
+            ? const <MachineBooking>[]
+            : machineBookings[widget.machineName] ?? const <MachineBooking>[]))
       if (_key(b.date) == _key(d))
         for (final i in b.items)
           _Job(
@@ -399,12 +457,22 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   ];
 
   List<_Service> _freeSvc(DateTime d) {
+    if (_live) return _svc;
     final Set<String> taken = {for (final j in _on(d)) j.service.name};
     return _svc.where((s) => !taken.contains(s.name)).toList();
   }
 
   _Day _stateOf(DateTime d) {
     if (d.isBefore(_today)) return _Day.past;
+    if (_live) {
+      final blocked = (_liveCalendar['days'] as List? ?? []).any(
+        (row) =>
+            '${row['day']}' == providerDateKey(d) &&
+            row['state'] != 'AVAILABLE',
+      );
+      if (blocked) return _Day.booked;
+      return _on(d).isEmpty ? _Day.free : _Day.pending;
+    }
     final List<_Job> jobs = _on(d);
     if (jobs.any((j) => j.status == _Status.confirmed)) return _Day.booked;
     if (jobs.isNotEmpty) return _Day.pending;
@@ -446,9 +514,28 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
 
   void _shift(int months) {
     setState(() => _month = DateTime(_month.year, _month.month + months));
+    _loadLiveCalendar();
   }
 
   Future<void> _negotiate(List<_Service> selected) async {
+    if (_live) {
+      await requestLiveMachinery(
+        context,
+        machineId: widget.info!.databaseId!,
+        date: _day,
+        items: [
+          for (final s in selected)
+            {
+              'service_id': widget.info!.liveServices.firstWhere(
+                (r) => r['name'] == s.name,
+              )['id'],
+              'quantity': _amountOf(s),
+            },
+        ],
+      );
+      if (mounted) _loadLiveCalendar();
+      return;
+    }
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -649,7 +736,9 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
                   const Icon(Icons.star, size: 14, color: Color(0xFFF2A900)),
                   const SizedBox(width: 3),
                   Text(
-                    '${m.rating}',
+                    (m.databaseId != null
+                        ? 'Registered provider'
+                        : '${m.rating}'),
                     style: const TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.bold,
@@ -657,7 +746,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
                     ),
                   ),
                   Text(
-                    ' (${m.jobs} jobs)',
+                    (m.databaseId != null ? '' : ' (${m.jobs} jobs)'),
                     style: const TextStyle(fontSize: 12, color: kOwnerMuted),
                   ),
                   if (widget.km > 0) ...[
@@ -716,7 +805,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
       ),
     );
 
-    final int total = selected.fold(0, (sum, s) => sum + _lineCost(s));
+    final num total = selected.fold<num>(0, (sum, s) => sum + _lineCost(s));
 
     return OwnerCard(
       child: Column(
@@ -905,7 +994,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   );
 
   Widget _bookBar(List<_Service> selected) {
-    final int total = selected.fold(0, (sum, s) => sum + _lineCost(s));
+    final num total = selected.fold<num>(0, (sum, s) => sum + _lineCost(s));
     final String detail = selected.isEmpty
         ? 'No service selected'
         : selected.length == 1
@@ -1194,6 +1283,22 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   }
 
   Widget _jobCardBody(_Job j) {
+    if (_live && j.estate == 'Reserved time slot') {
+      return OwnerCard(
+        child: Row(
+          children: [
+            const Icon(Icons.event_busy_outlined, color: kOwnerGreen),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Reserved: ${j.time}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final bool ok = j.status == _Status.confirmed;
     final Color c = ok ? _red : _amber;
     return Container(
