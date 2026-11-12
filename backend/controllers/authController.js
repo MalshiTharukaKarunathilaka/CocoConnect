@@ -2,6 +2,8 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 const { parseCoords } = require("../utils/geo");
+const { validateProvider } = require("../utils/providerValidation");
+const { storageInfo } = require("./healthController");
 
 const ROLES = ["BUYER", "ESTATE_OWNER", "ESTATE_MANAGER", "SERVICE_PROVIDER"];
 
@@ -9,7 +11,11 @@ const ROLES = ["BUYER", "ESTATE_OWNER", "ESTATE_MANAGER", "SERVICE_PROVIDER"];
 const normaliseRole = (role) =>
   String(role || "").trim().toUpperCase().replace(/\s+/g, "_");
 
-const normalisePhone = (phone) => String(phone || "").replace(/[\s-]/g, "");
+const normalisePhone = (phone) => {
+  const cleaned = String(phone || "").replace(/[\s()-]/g, "");
+  const mobile = cleaned.match(/^(?:\+?94|0)?(7\d{8})$/);
+  return mobile ? `0${mobile[1]}` : cleaned;
+};
 
 const publicUser = (user) => ({
   id: user.id,
@@ -37,6 +43,7 @@ const createToken = (user) =>
 |--------------------------------------------------------------------------
 */
 const signup = async (req, res) => {
+  let client;
   try {
     const { name, password, location } = req.body;
     const phone = normalisePhone(req.body.phone);
@@ -68,6 +75,17 @@ const signup = async (req, res) => {
       });
     }
 
+    const provider = req.body.service_provider;
+    if (provider) {
+      const fieldErrors = validateProvider(req.body, role, phone, coords);
+      if (Object.keys(fieldErrors).length) {
+        return res.status(400).json({
+          message: Object.values(fieldErrors)[0],
+          fieldErrors,
+        });
+      }
+    }
+
     const existing = await pool.query(
       "SELECT id FROM users WHERE phone = $1",
       [phone]
@@ -80,7 +98,9 @@ const signup = async (req, res) => {
 
     const passwordHash = await bcrypt.hash(String(password), 10);
 
-    const result = await pool.query(
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const result = await client.query(
       `INSERT INTO users
         (name, phone, password_hash, role, location, latitude, longitude)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -97,19 +117,39 @@ const signup = async (req, res) => {
     );
 
     const user = result.rows[0];
+    if (provider) {
+      await client.query(
+        `INSERT INTO service_providers
+          (user_id, identity_number, email, category, machinery_type, district, address, radius_km)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [user.id, provider.identity_number.trim(), (provider.email || "").trim() || null,
+         provider.category, provider.machinery_type, provider.district, provider.address.trim(), provider.radius_km]
+      );
+    }
+    const token = createToken(user);
+    await client.query("COMMIT");
 
     return res.status(201).json({
       message: "Account created successfully",
-      token: createToken(user),
+      storage: storageInfo(),
+      token,
       user: publicUser(user),
     });
   } catch (error) {
+    if (client) await client.query("ROLLBACK");
+    if (error.code === "23505") {
+      return res.status(409).json({ message: "This phone number is already registered" });
+    }
+    if (error.code === "42P01" && req.body.service_provider) {
+      return res.status(503).json({message: "Provider registration database setup is incomplete. Contact the project administrator."});
+    }
     console.error("Signup error:", error);
 
     return res.status(500).json({
       message: "Server error",
-      error: error.message,
     });
+  } finally {
+    if (client) client.release();
   }
 };
 
