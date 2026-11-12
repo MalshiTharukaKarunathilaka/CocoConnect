@@ -11,12 +11,13 @@ import '../../widgets/owner_widgets.dart';
 import '../account_dialogs.dart';
 import '../auth_gate.dart';
 import '../buyer/buyer_format.dart';
+import '../../theme/app_theme.dart';
 
-const _panel = Color(0xFFF0F2FF);
-const _background = Color(0xFFF8F8FF);
-const _green = Color(0xFF005331);
-const _incoming = Color(0xFF657167);
-const _available = Color(0xFF8AC7A4);
+const _panel = AppColors.page;
+const _background = AppColors.cream;
+const _green = AppColors.green;
+const _incoming = AppColors.gold;
+const _available = AppColors.greenMid;
 const _months = [
   'January',
   'February',
@@ -211,7 +212,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
     final name = TextEditingController();
     String category = 'Tractor';
     final form = GlobalKey<FormState>();
-    final values = await showDialog<Map<String, String>>(
+    final values = await showThemedDialog<Map<String, String>>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, change) => AlertDialog(
@@ -287,7 +288,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
         text: rate == null ? '' : '${rate.rate}',
       );
       final form = GlobalKey<FormState>();
-      final values = await showDialog<Map<String, dynamic>>(
+      final values = await showThemedDialog<Map<String, dynamic>>(
         context: context,
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, change) => AlertDialog(
@@ -391,7 +392,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
     final live = _live;
     if (live?.selectedMachineId == null) return;
     final remove = state == ProviderDayState.maintenance;
-    final yes = await showDialog<bool>(
+    final yes = await showThemedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(remove ? 'Reopen date?' : 'Block date for maintenance?'),
@@ -475,7 +476,10 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
       '${_weekdays[date.weekday - 1]}, ${_months[date.month - 1]} ${date.day}, ${date.year}';
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      AppThemeScope(child: Builder(builder: _page));
+
+  Widget _page(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFEFEFEF),
       body: Center(
@@ -494,7 +498,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
                         horizontal: 16,
                         vertical: 8,
                       ),
-                      color: const Color(0xFFE8EEFF),
+                      color: AppColors.infoSoft,
                       child: const Text(
                         'Calendar preview · Sample bookings and rates. Changes are not saved.',
                         style: TextStyle(fontSize: 12, color: kOwnerInk),
@@ -564,7 +568,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
                     selectedIndex: _tab,
                     onDestinationSelected: (value) =>
                         setState(() => _tab = value),
-                    backgroundColor: const Color(0xFFF9FAF7),
+                    backgroundColor: AppColors.surface,
                     indicatorColor: kOwnerGreenSoft,
                     height: 70,
                     labelTextStyle: const WidgetStatePropertyAll(
@@ -792,10 +796,10 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
     final background = selected
         ? _green
         : state == ProviderDayState.fullyBooked
-        ? const Color(0xFFFFE8E8)
+        ? AppColors.dangerSoft
         : closed
-        ? const Color(0xFFF1EADF)
-        : _panel;
+        ? AppColors.warningSoft
+        : AppColors.greenSoft;
     final description = switch (state) {
       ProviderDayState.available => 'Available slots',
       ProviderDayState.unavailable => 'Unavailable',
@@ -842,7 +846,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
                 children: [
                   if (day.confirmed > 0) _dot(selected ? Colors.white : _green),
                   if (day.incoming > 0)
-                    _dot(selected ? const Color(0xFFF4C982) : _incoming),
+                    _dot(selected ? AppColors.gold : _incoming),
                   _dot(switch (state) {
                     ProviderDayState.available => _available,
                     ProviderDayState.fullyBooked => kOwnerRed,

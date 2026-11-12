@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import '../services/location_service.dart';
 import 'location_picker_page.dart';
 import 'login_page.dart';
+import '../theme/app_theme.dart';
 
 const _green = kOwnerGreen;
 const _fill = kOwnerPanel;
@@ -270,7 +271,7 @@ class _RegistrationState extends State<ServiceProviderRegistrationPage> {
   InputDecoration _decoration(String hint, IconData icon, {Widget? suffix}) =>
       InputDecoration(
         hintText: hint,
-        prefixIcon: Icon(icon, size: 20, color: const Color(0xFF7B847C)),
+        prefixIcon: Icon(icon, size: 20, color: AppColors.muted),
         suffixIcon: suffix,
         filled: true,
         fillColor: _fill,
@@ -442,7 +443,10 @@ class _RegistrationState extends State<ServiceProviderRegistrationPage> {
   );
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      AppThemeScope(child: Builder(builder: _page));
+
+  Widget _page(BuildContext context) {
     final point = _location == null
         ? null
         : LatLng(_location!.latitude, _location!.longitude);
@@ -794,7 +798,7 @@ class _RegistrationState extends State<ServiceProviderRegistrationPage> {
                                         style: TextStyle(
                                           fontSize: 15,
                                           height: 1.5,
-                                          color: Color(0xFF455148),
+                                          color: AppColors.ink,
                                         ),
                                       ),
                                     ),
@@ -817,11 +821,9 @@ class _RegistrationState extends State<ServiceProviderRegistrationPage> {
                         FilledButton(
                           onPressed: _saving ? null : _submit,
                           style: FilledButton.styleFrom(
-                            backgroundColor: _green,
+                            backgroundColor: AppColors.green,
                             minimumSize: const Size.fromHeight(50),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                            shape: const StadiumBorder(),
                           ),
                           child: FutureBuilder<RegistrationStorage>(
                             future: _storage,

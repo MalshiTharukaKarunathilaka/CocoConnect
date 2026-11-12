@@ -3,6 +3,7 @@ import '../../models/provider_booking_request.dart';
 import '../../widgets/owner_widgets.dart';
 import '../buyer/buyer_format.dart';
 import 'provider_request_widgets.dart';
+import '../../theme/app_theme.dart';
 
 Future<ProviderBookingRequest?> showProviderBookingInquiry(
   BuildContext context, {
@@ -11,7 +12,7 @@ Future<ProviderBookingRequest?> showProviderBookingInquiry(
   bool isPreview = true,
 }) {
   if (requests.isEmpty) return Future.value();
-  return showModalBottomSheet<ProviderBookingRequest>(
+  return showThemedBottomSheet<ProviderBookingRequest>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
@@ -66,7 +67,7 @@ class _InquiryState extends State<_Inquiry> {
                       ),
                     ),
                     backgroundColor: request.isPending
-                        ? const Color(0xFFFFDAD6)
+                        ? AppColors.dangerSoft
                         : kOwnerGreenSoft,
                   ),
                 ),
@@ -177,7 +178,7 @@ class _InquiryState extends State<_Inquiry> {
                       ? 'AGREED RATE'
                       : 'CURRENT OFFER',
                   style: const TextStyle(
-                    color: Color(0xFFD5EADC),
+                    color: AppColors.greenSoft,
                     fontSize: 12,
                     letterSpacing: 1,
                   ),
@@ -203,11 +204,9 @@ class _InquiryState extends State<_Inquiry> {
           FilledButton.icon(
             onPressed: () => Navigator.pop(context, request),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF005331),
+              backgroundColor: AppColors.green,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              shape: const StadiumBorder(),
             ),
             icon: const Icon(Icons.arrow_forward, size: 18),
             iconAlignment: IconAlignment.end,

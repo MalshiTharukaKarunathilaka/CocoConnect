@@ -4,8 +4,9 @@ import '../../models/provider_booking_request.dart';
 import '../../widgets/owner_widgets.dart';
 import '../account_dialogs.dart';
 import '../buyer/buyer_format.dart';
+import '../../theme/app_theme.dart';
 
-const providerRequestPanel = Color(0xFFF0F2FF);
+const providerRequestPanel = AppColors.page;
 
 String requestDate(DateTime date) {
   const weekdays = [
@@ -39,7 +40,7 @@ Future<void> showCustomerContact(
   BuildContext context,
   ProviderBookingRequest request, {
   bool ownerView = false,
-}) => showDialog<void>(
+}) => showThemedDialog<void>(
   context: context,
   builder: (ctx) => AlertDialog(
     title: Text(

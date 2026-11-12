@@ -7,6 +7,7 @@ import '../../services/machinery_api.dart';
 import '../../widgets/owner_widgets.dart';
 import '../buyer/buyer_format.dart';
 import 'provider_request_widgets.dart';
+import '../../theme/app_theme.dart';
 
 class ProviderRequestPage extends StatefulWidget {
   final ProviderBookingRequest request;
@@ -120,7 +121,7 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
       await _perform('agree');
       return;
     }
-    final yes = await showDialog<bool>(
+    final yes = await showThemedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(
@@ -161,7 +162,7 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
   }
 
   Future<void> _cancelOwner() async {
-    final yes = await showDialog<bool>(
+    final yes = await showThemedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cancel booking request?'),
@@ -215,7 +216,10 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
         ),
       );
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      AppThemeScope(child: Builder(builder: _page));
+
+  Widget _page(BuildContext context) {
     final request = _request;
     final offerIsMine = widget.isOwner
         ? request.proposedBy == RequestSpeaker.owner
@@ -487,11 +491,9 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
                     FilledButton(
                       onPressed: _canAccept ? () => _finish(true) : null,
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF005331),
+                        backgroundColor: AppColors.green,
                         minimumSize: const Size.fromHeight(50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        shape: const StadiumBorder(),
                       ),
                       child: Text(
                         widget.isOwner

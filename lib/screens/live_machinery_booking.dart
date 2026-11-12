@@ -4,6 +4,7 @@ import '../services/machinery_api.dart';
 import '../services/api_client.dart';
 import '../widgets/owner_widgets.dart';
 import 'provider/provider_request_page.dart';
+import '../theme/app_theme.dart';
 
 /// Captures the explicit interval missing from the old demonstration booking.
 Future<void> requestLiveMachinery(
@@ -12,7 +13,7 @@ Future<void> requestLiveMachinery(
   required DateTime date,
   required List<Map<String, dynamic>> items,
 }) async {
-  final request = await showDialog<Map<String, dynamic>>(
+  final request = await showThemedDialog<Map<String, dynamic>>(
     context: context,
     builder: (_) => _RequestDialog(date: date, items: items),
   );
@@ -103,6 +104,7 @@ class _RequestDialogState extends State<_RequestDialog> {
                 final time = await showTimePicker(
                   context: context,
                   initialTime: _start,
+                  builder: themedPicker,
                 );
                 if (time != null && mounted) setState(() => _start = time);
               },
@@ -115,6 +117,7 @@ class _RequestDialogState extends State<_RequestDialog> {
                 final time = await showTimePicker(
                   context: context,
                   initialTime: _end,
+                  builder: themedPicker,
                 );
                 if (time != null && mounted) setState(() => _end = time);
               },
