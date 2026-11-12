@@ -416,3 +416,71 @@ test("deals: owner accepts buyer's offer, completes with actual figures", async 
   assert.ok(acceptedOffer.order_id, "accepted offer links to its order");
   assert.equal(acceptedOffer.order_status, "ACCEPTED");
 });
+
+test("worker acceptance appears in the estate owner's job details", async () => {
+  const worker = await signup(
+    "Day Worker",
+    "0719999999",
+    "WORKER",
+    "Kandy"
+  );
+  const created = await call("POST", "/api/owner/day-jobs", {
+    token: owner.token,
+    body: {
+      category: "Nut Gatherer",
+      workersNeeded: 1,
+      requiredDate: "2026-12-22",
+      location: "Hill Top Estate",
+      dailyRate: 2500,
+      paymentMethod: "Cash",
+    },
+  });
+  assert.equal(created.status, 201);
+
+  const applied = await call(
+    "POST",
+    `/api/worker/jobs/${created.data.id}/apply`,
+    { token: worker.token }
+  );
+  assert.equal(applied.status, 201);
+  assert.equal(applied.data.status, "ACCEPTED");
+
+  const jobs = await call("GET", "/api/owner/day-jobs", { token: owner.token });
+  const job = jobs.data.find((item) => item.id === created.data.id);
+  assert.equal(job.confirmed_workers, 1);
+  assert.deepEqual(job.accepted_workers, [{ id: 1, name: "Day Worker" }]);
+
+  const ownerChat = await call("POST", "/api/day-job-chats", {
+    token: owner.token,
+    body: { jobId: created.data.id, workerId: 1 },
+  });
+  assert.equal(ownerChat.status, 200);
+  const sent = await call(
+    "POST",
+    `/api/day-job-chats/${ownerChat.data.id}/messages`,
+    { token: owner.token, body: { message: "Please arrive at 7:30 AM." } }
+  );
+  assert.equal(sent.status, 201);
+
+  const workerChat = await call(
+    "GET",
+    `/api/day-job-chats/${ownerChat.data.id}`,
+    { token: worker.token }
+  );
+  assert.equal(workerChat.status, 200);
+  assert.equal(workerChat.data.counterpart_name, "Hill Top Estate");
+  assert.equal(workerChat.data.messages[0].message, "Please arrive at 7:30 AM.");
+
+  const workerSent = await call(
+    "POST",
+    `/api/day-job-chats/${ownerChat.data.id}/messages`,
+    { token: worker.token, body: { message: "I will be there." } }
+  );
+  assert.equal(workerSent.status, 201);
+  const ownerView = await call(
+    "GET",
+    `/api/day-job-chats/${ownerChat.data.id}`,
+    { token: owner.token }
+  );
+  assert.equal(ownerView.data.messages[1].message, "I will be there.");
+});
