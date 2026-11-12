@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/owner_service.dart';
 import 'accepted_workers_page.dart';
 
 const Color _detailGreen = Color(0xFF2A704E);
@@ -6,21 +7,19 @@ const Color _detailBackground = Color(0xFFFCF9F3);
 const Color _detailInk = Color(0xFF193126);
 
 class JobDetailPage extends StatelessWidget {
-  final DateTime date;
+  final DayJob job;
 
-  const JobDetailPage({super.key, required this.date});
-
-  static const List<_Worker> _workers = [
-    _Worker('Kamal Bandara', Icons.person),
-    _Worker('Sunil Shantha', Icons.person_outline),
-    _Worker('Chaminda Silva', Icons.person),
-  ];
+  const JobDetailPage({super.key, required this.job});
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final selectedDate = DateTime(date.year, date.month, date.day);
+    final selectedDate = DateTime(
+      job.requiredDate.year,
+      job.requiredDate.month,
+      job.requiredDate.day,
+    );
     final isUpcoming = !selectedDate.isBefore(today);
 
     return Scaffold(
@@ -71,8 +70,8 @@ class JobDetailPage extends StatelessWidget {
                       color: Color(0xFFA8EDC5),
                       shape: BoxShape.circle,
                     ),
-                    child: const Text(
-                      '3',
+                    child: Text(
+                      '${job.acceptedWorkers.length}',
                       style: TextStyle(
                         color: _detailGreen,
                         fontSize: 18,
@@ -83,8 +82,8 @@ class JobDetailPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 22),
-              for (final worker in _workers) ...[
-                _workerCard(context, worker),
+              for (final worker in job.acceptedWorkers) ...[
+                _workerCard(context, _Worker(worker.name, Icons.person)),
                 const SizedBox(height: 20),
               ],
             ],
@@ -133,7 +132,7 @@ class JobDetailPage extends StatelessWidget {
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const AcceptedWorkersPage(),
+                      builder: (_) => AcceptedWorkersPage(job: job),
                     ),
                   ),
                   icon: const Icon(Icons.arrow_forward, size: 26),
@@ -170,28 +169,30 @@ class JobDetailPage extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: const LinearProgressIndicator(
-              value: 0,
+            child: LinearProgressIndicator(
+              value: job.workersNeeded == 0
+                  ? 0
+                  : job.confirmedWorkers / job.workersNeeded,
               minHeight: 10,
               backgroundColor: Color(0xFFEDE7DC),
               color: _detailGreen,
             ),
           ),
           const SizedBox(height: 24),
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '0 Accepted',
-                style: TextStyle(
+              '${job.confirmedWorkers} Accepted',
+              style: const TextStyle(
                   color: _detailInk,
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
-                'Target: 5 Workers',
-                style: TextStyle(
+              'Target: ${job.workersNeeded} Workers',
+              style: const TextStyle(
                   color: _detailInk,
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
@@ -269,8 +270,8 @@ class JobDetailPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Nut Gatherers Required',
+          Text(
+            job.category,
             style: TextStyle(
               color: _detailInk,
               fontSize: 25,
@@ -279,21 +280,22 @@ class JobDetailPage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Green Valley Estate',
+            'Estate job',
             style: TextStyle(color: Color(0xFF65766C), fontSize: 18),
           ),
           const SizedBox(height: 28),
           _infoTile(
             Icons.location_on_outlined,
             'Location',
-            'Wattegama Road, Kurunegala',
+            job.location,
           ),
           const SizedBox(height: 16),
           _infoTile(
             Icons.calendar_today_outlined,
             'Date & Hours',
-            '${date.day.toString().padLeft(2, '0')} '
-                '${_months[date.month - 1].substring(0, 3)} ${date.year} '
+            '${job.requiredDate.day.toString().padLeft(2, '0')} '
+                '${_months[job.requiredDate.month - 1].substring(0, 3)} '
+                '${job.requiredDate.year} '
                 '(7:30 AM - 4:30 PM)',
           ),
           const SizedBox(height: 16),
@@ -305,16 +307,16 @@ class JobDetailPage extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: const Color(0xFFE7E0D4)),
             ),
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Daily Rate',
                   style: TextStyle(color: Color(0xFF65766C), fontSize: 17),
                 ),
                 Text(
-                  'Rs. 2,500',
-                  style: TextStyle(
+                  'Rs. ${job.dailyRate.toStringAsFixed(0)}',
+                  style: const TextStyle(
                     color: _detailGreen,
                     fontSize: 23,
                     fontWeight: FontWeight.bold,

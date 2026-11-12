@@ -54,6 +54,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
     }
   }
 
+  @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
@@ -125,6 +126,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
               for (final job in jobs)
                 _jobCard(
                   context,
+                  job: job,
                   title: job.category,
                   time: 'Day job',
                   rate: 'Rs. ${job.dailyRate.toStringAsFixed(0)}',
@@ -187,6 +189,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
               for (final job in jobs)
                 _allocationCard(
                   context,
+                  job: job,
                   title: job.category,
                   status: job.confirmedWorkers >= job.workersNeeded
                       ? 'Fully Filled'
@@ -331,6 +334,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
 
   Widget _allocationCard(
     BuildContext context, {
+    required DayJob job,
     required String title,
     required String status,
     required int confirmed,
@@ -431,7 +435,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => JobDetailPage(date: widget.date),
+                  builder: (_) => JobDetailPage(job: job),
                 ),
               ),
               icon: const Icon(Icons.arrow_forward, size: 22),
@@ -580,6 +584,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
 
   Widget _jobCard(
     BuildContext context, {
+    required DayJob job,
     required String title,
     required String time,
     required String rate,
@@ -678,8 +683,12 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => JobDetailPage(date: widget.date),
+                  builder: (_) => JobDetailPage(job: job),
                 ),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: _scheduledGreen,
+                padding: EdgeInsets.zero,
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -695,10 +704,6 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                   SizedBox(width: 8),
                   Icon(Icons.arrow_forward, size: 26),
                 ],
-              ),
-              style: TextButton.styleFrom(
-                foregroundColor: _scheduledGreen,
-                padding: EdgeInsets.zero,
               ),
             ),
           ),

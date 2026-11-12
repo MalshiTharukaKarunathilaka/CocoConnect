@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../services/owner_service.dart';
 import 'post_day_job_page.dart';
 import 'scheduled_jobs_page.dart';
 
@@ -18,6 +19,7 @@ class EstateOwnerCalendarPage extends StatefulWidget {
 class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _selectedDay;
+  List<DayJob> _postedJobs = [];
 
   static const List<String> _weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   static const List<String> _months = [
@@ -34,37 +36,6 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     'November',
     'December',
   ];
-
-  final Map<int, Color> _dayStatuses = const {
-    8: Color(0xFFF0A315),
-    15: _calendarGreen,
-    16: _calendarGreen,
-    17: _calendarGreen,
-    19: _calendarGreen,
-    20: Color(0xFFF0A315),
-    22: _calendarGreen,
-    24: Color(0xFFF0A315),
-    25: _calendarGreen,
-    26: _calendarGreen,
-    28: _calendarGreen,
-    30: Color(0xFFF0A315),
-  };
-
-  final Map<int, IconData> _dayTypes = const {
-    7: Icons.agriculture,
-    8: Icons.agriculture,
-    12: Icons.build,
-    15: Icons.agriculture,
-    17: Icons.build,
-    19: Icons.agriculture,
-    20: Icons.eco,
-    22: Icons.eco,
-    24: Icons.build,
-    25: Icons.star_border,
-    26: Icons.eco,
-    28: Icons.eco,
-    30: Icons.agriculture,
-  };
 
   static const Set<String> _poyaDays2026 = {
     '2026-01-03',
@@ -86,6 +57,18 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   void initState() {
     super.initState();
     _selectedDay = DateTime(_month.year, _month.month, 15);
+    _loadPostedJobs();
+  }
+
+  Future<void> _loadPostedJobs() async {
+    try {
+      final jobs = await OwnerService.getDayJobs();
+      if (mounted) {
+        setState(() => _postedJobs = jobs);
+      }
+    } catch (error) {
+      debugPrint('Could not load posted jobs for calendar: $error');
+    }
   }
 
   void _changeMonth(int amount) {
@@ -93,6 +76,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
       _month = DateTime(_month.year, _month.month + amount);
       _selectedDay = null;
     });
+    _loadPostedJobs();
   }
 
   void _selectDay(DateTime day) {
@@ -133,7 +117,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             MaterialPageRoute(
               builder: (_) => PostDayJobPage(requiredDate: selectedDay),
             ),
-          );
+          ).then((_) => _loadPostedJobs());
         },
         onViewJobs: () {
           Navigator.pop(context);
@@ -492,42 +476,31 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
         : day;
     final bool isPreviewDay = isPreviousMonth || isNextMonth;
     final DateTime cellDate = DateTime(_month.year, _month.month, day);
-    final DateTime today = DateTime.now();
-    final DateTime todayDate = DateTime(today.year, today.month, today.day);
-    final bool isGreenDate =
-        !isPreviewDay &&
-        ((_month.year == 2026 &&
-                _month.month == DateTime.november &&
-                const {
-                  6,
-                  7,
-                  8,
-                  9,
-                  10,
-                  11,
-                  12,
-                  13,
-                  14,
-                  18,
-                  20,
-                  21,
-                  23,
-                  24,
-                  27,
-                  29,
-                  30,
-                }.contains(displayDay)) ||
-            (_month.year == 2026 && _month.month == DateTime.december) ||
-            _month.year == 2027);
-    final bool isPastDay = !isPreviewDay && cellDate.isBefore(todayDate);
-    final bool isTodayOrFuture = !isPreviewDay && !isPastDay;
-
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final isPastDay = !isPreviewDay && cellDate.isBefore(todayDate);
+    final isTodayOrFuture = !isPreviewDay && !isPastDay;
+    DayJob? postedJob;
+    for (final job in _postedJobs) {
+      if (job.requiredDate.year == cellDate.year &&
+          job.requiredDate.month == cellDate.month &&
+          job.requiredDate.day == cellDate.day) {
+        postedJob = job;
+        break;
+      }
+    }
     final selected =
         _selectedDay?.year == cellDate.year &&
         _selectedDay?.month == cellDate.month &&
         _selectedDay?.day == cellDate.day;
-    final statusColor = isPreviewDay ? null : _dayStatuses[day];
-    final dayType = isPreviewDay ? null : _dayTypes[day];
+    final statusColor = isPreviewDay || postedJob == null
+        ? null
+        : postedJob.confirmedWorkers >= postedJob.workersNeeded
+        ? _calendarGreen
+        : const Color(0xFFF0A315);
+    final dayType = isPreviewDay || postedJob == null
+        ? null
+        : _iconForJobCategory(postedJob.category);
     final isPoyaDay =
         !isPreviewDay &&
         _poyaDays2026.contains(
@@ -548,17 +521,9 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                 ? _calendarGreen
                 : isPreviewDay
                 ? const Color(0xFFF4F3F0)
-                : isGreenDate
-                ? const Color(0xFFBDD3C4)
-                : isPastDay
-                ? const Color(0xFFEBE9E3)
                 : isTodayOrFuture
                 ? const Color(0xFFBDD3C4)
-                : statusColor == null
-                ? const Color(0xFFEBE9E3)
-                : statusColor == const Color(0xFFF0A315)
-                ? const Color(0xFFF0EEE8)
-                : const Color(0xFFBDD3C4),
+                : const Color(0xFFEBE9E3),
             borderRadius: BorderRadius.circular(17),
             border: isNextMonth && displayDay == 1
                 ? Border.all(color: const Color(0xFF2A9F78), width: 1.5)
@@ -638,6 +603,20 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
         ),
       ),
     );
+  }
+
+  IconData _iconForJobCategory(String category) {
+    final value = category.toLowerCase();
+    if (value.contains('machine') || value.contains('weeder')) {
+      return Icons.agriculture;
+    }
+    if (value.contains('nut') || value.contains('gather')) {
+      return Icons.eco;
+    }
+    if (value.contains('holiday')) {
+      return Icons.star_border;
+    }
+    return Icons.build;
   }
 }
 
