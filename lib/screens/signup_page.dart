@@ -5,6 +5,7 @@ import '../services/location_service.dart';
 import '../widgets/auth_widgets.dart';
 import 'auth_gate.dart';
 import 'location_picker_page.dart';
+import 'service_provider_registration_page.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -171,7 +172,19 @@ class _SignupPageState extends State<SignupPage> {
                     return RoleChip(
                       label: role,
                       isSelected: _selectedRole == role,
-                      onTap: () => setState(() => _selectedRole = role),
+                      onTap: () {
+                        if (role == 'Service Provider') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const ServiceProviderRegistrationPage(),
+                            ),
+                          );
+                        } else {
+                          setState(() => _selectedRole = role);
+                        }
+                      },
                     );
                   }).toList(),
                 ),
