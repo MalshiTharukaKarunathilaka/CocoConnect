@@ -850,7 +850,37 @@ const getDayJobs = async (req, res) => {
       params
     );
 
-    return res.status(200).json(result.rows);
+    const jobs = result.rows;
+    const acceptedWorkers = new Map();
+    if (jobs.length > 0) {
+      const jobParams = jobs.map((job) => job.id);
+      const placeholders = jobParams.map((_, index) => `$${index + 1}`).join(", ");
+      const workers = await pool.query(
+        `SELECT
+           dja.day_job_id,
+           dja.worker_id AS id,
+           COALESCE(u.name, 'Worker') AS name
+         FROM day_job_applications dja
+         JOIN worker w ON w.id = dja.worker_id
+         LEFT JOIN users u ON u.id = w.user_id
+         WHERE dja.day_job_id IN (${placeholders})
+           AND UPPER(dja.status) = 'ACCEPTED'
+         ORDER BY dja.created_at, dja.id`,
+        jobParams
+      );
+      for (const worker of workers.rows) {
+        const list = acceptedWorkers.get(worker.day_job_id) || [];
+        list.push({ id: worker.id, name: worker.name });
+        acceptedWorkers.set(worker.day_job_id, list);
+      }
+    }
+
+    return res.status(200).json(
+      jobs.map((job) => ({
+        ...job,
+        accepted_workers: acceptedWorkers.get(job.id) || [],
+      }))
+    );
   } catch (error) {
     if (error.code === "42P01") {
       return res.status(500).json({
