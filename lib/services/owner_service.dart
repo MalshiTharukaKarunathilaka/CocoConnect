@@ -29,6 +29,7 @@ class DayJob {
   final String paymentMethod;
   final String status;
   final int confirmedWorkers;
+  final List<AcceptedWorker> acceptedWorkers;
 
   const DayJob({
     required this.id,
@@ -40,6 +41,7 @@ class DayJob {
     required this.paymentMethod,
     required this.status,
     required this.confirmedWorkers,
+    required this.acceptedWorkers,
   });
 
   factory DayJob.fromJson(Map<String, dynamic> json) => DayJob(
@@ -52,6 +54,21 @@ class DayJob {
     paymentMethod: json['payment_method'] as String? ?? '',
     status: json['status'] as String? ?? 'OPEN',
     confirmedWorkers: (json['confirmed_workers'] as num?)?.toInt() ?? 0,
+    acceptedWorkers: ((json['accepted_workers'] as List<dynamic>?) ?? const [])
+        .map((item) => AcceptedWorker.fromJson(item as Map<String, dynamic>))
+        .toList(),
+  );
+}
+
+class AcceptedWorker {
+  final int id;
+  final String name;
+
+  const AcceptedWorker({required this.id, required this.name});
+
+  factory AcceptedWorker.fromJson(Map<String, dynamic> json) => AcceptedWorker(
+    id: (json['id'] as num).toInt(),
+    name: json['name'] as String? ?? 'Worker',
   );
 }
 
@@ -264,10 +281,10 @@ class OwnerService {
     return DayJob.fromJson(data as Map<String, dynamic>);
   }
 
-  static Future<List<DayJob>> getDayJobs(DateTime date) async {
+  static Future<List<DayJob>> getDayJobs([DateTime? date]) async {
     final data = await ApiClient.get(
       '/api/owner/day-jobs',
-      query: {'date': _isoDate(date)},
+      query: date == null ? null : {'date': _isoDate(date)},
     );
     return (data as List)
         .map((item) => DayJob.fromJson(item as Map<String, dynamic>))
