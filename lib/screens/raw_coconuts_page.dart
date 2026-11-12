@@ -16,14 +16,17 @@ class RawCoconutsPage extends StatefulWidget {
 }
 
 class _RawCoconutsPageState extends State<RawCoconutsPage> {
-  final TextEditingController quantityController =
-  TextEditingController(text: '1200');
+  final TextEditingController quantityController = TextEditingController(
+    text: '1200',
+  );
 
-  final TextEditingController dateController =
-  TextEditingController(text: 'mm/dd/yyyy');
+  final TextEditingController dateController = TextEditingController(
+    text: 'mm/dd/yyyy',
+  );
 
-  final TextEditingController priceController =
-  TextEditingController(text: 'Rs. 130.00');
+  final TextEditingController priceController = TextEditingController(
+    text: 'Rs. 130.00',
+  );
 
   bool showSummary = false;
 
@@ -53,12 +56,12 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
   bool get matching => matchHarvest && harvestDate != null;
 
   Future<List<OpenBuyerRequest>> loadBuyers() => OwnerService.getBuyerRequests(
-        productType: 'RAW_COCONUT',
-        radiusKm: buyerRadiusKm,
-        sort: buyerSort,
-        availableDate: matching ? harvestDate : null,
-        maxQuantity: matching ? harvestQuantity : null,
-      );
+    productType: 'RAW_COCONUT',
+    radiusKm: buyerRadiusKm,
+    sort: buyerSort,
+    availableDate: matching ? harvestDate : null,
+    maxQuantity: matching ? harvestQuantity : null,
+  );
 
   Future<void> openBuyerFilter() async {
     final BuyerFilter? picked = await showBuyerFilterSheet(context, (
@@ -157,7 +160,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
     if (pickedDate != null) {
       setState(() {
         dateController.text =
-        '${pickedDate.month.toString().padLeft(2, '0')}/${pickedDate.day.toString().padLeft(2, '0')}/${pickedDate.year}';
+            '${pickedDate.month.toString().padLeft(2, '0')}/${pickedDate.day.toString().padLeft(2, '0')}/${pickedDate.year}';
       });
       // Show the buyers this harvest fits.
       matchHarvest = true;
@@ -170,9 +173,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
         dateController.text == 'mm/dd/yyyy' ||
         priceController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all sell details'),
-        ),
+        const SnackBar(content: Text('Please fill all sell details')),
       );
       return;
     }
@@ -192,80 +193,76 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
     priceController.dispose();
     super.dispose();
   }
-  
+
   String convertDateToDatabaseFormat(String dateText) {
-  final parts = dateText.split('/');
+    final parts = dateText.split('/');
 
-  if (parts.length != 3) {
-    return dateText;
-  }
-
-  final month = parts[0].padLeft(2, '0');
-  final day = parts[1].padLeft(2, '0');
-  final year = parts[2];
-
-  return '$year-$month-$day';
-}
-
-Future<void> saveListingToDatabase() async {
-  try {
-    if (quantityController.text.trim().isEmpty ||
-        dateController.text == 'mm/dd/yyyy' ||
-        priceController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all sell details'),
-        ),
-      );
-      return;
+    if (parts.length != 3) {
+      return dateText;
     }
-    final int quantity = int.parse(
-      quantityController.text.replaceAll(',', '').trim(),
-    );
 
-    final double price = double.parse(
-      priceController.text
-          .replaceAll('Rs.', '')
-          .replaceAll('Rs', '')
-          .replaceAll(',', '')
-          .trim(),
-    );
+    final month = parts[0].padLeft(2, '0');
+    final day = parts[1].padLeft(2, '0');
+    final year = parts[2];
 
-    final String availableDate =
-        convertDateToDatabaseFormat(dateController.text.trim());
-
-    // Saved under the logged-in owner's estate.
-    await OwnerService.createListing(
-      productType: 'RAW_COCONUT',
-      quantity: quantity,
-      availableDate: availableDate,
-      pricePerUnit: price,
-    );
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Sell listing saved successfully'),
-      ),
-    );
-
-    setState(() {
-      showSummary = true;
-      //quantityController.clear();
-      //dateController.text = 'mm/dd/yyyy';
-      //priceController.text = 'Rs. 130.00';
-    });
-  } catch (error) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Sell listing saved successfully'),
-      ),
-    );
+    return '$year-$month-$day';
   }
-}
+
+  Future<void> saveListingToDatabase() async {
+    try {
+      if (quantityController.text.trim().isEmpty ||
+          dateController.text == 'mm/dd/yyyy' ||
+          priceController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please fill all sell details')),
+        );
+        return;
+      }
+      final int quantity = int.parse(
+        quantityController.text.replaceAll(',', '').trim(),
+      );
+
+      final double price = double.parse(
+        priceController.text
+            .replaceAll('Rs.', '')
+            .replaceAll('Rs', '')
+            .replaceAll(',', '')
+            .trim(),
+      );
+
+      final String availableDate = convertDateToDatabaseFormat(
+        dateController.text.trim(),
+      );
+
+      // Saved under the logged-in owner's estate.
+      await OwnerService.createListing(
+        productType: 'RAW_COCONUT',
+        quantity: quantity,
+        availableDate: availableDate,
+        pricePerUnit: price,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sell listing saved successfully')),
+      );
+
+      setState(() {
+        showSummary = true;
+        //quantityController.clear();
+        //dateController.text = 'mm/dd/yyyy';
+        //priceController.text = 'Rs. 130.00';
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sell listing saved successfully')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -400,33 +397,33 @@ Future<void> saveListingToDatabase() async {
                           GestureDetector(
                             onTap: openBuyerFilter,
                             child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 9,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8F5E9),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(
-                                  Icons.filter_list,
-                                  size: 13,
-                                  color: Color(0xFF2E7D32),
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Filter',
-                                  style: TextStyle(
-                                    fontSize: 10,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8F5E9),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(
+                                    Icons.filter_list,
+                                    size: 13,
                                     color: Color(0xFF2E7D32),
-                                    fontWeight: FontWeight.bold,
                                   ),
-                                ),
-                              ],
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Filter',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF2E7D32),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
                           ),
                         ],
                       ),
@@ -467,108 +464,120 @@ Future<void> saveListingToDatabase() async {
                       ),
 
                       const SizedBox(height: 14),
-if (matching) buildHarvestMatchNote(),
-FutureBuilder<List<OpenBuyerRequest>>(
-  future: buyersFuture,
-  builder: (context, snapshot) {
-    if (snapshot.connectionState != ConnectionState.done) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
+                      if (matching) buildHarvestMatchNote(),
+                      FutureBuilder<List<OpenBuyerRequest>>(
+                        future: buyersFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState !=
+                              ConnectionState.done) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
 
-    if (snapshot.hasError) {
-      final Object error = snapshot.error!;
-      return Text(
-        error is ApiException ? error.message : 'Failed to load buyers',
-        style: const TextStyle(color: Colors.red),
-      );
-    }
+                          if (snapshot.hasError) {
+                            final Object error = snapshot.error!;
+                            return Text(
+                              error is ApiException
+                                  ? error.message
+                                  : 'Failed to load buyers',
+                              style: const TextStyle(color: Colors.red),
+                            );
+                          }
 
-    final buyers = snapshot.data ?? [];
+                          final buyers = snapshot.data ?? [];
 
-    if (buyers.isEmpty) {
-      return Text(
-        matching
-            ? 'No buyer requests fit this harvest yet. Tap Show all to see '
-                  'every request.'
-            : buyerRadiusKm == null
-            ? 'No buyers are requesting raw coconuts right now'
-            : 'No buyers within $buyerRadiusKm km right now. Try a wider '
-                  'distance.',
-      );
-    }
+                          if (buyers.isEmpty) {
+                            return Text(
+                              matching
+                                  ? 'No buyer requests fit this harvest yet. Tap Show all to see '
+                                        'every request.'
+                                  : buyerRadiusKm == null
+                                  ? 'No buyers are requesting raw coconuts right now'
+                                  : 'No buyers within $buyerRadiusKm km right now. Try a wider '
+                                        'distance.',
+                            );
+                          }
 
-    return Column(
-      children: buyers.map((buyer) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: InterestedBuyerCard(
-            iconLetter:
-                buyer.buyerName.isNotEmpty ? buyer.buyerName[0] : '?',
-            buyerName: buyer.buyerName,
-            trustScore: buyer.trustScore == null
-                ? 'NEW'
-                : '${buyer.trustScore}/5',
-            price: buyer.offerSent
-                ? 'Offered ${rupees(buyer.myOfferPrice!)}'
-                : rupees(buyer.bidPerUnit),
-            quantity: '${withCommas(buyer.quantity)} nuts',
-            pickupDate: shortDate(buyer.requiredDate),
-            distance: distanceLabel(buyer.distanceKm),
-            onTap: () async {
-              if (buyer.offerSent) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'You already offered ${rupees(buyer.myOfferPrice!)} '
-                      'per nut to ${buyer.buyerName}',
-                    ),
-                  ),
-                );
-                return;
-              }
+                          return Column(
+                            children: buyers.map((buyer) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: InterestedBuyerCard(
+                                  iconLetter: buyer.buyerName.isNotEmpty
+                                      ? buyer.buyerName[0]
+                                      : '?',
+                                  buyerName: buyer.buyerName,
+                                  trustScore: buyer.trustScore == null
+                                      ? 'NEW'
+                                      : '${buyer.trustScore}/5',
+                                  price: buyer.offerSent
+                                      ? 'Offered ${rupees(buyer.myOfferPrice!)}'
+                                      : rupees(buyer.bidPerUnit),
+                                  quantity:
+                                      '${withCommas(buyer.quantity)} nuts',
+                                  pickupDate: shortDate(buyer.requiredDate),
+                                  distance: distanceLabel(buyer.distanceKm),
+                                  onTap: () async {
+                                    if (buyer.offerSent) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'You already offered ${rupees(buyer.myOfferPrice!)} '
+                                            'per nut to ${buyer.buyerName}',
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
 
-              final double sellerOfferPrice = double.tryParse(
-                    priceController.text
-                        .replaceAll('Rs.', '')
-                        .replaceAll('Rs', '')
-                        .replaceAll(',', '')
-                        .trim(),
-                  ) ??
-                  0;
+                                    final double sellerOfferPrice =
+                                        double.tryParse(
+                                          priceController.text
+                                              .replaceAll('Rs.', '')
+                                              .replaceAll('Rs', '')
+                                              .replaceAll(',', '')
+                                              .trim(),
+                                        ) ??
+                                        0;
 
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SellRequestPage(
-                    buyerId: buyer.id,
-                    buyerName: buyer.buyerName,
-                    location: buyer.location ?? '',
-                    requestedQuantity: buyer.quantity,
-                    requiredDate: buyer.requiredDate == null
-                        ? ''
-                        : buyer.requiredDate!.toIso8601String().substring(0, 10),
-                    productType: buyer.productType,
-                    buyerBiddingPrice: buyer.bidPerUnit,
-                    sellerOfferPricePerUnit: sellerOfferPrice > 0
-                        ? sellerOfferPrice
-                        : buyer.bidPerUnit,
-                  ),
-                ),
-              );
-              if (!mounted) return;
-              setState(() {
-                buyersFuture = loadBuyers();
-              });
-            },
-          ),
-        );
-      }).toList(),
-    );
-  },
-),
-        
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => SellRequestPage(
+                                          buyerId: buyer.id,
+                                          buyerName: buyer.buyerName,
+                                          location: buyer.location ?? '',
+                                          requestedQuantity: buyer.quantity,
+                                          requiredDate:
+                                              buyer.requiredDate == null
+                                              ? ''
+                                              : buyer.requiredDate!
+                                                    .toIso8601String()
+                                                    .substring(0, 10),
+                                          productType: buyer.productType,
+                                          buyerBiddingPrice: buyer.bidPerUnit,
+                                          sellerOfferPricePerUnit:
+                                              sellerOfferPrice > 0
+                                              ? sellerOfferPrice
+                                              : buyer.bidPerUnit,
+                                        ),
+                                      ),
+                                    );
+                                    if (!mounted) return;
+                                    setState(() {
+                                      buyersFuture = loadBuyers();
+                                    });
+                                  },
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -622,10 +631,7 @@ FutureBuilder<List<OpenBuyerRequest>>(
           const SizedBox(height: 16),
 
           const FormLabel(text: 'NUMBER OF UNITS'),
-          CustomInputField(
-            controller: quantityController,
-            icon: null,
-          ),
+          CustomInputField(controller: quantityController, icon: null),
 
           const SizedBox(height: 12),
 
@@ -640,10 +646,7 @@ FutureBuilder<List<OpenBuyerRequest>>(
           const SizedBox(height: 12),
 
           const FormLabel(text: 'OFFER PRICE PER UNIT'),
-          CustomInputField(
-            controller: priceController,
-            icon: null,
-          ),
+          CustomInputField(controller: priceController, icon: null),
 
           const SizedBox(height: 18),
 
@@ -661,9 +664,7 @@ FutureBuilder<List<OpenBuyerRequest>>(
               ),
               child: const Text(
                 'Sell',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -680,13 +681,14 @@ FutureBuilder<List<OpenBuyerRequest>>(
     final double quantityValue =
         double.tryParse(quantity.replaceAll(',', '').trim()) ?? 0;
 
-    final double priceValue = double.tryParse(
-      price
-          .replaceAll('Rs.', '')
-          .replaceAll('Rs', '')
-          .replaceAll(',', '')
-          .trim(),
-    ) ??
+    final double priceValue =
+        double.tryParse(
+          price
+              .replaceAll('Rs.', '')
+              .replaceAll('Rs', '')
+              .replaceAll(',', '')
+              .trim(),
+        ) ??
         0;
 
     final double total = quantityValue * priceValue;
@@ -709,11 +711,7 @@ FutureBuilder<List<OpenBuyerRequest>>(
         children: [
           const Row(
             children: [
-              Icon(
-                Icons.check_circle,
-                size: 18,
-                color: Color(0xFF2E7D32),
-              ),
+              Icon(Icons.check_circle, size: 18, color: Color(0xFF2E7D32)),
               SizedBox(width: 8),
               Text(
                 'Sell  Summary',
@@ -729,10 +727,7 @@ FutureBuilder<List<OpenBuyerRequest>>(
           const SizedBox(height: 10),
 
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 5,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: const Color(0xFFE8F5E9),
               borderRadius: BorderRadius.circular(20),
@@ -751,39 +746,24 @@ FutureBuilder<List<OpenBuyerRequest>>(
 
           const Text(
             'Raw Coconut Sell Offer',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF777777),
-            ),
+            style: TextStyle(fontSize: 14, color: Color(0xFF777777)),
           ),
 
           const SizedBox(height: 16),
 
-          SummaryRow(
-            title: 'Seller',
-            value: estateName,
-          ),
+          SummaryRow(title: 'Seller', value: estateName),
 
           const Divider(height: 24),
 
-          SummaryRow(
-            title: 'Quantity',
-            value: '$quantity nuts',
-          ),
+          SummaryRow(title: 'Quantity', value: '$quantity nuts'),
 
           const Divider(height: 24),
 
-          SummaryRow(
-            title: 'Available Date',
-            value: date,
-          ),
+          SummaryRow(title: 'Available Date', value: date),
 
           const Divider(height: 24),
 
-          SummaryRow(
-            title: 'Offer Price Per Unit',
-            value: price,
-          ),
+          SummaryRow(title: 'Offer Price Per Unit', value: price),
 
           const Divider(height: 24),
 
@@ -805,7 +785,7 @@ FutureBuilder<List<OpenBuyerRequest>>(
 
           const SizedBox(height: 18),
 
-                Row(
+          Row(
             children: [
               Expanded(
                 // The listing is saved; start a fresh one instead of editing.
@@ -818,8 +798,6 @@ FutureBuilder<List<OpenBuyerRequest>>(
                   child: const Text('Post Another Listing'),
                 ),
               ),
-
-             
             ],
           ),
         ],
@@ -831,10 +809,7 @@ FutureBuilder<List<OpenBuyerRequest>>(
 class FormLabel extends StatelessWidget {
   final String text;
 
-  const FormLabel({
-    super.key,
-    required this.text,
-  });
+  const FormLabel({super.key, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -874,28 +849,20 @@ class CustomInputField extends StatelessWidget {
         suffixIcon: icon == null
             ? null
             : IconButton(
-          icon: Icon(
-            icon,
-            size: 18,
-            color: const Color(0xFF777777),
-          ),
-          onPressed: onTap,
-        ),
+                icon: Icon(icon, size: 18, color: const Color(0xFF777777)),
+                onPressed: onTap,
+              ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 12,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(
-            color: Color(0xFFE0E0E0),
-          ),
+          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(
-            color: Color(0xFF2E7D32),
-          ),
+          borderSide: const BorderSide(color: Color(0xFF2E7D32)),
         ),
       ),
     );
@@ -919,26 +886,23 @@ class FilterChipButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 11,
-        vertical: 6,
-      ),
-      decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF2E7D32) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isActive ? const Color(0xFF2E7D32) : const Color(0xFFE0E0E0),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF2E7D32) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isActive ? const Color(0xFF2E7D32) : const Color(0xFFE0E0E0),
+          ),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 10,
+            color: isActive ? Colors.white : const Color(0xFF777777),
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 10,
-          color: isActive ? Colors.white : const Color(0xFF777777),
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    ),
     );
   }
 }
@@ -975,9 +939,7 @@ class InterestedBuyerCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(9),
-          border: Border.all(
-            color: const Color(0xFFE7E7E7),
-          ),
+          border: Border.all(color: const Color(0xFFE7E7E7)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withAlpha(10),
@@ -1066,14 +1028,8 @@ class InterestedBuyerCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                BuyerInfoItem(
-                  title: 'QUANTITY',
-                  value: quantity,
-                ),
-                BuyerInfoItem(
-                  title: 'REQUIRED DATE',
-                  value: pickupDate,
-                ),
+                BuyerInfoItem(title: 'QUANTITY', value: quantity),
+                BuyerInfoItem(title: 'REQUIRED DATE', value: pickupDate),
                 const Icon(
                   Icons.arrow_forward_ios,
                   size: 14,
@@ -1092,11 +1048,7 @@ class BuyerInfoItem extends StatelessWidget {
   final String title;
   final String value;
 
-  const BuyerInfoItem({
-    super.key,
-    required this.title,
-    required this.value,
-  });
+  const BuyerInfoItem({super.key, required this.title, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -1131,11 +1083,7 @@ class SummaryRow extends StatelessWidget {
   final String title;
   final String value;
 
-  const SummaryRow({
-    super.key,
-    required this.title,
-    required this.value,
-  });
+  const SummaryRow({super.key, required this.title, required this.value});
 
   @override
   Widget build(BuildContext context) {

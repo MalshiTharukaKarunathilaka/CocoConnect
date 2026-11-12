@@ -9,6 +9,7 @@ import '../services/location_service.dart';
 import 'location_picker_page.dart';
 import 'login_page.dart';
 import '../theme/app_theme.dart';
+import '../utils/sri_lanka_nic.dart';
 
 const _green = kOwnerGreen;
 const _fill = kOwnerPanel;
@@ -333,9 +334,8 @@ class _RegistrationState extends State<ServiceProviderRegistrationPage> {
           ),
           validator: (value) {
             final field = _fieldNames[controller]!;
-            if (field == 'identity_number' &&
-                (value ?? '').trim().length > 40) {
-              return 'Use at most 40 characters';
+            if (field == 'identity_number') {
+              return nicError(value) ?? _serverErrors[field];
             }
             if (field == 'email' && (value ?? '').trim().length > 254) {
               return 'Use at most 254 characters';
@@ -514,9 +514,9 @@ class _RegistrationState extends State<ServiceProviderRegistrationPage> {
                                   : 'Enter a valid Sri Lankan mobile number',
                             ),
                             _field(
-                              'NIC or Driving License No. *',
+                              'NIC Number *',
                               _nic,
-                              'e.g. 821940129V or 198219400129',
+                              'Old: 821940129V · New: 198219400129',
                               Icons.contact_mail_outlined,
                             ),
                             _field(

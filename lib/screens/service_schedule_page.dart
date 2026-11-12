@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/auth_service.dart';
@@ -10,6 +11,8 @@ import '../widgets/owner_widgets.dart';
 import 'buyer/buyer_format.dart';
 import 'machinery_booking_status_page.dart';
 import 'machinery_negotiation_page.dart';
+import '../services/holiday_service.dart';
+import '../widgets/holiday_widgets.dart';
 
 const Color _red = Color(0xFFC62828);
 const Color _amber = Color(0xFFE2681F);
@@ -322,7 +325,12 @@ class ServiceSchedulePage extends StatefulWidget {
 class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   bool get _live => widget.info?.databaseId != null;
   Map<String, dynamic> _liveCalendar = const {};
-  Future<void> _loadLiveCalendar() async {
+
+  /// A provider blocking a day, or another owner booking one, shows up here
+  /// without the owner doing anything: the calendar is re-read every 20 seconds.
+  Timer? _poll;
+
+  Future<void> _loadLiveCalendar({bool quiet = false}) async {
     if (!_live) return;
     try {
       final data = await const MachineryApi().ownerCalendar(
@@ -331,7 +339,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
       );
       if (mounted) setState(() => _liveCalendar = data);
     } on ApiException catch (error) {
-      if (mounted) {
+      if (mounted && !quiet) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(error.message)));
@@ -377,6 +385,18 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
     super.initState();
     _pickDefault();
     _loadLiveCalendar();
+    if (_live) {
+      _poll = Timer.periodic(
+        const Duration(seconds: 20),
+        (_) => _loadLiveCalendar(quiet: true),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
   }
 
   /// Start with the first free service ticked, so there is always a sensible
@@ -625,6 +645,10 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
                     ),
                     OwnerPill(label, tone: tone),
                   ],
+                ),
+                HolidayListener(
+                  years: [_day.year],
+                  builder: (_) => HolidayNote(_day),
                 ),
                 const SizedBox(height: 10),
                 if (st == _Day.past)
@@ -1044,7 +1068,11 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
     );
   }
 
-  Widget _calendar() {
+  /// The month grid, redrawn when the year's holidays arrive.
+  Widget _calendar() =>
+      HolidayListener(years: [_month.year], builder: (_) => _calendarCard());
+
+  Widget _calendarCard() {
     final DateTime first = DateTime(_month.year, _month.month, 1);
     final int lead = first.weekday - 1;
     final int days = DateTime(_month.year, _month.month + 1, 0).day;
@@ -1120,6 +1148,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
               _Legend(color: kOwnerGreen, label: 'Available'),
               _Legend(color: _red, label: 'Booked'),
               _Legend(color: _amber, label: 'Pending'),
+              HolidayLegend(),
             ],
           ),
           const SizedBox(height: 8),
@@ -1160,60 +1189,71 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
         if (b.machineName != widget.machineName && _key(b.date) == _key(d)) b,
     ];
 
+    final Holiday? holiday = HolidayService.of(d);
     return GestureDetector(
       onTap: dim ? null : () => _pickDay(d),
-      child: Container(
-        height: 54,
-        margin: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          color: selected ? strong : soft,
-          borderRadius: BorderRadius.circular(14),
-          border: today && !selected
-              ? Border.all(color: kOwnerGreen, width: 1.6)
-              : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '$n',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: selected || today
-                    ? FontWeight.bold
-                    : FontWeight.w500,
-                color: selected
-                    ? Colors.white
-                    : dim
-                    ? const Color(0xFFB4B8BC)
-                    : strong,
-                decoration: strike ? TextDecoration.lineThrough : null,
-                decorationColor: selected ? Colors.white : strong,
-              ),
+      child: Stack(
+        children: [
+          Container(
+            height: 54,
+            margin: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: selected ? strong : soft,
+              borderRadius: BorderRadius.circular(14),
+              border: today && !selected
+                  ? Border.all(color: kOwnerGreen, width: 1.6)
+                  : null,
             ),
-            const SizedBox(height: 4),
-            SizedBox(
-              height: 8,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (!dim) _dot(selected ? Colors.white : strong),
-                  for (final b in others.take(2))
-                    Container(
-                      width: 7,
-                      height: 7,
-                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                      decoration: BoxDecoration(
-                        color: machineColor(b.info?.type ?? 'TRACTOR'),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.2),
-                      ),
-                    ),
-                ],
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '$n',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: selected || today
+                        ? FontWeight.bold
+                        : FontWeight.w500,
+                    color: selected
+                        ? Colors.white
+                        : dim
+                        ? const Color(0xFFB4B8BC)
+                        : strong,
+                    decoration: strike ? TextDecoration.lineThrough : null,
+                    decorationColor: selected ? Colors.white : strong,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  height: 8,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!dim) _dot(selected ? Colors.white : strong),
+                      for (final b in others.take(2))
+                        Container(
+                          width: 7,
+                          height: 7,
+                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                          decoration: BoxDecoration(
+                            color: machineColor(b.info?.type ?? 'TRACTOR'),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.2),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          if (holiday != null)
+            Positioned(
+              top: 5,
+              right: 8,
+              child: HolidayFlag(onDark: selected, size: 11),
+            ),
+        ],
       ),
     );
   }

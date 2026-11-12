@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -30,6 +31,7 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
   void initState() {
     super.initState();
     _loadMachines();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitRadius());
   }
 
   Future<void> _loadMachines() async {
@@ -82,6 +84,11 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
   }
 
   late String _filter = widget.type ?? 'ALL';
+
+  /// How far from the estate to look, in km. Only used when the owner has a
+  /// saved location to measure from.
+  static const List<double> _radiusOptions = [2, 5, 10, 25, 50];
+  double _radiusKm = 25;
   late MachineInfo? _selected = _shown.isEmpty ? null : _shown.first;
 
   void _openCalendar(MachineInfo m) => Navigator.push(
@@ -122,9 +129,54 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
       ? double.infinity
       : const Distance().as(LengthUnit.Meter, _estate, _at(m)) / 1000;
 
+  bool get _hasHome => AuthService.currentUser?.hasCoordinates == true;
+
+  bool _inRadius(MachineInfo m) => !_hasHome || _km(m) <= _radiusKm;
+
   List<MachineInfo> get _shown =>
-      _machines.where((m) => _filter == 'ALL' || m.type == _filter).toList()
+      _machines
+          .where((m) => (_filter == 'ALL' || m.type == _filter) && _inRadius(m))
+          .toList()
         ..sort((a, b) => _km(a).compareTo(_km(b)));
+
+  /// How many machines of a type are inside the chosen distance.
+  int _countFor(String code) => _machines
+      .where((m) => (code == 'ALL' || m.type == code) && _inRadius(m))
+      .length;
+
+  /// Zooms the map so the whole search circle is on screen, clear of the chips
+  /// at the top and the machine card at the bottom.
+  void _fitRadius() {
+    if (!_hasHome) {
+      _map.move(_home, _homeZoom);
+      return;
+    }
+    final double dLat = _radiusKm / 111.32;
+    final double dLng =
+        _radiusKm / (111.32 * math.cos(_estate.latitude * math.pi / 180));
+    try {
+      _map.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds(
+            LatLng(_estate.latitude - dLat, _estate.longitude - dLng),
+            LatLng(_estate.latitude + dLat, _estate.longitude + dLng),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 130, 24, 300),
+        ),
+      );
+    } catch (_) {
+      // The map is not on screen yet; the next change will fit it.
+    }
+  }
+
+  void _setRadius(double km) {
+    setState(() {
+      _radiusKm = km;
+      final List<MachineInfo> list = _shown;
+      _selected = list.isEmpty ? null : list.first;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitRadius());
+  }
 
   @override
   void dispose() {
@@ -193,6 +245,19 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.kapconnect_mobile',
                     ),
+                    if (_hasHome)
+                      CircleLayer(
+                        circles: [
+                          CircleMarker(
+                            point: _estate,
+                            radius: _radiusKm * 1000,
+                            useRadiusInMeter: true,
+                            color: kOwnerGreen.withValues(alpha: 0.08),
+                            borderColor: kOwnerGreen.withValues(alpha: 0.5),
+                            borderStrokeWidth: 1.5,
+                          ),
+                        ],
+                      ),
                     MarkerLayer(
                       markers: [
                         for (final m in shown.where((m) => m.location != null))
@@ -235,14 +300,26 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
                     ),
                   ],
                 ),
-                Positioned(left: 12, right: 12, top: 12, child: _chips()),
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  top: 12,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _chips(),
+                      const SizedBox(height: 8),
+                      _radiusChips(),
+                    ],
+                  ),
+                ),
                 Positioned(
                   right: 12,
-                  top: 64,
+                  top: 108,
                   child: FloatingActionButton.small(
                     heroTag: 'recenter',
                     backgroundColor: Colors.white,
-                    onPressed: () => _map.move(_home, _homeZoom),
+                    onPressed: _fitRadius,
                     child: const Icon(Icons.my_location, color: kOwnerGreen),
                   ),
                 ),
@@ -317,12 +394,86 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
     );
   }
 
+  /// "Within 2 | 5 | 10 | 25 | 50 km": only machines inside the circle show.
+  Widget _radiusChips() {
+    if (!_hasHome) {
+      return Material(
+        color: Colors.white,
+        shape: const StadiumBorder(),
+        elevation: 2,
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Text(
+            'Save your estate location in your profile to filter by distance',
+            style: TextStyle(fontSize: 11.5, color: kOwnerMuted),
+          ),
+        ),
+      );
+    }
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          Material(
+            color: Colors.white,
+            shape: const StadiumBorder(),
+            elevation: 2,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.radar, size: 16, color: kOwnerGreen),
+                  SizedBox(width: 5),
+                  Text(
+                    'Within',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: kOwnerInk,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          for (final double km in _radiusOptions)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Material(
+                color: _radiusKm == km ? kOwnerGreen : Colors.white,
+                shape: const StadiumBorder(),
+                elevation: 2,
+                child: InkWell(
+                  customBorder: const StadiumBorder(),
+                  onTap: () => _setRadius(km),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Text(
+                      '${km.toStringAsFixed(0)} km',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: _radiusKm == km ? Colors.white : kOwnerInk,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _chips() {
     Widget chip(String code, String label, IconData? icon) {
       final bool on = _filter == code;
-      final int count = code == 'ALL'
-          ? _machines.length
-          : _machines.where((m) => m.type == code).length;
+      final int count = _countFor(code);
       return Padding(
         padding: const EdgeInsets.only(right: 8),
         child: Material(
@@ -413,7 +564,9 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
             child: Text(
-              '${shown.length} available near your estate · tap a marker',
+              _hasHome
+                  ? '${shown.length} available within ${_radiusKm.toStringAsFixed(0)} km of your estate · tap a marker'
+                  : '${shown.length} available · tap a marker',
               style: const TextStyle(
                 fontSize: 12.5,
                 color: kOwnerMuted,
@@ -422,11 +575,13 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
             ),
           ),
           if (m == null)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 4, 16, 20),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
               child: Text(
-                'No machines of this type nearby right now.',
-                style: TextStyle(fontSize: 13.5, color: kOwnerMuted),
+                _hasHome
+                    ? 'No machines within ${_radiusKm.toStringAsFixed(0)} km. Try a larger distance.'
+                    : 'No machines of this type nearby right now.',
+                style: const TextStyle(fontSize: 13.5, color: kOwnerMuted),
               ),
             )
           else ...[

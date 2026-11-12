@@ -30,6 +30,7 @@ app.get("/", (req, res) => {
 app.get("/api/health", getHealth);
 
 app.use("/api/machinery", require("./routes/machineryRoutes"));
+app.use("/api/holidays", require("./routes/holidayRoutes"));
 app.use("/api/listings", listingRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/buyer", buyerRoutes);

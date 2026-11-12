@@ -7,6 +7,7 @@ import '../../services/machinery_api.dart';
 import '../../widgets/owner_widgets.dart';
 import '../buyer/buyer_format.dart';
 import 'provider_request_widgets.dart';
+import 'revise_request_dialog.dart';
 import '../../theme/app_theme.dart';
 
 class ProviderRequestPage extends StatefulWidget {
@@ -29,21 +30,14 @@ class ProviderRequestPage extends StatefulWidget {
 
 class _ProviderRequestPageState extends State<ProviderRequestPage> {
   late ProviderBookingRequest _request = widget.request;
-  late final _rate = TextEditingController(
-    text: '${widget.request.proposedRate}',
-  );
   final _message = TextEditingController();
-  final _rateForm = GlobalKey<FormState>();
   String? _messageError;
   bool _busy = false;
   Timer? _poll;
   bool get _preview => widget.api == null;
-  bool get _canAccept =>
-      _request.isPending &&
-      (widget.isOwner
-          ? _request.proposedBy == RequestSpeaker.provider &&
-                !_request.customerAccepted
-          : _request.canAccept);
+
+  /// Only the provider answers a request, and only with accept or decline.
+  bool get _canAccept => !widget.isOwner && _request.canAccept;
   @override
   void initState() {
     super.initState();
@@ -58,7 +52,6 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
   @override
   void dispose() {
     _poll?.cancel();
-    _rate.dispose();
     _message.dispose();
     super.dispose();
   }
@@ -75,11 +68,20 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
     }
   }
 
-  Future<bool> _perform(String action, {String? message, double? rate}) async {
+  Future<bool> _perform(
+    String action, {
+    String? message,
+    double? rate,
+    Map<String, dynamic>? body,
+  }) async {
     if (_busy) return false;
     setState(() => _busy = true);
     try {
       if (_preview) {
+        if (action == 'revise') {
+          _notify('Changing a request is not available in the preview.');
+          return false;
+        }
         if (action == 'messages') {
           if (rate != null) {
             _request.counter(rate);
@@ -90,12 +92,14 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
         if (action == 'accept') _request.accept(widget.bookings);
         if (action == 'decline') _request.decline();
       } else {
-        final latest = await widget.api!.respond(
-          _request,
-          action,
-          message: message,
-          rate: rate,
-        );
+        final latest = action == 'revise'
+            ? await widget.api!.revise(_request, body ?? const {})
+            : await widget.api!.respond(
+                _request,
+                action,
+                message: message,
+                rate: rate,
+              );
         if (mounted) setState(() => _request = latest);
       }
       return true;
@@ -116,11 +120,14 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
     }
   }
 
+  /// The estate owner offers a different price or changes the request.
+  Future<void> _changeRequest() async {
+    final body = await showReviseRequestDialog(context, _request);
+    if (body == null || !mounted) return;
+    await _perform('revise', body: body);
+  }
+
   Future<void> _finish(bool accept) async {
-    if (accept && widget.isOwner) {
-      await _perform('agree');
-      return;
-    }
     final yes = await showThemedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -275,20 +282,18 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
                         request.agreedRate != null
                             ? 'Agreed Rate'
                             : offerIsMine
-                            ? 'Your Proposed Counteroffer'
+                            ? 'Your Offer'
                             : 'Received Offer',
-                        '${rupees(request.agreedRate ?? request.proposedRate)} / ${request.unit}\n${requestQuantity(request)} - Total ${rupees((request.agreedRate ?? request.proposedRate) * request.quantity)}',
+                        '${rupees(request.agreedRate ?? request.proposedRate)} / ${request.unit}\n${requestQuantity(request)} - Total ${rupees((request.agreedRate ?? request.proposedRate) * request.quantity)}\nService date: ${requestDate(request.startsAt)}, ${clockTime(request.startsAt)} - ${clockTime(request.endsAt)}',
                         Icons.payments_outlined,
                       ),
                       const SizedBox(height: 10),
                       Text(
                         request.agreedRate != null
                             ? 'Booking confirmed.'
-                            : request.customerAccepted
-                            ? 'The current price is agreed. The provider can now lock the booking.'
-                            : offerIsMine
-                            ? 'Awaiting the other participant’s agreement. This is a proposal.'
-                            : 'Accept the received offer or propose a counteroffer.',
+                            : widget.isOwner
+                            ? 'Waiting for the provider to accept or decline. You can change the price or the request below.'
+                            : 'Accept or decline this request. Only the estate owner can change the price or the request.',
                         style: const TextStyle(
                           fontSize: 12,
                           color: kOwnerGreen,
@@ -379,11 +384,35 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
                                     ),
                                   ),
                                 ),
+                              if (message.serviceDate != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.event_outlined,
+                                        size: 14,
+                                        color: kOwnerMuted,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Flexible(
+                                        child: Text(
+                                          message.serviceDate!,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: kOwnerMuted,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                             ],
                           ),
                         ),
                       ),
-                    if (request.isPending) ...[
+                    if (request.isPending && widget.isOwner) ...[
                       const SizedBox(height: 5),
                       TextField(
                         key: const Key('provider-message'),
@@ -430,77 +459,40 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
                     ],
                   ]),
                   if (request.isPending) ...[
-                    _section(
-                      'Propose a Counter Rate',
-                      Icons.price_change_outlined,
-                      [
-                        Form(
-                          key: _rateForm,
-                          child: TextFormField(
-                            key: const Key('counter-rate'),
-                            controller: _rate,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: InputDecoration(
-                              prefixText: 'Rs. ',
-                              suffixText: '/ ${request.unit}',
-                              filled: true,
-                              fillColor: providerRequestPanel,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(9),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                            validator: (value) {
-                              final rate = double.tryParse(value?.trim() ?? '');
-                              return rate == null ||
-                                      !rate.isFinite ||
-                                      rate <= 0 ||
-                                      rate > 100000000
-                                  ? 'Enter a positive rate up to Rs. 100,000,000.'
-                                  : null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        OutlinedButton.icon(
-                          onPressed: () async {
-                            if (!_rateForm.currentState!.validate()) return;
-                            await _perform(
-                              'messages',
-                              rate: double.parse(_rate.text.trim()),
-                            );
-                          },
-                          icon: const Icon(Icons.sync, size: 18),
-                          label: const Text('Update Rate'),
-                        ),
-                        if (_preview &&
-                            request.proposedBy == RequestSpeaker.provider &&
-                            !request.customerAccepted)
-                          TextButton(
-                            onPressed: () =>
-                                setState(request.previewCustomerAccepts),
-                            child: const Text(
-                              'Preview: customer accepts offer',
-                              textAlign: TextAlign.center,
+                    if (widget.isOwner)
+                      _section(
+                        'Change your price or request',
+                        Icons.price_change_outlined,
+                        [
+                          const Text(
+                            'Offer a different price, change the work or move the date and time. The provider then accepts or declines it.',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: kOwnerMuted,
                             ),
                           ),
-                      ],
-                    ),
-                    FilledButton(
-                      onPressed: _canAccept ? () => _finish(true) : null,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.green,
-                        minimumSize: const Size.fromHeight(50),
-                        shape: const StadiumBorder(),
+                          const SizedBox(height: 10),
+                          FilledButton.icon(
+                            key: const Key('change-request'),
+                            onPressed: _changeRequest,
+                            icon: const Icon(
+                              Icons.edit_calendar_outlined,
+                              size: 18,
+                            ),
+                            label: const Text('Change price or request'),
+                          ),
+                        ],
+                      )
+                    else
+                      FilledButton(
+                        onPressed: _canAccept ? () => _finish(true) : null,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.green,
+                          minimumSize: const Size.fromHeight(50),
+                          shape: const StadiumBorder(),
+                        ),
+                        child: const Text('Accept & Lock Booking'),
                       ),
-                      child: Text(
-                        widget.isOwner
-                            ? 'Agree to Counteroffer'
-                            : 'Accept & Lock Booking',
-                      ),
-                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       alignment: WrapAlignment.spaceBetween,

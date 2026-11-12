@@ -179,11 +179,7 @@ class BuyingCategoryCard extends StatelessWidget {
             CircleAvatar(
               radius: 22,
               backgroundColor: circleColor,
-              child: Icon(
-                icon,
-                color: iconColor,
-                size: 24,
-              ),
+              child: Icon(icon, color: iconColor, size: 24),
             ),
 
             const SizedBox(height: 12),
@@ -201,10 +197,7 @@ class BuyingCategoryCard extends StatelessWidget {
 
             Text(
               subtitle,
-              style: const TextStyle(
-                color: Color(0xFF8A8A8A),
-                fontSize: 10,
-              ),
+              style: const TextStyle(color: Color(0xFF8A8A8A), fontSize: 10),
             ),
           ],
         ),

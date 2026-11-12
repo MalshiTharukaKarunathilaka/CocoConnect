@@ -144,7 +144,7 @@ void main() {
   );
 
   testWidgets(
-    'counteroffer validation and customer agreement control acceptance',
+    'the provider can only accept or decline: no counter rate, no messages',
     (tester) async {
       final r = request('1');
       await mobile(
@@ -152,29 +152,16 @@ void main() {
         ProviderRequestPage(request: r, bookings: [r], showMap: false),
         width: 320,
       );
-      await reveal(tester, find.byKey(const Key('counter-rate')));
-      await tester.enterText(find.byKey(const Key('counter-rate')), '0');
-      await reveal(tester, find.text('Update Rate'));
-      await tester.tap(find.text('Update Rate'));
-      await tester.pumpAndSettle();
       expect(
-        find.text('Enter a positive rate up to Rs. 100,000,000.'),
+        find.textContaining('Only the estate owner can change the price'),
         findsOneWidget,
       );
-      await tester.enterText(find.byKey(const Key('counter-rate')), '7000');
-      await tester.tap(find.text('Update Rate'));
-      await tester.pumpAndSettle();
       await reveal(tester, find.text('Accept & Lock Booking'));
-      expect(
-        tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Accept & Lock Booking'),
-            )
-            .onPressed,
-        isNull,
-      );
-      await tester.tap(find.text('Preview: customer accepts offer'));
-      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('counter-rate')), findsNothing);
+      expect(find.text('Update Rate'), findsNothing);
+      expect(find.byKey(const Key('provider-message')), findsNothing);
+      expect(find.text('Send message'), findsNothing);
+      expect(find.byKey(const Key('change-request')), findsNothing);
       expect(
         tester
             .widget<FilledButton>(
@@ -183,7 +170,8 @@ void main() {
             .onPressed,
         isNotNull,
       );
-      expect(r.messages.length, 3);
+      expect(find.text('Decline'), findsOneWidget);
+      expect(r.messages.length, 1);
       expect(tester.takeException(), isNull);
     },
   );
@@ -227,28 +215,20 @@ void main() {
     },
   );
 
-  testWidgets(
-    'message composer keeps the owner message and appends provider messages',
-    (tester) async {
-      final r = request('1');
-      await mobile(
-        tester,
-        ProviderRequestPage(request: r, bookings: [r], showMap: false),
-      );
-      await reveal(tester, find.byKey(const Key('provider-message')));
-      await tester.enterText(
-        find.byKey(const Key('provider-message')),
-        'I can start at eight.',
-      );
-      await reveal(tester, find.text('Send message'));
-      await tester.tap(find.text('Send message'));
-      await tester.pumpAndSettle();
-      expect(r.messages.length, 2);
-      expect(r.messages.last.text, 'I can start at eight.');
-      expect(r.messages.first.sender, RequestSpeaker.owner);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('the offer card and the log show the service date', (
+    tester,
+  ) async {
+    final r = request('1');
+    await mobile(
+      tester,
+      ProviderRequestPage(request: r, bookings: [r], showMap: false),
+    );
+    await reveal(tester, find.text('Received Offer'));
+    expect(find.textContaining('Service date: '), findsOneWidget);
+    expect(r.messages.first.sender, RequestSpeaker.owner);
+    expect(find.text('Please plough eight acres.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'declining from request review removes the incoming request and leaves the day available',
     (tester) async {

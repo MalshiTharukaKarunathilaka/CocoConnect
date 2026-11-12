@@ -12,6 +12,8 @@ import '../account_dialogs.dart';
 import '../auth_gate.dart';
 import '../buyer/buyer_format.dart';
 import '../../theme/app_theme.dart';
+import '../../services/holiday_service.dart';
+import '../../widgets/holiday_widgets.dart';
 
 const _panel = AppColors.page;
 const _background = AppColors.cream;
@@ -699,7 +701,13 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
     ],
   );
 
-  Widget _calendar(ProviderCalendarMonth data) {
+  /// The month grid, redrawn when the year's holidays arrive.
+  Widget _calendar(ProviderCalendarMonth data) => HolidayListener(
+    years: [_month.year],
+    builder: (_) => _calendarBody(data),
+  );
+
+  Widget _calendarBody(ProviderCalendarMonth data) {
     final leading = _month.weekday - 1;
     final days = DateTime(_month.year, _month.month + 1, 0).day;
     return OwnerCard(
@@ -777,6 +785,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
                 _Legend(_incoming, 'Incoming request'),
                 _Legend(kOwnerRed, 'Fully booked'),
                 _Legend(kOwnerBrown, 'Maintenance / unavailable'),
+                HolidayLegend(),
               ],
             ),
           ),
@@ -806,9 +815,10 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
       ProviderDayState.maintenance => 'Maintenance',
       ProviderDayState.fullyBooked => 'Fully booked',
     };
+    final holiday = HolidayService.of(date);
     return Semantics(
       label:
-          '${_dateLabel(date)}. $description. ${day.confirmed} confirmed bookings, ${day.incoming} incoming requests.',
+          '${_dateLabel(date)}.${holiday == null ? '' : ' Holiday: ${holiday.name}.'} $description. ${day.confirmed} confirmed bookings, ${day.incoming} incoming requests.',
       selected: selected,
       button: true,
       excludeSemantics: true,
@@ -827,31 +837,43 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
                 ? Border.all(color: _green)
                 : null,
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Text(
-                '$number',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : kOwnerInk,
+              if (holiday != null)
+                Positioned(
+                  top: -1,
+                  right: 2,
+                  child: HolidayFlag(onDark: selected, size: 10),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 3,
-                runSpacing: 2,
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (day.confirmed > 0) _dot(selected ? Colors.white : _green),
-                  if (day.incoming > 0)
-                    _dot(selected ? AppColors.gold : _incoming),
-                  _dot(switch (state) {
-                    ProviderDayState.available => _available,
-                    ProviderDayState.fullyBooked => kOwnerRed,
-                    _ => kOwnerBrown,
-                  }),
+                  Text(
+                    '$number',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? Colors.white : kOwnerInk,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 3,
+                    runSpacing: 2,
+                    children: [
+                      if (day.confirmed > 0)
+                        _dot(selected ? Colors.white : _green),
+                      if (day.incoming > 0)
+                        _dot(selected ? AppColors.gold : _incoming),
+                      _dot(switch (state) {
+                        ProviderDayState.available => _available,
+                        ProviderDayState.fullyBooked => kOwnerRed,
+                        _ => kOwnerBrown,
+                      }),
+                    ],
+                  ),
                 ],
               ),
             ],
@@ -1010,6 +1032,10 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
               fontWeight: FontWeight.w600,
             ),
           ),
+          HolidayListener(
+            years: [_selected.year],
+            builder: (_) => HolidayNote(_selected),
+          ),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1040,7 +1066,6 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
                 Switch(
                   key: const Key('availability-toggle'),
                   value: available,
-                  activeThumbColor: _green,
                   onChanged:
                       past ||
                           locked ||

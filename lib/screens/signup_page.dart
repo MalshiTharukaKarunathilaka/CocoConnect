@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/location_service.dart';
+import '../services/owner_service.dart';
 import '../widgets/auth_widgets.dart';
 import 'auth_gate.dart';
 import 'location_picker_page.dart';
-import 'service_provider_registration_page.dart';
+import 'signup_role_sections.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -28,6 +29,7 @@ class _SignupPageState extends State<SignupPage> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   final _locationController = TextEditingController();
+  final SignupExtras _extras = SignupExtras();
 
   /// Where the user is; required, used for "near me" filters.
   PickedLocation? _location;
@@ -44,6 +46,7 @@ class _SignupPageState extends State<SignupPage> {
     _passwordController.dispose();
     _confirmController.dispose();
     _locationController.dispose();
+    _extras.dispose();
     super.dispose();
   }
 
@@ -66,6 +69,7 @@ class _SignupPageState extends State<SignupPage> {
     }
 
     FocusScope.of(context).unfocus();
+    final bool isProvider = _selectedRole == 'Service Provider';
     setState(() => _loading = true);
 
     try {
@@ -77,7 +81,32 @@ class _SignupPageState extends State<SignupPage> {
         location: _location!.name,
         latitude: _location!.latitude,
         longitude: _location!.longitude,
+        serviceProvider: isProvider
+            ? {
+                'identity_number': _extras.nic.text.trim(),
+                'email': _extras.email.text.trim(),
+                'category': 'Machinery',
+                'machinery_type': _extras.machinery,
+                'district': _extras.district,
+                'address': _extras.address.text.trim(),
+                'radius_km': _extras.radius,
+                'terms_accepted': _extras.agreed,
+              }
+            : null,
       );
+      if (_selectedRole == 'Estate Owner' &&
+          _extras.estateName.text.trim().isNotEmpty) {
+        try {
+          await OwnerService.updateEstate(
+            estateName: _extras.estateName.text.trim(),
+            location: _location!.name,
+            totalLandArea: _extras.estateArea.text.trim(),
+            primaryCrop: _extras.estateCrop.text.trim(),
+          );
+        } catch (_) {
+          // The account exists; the estate can be filled in from the profile.
+        }
+      }
       if (!mounted) return;
       openHomeFor(context, user);
     } on ApiException catch (error) {
@@ -90,6 +119,31 @@ class _SignupPageState extends State<SignupPage> {
       );
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// The fields that belong to the chosen role, shown under the role chips.
+  Widget _roleSection() {
+    switch (_selectedRole) {
+      case 'Service Provider':
+        return ProviderSignupSection(
+          extras: _extras,
+          onChanged: () => setState(() {}),
+        );
+      case 'Estate Owner':
+        return EstateOwnerSignupSection(extras: _extras);
+      case 'Estate Manager':
+        return const RoleNoteSection(
+          icon: Icons.assignment_ind_outlined,
+          title: 'Estate manager',
+          text: 'Run day-to-day sales and bookings for your estate.',
+        );
+      default:
+        return const RoleNoteSection(
+          icon: Icons.shopping_basket_outlined,
+          title: 'Buyer',
+          text: 'Post what you need and get offers from nearby estates.',
+        );
     }
   }
 
@@ -172,21 +226,22 @@ class _SignupPageState extends State<SignupPage> {
                     return RoleChip(
                       label: role,
                       isSelected: _selectedRole == role,
-                      onTap: () {
-                        if (role == 'Service Provider') {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const ServiceProviderRegistrationPage(),
-                            ),
-                          );
-                        } else {
-                          setState(() => _selectedRole = role);
-                        }
-                      },
+                      onTap: () => setState(() => _selectedRole = role),
                     );
                   }).toList(),
+                ),
+
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: KeyedSubtree(
+                      key: ValueKey(_selectedRole),
+                      child: _roleSection(),
+                    ),
+                  ),
                 ),
 
                 const SizedBox(height: 18),
@@ -213,8 +268,11 @@ class _SignupPageState extends State<SignupPage> {
                     if ((value ?? '').isEmpty) {
                       return 'Password is required';
                     }
-                    if ((value ?? '').length < 6) {
-                      return 'Use at least 6 characters';
+                    final int least = _selectedRole == 'Service Provider'
+                        ? 8
+                        : 6;
+                    if ((value ?? '').length < least) {
+                      return 'Use at least $least characters';
                     }
                     return null;
                   },

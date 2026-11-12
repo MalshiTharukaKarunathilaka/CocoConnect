@@ -182,9 +182,9 @@ void main() {
     );
   });
   testWidgets(
-    'live negotiation hides simulated replies and waits for the server',
+    'live provider answers with accept or decline and waits for the server',
     (tester) async {
-      var updateCalls = 0;
+      var accepts = 0;
       await http.runWithClient(
         () async {
           await tester.pumpWidget(
@@ -198,9 +198,12 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.textContaining('Preview workflow'), findsNothing);
-          final field = find.byKey(const Key('counter-rate'));
+          // No counter rate and no message box for the provider.
+          expect(find.byKey(const Key('counter-rate')), findsNothing);
+          expect(find.byKey(const Key('provider-message')), findsNothing);
+          final accept = find.text('Accept & Lock Booking');
           await tester.scrollUntilVisible(
-            field,
+            accept,
             200,
             scrollable: find
                 .descendant(
@@ -210,37 +213,24 @@ void main() {
                 .first,
           );
           await tester.pumpAndSettle();
-          await tester.ensureVisible(field);
+          await tester.ensureVisible(accept);
           await tester.pumpAndSettle();
-          await tester.enterText(field, '7000');
-          await tester.ensureVisible(find.text('Update Rate'));
+          await tester.tap(accept);
           await tester.pumpAndSettle();
-          await tester.tap(find.text('Update Rate'));
+          await tester.tap(find.text('Confirm booking'));
           await tester.pumpAndSettle();
-          expect(updateCalls, 1);
-          expect(find.text('Preview: customer accepts offer'), findsNothing);
-          expect(
-            tester
-                .widget<FilledButton>(
-                  find.widgetWithText(FilledButton, 'Accept & Lock Booking'),
-                )
-                .onPressed,
-            isNull,
-          );
+          expect(accepts, 1);
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox.shrink());
         },
         () => MockClient((request) async {
           if (request.method == 'POST') {
-            updateCalls++;
-            return jsonResponse(
-              bookingJson(version: 2, proposer: 10, total: 56000),
-              201,
-            );
+            accepts++;
+            expect(request.url.path, '/api/machinery/bookings/1/accept');
+            expect((jsonDecode(request.body) as Map)['expected_version'], 1);
+            return jsonResponse(bookingJson(version: 2, agreed: true), 200);
           }
-          return jsonResponse(
-            bookingJson(version: 2, proposer: 10, total: 56000),
-          );
+          return jsonResponse(bookingJson());
         }),
       );
     },
@@ -273,17 +263,15 @@ void main() {
     );
   });
   testWidgets(
-    'owner agrees to a provider offer through the server without confirming the booking',
+    'owner changes the price and the request through the server; there is no agree button',
     (tester) async {
-      var agrees = 0;
+      Map? sent;
       await http.runWithClient(
         () async {
           await tester.pumpWidget(
             MaterialApp(
               home: ProviderRequestPage(
-                request: ProviderBookingRequest.fromJson(
-                  bookingJson(version: 2, proposer: 10, total: 56000),
-                ),
+                request: ProviderBookingRequest.fromJson(bookingJson()),
                 api: const MachineryApi(),
                 isOwner: true,
                 showMap: false,
@@ -292,7 +280,9 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.text('Booking Request Sent'), findsOneWidget);
-          final button = find.text('Agree to Counteroffer');
+          expect(find.text('Agree to Counteroffer'), findsNothing);
+          expect(find.text('Accept & Lock Booking'), findsNothing);
+          final button = find.byKey(const Key('change-request'));
           await tester.scrollUntilVisible(
             button,
             200,
@@ -308,28 +298,59 @@ void main() {
           await tester.pumpAndSettle();
           await tester.tap(button);
           await tester.pumpAndSettle();
-          expect(agrees, 1);
+
+          // Changing the work follows the provider's rate until a price is typed.
+          expect(find.text('Change price or request'), findsWidgets);
+          await tester.enterText(find.byKey(const Key('revise-qty-0')), '5');
+          await tester.pumpAndSettle();
           expect(
             tester
-                .widget<FilledButton>(
-                  find.widgetWithText(FilledButton, 'Agree to Counteroffer'),
-                )
-                .onPressed,
-            isNull,
+                .widget<TextField>(find.byKey(const Key('revise-total')))
+                .controller!
+                .text,
+            '34000',
           );
-          expect(find.text('Accept & Lock Booking'), findsNothing);
+          // An amount of zero is refused before anything is sent.
+          await tester.enterText(find.byKey(const Key('revise-qty-0')), '0');
+          await tester.tap(find.byKey(const Key('revise-send')));
+          await tester.pumpAndSettle();
+          expect(
+            find.textContaining('Enter an amount of work'),
+            findsOneWidget,
+          );
+          expect(sent, isNull);
+
+          await tester.enterText(find.byKey(const Key('revise-qty-0')), '5');
+          await tester.enterText(
+            find.byKey(const Key('revise-total')),
+            '30000',
+          );
+          await tester.tap(find.byKey(const Key('revise-send')));
+          await tester.pumpAndSettle();
+          expect(sent, isNotNull);
+          await tester.drag(find.byType(ListView), const Offset(0, 4000));
+          await tester.pumpAndSettle();
+          expect(find.text('Your Offer'), findsOneWidget);
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox.shrink());
         },
         () => MockClient((request) async {
           if (request.method == 'POST') {
-            agrees++;
-            expect(request.url.path, '/api/machinery/bookings/1/agree');
-            expect((jsonDecode(request.body) as Map)['expected_version'], 2);
+            expect(request.url.path, '/api/machinery/bookings/1/revise');
+            sent = jsonDecode(request.body) as Map;
+            expect(sent!['expected_version'], 1);
+            expect(sent!['offer_total'], 30000);
+            expect(sent!['items'], [
+              {'service_id': 1, 'quantity': 5.0},
+            ]);
+            expect(sent!['starts_at'], '2030-04-20T02:00:00.000Z');
+            expect(sent!['ends_at'], '2030-04-20T06:30:00.000Z');
+            return jsonResponse(
+              bookingJson(version: 2, proposer: 20, total: 30000),
+              200,
+            );
           }
-          return jsonResponse(
-            bookingJson(version: 3, proposer: 10, agreed: true, total: 56000),
-          );
+          return jsonResponse(bookingJson());
         }),
       );
     },

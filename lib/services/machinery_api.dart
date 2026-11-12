@@ -126,6 +126,21 @@ class MachineryApi {
           as Map,
     ),
   );
+
+  /// The estate owner changes the price and the request. `body` has
+  /// offer_total, items (service_id and quantity), starts_at and ends_at.
+  Future<ProviderBookingRequest> revise(
+    ProviderBookingRequest request,
+    Map<String, dynamic> body,
+  ) async => ProviderBookingRequest.fromJson(
+    Map<String, dynamic>.from(
+      await ApiClient.post('$base/bookings/${request.id}/revise', {
+            'expected_version': request.version,
+            ...body,
+          })
+          as Map,
+    ),
+  );
   Future<ProviderBookingRequest> createBooking(
     int machineId,
     Map<String, dynamic> body,

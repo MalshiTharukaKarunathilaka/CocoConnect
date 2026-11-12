@@ -51,8 +51,9 @@ test('provider errors identify the invalid field instead of blaming the agreemen
   const cases = [
     ['district', null, 'Select your operating district.'],
     ['machinery_type', 'Excavator', 'Choose Tractor, Backhoe or Hand Tractor.'],
-    ['identity_number', '', 'Enter your NIC or driving license number.'],
-    ['identity_number', 'A'.repeat(41), 'NIC or driving license number must be at most 40 characters.'],
+    ['identity_number', '', 'Enter your NIC number.'],
+    ['identity_number', 'A'.repeat(41), 'Enter a valid NIC: 9 digits and V or X (like 821940129V), or 12 digits (like 198219400129).'],
+    ['identity_number', '820000129V', 'This NIC has an invalid birth date. Check the digits.'],
     ['email', 'invalid', 'Enter a valid email address of at most 254 characters, or leave it blank.'],
     ['address', '', 'Enter your base yard or dispatch address.'],
     ['radius_km', 12, 'Choose a service radius of 5, 10, 15 or 25 km.'],

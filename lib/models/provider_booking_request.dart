@@ -10,12 +10,37 @@ class ProviderRequestMessage {
   final RequestSpeaker sender;
   final DateTime sentAt;
   final double? rate;
+
+  /// The service date an offer was made for, e.g. "Fri, 6 Nov 2026 - 07:30 AM
+  /// to 12:00 PM". The backend adds it to every offer.
+  final String? serviceDate;
   const ProviderRequestMessage({
     required this.text,
     required this.sender,
     required this.sentAt,
     this.rate,
+    this.serviceDate,
   });
+
+  /// Splits the "Service date: ..." line off a message from the backend.
+  static ProviderRequestMessage fromBackend({
+    required String raw,
+    required RequestSpeaker sender,
+    required DateTime sentAt,
+    double? rate,
+  }) {
+    final match = RegExp(
+      r'\n?Service date: (.+)$',
+      dotAll: true,
+    ).firstMatch(raw);
+    return ProviderRequestMessage(
+      text: match == null ? raw : raw.substring(0, match.start),
+      sender: sender,
+      sentAt: sentAt,
+      rate: rate,
+      serviceDate: match?.group(1)?.trim(),
+    );
+  }
 }
 
 class ProviderBookingRequest {
@@ -124,8 +149,8 @@ class ProviderBookingRequest {
       proposedRate: number(json['proposed_total']) / quantity,
       messages: (json['messages'] as List)
           .map(
-            (m) => ProviderRequestMessage(
-              text: '${m['message']}',
+            (m) => ProviderRequestMessage.fromBackend(
+              raw: '${m['message']}',
               sender: m['sender_id'] == json['owner_user_id']
                   ? RequestSpeaker.owner
                   : RequestSpeaker.provider,

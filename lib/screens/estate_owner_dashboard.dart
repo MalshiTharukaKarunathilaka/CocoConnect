@@ -127,7 +127,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) =>
-                                      const CoconutsPage(),
+                                          const CoconutsPage(),
                                     ),
                                   );
                                 },
@@ -155,7 +155,8 @@ class EstateOwnerDashboard extends StatelessWidget {
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const MachineryMapPage(),
+                                    builder: (context) =>
+                                        const MachineryMapPage(),
                                   ),
                                 ),
                               ),

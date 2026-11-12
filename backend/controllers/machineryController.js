@@ -45,7 +45,18 @@ const available = async(db,m,start,end,exceptId=0) => {
   const overlap=await db.query("SELECT id FROM machinery_bookings WHERE machine_id=$1 AND status='CONFIRMED' AND starts_at < $2 AND ends_at > $3 AND id <> $4",[m.id,end,start,exceptId]);
   if(overlap.rows.length) fail(409,'This machinery is already booked for that time slot.');
 };
-const addMessage = (db,b,userId,message,offer=null) => db.query('INSERT INTO machinery_messages(booking_id,sender_id,message,offer_total) VALUES ($1,$2,$3,$4)',[b.id,userId,message,offer]);
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const WEEKDAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const clock12 = d => {const h=d.getUTCHours();const m=String(d.getUTCMinutes()).padStart(2,'0');return `${String(h%12===0?12:h%12).padStart(2,'0')}:${m} ${h<12?'AM':'PM'}`;};
+// "Fri, 6 Nov 2026 - 07:30 AM to 12:00 PM" in Sri Lankan time.
+const whenText = (start,end) => {
+  const s=new Date(new Date(start).getTime()+330*60000);const e=new Date(new Date(end).getTime()+330*60000);
+  const sameDay=s.toISOString().slice(0,10)===e.toISOString().slice(0,10);
+  const day=d=>`${WEEKDAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  return sameDay?`${day(s)} - ${clock12(s)} to ${clock12(e)}`:`${day(s)} ${clock12(s)} to ${day(e)} ${clock12(e)}`;
+};
+// Offers are saved with the service date, so each offer card shows the date it was made for.
+const addMessage = (db,b,userId,message,offer=null) => db.query('INSERT INTO machinery_messages(booking_id,sender_id,message,offer_total) VALUES ($1,$2,$3,$4)',[b.id,userId,offer===null?message:`${message}\nService date: ${whenText(b.starts_at,b.ends_at)}`,offer]);
 const details = async(db,bookingId,user) => {
   const b=await booking(db,bookingId,user);
   const m=await machine(db,b.machine_id);
@@ -143,12 +154,60 @@ exports.getBooking = wrap(async(req,res)=>res.json(await details(pool,req.params
 exports.message = wrap(async(req,res)=>{
   await transaction(async db=>{
     const b=await booking(db,req.params.bookingId,req.user,true);checkVersion(b,req.body);
+    if(b.provider_user_id===req.user.id) fail(403,'Providers can only accept or decline a request. The estate owner sends the offers.');
     const offer=req.body.offer_total==null?null:money(req.body.offer_total);
     const message=req.body.message?text(req.body.message,'Message'):offer?'Proposed a new price.':fail(400,'Enter a message or counteroffer');
     await addMessage(db,b,req.user.id,message,offer);
     if(offer!==null) await db.query('UPDATE machinery_bookings SET proposed_total=$2,proposed_by=$3,offer_agreed=false,version=version+1 WHERE id=$1',[b.id,offer,req.user.id]);
     else await db.query('UPDATE machinery_bookings SET version=version+1 WHERE id=$1',[b.id]);
   });res.status(201).json(await details(pool,req.params.bookingId,req.user));
+});
+exports.revise = wrap(async(req,res)=>{
+  await transaction(async db=>{
+    const b=await booking(db,req.params.bookingId,req.user,true);checkVersion(b,req.body);
+    if(b.owner_user_id!==req.user.id) fail(403,'Only the requesting estate owner can change this request');
+    const m=await machine(db,b.machine_id,null,true);if(!m.active) fail(409,'This machinery is not accepting requests');
+    const start=req.body.starts_at==null?new Date(b.starts_at):new Date(req.body.starts_at);
+    const end=req.body.ends_at==null?new Date(b.ends_at):new Date(req.body.ends_at);
+    if(Number.isNaN(+start)||Number.isNaN(+end)||end<=start||start<=new Date()||end-start>31*86400000) fail(400,'Choose a future start time and a later end time (maximum 31 days)');
+    const timeChanged=+start!==+new Date(b.starts_at)||+end!==+new Date(b.ends_at);
+    const existing=(await db.query('SELECT * FROM machinery_booking_items WHERE booking_id=$1 ORDER BY id',[b.id])).rows;
+    let wanted=existing.map(i=>({service_id:i.service_id,name:i.name,unit:i.unit,quantity:Number(i.quantity),rate:Number(i.rate)}));
+    let itemsChanged=false;
+    if(req.body.items!==undefined){
+      const items=req.body.items;if(!Array.isArray(items)||!items.length||items.length>20) fail(400,'Select between 1 and 20 services');
+      const seen=new Set();wanted=[];
+      for(const item of items){
+        const serviceId=id(item.service_id);if(seen.has(serviceId)) fail(400,'A service may only appear once');seen.add(serviceId);
+        const kept=existing.find(i=>i.service_id===serviceId);
+        const service=kept||(await db.query('SELECT * FROM machinery_services WHERE id=$1 AND machine_id=$2',[serviceId,m.id])).rows[0];
+        if(!service) fail(400,'Selected service does not belong to this machine');
+        wanted.push({service_id:serviceId,name:service.name,unit:service.unit,quantity:positive(item.quantity),rate:Number(service.rate)});
+      }
+      const key=list=>JSON.stringify(list.map(i=>[i.service_id,Number(i.quantity)]).sort((a,c)=>a[0]-c[0]));
+      itemsChanged=key(wanted)!==key(existing.map(i=>({service_id:i.service_id,quantity:Number(i.quantity)})));
+    }
+    let listTotal=0;
+    for(const i of wanted){
+      if(Math.abs(i.quantity*100-Math.round(i.quantity*100))>0.00001) fail(400,'Use at most two decimal places for quantities');
+      if(i.unit==='day'&&!Number.isInteger(i.quantity)) fail(400,'Day quantities must be whole days');
+      if(i.unit==='hour'&&i.quantity>(end-start)/3600000) fail(400,'Requested hours exceed the selected time interval');
+      if(i.unit==='day'&&i.quantity>Math.ceil((end-start)/86400000)) fail(400,'Requested days exceed the selected interval');
+      listTotal+=i.rate*i.quantity;
+    }
+    const offer=req.body.offer_total!=null?money(req.body.offer_total):(itemsChanged?money(listTotal):Number(b.proposed_total));
+    const priceChanged=offer!==Number(b.proposed_total);
+    if(!timeChanged&&!itemsChanged&&!priceChanged) fail(400,'Nothing was changed. Change the price, the work or the time first.');
+    if(timeChanged) await available(db,m,start,end,b.id);
+    const updated=(await db.query('UPDATE machinery_bookings SET starts_at=$2,ends_at=$3,proposed_total=$4,proposed_by=$5,offer_agreed=false,version=version+1 WHERE id=$1 RETURNING *',[b.id,start,end,offer,req.user.id])).rows[0];
+    if(itemsChanged){
+      await db.query('DELETE FROM machinery_booking_items WHERE booking_id=$1',[b.id]);
+      for(const i of wanted) await db.query('INSERT INTO machinery_booking_items(booking_id,service_id,name,unit,quantity,rate) VALUES ($1,$2,$3,$4,$5,$6)',[b.id,i.service_id,i.name,i.unit,i.quantity,i.rate]);
+    }
+    const what=[priceChanged&&'price',itemsChanged&&'work',timeChanged&&'date and time'].filter(Boolean).join(', ');
+    const note=req.body.message?text(req.body.message,'Message'):`Changed the ${what}.`;
+    await addMessage(db,updated,req.user.id,note,offer);
+  });res.json(await details(pool,req.params.bookingId,req.user));
 });
 exports.agree = wrap(async(req,res)=>{
   await transaction(async db=>{

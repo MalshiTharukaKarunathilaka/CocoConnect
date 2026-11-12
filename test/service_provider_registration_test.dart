@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kapconnect_mobile/screens/service_provider_registration_page.dart';
 import 'package:kapconnect_mobile/widgets/owner_widgets.dart';
 import 'package:kapconnect_mobile/services/auth_service.dart';
+import 'package:kapconnect_mobile/utils/sri_lanka_nic.dart';
 
 Future<RegistrationStorage> _persistentStorage() async =>
     const RegistrationStorage(persistent: true, ready: true);
@@ -118,7 +119,7 @@ void main() {
     },
   );
 
-  testWidgets('identity and email maximum lengths match backend validation', (
+  testWidgets('the NIC and email checks match backend validation', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -131,7 +132,7 @@ void main() {
     final fields = tester
         .widgetList<TextFormField>(find.byType(TextFormField))
         .toList();
-    expect(fields[2].validator!('A' * 41), 'Use at most 40 characters');
+    expect(fields[2].validator!('A' * 41), nicFormatMessage);
     expect(
       fields[3].validator!('a' * 255 + '@example.com'),
       'Use at most 254 characters',

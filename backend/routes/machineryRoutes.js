@@ -15,6 +15,7 @@ router.get('/bookings',requireRole('ESTATE_OWNER'),c.myBookings);
 router.get('/bookings/:bookingId',c.getBooking);
 router.post('/bookings/:bookingId/messages',c.message);
 router.post('/bookings/:bookingId/agree',c.agree);
+router.post('/bookings/:bookingId/revise',requireRole('ESTATE_OWNER'),c.revise);
 router.post('/bookings/:bookingId/accept',requireRole('SERVICE_PROVIDER'),c.accept);
 router.post('/bookings/:bookingId/cancel',requireRole('ESTATE_OWNER'),c.cancel);
 router.post('/bookings/:bookingId/decline',requireRole('SERVICE_PROVIDER'),c.decline);

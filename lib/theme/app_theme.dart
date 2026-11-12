@@ -74,24 +74,25 @@ class AppThemeScope extends StatelessWidget {
   const AppThemeScope({super.key, required this.child});
 
   static ThemeData of(ThemeData base) {
-    final ColorScheme scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.green,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: AppColors.green,
-      onPrimary: Colors.white,
-      primaryContainer: AppColors.greenSoft,
-      onPrimaryContainer: AppColors.green,
-      secondary: AppColors.brown,
-      tertiary: AppColors.gold,
-      error: AppColors.danger,
-      surface: AppColors.surface,
-      onSurface: AppColors.ink,
-      onSurfaceVariant: AppColors.muted,
-      outline: AppColors.line,
-      outlineVariant: AppColors.line,
-      surfaceTint: Colors.transparent,
-    );
+    final ColorScheme scheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.green,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: AppColors.green,
+          onPrimary: Colors.white,
+          primaryContainer: AppColors.greenSoft,
+          onPrimaryContainer: AppColors.green,
+          secondary: AppColors.brown,
+          tertiary: AppColors.gold,
+          error: AppColors.danger,
+          surface: AppColors.surface,
+          onSurface: AppColors.ink,
+          onSurfaceVariant: AppColors.muted,
+          outline: AppColors.line,
+          outlineVariant: AppColors.line,
+          surfaceTint: Colors.transparent,
+        );
 
     const StadiumBorder pill = StadiumBorder();
     const TextStyle buttonText = TextStyle(
@@ -165,7 +166,10 @@ class AppThemeScope extends StatelessWidget {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0xFFF8F6F1),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: fieldBorder,
         enabledBorder: fieldBorder,
         focusedBorder: fieldBorder.copyWith(
@@ -186,16 +190,20 @@ class AppThemeScope extends StatelessWidget {
         labelStyle: const TextStyle(fontSize: 12.5, color: AppColors.ink),
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return const Color(0xFFB4B8BC);
+          }
+          return states.contains(WidgetState.selected)
               ? Colors.white
-              : AppColors.muted,
-        ),
-        trackColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
+              : AppColors.muted;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) return AppColors.line;
+          return states.contains(WidgetState.selected)
               ? AppColors.green
-              : AppColors.line,
-        ),
+              : AppColors.line;
+        }),
         trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
       snackBarTheme: SnackBarThemeData(

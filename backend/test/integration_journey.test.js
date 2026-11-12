@@ -202,14 +202,16 @@ test("PROVIDER <-> OWNER: a machine is registered, requested, negotiated, confir
   const calendar = await ok("GET", `/api/machinery/provider/machines/${machine.id}/calendar?month=2030-05`, { token: provider.token });
   assert.equal(calendar.bookings.length, 1);
 
-  // They agree a price together; only then can the provider confirm.
-  let booking = await ok("POST", `/api/machinery/bookings/${request.id}/messages`, {
-    token: provider.token,
-    body: { expected_version: request.version, message: "Rs. 18,000 for the job", offer_total: 18000 },
-  }, 201);
-  booking = await ok("POST", `/api/machinery/bookings/${request.id}/agree`, {
-    token: owner.token, body: { expected_version: booking.version },
+  // The provider cannot counter. The owner offers a price and changes the job,
+  // and the provider can only accept or decline.
+  assert.equal((await call("POST", `/api/machinery/bookings/${request.id}/messages`, {
+    token: provider.token, body: { expected_version: request.version, message: "Rs. 18,000", offer_total: 18000 },
+  })).status, 403);
+  let booking = await ok("POST", `/api/machinery/bookings/${request.id}/revise`, {
+    token: owner.token, body: { expected_version: request.version, offer_total: 18000, message: "Can you do it for this?" },
   });
+  assert.equal(Number(booking.proposed_total), 18000);
+  assert.match(booking.messages.at(-1).message, /Service date: .*10 May 2030/);
   booking = await ok("POST", `/api/machinery/bookings/${request.id}/accept`, {
     token: provider.token, body: { expected_version: booking.version },
   });

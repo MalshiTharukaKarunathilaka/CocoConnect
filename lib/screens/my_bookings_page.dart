@@ -8,6 +8,8 @@ import '../services/machinery_api.dart';
 import '../services/api_client.dart';
 import 'provider/provider_request_page.dart';
 import 'provider/provider_request_widgets.dart';
+import '../services/holiday_service.dart';
+import '../widgets/holiday_widgets.dart';
 
 const List<String> _weekdayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const List<String> _monthNames = [
@@ -224,6 +226,11 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                             ),
                           ),
                         ),
+                        if (HolidayService.of(_day!) != null)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 6),
+                            child: HolidayFlag(),
+                          ),
                         TextButton(
                           onPressed: () => setState(() => _day = null),
                           child: const Text('Show all'),
@@ -270,7 +277,13 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     ),
   );
 
-  Widget _calendar(Map<String, List<MachineBooking>> byDay) {
+  /// The month grid, redrawn when the year's holidays arrive.
+  Widget _calendar(Map<String, List<MachineBooking>> byDay) => HolidayListener(
+    years: [_month.year],
+    builder: (_) => _calendarCard(byDay),
+  );
+
+  Widget _calendarCard(Map<String, List<MachineBooking>> byDay) {
     final DateTime first = DateTime(_month.year, _month.month, 1);
     final int lead = first.weekday - 1;
     final int days = DateTime(_month.year, _month.month + 1, 0).day;
@@ -349,6 +362,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
               _TypeKey('TRACTOR'),
               _TypeKey('BACKHOE'),
               _TypeKey('HAND_TRACTOR'),
+              HolidayLegend(),
             ],
           ),
         ],
@@ -364,65 +378,76 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     final bool today = _key(d) == _key(_today);
     final bool past = d.isBefore(_today);
 
+    final Holiday? holiday = HolidayService.of(d);
     return GestureDetector(
       onTap: () => _pickDay(d),
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: 46,
-        margin: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          color: selected
-              ? kOwnerGreen
-              : list.isNotEmpty
-              ? const Color(0xFFF4F8F5)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-          border: today && !selected
-              ? Border.all(color: kOwnerGreen, width: 1.6)
-              : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '$n',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: today || selected || list.isNotEmpty
-                    ? FontWeight.bold
-                    : FontWeight.w500,
-                color: selected
-                    ? Colors.white
-                    : past
-                    ? const Color(0xFF9AA0A6)
-                    : kOwnerInk,
-              ),
+      child: Stack(
+        children: [
+          Container(
+            height: 46,
+            margin: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: selected
+                  ? kOwnerGreen
+                  : list.isNotEmpty
+                  ? const Color(0xFFF4F8F5)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              border: today && !selected
+                  ? Border.all(color: kOwnerGreen, width: 1.6)
+                  : null,
             ),
-            const SizedBox(height: 3),
-            SizedBox(
-              height: 8,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final b in list.take(3))
-                    Container(
-                      width: 7,
-                      height: 7,
-                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                      decoration: BoxDecoration(
-                        color: machineColor(_typeOf(b)),
-                        shape: BoxShape.circle,
-                        // A white ring keeps the dot visible on the green cell.
-                        border: selected
-                            ? Border.all(color: Colors.white, width: 1.2)
-                            : null,
-                      ),
-                    ),
-                ],
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '$n',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: today || selected || list.isNotEmpty
+                        ? FontWeight.bold
+                        : FontWeight.w500,
+                    color: selected
+                        ? Colors.white
+                        : past
+                        ? const Color(0xFF9AA0A6)
+                        : kOwnerInk,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                SizedBox(
+                  height: 8,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final b in list.take(3))
+                        Container(
+                          width: 7,
+                          height: 7,
+                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                          decoration: BoxDecoration(
+                            color: machineColor(_typeOf(b)),
+                            shape: BoxShape.circle,
+                            // A white ring keeps the dot visible on the green cell.
+                            border: selected
+                                ? Border.all(color: Colors.white, width: 1.2)
+                                : null,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          if (holiday != null)
+            Positioned(
+              top: 4,
+              right: 7,
+              child: HolidayFlag(onDark: selected, size: 11),
+            ),
+        ],
       ),
     );
   }

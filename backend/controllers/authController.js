@@ -2,7 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 const { parseCoords } = require("../utils/geo");
-const { validateProvider } = require("../utils/providerValidation");
+const { validateProvider, normalizeNic } = require("../utils/providerValidation");
 const { storageInfo } = require("./healthController");
 
 const ROLES = ["BUYER", "ESTATE_OWNER", "ESTATE_MANAGER", "SERVICE_PROVIDER"];
@@ -122,7 +122,7 @@ const signup = async (req, res) => {
         `INSERT INTO service_providers
           (user_id, identity_number, email, category, machinery_type, district, address, radius_km)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [user.id, provider.identity_number.trim(), (provider.email || "").trim() || null,
+        [user.id, normalizeNic(provider.identity_number), (provider.email || "").trim() || null,
          provider.category, provider.machinery_type, provider.district, provider.address.trim(), provider.radius_km]
       );
     }
