@@ -140,3 +140,8 @@ The SQL scripts in `backend/sql/` have already been run on the shared Supabase d
 If the day-jobs screen says that day jobs are not configured, open the Supabase
 SQL Editor and run [`backend/sql/008_day_jobs.sql`](backend/sql/008_day_jobs.sql)
 once. This migration creates the table used by the "View Jobs" screen.
+
+If opening an accepted worker's chat says that day-job chat is not configured,
+run [`backend/sql/010_day_job_chats.sql`](backend/sql/010_day_job_chats.sql) in
+the Supabase SQL Editor once, then restart the backend. This creates the
+persistent worker-owner chat tables.
