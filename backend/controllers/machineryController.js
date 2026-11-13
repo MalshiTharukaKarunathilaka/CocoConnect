@@ -1,8 +1,8 @@
 ﻿const pool = require('../config/db');
 const catalog = {
-  Tractor: {Slasher:['acre'], 'Disc Ploughing':['acre'], 'Rotary Tiller':['acre'], 'Koku Nagula':['acre'], 'Coconut Haulage Trailer':['day']},
-  Backhoe: {'Ditch & Drainage':['hour'], 'Pit Digging':['hour'], 'Land Clearing':['hour'], 'Small Backhoe':['hour'], 'Large Backhoe':['hour']},
-  'Hand Tractor': {Weeding:['acre'], 'Inter-row Tilling':['acre'], 'Small Trailer Haulage':['day']},
+  Tractor: {Slasher:['acre'], 'Disc Ploughing':['acre'], Rotary:['acre'], 'Koku Nagula':['acre'], Trailer:['day']},
+  Backhoe: {'Small Backhoe':['hour'], 'Large Backhoe':['hour']},
+  'Hand Tractor': {'Hand Tractor':['day']},
 };
 class Failure extends Error { constructor(status,message){ super(message);this.status=status; } }
 const fail = (status,message) => { throw new Failure(status,message); };
@@ -77,7 +77,14 @@ exports.providerMachines = wrap(async(req,res)=>{
 exports.createMachine = wrap(async(req,res)=>{
   const p=await profile(pool,req.user.id);const category=req.body.category;
   if(!catalog[category]) fail(400,'Choose Tractor, Backhoe or Hand Tractor');
-  const result=await pool.query('INSERT INTO machinery(provider_id,name,category) VALUES ($1,$2,$3) RETURNING *',[p.id,text(req.body.name,'Machine name',120),category]);
+  const name=text(req.body.name,'Machine name',120);
+  const result=await transaction(async db=>{
+    // Serialize additions for this provider so simultaneous requests cannot add duplicates.
+    await db.query('SELECT id FROM service_providers WHERE id=$1 FOR UPDATE',[p.id]);
+    const existing=await db.query('SELECT id FROM machinery WHERE provider_id=$1 AND category=$2',[p.id,category]);
+    if(existing.rows.length) fail(409,`You already have a ${category}. Only one machine of each type is allowed.`);
+    return db.query('INSERT INTO machinery(provider_id,name,category) VALUES ($1,$2,$3) RETURNING *',[p.id,name,category]);
+  });
   res.status(201).json(result.rows[0]);
 });
 exports.saveRate = wrap(async(req,res)=>{

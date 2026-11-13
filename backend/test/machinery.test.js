@@ -104,3 +104,31 @@ test('owner cancellation releases confirmed intervals and remains visible to bot
  assert.equal(publicCalendar.days[0].day,'2030-04-21');assert.equal(publicCalendar.reserved.length,2);
  assert.equal(JSON.stringify(publicCalendar).includes('owner_user_id'),false);
 });
+
+
+test('a provider may own all three types but cannot add a second of any type',async()=>{
+ for(const category of ['Tractor','Backhoe','Hand Tractor']) {
+  await ok('POST','/provider/machines',otherProvider.token,{name:category,category},201);
+  const duplicate=await call('POST','/provider/machines',otherProvider.token,{name:'Second '+category,category});
+  assert.equal(duplicate.status,409);
+  assert.match(duplicate.data.message,/Only one machine of each type/);
+ }
+ const fleet=await ok('GET','/provider/machines',otherProvider.token);
+ assert.equal(fleet.length,3);
+});
+
+
+test('service catalog and pricing units match each machinery type',async()=>{
+ const expected={Tractor:{Slasher:['acre'],'Disc Ploughing':['acre'],Rotary:['acre'],'Koku Nagula':['acre'],Trailer:['day']},Backhoe:{'Small Backhoe':['hour'],'Large Backhoe':['hour']},'Hand Tractor':{'Hand Tractor':['day']}};
+ assert.deepEqual(await ok('GET','/catalog',otherProvider.token),expected);
+ const fleet=await ok('GET','/provider/machines',otherProvider.token);
+ for(const machine of fleet) {
+  for(const [name,[unit]] of Object.entries(expected[machine.category])) {
+   const rate=await ok('PUT',`/provider/machines/${machine.id}/rates`,otherProvider.token,{name,unit,rate:1500});
+   assert.equal(rate.name,name);assert.equal(rate.unit,unit);
+   assert.equal((await call('PUT',`/provider/machines/${machine.id}/rates`,otherProvider.token,{name,unit:unit==='day'?'acre':'day',rate:1500})).status,400);
+  }
+ }
+ const hand=fleet.find(machine=>machine.category==='Hand Tractor');
+ assert.equal((await call('PUT',`/provider/machines/${hand.id}/rates`,otherProvider.token,{name:'Weeding',unit:'acre',rate:1000})).status,400);
+});
