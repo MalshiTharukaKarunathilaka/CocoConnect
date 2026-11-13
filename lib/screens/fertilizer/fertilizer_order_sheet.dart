@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
-import '../../widgets/owner_widgets.dart';
+import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
+
+// Keep cream/green look via design-system tokens.
+const Color kOwnerCream = AppColors.cream;
+const Color kOwnerGreen = AppColors.green;
+const Color kOwnerMuted = AppColors.muted;
+const Color kOwnerGreenSoft = AppColors.greenSoft;
 
 class FertilizerOrderSheet extends StatefulWidget {
   const FertilizerOrderSheet({super.key, required this.place});
@@ -307,18 +313,10 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: kOwnerGreen,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
                     onPressed: _submit,
                     child: const Text(
                       'Place order',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),

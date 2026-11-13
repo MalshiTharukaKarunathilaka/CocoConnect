@@ -1,7 +1,11 @@
 import 'package:latlong2/latlong.dart';
+import '../../services/auth_service.dart';
 
 /// Demo fertilizer catalogue + orders for the estate-owner / supplier flow.
 /// Same logic as the HTML demo: 50 kg base unit, Pending Ack, one shop login.
+
+/// Which home calendar to show after login.
+enum FertHomeMode { supplier, cdo }
 
 class FertItem {
   FertItem({
@@ -119,6 +123,54 @@ class FertDayAvail {
   int? qty;
 }
 
+class FertGovRequest {
+  FertGovRequest({
+    required this.id,
+    required this.owner,
+    required this.fertilizer,
+    required this.requested,
+    required this.status,
+    required this.cdo,
+    required this.date,
+    this.district = 'Kurunegala',
+    this.approved = 0,
+    this.distributed = 0,
+  });
+
+  final String id;
+  final String owner;
+  final String fertilizer;
+  final int requested;
+  String status;
+  final String cdo;
+  final DateTime date;
+  final String district;
+  int approved;
+  int distributed;
+}
+
+class FertComplaint {
+  FertComplaint({
+    required this.id,
+    required this.category,
+    required this.product,
+    required this.status,
+    required this.date,
+    required this.description,
+    this.owner = 'Your Estate',
+    this.district = 'Kurunegala',
+  });
+
+  final String id;
+  final String category;
+  final String product;
+  String status;
+  final DateTime date;
+  final String description;
+  final String owner;
+  final String district;
+}
+
 /// In-memory session store (demo only).
 class FertilizerStore {
   FertilizerStore._();
@@ -126,6 +178,42 @@ class FertilizerStore {
 
   /// Logged-in supplier shop (one login = one shop).
   String agentShopId = 'PL4';
+
+  /// Logged-in CDO place (government office).
+  String cdoPlaceId = 'PL5';
+
+  FertHomeMode homeMode = FertHomeMode.supplier;
+
+  static String _last9(String phone) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return '';
+    return digits.length > 9 ? digits.substring(digits.length - 9) : digits;
+  }
+
+  /// Tie the fertilizer demo store to the real login (phone / role).
+  /// Why: one phone should only see that person's shop or CDO desk.
+  void bindUser(AppUser user) {
+    final key = _last9(user.phone);
+    if (user.role == 'CDO') {
+      homeMode = FertHomeMode.cdo;
+      final match = places.where(
+        (p) => p.kind == 'cdo' && _last9(p.phone) == key,
+      );
+      cdoPlaceId = match.isNotEmpty
+          ? match.first.id
+          : places.firstWhere((p) => p.kind == 'cdo').id;
+      agentShopId = cdoPlaceId;
+      return;
+    }
+
+    homeMode = FertHomeMode.supplier;
+    final match = places.where(
+      (p) => p.kind == 'shop' && _last9(p.phone) == key,
+    );
+    agentShopId = match.isNotEmpty
+        ? match.first.id
+        : places.firstWhere((p) => p.kind == 'shop').id;
+  }
 
   final List<FertPlace> places = [
     FertPlace(
@@ -407,6 +495,46 @@ class FertilizerStore {
       status: 'Accepted',
       message: 'Already accepted sample order.',
     ),
+    FertOrder(
+      id: 'PO-501',
+      placeId: 'PL5',
+      company: 'CDO Area 01',
+      agent: 'CDO - Mawathagama',
+      owner: 'Smallholder Group B',
+      product: 'ERP Coconut Fertilizer (50 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL5').items.first,
+          qty50: 20,
+        ),
+      ],
+      qty50: 20,
+      price: 120000,
+      preferredDate: DateTime(2026, 11, 9),
+      slot: 'Morning 8–11',
+      status: 'Pending Ack',
+      message: 'Subsidy collection for 20 farmers.',
+    ),
+    FertOrder(
+      id: 'PO-502',
+      placeId: 'PL5',
+      company: 'CDO Area 01',
+      agent: 'CDO - Mawathagama',
+      owner: 'Estate Co-op',
+      product: 'Urea subsidy (50 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL5').items[1],
+          qty50: 15,
+        ),
+      ],
+      qty50: 15,
+      price: 63000,
+      preferredDate: DateTime(2026, 11, 11),
+      slot: 'Afternoon 12–3',
+      status: 'Pending Ack',
+      message: 'Please confirm pickup window.',
+    ),
   ];
 
   /// dateKey yyyy-MM-dd -> itemKey placeId::name -> availability
@@ -427,6 +555,91 @@ class FertilizerStore {
       ),
     ],
   };
+
+  /// Northern districts the Regional Manager can see in the demo.
+  static const managerDistricts = ['Jaffna', 'Mannar', 'Mullaitivu'];
+
+  final List<FertGovRequest> govRequests = [
+    FertGovRequest(
+      id: 'FR-1099',
+      owner: 'Your Estate',
+      fertilizer: 'ERP Coconut Fertilizer (50 kg)',
+      requested: 12,
+      status: 'Pending Ack',
+      cdo: 'CDO - Mawathagama',
+      date: DateTime(2026, 11, 8),
+      district: 'Kurunegala',
+    ),
+    FertGovRequest(
+      id: 'FR-N-1001',
+      owner: 'Northern Estate J',
+      fertilizer: 'ERP Coconut Fertilizer',
+      requested: 18,
+      approved: 18,
+      distributed: 18,
+      status: 'Receipt Confirmed',
+      cdo: 'CDO - Jaffna (demo)',
+      date: DateTime(2026, 10, 18),
+      district: 'Jaffna',
+    ),
+    FertGovRequest(
+      id: 'FR-N-1002',
+      owner: 'Northern Estate M',
+      fertilizer: 'ERP Coconut Fertilizer',
+      requested: 24,
+      approved: 20,
+      distributed: 0,
+      status: 'Negotiation',
+      cdo: 'CDO - Mannar (demo)',
+      date: DateTime(2026, 10, 19),
+      district: 'Mannar',
+    ),
+    FertGovRequest(
+      id: 'FR-N-1003',
+      owner: 'Northern Estate ML',
+      fertilizer: 'ERP Coconut Fertilizer',
+      requested: 15,
+      approved: 15,
+      distributed: 10,
+      status: 'Distributed',
+      cdo: 'CDO - Mullaitivu (demo)',
+      date: DateTime(2026, 10, 20),
+      district: 'Mullaitivu',
+    ),
+  ];
+
+  final List<FertComplaint> complaints = [
+    FertComplaint(
+      id: 'QC-202',
+      category: 'Product quality',
+      product: 'ERP Coconut Fertilizer',
+      status: 'Submitted',
+      date: DateTime(2026, 10, 16),
+      description: 'Sample complaint for demonstration.',
+      owner: 'Your Estate',
+      district: 'Kurunegala',
+    ),
+    FertComplaint(
+      id: 'QC-203',
+      category: 'Incorrect quantity',
+      product: 'ERP Coconut Fertilizer',
+      status: 'Submitted',
+      date: DateTime(2026, 10, 18),
+      description: 'Sample Northern-region complaint.',
+      owner: 'Northern Estate J',
+      district: 'Jaffna',
+    ),
+    FertComplaint(
+      id: 'QC-204',
+      category: "Didn't receive the fertilizer",
+      product: 'ERP Coconut Fertilizer',
+      status: 'Under Review',
+      date: DateTime(2026, 10, 19),
+      description: 'Sample Northern-region complaint.',
+      owner: 'Northern Estate M',
+      district: 'Mannar',
+    ),
+  ];
 
   static const estateGeo = {
     'Your Estate': LatLng(7.4863, 80.3647),
@@ -477,4 +690,44 @@ class FertilizerStore {
       }
     }
   }
+
+  void markDelivered(String id) {
+    for (final o in orders) {
+      if (o.id == id &&
+          (o.status == 'Accepted' || o.status == 'Stock Confirmed')) {
+        o.status = 'Distributed';
+        return;
+      }
+    }
+  }
+
+  void placeGovRequest(FertGovRequest request) => govRequests.insert(0, request);
+
+  void addComplaint(FertComplaint complaint) => complaints.insert(0, complaint);
+
+  /// Demo CDO area stock summary (same idea as the HTML demo).
+  final List<Map<String, dynamic>> areaStock = [
+    {
+      'area': 'CDO - Area 01',
+      'district': 'Kurunegala',
+      'product': 'ERP Coconut Fertilizer',
+      'bags': 120,
+      'allocated': 65,
+    },
+    {
+      'area': 'CDO - Area 02',
+      'district': 'Kurunegala',
+      'product': 'ERP Coconut Fertilizer',
+      'bags': 80,
+      'allocated': 42,
+    },
+  ];
+
+  static const eligibleEstates = [
+    ('Your Estate', '8 acres', 'Mawathagama', true),
+    ('Estate A', '12 acres', 'Mawathagama', true),
+    ('Estate F', '6 acres', 'Kuliyapitiya', true),
+    ('Green Palm Estate', '5 acres', 'Narammala', true),
+    ('Sunrise Estate', '3 acres', 'Gampaha', false),
+  ];
 }

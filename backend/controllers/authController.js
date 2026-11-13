@@ -3,7 +3,14 @@ const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 const { parseCoords } = require("../utils/geo");
 
-const ROLES = ["BUYER", "ESTATE_OWNER", "ESTATE_MANAGER", "SERVICE_PROVIDER"];
+const ROLES = [
+  "BUYER",
+  "ESTATE_OWNER",
+  "ESTATE_MANAGER",
+  "SERVICE_PROVIDER",
+  "FERTILIZER_SUPPLIER",
+  "CDO",
+];
 
 // "Estate Owner" (as shown in the app) -> "ESTATE_OWNER"
 const normaliseRole = (role) =>

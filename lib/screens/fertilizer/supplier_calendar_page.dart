@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/owner_widgets.dart';
+import '../account_dialogs.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
 
-/// Nadeesha Stores supplier calendar — one shop login, pending ack alarm.
+/// Supplier or CDO calendar — one login = one shop / one CDO desk.
 class SupplierCalendarPage extends StatefulWidget {
-  const SupplierCalendarPage({super.key});
+  const SupplierCalendarPage({
+    super.key,
+    this.mode = FertHomeMode.supplier,
+    this.embedded = false,
+  });
+
+  final FertHomeMode mode;
+  final bool embedded;
 
   @override
   State<SupplierCalendarPage> createState() => _SupplierCalendarPageState();
@@ -15,6 +24,8 @@ class SupplierCalendarPage extends StatefulWidget {
 class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
   final _store = FertilizerStore.instance;
   DateTime _cursor = DateTime(2026, 11, 1);
+
+  bool get _isCdo => widget.mode == FertHomeMode.cdo;
 
   FertPlace get _shop => _store.myShop;
 
@@ -38,21 +49,52 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
     final daysInMonth = DateTime(_cursor.year, _cursor.month + 1, 0).day;
     final firstWeekday = DateTime(_cursor.year, _cursor.month, 1).weekday % 7;
 
-    return OwnerPage(
-      child: Column(
-        children: [
+    final body = Column(
+      children: [
+        if (!widget.embedded)
           OwnerHeader(
-            title: 'Supplier calendar',
+            title: _isCdo ? 'CDO calendar' : 'Supplier calendar',
             subtitle: _shop.company.toUpperCase(),
+            showBack: false,
             actions: [
               IconButton(
                 tooltip: 'Availability',
-                icon: const Icon(Icons.inventory_2_outlined, color: kOwnerGreen),
+                icon: const Icon(Icons.inventory_2_outlined, color: AppColors.green),
                 onPressed: () => _openAvail(
                   DateTime.now().add(const Duration(days: 1)),
                 ),
               ),
+              IconButton(
+                tooltip: 'Log out',
+                icon: const Icon(Icons.logout, color: AppColors.green),
+                onPressed: () => confirmLogOut(context),
+              ),
             ],
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _isCdo ? 'CDO calendar' : 'Supplier calendar',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.green,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Availability',
+                  icon: const Icon(Icons.inventory_2_outlined, color: AppColors.green),
+                  onPressed: () => _openAvail(
+                    DateTime.now().add(const Duration(days: 1)),
+                  ),
+                ),
+              ],
+            ),
           ),
           if (pending.isNotEmpty)
             Padding(
@@ -242,8 +284,12 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
             ),
           ),
         ],
-      ),
     );
+
+    if (widget.embedded) {
+      return ColoredBox(color: AppColors.cream, child: body);
+    }
+    return OwnerPage(child: body);
   }
 
   Widget _pendingCard(FertOrder o) {
@@ -654,6 +700,26 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                           );
                         },
                         child: const Text('Accept / Ack'),
+                      ),
+                    ),
+                  if (o.status == 'Accepted' || o.status == 'Stock Confirmed')
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: () {
+                          _store.markDelivered(o.id);
+                          Navigator.pop(ctx);
+                          setState(() {});
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('${o.id} marked delivered')),
+                          );
+                        },
+                        child: const Text('Mark delivered'),
                       ),
                     ),
                 ],

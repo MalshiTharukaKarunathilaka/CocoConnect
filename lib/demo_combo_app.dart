@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'screens/estate_owner_dashboard.dart';
+import 'screens/auth_gate.dart';
+import 'screens/fertilizer/fertilizer_role_gate.dart';
+import 'theme/app_theme.dart';
 
-/// Combined test entry: Senuji estate-owner home first.
-/// Tap Fertilizer to open Ibrahim's fertilizer map / order flow.
+/// Fertilizer combo: role logins → shared store (orders sync across roles).
 void main() {
+  fertilizerComboMode = true;
   runApp(const ComboApp());
 }
 
@@ -13,10 +15,10 @@ class ComboApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'KapConnect Combined',
+      title: 'KapConnect Fertilizer',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true, fontFamily: 'Arial'),
-      home: const EstateOwnerDashboard(),
+      theme: AppTheme.light(),
+      home: const FertilizerRoleGate(),
     );
   }
 }

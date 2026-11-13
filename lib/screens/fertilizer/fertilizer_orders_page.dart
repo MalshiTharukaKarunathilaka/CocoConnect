@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../widgets/owner_widgets.dart';
+import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
 
@@ -35,41 +35,72 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
         .length;
     final accepted = mine.where((o) => o.status == 'Accepted').length;
 
-    return OwnerPage(
-      child: Column(
-        children: [
-          const OwnerHeader(
-            title: 'My fertilizer orders',
-            subtitle: 'PENDING ACK · ACCEPTED · CANCEL',
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-            child: Row(
-              children: [
-                _tabChip('pending', 'Pending ($pending)'),
-                const SizedBox(width: 8),
-                _tabChip('accepted', 'Accepted ($accepted)'),
-                const SizedBox(width: 8),
-                _tabChip('all', 'All (${mine.length})'),
-              ],
+    return Scaffold(
+      backgroundColor: const Color(0xFFEFEFEF),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 430),
+          child: Material(
+            color: AppColors.cream,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.arrow_back),
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'My fertilizer orders',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.green,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 48),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                    child: Row(
+                      children: [
+                        _tabChip('pending', 'Pending ($pending)'),
+                        const SizedBox(width: 8),
+                        _tabChip('accepted', 'Accepted ($accepted)'),
+                        const SizedBox(width: 8),
+                        _tabChip('all', 'All (${mine.length})'),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: _list.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No orders in this list yet.',
+                              style: TextStyle(color: AppColors.muted),
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _list.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (_, i) => _card(_list[i]),
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
-          Expanded(
-            child: _list.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No orders in this list yet.',
-                      style: TextStyle(color: kOwnerMuted),
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _list.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) => _card(_list[i]),
-                  ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -78,9 +109,9 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
     final on = _tab == code;
     return Expanded(
       child: Material(
-        color: on ? kOwnerGreen : Colors.white,
+        color: on ? AppColors.green : Colors.white,
         shape: StadiumBorder(
-          side: BorderSide(color: on ? kOwnerGreen : kOwnerBorder),
+          side: BorderSide(color: on ? AppColors.green : AppColors.line),
         ),
         child: InkWell(
           customBorder: const StadiumBorder(),
@@ -92,8 +123,8 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: on ? Colors.white : kOwnerInk,
+                fontWeight: FontWeight.w700,
+                color: on ? Colors.white : AppColors.ink,
               ),
             ),
           ),
@@ -110,7 +141,8 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kOwnerBorder),
+        border: Border.all(color: AppColors.line),
+        boxShadow: AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,25 +153,22 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
                 child: Text(
                   o.id,
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w700,
                     fontSize: 15,
                   ),
                 ),
               ),
-              OwnerPill(
-                o.status,
-                tone: o.status == 'Accepted' ? PillTone.green : PillTone.neutral,
-              ),
+              StatusPill.forStatus(o.status),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             '${o.company} · ${shortDate(o.preferredDate)} · ${o.slot}',
-            style: const TextStyle(fontSize: 12.5, color: kOwnerMuted),
+            style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
           ),
           Text(
             o.items.map((l) => '${l.qty50} × 50 kg ${l.item.name}').join('\n'),
-            style: const TextStyle(fontSize: 12.5, color: kOwnerMuted),
+            style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
           ),
           const SizedBox(height: 6),
           Text(o.message, style: const TextStyle(fontSize: 12.5)),
@@ -147,8 +176,8 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
           Text(
             rupees(o.price),
             style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: kOwnerGreen,
+              fontWeight: FontWeight.w700,
+              color: AppColors.green,
             ),
           ),
           if (canCancel) ...[
@@ -163,7 +192,7 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
                     SnackBar(content: Text('${o.id} cancelled')),
                   );
                 },
-                style: TextButton.styleFrom(foregroundColor: kOwnerRed),
+                style: TextButton.styleFrom(foregroundColor: AppColors.dangerText),
                 child: const Text('Cancel'),
               ),
             ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'coconuts_page.dart';
-import 'fertilizer/fertilizer_map_page.dart';
+import 'fertilizer/fertilizer_hub.dart';
 import 'machinery_map_page.dart';
 
 class EstateOwnerDashboard extends StatelessWidget {
@@ -144,7 +144,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) =>
-                                          const FertilizerMapPage(),
+                                          const FertilizerHub(),
                                     ),
                                   );
                                 },
