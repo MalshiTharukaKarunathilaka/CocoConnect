@@ -79,7 +79,7 @@ const List<_Service> _services = [
     'Deep furrow penetration',
   ),
   _Service(
-    'Rotary Tiller',
+    'Rotary',
     'rotary',
     'Secondary soil pulverization & manure mixing',
     6000,
@@ -95,7 +95,7 @@ const List<_Service> _services = [
     'Safe root perimeter tilling',
   ),
   _Service(
-    'Coconut Haulage Trailer',
+    'Trailer',
     'trailer',
     'Nut transport & fertilizer distribution',
     14000,
@@ -106,55 +106,31 @@ const List<_Service> _services = [
 
 const List<_Service> _backhoeServices = [
   _Service(
-    'Ditch & Drainage',
+    'Small Backhoe',
     '',
-    'Drain and ditch digging between palm rows',
+    'Small backhoe service',
     4200,
     'hour',
-    'Keeps estate water-logging away',
+    'Hourly rate',
   ),
   _Service(
-    'Pit Digging',
+    'Large Backhoe',
     '',
-    'Planting pits for new coconut seedlings',
-    4200,
-    'hour',
-    'Uniform pit depth',
-  ),
-  _Service(
-    'Land Clearing',
-    '',
-    'Stump removal and levelling of new land',
+    'Large backhoe service',
     6500,
     'hour',
-    'Heavy-duty clearing',
+    'Hourly rate',
   ),
 ];
 
 const List<_Service> _handTractorServices = [
   _Service(
-    'Weeding',
+    'Hand Tractor',
     '',
-    'Light weed control between palms',
-    3200,
-    'acre',
-    'Good for narrow rows',
-  ),
-  _Service(
-    'Inter-row Tilling',
-    '',
-    'Shallow tilling for intercrops',
-    3000,
-    'acre',
-    'Low soil compaction',
-  ),
-  _Service(
-    'Small Trailer Haulage',
-    '',
-    'Short-distance nut and manure transport',
+    'Hand tractor service',
     9000,
     'day',
-    'Up to 1,000 nuts / trip',
+    'Daily rate',
   ),
 ];
 
