@@ -511,3 +511,8 @@
 .an-region { border: 1.5px solid #cfe3d6; }
 .an-kpis.an-kpis-auto { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 .an-region-note { margin: 12px 4px 0; color: var(--muted); font-size: 0.78rem; }
+
+.an-star { display: inline-block; vertical-align: -2px; flex: none; }
+.an-cal-d.holiday:not(.on):not(.today) { background: #fff8ea; border-color: #f0d9a8; }
+.an-cal-key { margin: 10px 2px 0; font-size: 0.75rem; color: #5c6b62; }
+.an-cal-hol { margin: 4px 0 8px; padding: 6px 10px; border-radius: 10px; background: #fff3d6; color: #8a5a0a; font-size: 0.8rem; font-weight: 700; }

@@ -4,6 +4,7 @@ import DrillMap, { GREEN_SCALE } from './DrillMap'
 import { Character, Pair } from './People'
 import { glyphHtml } from './pins'
 import PriceMap from './PriceMap'
+import { api } from '../api'
 import { loadRegions, regionFigures } from './regions'
 import {
   AGE_GROUPS, BOOKING_STATUSES, DISTRICTS, ESTATE_TYPES, FERT_TYPES, FERT_YEARS, GENDERS, JOB_CATEGORIES,
@@ -1073,6 +1074,14 @@ const dayWeight = (y, m, day) => {
   const wd = new Date(y, m - 1, day).getDay()
   return (0.55 + (x - Math.floor(x))) * (wd === 0 ? 0.6 : wd === 6 ? 1.25 : 1)
 }
+// A small amber star that marks a holiday on the calendar.
+function HolidayStar({ label }) {
+  return (
+    <svg className="an-star" viewBox="0 0 24 24" width="13" height="13" role="img" aria-label={label || 'Holiday'}>
+      <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8L12 2.5z" fill="#e0a030" stroke="#b9770e" strokeWidth="1" strokeLinejoin="round" />
+    </svg>
+  )
+}
 function SalesCalendar({ rows }) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -1086,6 +1095,22 @@ function SalesCalendar({ rows }) {
   const [ym, setYm] = useState(maxYM)
   const [day, setDay] = useState(null)
   const [y, m] = ym
+  const [hol, setHol] = useState({})
+  useEffect(() => {
+    let live = true
+    api(`/admin/holidays?year=${y}`)
+      .then((r) => {
+        if (!live) return
+        const map = {}
+        for (const h of r.holidays || []) if (!map[h.date] || h.type === 'public') map[h.date] = h
+        setHol(map)
+      })
+      .catch(() => live && setHol({}))
+    return () => {
+      live = false
+    }
+  }, [y])
+  const holOf = (d) => hol[`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`]
   const isCur = y === ty && m === tm
   const days = new Date(y, m, 0).getDate()
   const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7 // weeks start on Monday
@@ -1136,18 +1161,21 @@ function SalesCalendar({ rows }) {
             {daily.map((x, i) => {
               const d = i + 1
               const today = isCur && d === td
+              const h = holOf(d)
               return (
-                <button key={d} disabled={!x} className={`an-cal-d ${day === d ? 'on' : ''} ${today ? 'today' : ''} ${x ? '' : 'future'}`} onClick={() => setDay(day === d ? null : d)}>
-                  <span>{today && <em>Today</em>}{d}</span>
+                <button key={d} disabled={!x} title={h ? `${h.name} · ${h.type === 'public' ? 'Public holiday' : 'Observance'}` : undefined} className={`an-cal-d ${day === d ? 'on' : ''} ${today ? 'today' : ''} ${x ? '' : 'future'} ${h ? 'holiday' : ''}`} onClick={() => setDay(day === d ? null : d)}>
+                  <span>{h && <HolidayStar label={h.name} />}{today && <em>Today</em>}{d}</span>
                   <strong>{x ? rs(x.rev) : '–'}</strong>
                   <i><u style={{ width: x ? `${(x.rev / max) * 100}%` : 0 }} /></i>
                 </button>
               )
             })}
           </div>
+          <p className="an-cal-key"><HolidayStar /> Sri Lankan holiday (Google public calendar)</p>
         </div>
         <div className="an-cal-side">
           <h4>{day ? `${day} ${MONTHS[m - 1]} ${y}` : isCur ? `${MONTHS[m - 1]} so far` : `${MONTHS[m - 1]} ${y}`}</h4>
+          {day && holOf(day) && <p className="an-cal-hol"><HolidayStar /> {holOf(day).name} · {holOf(day).type === 'public' ? 'Public holiday' : 'Observance'}</p>}
           <b className="big">{rs(sel ? sel.rev : shownRev)}</b>
           <div><span>Orders</span><strong>{num(sel ? sel.ord : shownOrd)}</strong></div>
           {!sel && seen.length > 0 && <div><span>Best day</span><strong>{bestDay + 1} {MONTHS[m - 1]} · {rs(daily[bestDay]?.rev)}</strong></div>}

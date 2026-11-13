@@ -86,6 +86,15 @@ router.put("/regions/band", putRegionBand);
 
 router.get("/reports", getReports);
 router.get("/settings", getSettings);
+
+// Sri Lankan holidays (Google's free public calendar) for the Sales calendar.
+router.get("/holidays", async (req, res) => {
+  const year = req.query.year === undefined ? undefined : Number(req.query.year);
+  if (year !== undefined && !/^\d{4}$/.test(String(req.query.year))) {
+    return res.status(400).json({ message: "year must be 4 digits" });
+  }
+  res.json(await require("../utils/holidays").getHolidays({ year }));
+});
 router.put("/settings", putSettings);
 
 module.exports = router;
