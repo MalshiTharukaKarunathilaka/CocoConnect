@@ -12,6 +12,8 @@ class WorkerJob {
   final String status;
   final String estateName;
   final String estateOwnerName;
+  final double? latitude;
+  final double? longitude;
   final int? applicationId;
   final String? applicationStatus;
 
@@ -27,6 +29,8 @@ class WorkerJob {
     required this.status,
     required this.estateName,
     required this.estateOwnerName,
+    required this.latitude,
+    required this.longitude,
     required this.applicationId,
     required this.applicationStatus,
   });
@@ -43,9 +47,20 @@ class WorkerJob {
     status: json['status'] as String? ?? 'OPEN',
     estateName: json['estate_name'] as String? ?? 'Estate',
     estateOwnerName: json['estate_owner_name'] as String? ?? 'Estate owner',
+    latitude: (json['estate_latitude'] as num?)?.toDouble(),
+    longitude: (json['estate_longitude'] as num?)?.toDouble(),
     applicationId: (json['application_id'] as num?)?.toInt(),
     applicationStatus: json['application_status'] as String?,
   );
+}
+
+class WorkerEstate {
+  final String estateName, ownerName, location;
+  final double? latitude, longitude;
+  const WorkerEstate({required this.estateName, required this.ownerName, required this.location, this.latitude, this.longitude});
+  factory WorkerEstate.fromJson(Map<String, dynamic> j) => WorkerEstate(
+    estateName: j['estate_name'] as String? ?? 'Estate', ownerName: j['estate_owner_name'] as String? ?? 'Estate owner',
+    location: j['location'] as String? ?? '', latitude: (j['estate_latitude'] as num?)?.toDouble(), longitude: (j['estate_longitude'] as num?)?.toDouble());
 }
 
 double _number(dynamic value) =>
@@ -63,5 +78,9 @@ class WorkerService {
 
   static Future<void> applyForJob(int jobId) async {
     await ApiClient.post('/api/worker/jobs/$jobId/apply');
+  }
+  static Future<List<WorkerEstate>> getEstates() async {
+    final data = await ApiClient.get('/api/worker/estates');
+    return (data as List).map((j) => WorkerEstate.fromJson(j as Map<String, dynamic>)).toList();
   }
 }

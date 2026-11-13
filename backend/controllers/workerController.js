@@ -39,10 +39,13 @@ const getAvailableJobs = async (req, res) => {
          dj.*,
          eo.estate_name,
          eo.name AS estate_owner_name,
+         u.latitude AS estate_latitude,
+         u.longitude AS estate_longitude,
          dja.id AS application_id,
          dja.status AS application_status
        FROM day_jobs dj
        JOIN estate_owners eo ON eo.id = dj.estate_owner_id
+       LEFT JOIN users u ON u.id = eo.user_id
        LEFT JOIN day_job_applications dja
          ON dja.day_job_id = dj.id AND dja.worker_id = $1
        WHERE (
@@ -69,6 +72,23 @@ const getAvailableJobs = async (req, res) => {
           "Worker database is not configured. Run backend/sql/009_worker_accounts_and_applications.sql in Supabase.",
       });
     }
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+const getEstates = async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT eo.id, eo.estate_name, eo.name AS estate_owner_name,
+              eo.location, u.latitude AS estate_latitude,
+              u.longitude AS estate_longitude
+       FROM estate_owners eo
+       LEFT JOIN users u ON u.id = eo.user_id
+       ORDER BY eo.estate_name`
+    );
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    console.error("Get estates error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -162,4 +182,4 @@ const applyForJob = async (req, res) => {
   }
 };
 
-module.exports = { getAvailableJobs, applyForJob };
+module.exports = { getAvailableJobs, getEstates, applyForJob };
