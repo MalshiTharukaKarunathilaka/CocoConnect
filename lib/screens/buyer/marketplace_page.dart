@@ -359,7 +359,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                     ),
                     const SizedBox(width: 12),
                     const Text(
-                      'CocoConnect',
+                      'Kapconnect',
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.bold,

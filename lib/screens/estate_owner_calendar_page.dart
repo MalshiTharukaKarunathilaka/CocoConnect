@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../services/owner_service.dart';
+import '../services/chat_service.dart';
+import '../services/api_client.dart';
 import 'post_day_job_page.dart';
 import 'scheduled_jobs_page.dart';
 
@@ -20,6 +22,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _selectedDay;
   List<DayJob> _postedJobs = [];
+  int _notificationCount = 0;
 
   static const List<String> _weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   static const List<String> _months = [
@@ -58,6 +61,17 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     super.initState();
     _selectedDay = DateTime(_month.year, _month.month, 15);
     _loadPostedJobs();
+    _loadNotificationCount();
+  }
+
+  Future<void> _loadNotificationCount() async {
+    try {
+      final items = await ChatService.getNotifications();
+      final count = await ChatService.unseenCount(items);
+      if (mounted) setState(() => _notificationCount = count);
+    } on ApiException {
+      // Keep the calendar usable if notifications are unavailable.
+    }
   }
 
   Future<void> _loadPostedJobs() async {
@@ -157,7 +171,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                     ],
                   ),
                 ),
-                const _CalendarBottomNavigation(),
+                _CalendarBottomNavigation(notificationCount: _notificationCount),
               ],
             ),
           ),
@@ -168,7 +182,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
 
   Widget _header() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 4),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
       child: Row(
         children: [
           GestureDetector(
@@ -179,12 +193,12 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
               color: Colors.black87,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 10),
           const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'KapConnect',
+                'Kapconnect',
                 style: TextStyle(
                   color: _calendarGreen,
                   fontSize: 22,
@@ -204,7 +218,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
           ),
           const Spacer(),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             decoration: BoxDecoration(
               color: const Color(0xFFE9E3D8),
               borderRadius: BorderRadius.circular(24),
@@ -218,19 +232,6 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             ),
           ),
           const SizedBox(width: 10),
-          Container(
-            width: 48,
-            height: 48,
-            decoration: const BoxDecoration(
-              color: _calendarGreen,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.person_outline,
-              color: Colors.white,
-              size: 29,
-            ),
-          ),
         ],
       ),
     );
@@ -324,10 +325,9 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     final firstDay = DateTime(_month.year, _month.month, 1);
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
     final leadingDays = firstDay.weekday - 1;
-    final rows = ((leadingDays + daysInMonth + 1) / 7).ceil();
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
@@ -339,14 +339,26 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  '${_months[_month.month - 1]}\n${_month.year}',
-                  style: const TextStyle(
-                    color: _calendarInk,
-                    fontSize: 26,
-                    height: 1.05,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _months[_month.month - 1],
+                      style: const TextStyle(
+                        color: _calendarInk,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '${_month.year}',
+                      style: const TextStyle(
+                        color: _calendarInk,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               _monthButton(Icons.chevron_left, () => _changeMonth(-1)),
@@ -354,7 +366,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
               _monthButton(Icons.chevron_right, () => _changeMonth(1)),
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
           Row(
             children: [
               for (final weekday in _weekdays)
@@ -364,7 +376,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                       weekday,
                       style: const TextStyle(
                         color: Color(0xFF3D4A5D),
-                        fontSize: 15,
+                        fontSize: 13,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -372,19 +384,31 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                 ),
             ],
           ),
-          const SizedBox(height: 4),
-          for (int row = 0; row < rows; row++)
-            Row(
-              children: [
-                for (int column = 0; column < 7; column++)
-                  Expanded(
-                    child: _dayCell(
-                      row * 7 + column - leadingDays + 1,
-                      daysInMonth,
-                    ),
-                  ),
-              ],
+          const SizedBox(height: 8),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 42,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisExtent: 48,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
             ),
+            itemBuilder: (context, index) {
+              final dayOffset = index - leadingDays;
+              return _dayCell(dayOffset + 1, daysInMonth);
+            },
+          ),
+          const SizedBox(height: 16),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _Legend(color: Color(0xFFF0A315), label: 'Partially filled'),
+              SizedBox(width: 24),
+              _Legend(color: _calendarGreen, label: 'Fully filled'),
+            ],
+          ),
         ],
       ),
     );
@@ -437,7 +461,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             runSpacing: 10,
             children: const [
               _CategoryChip(Icons.eco, 'Nut Gatherer'),
-              _CategoryChip(Icons.agriculture, 'Machine Weeder'),
+              _CategoryChip(Icons.agriculture, 'Machine Worker'),
               _CategoryChip(Icons.build, 'Manual Worker'),
               _CategoryChip(Icons.star_border, 'Holiday'),
             ],
@@ -450,18 +474,15 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   Widget _monthButton(IconData icon, VoidCallback onPressed) {
     return InkWell(
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.all(3),
-        child: Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE9E6DF),
-            borderRadius: BorderRadius.circular(13),
-          ),
-          child: Icon(icon, size: 28, color: const Color(0xFF68736B)),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0EEE8),
+          borderRadius: BorderRadius.circular(14),
         ),
+        child: Icon(icon, size: 24, color: const Color(0xFF68736B)),
       ),
     );
   }
@@ -480,27 +501,25 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     final todayDate = DateTime(today.year, today.month, today.day);
     final isPastDay = !isPreviewDay && cellDate.isBefore(todayDate);
     final isTodayOrFuture = !isPreviewDay && !isPastDay;
-    DayJob? postedJob;
-    for (final job in _postedJobs) {
-      if (job.requiredDate.year == cellDate.year &&
+    final jobsOnDay = _postedJobs.where((job) {
+      return job.requiredDate.year == cellDate.year &&
           job.requiredDate.month == cellDate.month &&
-          job.requiredDate.day == cellDate.day) {
-        postedJob = job;
-        break;
-      }
-    }
+          job.requiredDate.day == cellDate.day;
+    }).toList();
     final selected =
         _selectedDay?.year == cellDate.year &&
         _selectedDay?.month == cellDate.month &&
         _selectedDay?.day == cellDate.day;
-    final statusColor = isPreviewDay || postedJob == null
+    final statusColor = isPreviewDay || jobsOnDay.isEmpty
         ? null
-        : postedJob.confirmedWorkers >= postedJob.workersNeeded
+        : jobsOnDay.every(
+            (job) => job.confirmedWorkers >= job.workersNeeded,
+          )
         ? _calendarGreen
         : const Color(0xFFF0A315);
-    final dayType = isPreviewDay || postedJob == null
-        ? null
-        : _iconForJobCategory(postedJob.category);
+    final jobIcons = isPreviewDay
+        ? <IconData>[]
+        : jobsOnDay.map((job) => _iconForJobCategory(job.category)).toList();
     final isPoyaDay =
         !isPreviewDay &&
         _poyaDays2026.contains(
@@ -509,102 +528,106 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
 
     return GestureDetector(
       onTap: () => _selectDay(cellDate),
-      child: SizedBox(
-        height: 78,
-        child: Container(
-          margin: const EdgeInsets.all(3),
-          padding: const EdgeInsets.fromLTRB(8, 7, 7, 5),
-          decoration: BoxDecoration(
-            color: isNextMonth && displayDay == 1
-                ? const Color(0xFFBFD5C7)
-                : selected
-                ? _calendarGreen
-                : isPreviewDay
-                ? const Color(0xFFF4F3F0)
-                : isTodayOrFuture
-                ? const Color(0xFFBDD3C4)
-                : const Color(0xFFEBE9E3),
-            borderRadius: BorderRadius.circular(17),
-            border: isNextMonth && displayDay == 1
-                ? Border.all(color: const Color(0xFF2A9F78), width: 1.5)
-                : selected
-                ? Border.all(color: const Color(0xFF0B9368), width: 3)
-                : null,
-          ),
-          child: Stack(
-            children: [
-              Align(
-                alignment: Alignment.topLeft,
-                child: Text(
-                  isNextMonth && displayDay == 1
-                      ? '$displayDay ${_months[(_month.month) % 12].substring(0, 3)}'
-                      : '$displayDay',
-                  style: TextStyle(
-                    color: isPreviewDay
-                        ? const Color(0xFF687078)
-                        : selected
-                        ? Colors.white
-                        : _calendarInk,
-                    fontSize: 16,
-                    fontWeight: isPreviewDay || selected
-                        ? FontWeight.bold
-                        : FontWeight.w500,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(6, 6, 6, 5),
+        decoration: BoxDecoration(
+          color: isNextMonth && displayDay == 1
+              ? const Color(0xFFBFD5C7)
+              : selected
+              ? _calendarGreen
+              : isPreviewDay
+              ? const Color(0xFFF4F3F0)
+              : isTodayOrFuture
+              ? const Color(0xFFBDD3C4)
+              : const Color(0xFFEBE9E3),
+          borderRadius: BorderRadius.circular(16),
+          border: isNextMonth && displayDay == 1
+              ? Border.all(color: const Color(0xFF2A9F78), width: 1.5)
+              : selected
+              ? Border.all(color: const Color(0xFF0B9368), width: 2)
+              : null,
+        ),
+        child: Stack(
+          children: [
+            Align(
+              alignment: Alignment.topLeft,
+              child: Text(
+                isNextMonth && displayDay == 1
+                    ? '$displayDay ${_months[(_month.month) % 12].substring(0, 3)}'
+                    : '$displayDay',
+                style: TextStyle(
+                  color: isPreviewDay
+                      ? const Color(0xFF687078)
+                      : selected
+                      ? Colors.white
+                      : _calendarInk,
+                  fontSize: 14,
+                  fontWeight: isPreviewDay || selected
+                      ? FontWeight.bold
+                      : FontWeight.w500,
+                ),
+              ),
+            ),
+            if (statusColor != null)
+              Positioned(
+                top: 1,
+                right: 1,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: selected || statusColor == const Color(0xFFF0A315)
+                        ? const Color(0xFFFFB318)
+                        : const Color(0xFF07835F),
+                    shape: BoxShape.circle,
                   ),
                 ),
               ),
-              if (statusColor != null)
-                Positioned(
-                  top: 1,
-                  right: 0,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: selected || statusColor == const Color(0xFFF0A315)
-                          ? const Color(0xFFFFB318)
-                          : const Color(0xFF07835F),
-                      shape: BoxShape.circle,
-                    ),
+            if (isPoyaDay)
+              const Positioned(
+                bottom: 1,
+                left: 0,
+                child: Icon(Icons.star_border, size: 16, color: Colors.red),
+              )
+            else if (jobIcons.isNotEmpty)
+              Positioned(
+                bottom: 1,
+                left: 0,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final icon in jobIcons)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 1),
+                        child: Icon(
+                          icon,
+                          size: 11,
+                          color: selected
+                              ? const Color(0xFFB7E2C7)
+                              : const Color(0xFF4D6D5A),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            if (isNextMonth && displayDay == 1)
+              const Positioned(
+                bottom: 0,
+                left: 1,
+                child: Text(
+                  '+',
+                  style: TextStyle(
+                    color: _calendarGreen,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              if (isPoyaDay)
-                const Positioned(
-                  bottom: 1,
-                  left: 0,
-                  child: Icon(Icons.star_border, size: 18, color: Colors.red),
-                )
-              else if (dayType != null)
-                Positioned(
-                  bottom: 1,
-                  left: 0,
-                  child: Icon(
-                    dayType,
-                    size: 18,
-                    color: selected
-                        ? const Color(0xFFB7E2C7)
-                        : const Color(0xFF4D6D5A),
-                  ),
-                ),
-              if (isNextMonth && displayDay == 1)
-                const Positioned(
-                  bottom: 0,
-                  left: 1,
-                  child: Text(
-                    '+',
-                    style: TextStyle(
-                      color: _calendarGreen,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
   }
-
   IconData _iconForJobCategory(String category) {
     final value = category.toLowerCase();
     if (value.contains('machine') || value.contains('weeder')) {
@@ -644,18 +667,18 @@ class _DayActionsSheet extends StatelessWidget {
   ];
 
   static const List<String> _months = [
-    'January',
-    'February',
-    'March',
-    'April',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
     'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   @override
@@ -664,122 +687,148 @@ class _DayActionsSheet extends StatelessWidget {
     final label =
         '${_weekdays[date.weekday - 1]}, '
         '${date.day.toString().padLeft(2, '0')} '
-        '${_months[date.month - 1].substring(0, 3)} ${date.year}';
+        '${_months[date.month - 1]} ${date.year}';
 
     return SafeArea(
-      child: SizedBox(
-        height: isScheduleView ? 700 : 540,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(36, 16, 36, 26),
-          child: Column(
-            children: [
-              Container(
-                width: 80,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5E1DA),
-                  borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 14, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 54,
+              height: 6,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0DDD6),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF4ED),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFD4E7D9)),
+              ),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _calendarGreen,
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 34),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 25),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF4ED),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFD4E7D9)),
-                ),
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: _calendarGreen,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              SizedBox(height: isScheduleView ? 38 : 38),
-              if (isScheduleView) ...[
-                _ActionButton(
-                  icon: Icons.add,
-                  label: 'Add Job for This Date',
-                  backgroundColor: const Color(0xFF197549),
-                  foregroundColor: Colors.white,
-                  onTap: onAddJob,
-                ),
-                const SizedBox(height: 18),
-              ],
+            ),
+            const SizedBox(height: 16),
+            if (isScheduleView) ...[
               _ActionButton(
-                icon: Icons.format_list_bulleted,
-                label: 'View Jobs',
-                backgroundColor: isScheduleView
-                    ? const Color(0xFFF0F5EF)
-                    : const Color(0xFF246B45),
-                foregroundColor: isScheduleView ? _calendarGreen : Colors.white,
-                onTap: onViewJobs,
+                icon: Icons.add,
+                label: 'Add Job for This Date',
+                backgroundColor: const Color(0xFF1E653F),
+                foregroundColor: Colors.white,
+                onTap: onAddJob,
               ),
-              if (isScheduleView) ...[
-                const SizedBox(height: 38),
-                Container(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F4EC),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 58,
-                        height: 58,
-                        alignment: Alignment.center,
-                        decoration: const BoxDecoration(
-                          color: _calendarGreen,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          '${date.day}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 21,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      const Expanded(
-                        child: Text(
-                          'Schedule Day',
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontSize: 25,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      FilledButton.icon(
-                        onPressed: onViewJobs,
-                        icon: const Icon(Icons.arrow_forward, size: 18),
-                        label: const Text('Manage'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _calendarGreen,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 13,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(22),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              const SizedBox(height: 14),
             ],
-          ),
+            _ActionButton(
+              icon: Icons.format_list_bulleted,
+              label: 'View Jobs',
+              backgroundColor: const Color(0xFFEAF4ED),
+              foregroundColor: _calendarGreen,
+              onTap: onViewJobs,
+            ),
+            if (isScheduleView) ...[
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F5EE),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: _calendarGreen,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${date.day}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Schedule',
+                            style: TextStyle(
+                              color: _calendarInk,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'Day',
+                            style: TextStyle(
+                              color: _calendarInk,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    InkWell(
+                      onTap: onViewJobs,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _calendarGreen,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(
+                              Icons.arrow_forward,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Manage',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -804,20 +853,23 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
+      height: 52,
       width: double.infinity,
-      height: 86,
       child: FilledButton.icon(
         onPressed: onTap,
-        icon: Icon(icon, size: 32),
+        icon: Icon(icon, size: 22, color: foregroundColor),
         label: Text(
           label,
-          style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: foregroundColor,
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         style: FilledButton.styleFrom(
           backgroundColor: backgroundColor,
-          foregroundColor: foregroundColor,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(25),
+            borderRadius: BorderRadius.circular(20),
           ),
         ),
       ),
@@ -862,7 +914,9 @@ class _CategoryChip extends StatelessWidget {
 }
 
 class _CalendarBottomNavigation extends StatelessWidget {
-  const _CalendarBottomNavigation();
+  final int notificationCount;
+
+  const _CalendarBottomNavigation({this.notificationCount = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -890,6 +944,13 @@ class _CalendarBottomNavigation extends StatelessWidget {
           ),
           _item(
             context,
+            Icons.notifications_none,
+            'Alerts',
+            badge: notificationCount,
+            onTap: () => openTab(context, AppTab.alerts),
+          ),
+          _item(
+            context,
             Icons.person_outline,
             'Profile',
             onTap: () => openTab(context, AppTab.profile),
@@ -905,6 +966,7 @@ class _CalendarBottomNavigation extends StatelessWidget {
     String label, {
     VoidCallback? onTap,
     bool active = false,
+    int badge = 0,
   }) {
     final color = active ? _calendarGreen : const Color(0xFF66615D);
     return Expanded(
@@ -921,10 +983,15 @@ class _CalendarBottomNavigation extends StatelessWidget {
                 color: active ? const Color(0xFFDDEEE0) : Colors.transparent,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(
-                active ? Icons.calendar_month : icon,
-                size: 22,
-                color: color,
+              child: Badge(
+                isLabelVisible: badge > 0,
+                label: Text(badge > 99 ? '99+' : '$badge'),
+                backgroundColor: Colors.red,
+                child: Icon(
+                  active ? Icons.calendar_month : icon,
+                  size: 22,
+                  color: color,
+                ),
               ),
             ),
             const SizedBox(height: 3),

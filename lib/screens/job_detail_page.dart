@@ -23,11 +23,9 @@ class JobDetailPage extends StatelessWidget {
     final isUpcoming = !selectedDate.isBefore(today);
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
+      backgroundColor: _detailBackground,
+      body: SizedBox.expand(
         child: Container(
-          width: 390,
-          constraints: const BoxConstraints(maxWidth: 430),
           color: _detailBackground,
           child: SafeArea(
             child: isUpcoming
@@ -99,17 +97,20 @@ class JobDetailPage extends StatelessWidget {
       children: [
         _header(context),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
-            children: [
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               _status(),
-              const SizedBox(height: 24),
+              const SizedBox(height: 6),
               _jobSummary(),
-              const SizedBox(height: 26),
+              const SizedBox(height: 6),
               _workerProgress(),
-              const SizedBox(height: 26),
+              const SizedBox(height: 6),
               SizedBox(
-                height: 68,
+                width: double.infinity,
+                height: 50,
                 child: FilledButton(
                   onPressed: () => _showMessage(context, 'Job completed'),
                   style: FilledButton.styleFrom(
@@ -121,13 +122,14 @@ class JobDetailPage extends StatelessWidget {
                   ),
                   child: const Text(
                     'Complete Job',
-                    style: TextStyle(fontSize: 21, fontWeight: FontWeight.w500),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 6),
               SizedBox(
-                height: 68,
+                width: double.infinity,
+                height: 50,
                 child: FilledButton.icon(
                   onPressed: () => Navigator.push(
                     context,
@@ -138,7 +140,7 @@ class JobDetailPage extends StatelessWidget {
                   icon: const Icon(Icons.arrow_forward, size: 26),
                   label: const Text(
                     'View Accepted Workers',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: _detailGreen,
@@ -149,7 +151,8 @@ class JobDetailPage extends StatelessWidget {
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
         _bottomNavigation(),
@@ -159,7 +162,7 @@ class JobDetailPage extends StatelessWidget {
 
   Widget _workerProgress() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(34, 30, 34, 30),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
@@ -173,33 +176,42 @@ class JobDetailPage extends StatelessWidget {
               value: job.workersNeeded == 0
                   ? 0
                   : job.confirmedWorkers / job.workersNeeded,
-              minHeight: 10,
+            minHeight: 6,
               backgroundColor: Color(0xFFEDE7DC),
               color: _detailGreen,
             ),
           ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-              '${job.confirmedWorkers} Accepted',
-              style: const TextStyle(
-                  color: _detailInk,
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
+          const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${job.confirmedWorkers} Accepted',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _detailInk,
+                    fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-              ),
-              Text(
-              'Target: ${job.workersNeeded} Workers',
-              style: const TextStyle(
-                  color: _detailInk,
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Target: ${job.workersNeeded} Workers',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      color: _detailInk,
+                    fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );
@@ -228,11 +240,7 @@ class JobDetailPage extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          const CircleAvatar(
-            radius: 27,
-            backgroundColor: _detailGreen,
-            child: Icon(Icons.person_outline, color: Colors.white, size: 29),
-          ),
+          const SizedBox(width: 48),
         ],
       ),
     );
@@ -242,7 +250,7 @@ class JobDetailPage extends StatelessWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: const Color(0xFFD8F1DF),
           borderRadius: BorderRadius.circular(22),
@@ -261,7 +269,7 @@ class JobDetailPage extends StatelessWidget {
 
   Widget _jobSummary() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
@@ -274,7 +282,7 @@ class JobDetailPage extends StatelessWidget {
             job.category,
             style: TextStyle(
               color: _detailInk,
-              fontSize: 25,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -283,13 +291,13 @@ class JobDetailPage extends StatelessWidget {
             'Estate job',
             style: TextStyle(color: Color(0xFF65766C), fontSize: 18),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 8),
           _infoTile(
             Icons.location_on_outlined,
             'Location',
             job.location,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
           _infoTile(
             Icons.calendar_today_outlined,
             'Date & Hours',
@@ -298,10 +306,10 @@ class JobDetailPage extends StatelessWidget {
                 '${job.requiredDate.year} '
                 '(7:30 AM - 4:30 PM)',
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(26, 22, 26, 22),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             decoration: BoxDecoration(
               color: const Color(0xFFFCFAF5),
               borderRadius: BorderRadius.circular(18),
@@ -310,16 +318,22 @@ class JobDetailPage extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Daily Rate',
-                  style: TextStyle(color: Color(0xFF65766C), fontSize: 17),
+                const Expanded(
+                  child: Text(
+                    'Daily Rate',
+                    style: TextStyle(color: Color(0xFF65766C), fontSize: 17),
+                  ),
                 ),
-                Text(
-                  'Rs. ${job.dailyRate.toStringAsFixed(0)}',
-                  style: const TextStyle(
-                    color: _detailGreen,
-                    fontSize: 23,
-                    fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Text(
+                    'Rs. ${job.dailyRate.toStringAsFixed(0)}',
+                    textAlign: TextAlign.right,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _detailGreen,
+                      fontSize: 23,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -332,7 +346,7 @@ class JobDetailPage extends StatelessWidget {
 
   Widget _infoTile(IconData icon, String label, String value) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: const Color(0xFFFCFAF5),
         borderRadius: BorderRadius.circular(18),
@@ -341,15 +355,15 @@ class JobDetailPage extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 38,
+            height: 38,
             decoration: const BoxDecoration(
               color: Color(0xFFECE8DF),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: _detailGreen, size: 28),
+            child: Icon(icon, color: _detailGreen, size: 22),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

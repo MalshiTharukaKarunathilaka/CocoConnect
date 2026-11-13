@@ -38,7 +38,7 @@ class CoconutsPage extends StatelessWidget {
                           ),
                           const SizedBox(width: 5),
                           const Text(
-                            'KapConnect',
+                            'Kapconnect',
                             style: TextStyle(
                               color: Color(0xFF2E7D32),
                               fontSize: 18,

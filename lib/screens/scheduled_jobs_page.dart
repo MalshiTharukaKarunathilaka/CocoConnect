@@ -501,11 +501,6 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
             ),
           ),
           const Spacer(),
-          const CircleAvatar(
-            radius: 30,
-            backgroundColor: _scheduledGreen,
-            child: Icon(Icons.person_outline, color: Colors.white, size: 31),
-          ),
         ],
       ),
     );

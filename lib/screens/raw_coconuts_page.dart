@@ -312,7 +312,7 @@ Future<void> saveListingToDatabase() async {
                           ),
 
                           const Text(
-                            'KapConnect',
+                            'Kapconnect',
                             style: TextStyle(
                               color: Color(0xFF2E7D32),
                               fontSize: 15,

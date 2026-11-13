@@ -19,7 +19,7 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-/// Talks to the CocoConnect backend and remembers the login token.
+/// Talks to the Kapconnect backend and remembers the login token.
 class ApiClient {
   ApiClient._();
 

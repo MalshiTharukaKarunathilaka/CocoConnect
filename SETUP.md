@@ -1,4 +1,4 @@
-# Running CocoConnect
+# Running Kapconnect
 
 The app has two parts, both in this repository on branch `integration-senuji`:
 
@@ -23,8 +23,8 @@ The backend must be running for the app to log in or load any data.
 ## 2. Get the code
 
 ```bash
-git clone https://github.com/MalshiTharukaKarunathilaka/CocoConnect.git
-cd CocoConnect
+git clone https://github.com/MalshiTharukaKarunathilaka/Kapconnect.git
+cd Kapconnect
 git checkout integration-senuji
 ```
 

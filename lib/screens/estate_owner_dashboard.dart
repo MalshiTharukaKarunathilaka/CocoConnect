@@ -36,7 +36,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                           ),
                           SizedBox(width: 5),
                           Text(
-                            'KapConnect',
+                            'Kapconnect',
                             style: TextStyle(
                               color: Color(0xFF2E7D32),
                               fontSize: 18,

@@ -26,7 +26,7 @@ class BuyerCategoriesPage extends StatelessWidget {
             const Row(
               children: [
                 Text(
-                  'CocoConnect',
+                  'Kapconnect',
                   style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.bold,
