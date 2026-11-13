@@ -385,17 +385,21 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   Widget _dashboardContent(List<WorkerJob> jobs, {String? error}) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 20),
       children: [
         if (error != null) _errorBanner(error),
         _profileCard(),
-        const SizedBox(height: 24),
-        _searchBox(),
-        const SizedBox(height: 14),
-        _myJobsButton(),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: _searchBox()),
+            const SizedBox(width: 10),
+            Expanded(child: _myJobsButton()),
+          ],
+        ),
+        const SizedBox(height: 16),
         _categoryShortcuts(),
-        const SizedBox(height: 18),
+        const SizedBox(height: 12),
         _calendarCard(jobs),
         const SizedBox(height: 10),
         _calendarDetailsCard(),
@@ -424,14 +428,14 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   Widget _profileCard() {
     final user = AuthService.currentUser;
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 22, 18, 22),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
       decoration: _cardDecoration(),
       child: Row(
         children: [
           const CircleAvatar(
-            radius: 42,
+            radius: 27,
             backgroundColor: Color(0xFFE9E6DC),
-            child: Icon(Icons.person, color: _workerGreen, size: 48),
+            child: Icon(Icons.person, color: _workerGreen, size: 30),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -444,22 +448,22 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: _workerInk,
-                    fontSize: 25,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 3),
                 const Row(
                   children: [
-                    Icon(Icons.verified, color: _workerGreen, size: 24),
-                    SizedBox(width: 6),
-                    Icon(Icons.location_on_outlined, color: _workerGreen),
+                    Icon(Icons.verified, color: _workerGreen, size: 18),
+                    SizedBox(width: 5),
+                    Icon(Icons.location_on_outlined, color: _workerGreen, size: 18),
                     SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         'Kurunegala District',
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: _workerMuted, fontSize: 15),
+                        style: TextStyle(color: _workerMuted, fontSize: 12),
                       ),
                     ),
                   ],
@@ -475,7 +479,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   Widget _ratingBadge() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F1E8),
         borderRadius: BorderRadius.circular(24),
@@ -483,13 +487,13 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.star, color: Color(0xFFFFB36D), size: 22),
+          Icon(Icons.star, color: Color(0xFFFFB36D), size: 16),
           SizedBox(width: 4),
           Text(
             '4.8 (64)',
             style: TextStyle(
               color: _workerInk,
-              fontSize: 16,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -506,10 +510,10 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         hintText: 'Search Jobs',
         hintStyle: const TextStyle(
           color: Color(0xFF969690),
-          fontSize: 22,
+          fontSize: 16,
           fontWeight: FontWeight.w500,
         ),
-        prefixIcon: const Icon(Icons.search, size: 34, color: _workerInk),
+        prefixIcon: const Icon(Icons.search, size: 26, color: _workerInk),
         suffixIcon: _searchController.text.isEmpty
             ? null
             : IconButton(
@@ -519,7 +523,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 },
                 icon: const Icon(Icons.close),
               ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(vertical: 5),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(34),
           borderSide: const BorderSide(color: _workerGreen, width: 1.8),
@@ -546,23 +550,29 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       },
       style: OutlinedButton.styleFrom(
         foregroundColor: _workerGreen,
-        minimumSize: const Size.fromHeight(44),
+        minimumSize: const Size.fromHeight(40),
         side: const BorderSide(color: _workerGreen, width: 1.8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
       ),
       child: const Text(
         'My Jobs',
-        style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
     );
   }
 
   Widget _categoryShortcuts() {
-    return Column(
+    return Row(
       children: [
-        _categoryTile('Nut Gatherer', Icons.eco, 'Nut Gatherer'),
-        _categoryTile('Manual Worker', Icons.build, 'Manual'),
-        _categoryTile('Machine Weeder', Icons.agriculture, 'Machine'),
+        Expanded(
+          child: _categoryTile('Nut Gatherer', Icons.eco, 'Nut Gatherer'),
+        ),
+        Expanded(
+          child: _categoryTile('Manual Worker', Icons.build, 'Manual'),
+        ),
+        Expanded(
+          child: _categoryTile('Machine Weeder', Icons.agriculture, 'Machine'),
+        ),
       ],
     );
   }
@@ -572,14 +582,15 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     return GestureDetector(
       onTap: () => setState(() => _category = selected ? null : category),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: selected
-              ? Border.all(color: _workerGreen, width: 1.5)
-              : Border.all(color: const Color(0xFFF0EBE1)),
+          color: selected ? _workerGreen : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: selected ? _workerGreen : const Color(0xFFE4E1DC),
+            width: selected ? 1.5 : 1,
+          ),
           boxShadow: const [
             BoxShadow(
               color: Color(0x0A000000),
@@ -589,25 +600,28 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           ],
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: selected
-                    ? const Color(0xFFD8EEE1)
-                    : const Color(0xFFF4F0E8),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: _workerGreen, size: 26),
-            ),
-            const SizedBox(width: 14),
-            Text(
-              label,
-              style: TextStyle(
-                color: _workerInk,
-                fontSize: 17,
-                fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+            Icon(icon, color: selected ? Colors.white : _workerGreen, size: 20),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final word in label.split(' '))
+                    Text(
+                      word,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: selected ? Colors.white : _workerInk,
+                        fontSize: 11,
+                        height: 1.05,
+                        fontWeight:
+                            selected ? FontWeight.bold : FontWeight.w600,
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
@@ -617,9 +631,18 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   }
 
   Widget _calendarCard(List<WorkerJob> jobs) {
+    final calendarJobs = _category == null
+        ? jobs
+        : jobs
+            .where(
+              (job) => job.category.toLowerCase().contains(
+                _category!.toLowerCase(),
+              ),
+            )
+            .toList();
     final firstDay = DateTime(_month.year, _month.month, 1);
     final leading = firstDay.weekday - 1;
-    final jobDays = jobs
+    final jobDays = calendarJobs
         .where(
           (job) =>
               job.requiredDate.year == _month.year &&
@@ -628,7 +651,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         .map((job) => job.requiredDate.day)
         .toSet();
     final jobsByDay = <int, List<WorkerJob>>{};
-    for (final job in jobs.where(
+    for (final job in calendarJobs.where(
       (job) =>
           job.requiredDate.year == _month.year &&
           job.requiredDate.month == _month.month,
@@ -636,7 +659,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       jobsByDay.putIfAbsent(job.requiredDate.day, () => []).add(job);
     }
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
+      padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
       decoration: _cardDecoration(),
       child: Column(
         children: [
@@ -683,9 +706,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             itemCount: 42,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              mainAxisExtent: 48,
-              mainAxisSpacing: 4,
-              crossAxisSpacing: 4,
+              mainAxisExtent: 44,
+              mainAxisSpacing: 3,
+              crossAxisSpacing: 3,
             ),
             itemBuilder: (context, index) {
               final dayOffset = index - leading;
