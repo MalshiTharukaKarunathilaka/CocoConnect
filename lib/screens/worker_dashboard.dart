@@ -48,6 +48,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _selectedDate;
   String? _selectedEstate;
+  int? _radiusKm = 20;
 
   @override
   void initState() {
@@ -1024,7 +1025,21 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 const SizedBox(height: 22),
                 _nearbyFilters(selectedJobs, allJobs: jobs),
                 const SizedBox(height: 22),
-                _nearbyMap(),
+                _distanceFilter(),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EstateJobsMapPage(
+                        jobs: jobs,
+                        radiusKm: _radiusKm ?? 20,
+                        nearbyOnly: _radiusKm != null,
+                      ),
+                    ),
+                  ),
+                  child: _nearbyMap(),
+                ),
                 const SizedBox(height: 20),
               ],
               if (selectedJobs.isEmpty)
@@ -1124,7 +1139,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               const SizedBox(width: 8),
               Text(
                 _selectedDate == null
-                    ? '2.4 km from your current location'
+                    ? 'View all estates across Sri Lanka'
                     : 'Jobs for ${_selectedDate!.day} '
                           '${_months[_selectedDate!.month - 1]}',
                 style: const TextStyle(color: _workerMuted, fontSize: 14),
@@ -1134,7 +1149,10 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => EstateJobsMapPage(jobs: allJobs ?? jobs),
+                    builder: (_) => EstateJobsMapPage(
+                      jobs: allJobs ?? jobs,
+                      nearbyOnly: false,
+                    ),
                   ),
                 ),
                 child: const Text(
@@ -1263,6 +1281,32 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     );
   }
 
+  Widget _distanceFilter() {
+    const options = <int?>[2, 5, 10, 20, 30, null];
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: options.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final value = options[index];
+          final selected = value == _radiusKm;
+          return ChoiceChip(
+            label: Text(value == null ? 'ALL' : '${value} km'),
+            selected: selected,
+            selectedColor: _workerGreen,
+            labelStyle: TextStyle(
+              color: selected ? Colors.white : _workerInk,
+              fontWeight: FontWeight.bold,
+            ),
+            onSelected: (_) => setState(() => _radiusKm = value),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _nearbyMap() {
     return Container(
       height: 190,
@@ -1279,12 +1323,18 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           Positioned(
             top: 18,
             left: 18,
-            child: _mapLabel('5 km Standard Base Radius'),
+            child: _mapLabel(
+              _radiusKm == null ? 'All estates' : '${_radiusKm} km radius',
+            ),
           ),
           Positioned(
             top: 18,
             right: 16,
-            child: _mapLabel('Kurunegala'),
+            child: _mapLabel(
+              AuthService.currentUser?.location?.trim().isNotEmpty == true
+                  ? AuthService.currentUser!.location!.trim()
+                  : 'Current location',
+            ),
           ),
           Positioned(
             left: 22,
@@ -1296,8 +1346,10 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: const Text(
-                'Active Match Zone: 0 - 5 km',
+              child: Text(
+                _radiusKm == null
+                    ? 'Showing all estates across Sri Lanka'
+                    : 'Active Match Zone: 0 - ${_radiusKm} km',
                 style: TextStyle(
                   color: _workerInk,
                   fontSize: 16,
