@@ -8,6 +8,7 @@ import '../../services/auth_service.dart';
 import '../../services/api_client.dart';
 import '../../services/provider_calendar_repository.dart';
 import '../../widgets/owner_widgets.dart';
+import '../../widgets/buyer_widgets.dart';
 import '../account_dialogs.dart';
 import '../auth_gate.dart';
 import '../buyer/buyer_format.dart';
@@ -64,6 +65,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
   bool _saving = false;
   Timer? _poll;
   bool _polling = false;
+  int _calendarRevision = 0;
   late DateTime _selected;
   late DateTime _month;
   late Future<ProviderCalendarMonth> _data;
@@ -100,11 +102,13 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
       return;
     }
     _polling = true;
+    final revision = _calendarRevision;
     final month = _month;
     final machine = _live?.selectedMachineId;
     try {
       final data = await _repository.loadMonth(month);
       if (mounted &&
+          revision == _calendarRevision &&
           month == _month &&
           (machine == null || machine == _live?.selectedMachineId)) {
         setState(() => _data = Future.value(data));
@@ -117,6 +121,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
   }
 
   void _load() {
+    _calendarRevision++;
     final key = providerDateKey(_month);
     final cached = _repository.isPreview ? _cache[key] : null;
     _data = cached != null
@@ -212,7 +217,14 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
 
   Future<void> _addMachine() async {
     final name = TextEditingController();
-    String category = 'Tractor';
+    final availableTypes = ['Tractor', 'Backhoe', 'Hand Tractor']
+        .where((type) => !_live!.machines.any((m) => m['category'] == type))
+        .toList();
+    if (availableTypes.isEmpty) {
+      _notify('You already have a Tractor, Backhoe and Hand Tractor.');
+      return;
+    }
+    String category = availableTypes.first;
     final form = GlobalKey<FormState>();
     final values = await showThemedDialog<Map<String, String>>(
       context: context,
@@ -233,9 +245,12 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
                 ),
                 DropdownButtonFormField<String>(
                   initialValue: category,
+                  decoration: const InputDecoration(
+                    labelText: 'Machinery type',
+                  ),
                   isExpanded: true,
                   items: [
-                    for (final type in ['Tractor', 'Backhoe', 'Hand Tractor'])
+                    for (final type in availableTypes)
                       DropdownMenuItem(value: type, child: Text(type)),
                   ],
                   onChanged: (v) => change(() => category = v!),
@@ -265,10 +280,14 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
     );
     // Dialog animation must release the field before its controller is disposed.
     if (values != null && mounted) {
-      await _run(
-        () => _live!.api.createMachine(values['name']!, values['category']!),
-        'Machinery saved',
-      );
+      await _run(() async {
+        final machine = await _live!.api.createMachine(
+          values['name']!,
+          values['category']!,
+        );
+        _live!.selectedMachineId = machine['id'] as int;
+        _drafts.clear();
+      }, 'Machinery saved');
     }
   }
 
@@ -284,8 +303,24 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
       final services = Map<String, dynamic>.from(
         catalog[machine['category']] as Map,
       );
-      String name = rate?.name ?? services.keys.first;
-      String unit = rate?.unit ?? (services[name] as List).first as String;
+      final isHandTractor = machine['category'] == 'Hand Tractor';
+      final existingName = switch (rate?.name) {
+        'Rotary Tiller' => 'Rotary',
+        'Coconut Haulage Trailer' => 'Trailer',
+        _ => rate?.name,
+      };
+      if (rate != null &&
+          !isHandTractor &&
+          !services.containsKey(existingName)) {
+        _notify(
+          'This service is no longer offered. Add a rate using the current service categories.',
+        );
+        return;
+      }
+      String name = isHandTractor
+          ? 'Hand Tractor'
+          : existingName ?? services.keys.first;
+      String unit = (services[name] as List).first as String;
       final price = TextEditingController(
         text: rate == null ? '' : '${rate.rate}',
       );
@@ -302,23 +337,27 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: name,
-                    isExpanded: true,
-                    items: [
-                      for (final n in services.keys)
-                        DropdownMenuItem(
-                          value: n,
-                          child: Text(n, overflow: TextOverflow.ellipsis),
-                        ),
-                    ],
-                    onChanged: rate != null
-                        ? null
-                        : (v) => change(() {
-                            name = v!;
-                            unit = (services[name] as List).first as String;
-                          }),
-                  ),
+                  if (!isHandTractor)
+                    DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(
+                        labelText: 'Service category',
+                      ),
+                      initialValue: name,
+                      isExpanded: true,
+                      items: [
+                        for (final n in services.keys)
+                          DropdownMenuItem(
+                            value: n,
+                            child: Text(n, overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      onChanged: rate != null
+                          ? null
+                          : (v) => change(() {
+                              name = v!;
+                              unit = (services[name] as List).first as String;
+                            }),
+                    ),
                   const SizedBox(height: 12),
                   Text('Price per $unit'),
                   TextFormField(
@@ -433,42 +472,75 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (live.machines.isNotEmpty)
-            DropdownButtonFormField<int>(
-              key: ValueKey(live.selectedMachineId),
-              initialValue: live.selectedMachineId,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Your Machinery'),
-              items: [
-                for (final m in live.machines)
-                  DropdownMenuItem(
-                    value: m['id'] as int,
-                    child: Text(
-                      '${m['name']}',
-                      overflow: TextOverflow.ellipsis,
+          if (live.machines.isNotEmpty) ...[
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final machine in live.machines)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        key: ValueKey('machine-type-${machine['id']}'),
+                        label: Text('${machine['category']}'),
+                        avatar: Icon(
+                          switch (machine['category']) {
+                            'Backhoe' => Icons.construction,
+                            'Hand Tractor' => Icons.grass,
+                            _ => Icons.agriculture,
+                          },
+                          size: 18,
+                          color: machine['id'] == live.selectedMachineId
+                              ? Colors.white
+                              : _green,
+                        ),
+                        selected: machine['id'] == live.selectedMachineId,
+                        showCheckmark: false,
+                        selectedColor: _green,
+                        backgroundColor: Colors.white,
+                        labelStyle: TextStyle(
+                          color: machine['id'] == live.selectedMachineId
+                              ? Colors.white
+                              : kOwnerInk,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        shape: const StadiumBorder(),
+                        onSelected: _saving
+                            ? null
+                            : (_) {
+                                if (_drafts.isNotEmpty) {
+                                  _notify(
+                                    'Save or reset availability changes first.',
+                                  );
+                                  return;
+                                }
+                                if (live.selectedMachineId == machine['id'])
+                                  return;
+                                live.selectedMachineId = machine['id'] as int;
+                                _refresh();
+                              },
+                      ),
                     ),
-                  ),
-              ],
-              onChanged: _saving
-                  ? null
-                  : (id) {
-                      if (_drafts.isNotEmpty) {
-                        _notify('Save or reset availability changes first.');
-                        return;
-                      }
-                      live.selectedMachineId = id;
-                      _refresh();
-                    },
+                ],
+              ),
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Calendar, availability and rates for '
+              "${live.machines.firstWhere((m) => m['id'] == live.selectedMachineId)['name']}",
+              style: const TextStyle(fontSize: 12, color: kOwnerMuted),
+            ),
+          ],
           if (live.machines.isEmpty)
             const Text(
               'Add your machinery, then set its service rates so estate owners can request bookings.',
             ),
           TextButton.icon(
-            onPressed: _saving ? null : _addMachine,
+            onPressed: _saving || _drafts.isNotEmpty ? null : _addMachine,
             icon: const Icon(Icons.add),
             label: const Text('Add Machinery'),
           ),
+          
         ],
       ),
     );
@@ -486,7 +558,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
       backgroundColor: const Color(0xFFEFEFEF),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
+          constraints: const BoxConstraints(maxWidth: kMachineryPageWidth),
           child: ColoredBox(
             color: _background,
             child: SafeArea(
@@ -653,10 +725,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
         ),
       ),
       const SizedBox(height: 4),
-      const Text(
-        'Manage your dates, services and incoming requests.',
-        style: TextStyle(fontSize: 12, color: kOwnerMuted),
-      ),
+    
       const SizedBox(height: 16),
       _inventory(),
       _calendar(data),
@@ -915,7 +984,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
           ],
         ),
         const Text(
-          'Custom equipment and hourly benchmarks',
+          'Set prices using the billing unit shown for each service.',
           style: TextStyle(fontSize: 11, color: kOwnerMuted),
         ),
         const SizedBox(height: 12),
@@ -1223,66 +1292,43 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
     );
   }
 
+  Future<void> _editProfile(AppUser user) async {
+    final saved = await showThemedDialog<bool>(
+      context: context,
+      builder: (context) => EditProfileDialog(user: user),
+    );
+    if (saved == true && mounted) setState(() {});
+  }
+
   Widget _profile() {
     final user = AuthService.currentUser;
-    final String name = user?.name ?? 'Provider preview';
-    final List<String> parts = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .toList();
-    final String initials = parts.isEmpty
-        ? 'P'
-        : parts.take(2).map((w) => w[0].toUpperCase()).join();
+    final location = user?.location?.trim() ?? '';
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
         const Text(
-          'Provider Profile',
+          'Profile',
           style: TextStyle(
-            fontSize: 22,
+            fontSize: 27,
             fontWeight: FontWeight.bold,
-            color: kOwnerInk,
+            color: Color(0xFF1A1A1A),
           ),
         ),
         const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF2F7A52), Color(0xFF1B4D34)],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF1B4D34).withAlpha(60),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
+        BuyerCard(
+          padding: const EdgeInsets.all(18),
           child: Row(
             children: [
-              Container(
-                width: 64,
-                height: 64,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withAlpha(38),
-                  border: Border.all(
-                    color: Colors.white.withAlpha(110),
-                    width: 2,
-                  ),
-                ),
+              CircleAvatar(
+                radius: 32,
+                backgroundColor: kBuyerGreen,
                 child: Text(
-                  initials,
+                  initialsOf(user?.name ?? 'Provider preview'),
                   style: const TextStyle(
-                    color: Colors.white,
                     fontSize: 22,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -1292,47 +1338,29 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      user?.name ?? 'Provider preview',
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1A1A1A),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(34),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.agriculture_outlined,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                          SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              'Machinery Service Provider',
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    const SizedBox(height: 6),
+                    const BuyerPill(
+                      text: 'SERVICE PROVIDER',
+                      background: Color(0xFFDDEEE0),
+                      foreground: kBuyerGreen,
+                    ),
+                    const SizedBox(height: 10),
+                    _profileInfo(
+                      Icons.phone_outlined,
+                      user?.phone ?? 'Preview account',
+                    ),
+                    const SizedBox(height: 4),
+                    _profileInfo(
+                      Icons.location_on_outlined,
+                      location.isEmpty ? 'No location added' : location,
+                      muted: location.isEmpty,
                     ),
                   ],
                 ),
@@ -1340,74 +1368,75 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
             ],
           ),
         ),
-        if (user != null) ...[
-          const SizedBox(height: 16),
-          OwnerCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _profileRow(Icons.phone_outlined, 'Mobile number', user.phone),
-                if (user.location != null && user.location!.isNotEmpty) ...[
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Divider(height: 1, color: Color(0xFFEDE7DC)),
+        const SizedBox(height: 18),
+        const Text(
+          'ACCOUNT',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: kBuyerGrey,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: 8),
+        BuyerCard(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            children: [
+              ListTile(
+                onTap: user == null ? null : () => _editProfile(user),
+                leading: const Icon(Icons.edit_outlined, color: kBuyerGreen),
+                title: const Text(
+                  'Edit profile',
+                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text(
+                  'Name and location',
+                  style: TextStyle(fontSize: 12, color: kBuyerGrey),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  color: Color(0xFFBBBBBB),
+                ),
+              ),
+              if (user != null) ...[
+                const Divider(height: 1, indent: 56, color: kBuyerBorder),
+                ListTile(
+                  onTap: () => confirmLogOut(context),
+                  leading: const Icon(Icons.logout, color: Color(0xFFC62828)),
+                  title: const Text(
+                    'Log out',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFC62828),
+                    ),
                   ),
-                  _profileRow(
-                    Icons.place_outlined,
-                    'Operating base',
-                    user.location!,
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: Color(0xFFBBBBBB),
                   ),
-                ],
+                ),
               ],
-            ),
+            ],
           ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: () => confirmLogOut(context),
-            icon: const Icon(Icons.logout, size: 19),
-            label: const Text('Log Out'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: kOwnerRed,
-              side: BorderSide(color: kOwnerRed.withAlpha(120)),
-              minimumSize: const Size.fromHeight(50),
-              shape: const StadiumBorder(),
-            ),
-          ),
-        ],
+        ),
       ],
     );
   }
 
-  Widget _profileRow(IconData icon, String label, String value) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _profileInfo(IconData icon, String text, {bool muted = false}) => Row(
     children: [
-      Container(
-        padding: const EdgeInsets.all(9),
-        decoration: BoxDecoration(
-          color: kOwnerGreenSoft,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, size: 20, color: _green),
-      ),
-      const SizedBox(width: 12),
+      Icon(icon, size: 15, color: kBuyerGrey),
+      const SizedBox(width: 6),
       Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: kOwnerMuted),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: kOwnerInk,
-              ),
-            ),
-          ],
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            color: muted ? const Color(0xFFAAAAAA) : const Color(0xFF3A3A3A),
+            fontStyle: muted ? FontStyle.italic : FontStyle.normal,
+          ),
         ),
       ),
     ],

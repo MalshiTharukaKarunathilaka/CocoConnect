@@ -220,11 +220,28 @@ void main() {
     expect(find.text('0 confirmed · 2 incoming'), findsOneWidget);
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
-    expect(find.text('Provider Profile'), findsOneWidget);
+    expect(find.text('Profile'), findsNWidgets(2));
+    expect(find.text('SERVICE PROVIDER'), findsOneWidget);
+    expect(find.text('Edit profile'), findsOneWidget);
     await tester.tap(find.text('Dashboard'));
     await tester.pumpAndSettle();
     expect(find.text('Machinery Overview'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('provider tabs use the owner machinery width on a wide screen', (
+    tester,
+  ) async {
+    await openCalendar(tester, width: 1000);
+    await tester.pumpAndSettle();
+    for (final tab in ['Dashboard', 'Calendar', 'Requests', 'Profile']) {
+      await tester.tap(find.text(tab).last);
+      await tester.pumpAndSettle();
+      final navigation = tester.getRect(find.byType(NavigationBar));
+      expect(navigation.width, 390);
+      expect(navigation.center.dx, 500);
+      expect(tester.takeException(), isNull);
+    }
   });
 
   for (final width in [320.0, 360.0]) {

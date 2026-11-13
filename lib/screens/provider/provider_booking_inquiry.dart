@@ -18,7 +18,7 @@ Future<ProviderBookingRequest?> showProviderBookingInquiry(
     useSafeArea: true,
     showDragHandle: true,
     backgroundColor: Colors.white,
-    constraints: const BoxConstraints(maxWidth: 430),
+    constraints: const BoxConstraints(maxWidth: kMachineryPageWidth),
     builder: (_) =>
         _Inquiry(date: date, requests: requests, isPreview: isPreview),
   );

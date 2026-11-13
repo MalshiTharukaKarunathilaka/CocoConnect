@@ -14,6 +14,9 @@ const Color kOwnerPanel = Color(0xFFF1EFEA);
 const Color kOwnerRed = Color(0xFFC62828);
 const Color kOwnerBrown = Color(0xFF8B4A1C);
 
+/// Shared phone canvas for estate owner and service provider machinery screens.
+const double kMachineryPageWidth = 390;
+
 /// The phone-width cream page every estate owner screen sits in.
 class OwnerPage extends StatelessWidget {
   final Widget child;
@@ -29,7 +32,7 @@ class OwnerPage extends StatelessWidget {
         onTap: () => FocusScope.of(context).unfocus(),
         child: Center(
           child: Container(
-            width: 390,
+            width: kMachineryPageWidth,
             height: double.infinity,
             color: kOwnerCream,
             child: SafeArea(
