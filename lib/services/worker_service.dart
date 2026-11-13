@@ -60,8 +60,10 @@ class WorkerEstate {
   const WorkerEstate({required this.estateName, required this.ownerName, required this.location, this.latitude, this.longitude});
   factory WorkerEstate.fromJson(Map<String, dynamic> j) => WorkerEstate(
     estateName: j['estate_name'] as String? ?? 'Estate', ownerName: j['estate_owner_name'] as String? ?? 'Estate owner',
-    location: j['location'] as String? ?? '', latitude: (j['estate_latitude'] as num?)?.toDouble(), longitude: (j['estate_longitude'] as num?)?.toDouble());
+    location: j['location'] as String? ?? '', latitude: _optionalNumber(j['estate_latitude'] ?? j['latitude']), longitude: _optionalNumber(j['estate_longitude'] ?? j['longitude']));
 }
+
+double? _optionalNumber(dynamic value) => value is num ? value.toDouble() : double.tryParse('$value');
 
 double _number(dynamic value) =>
     value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
@@ -81,6 +83,11 @@ class WorkerService {
   }
   static Future<List<WorkerEstate>> getEstates() async {
     final data = await ApiClient.get('/api/worker/estates');
+    return (data as List).map((j) => WorkerEstate.fromJson(j as Map<String, dynamic>)).toList();
+  }
+
+  static Future<List<WorkerEstate>> getNearbyEstates({int radiusKm = 20}) async {
+    final data = await ApiClient.get('/api/worker/nearby-estates?radiusKm=$radiusKm');
     return (data as List).map((j) => WorkerEstate.fromJson(j as Map<String, dynamic>)).toList();
   }
 }

@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { parseCoords, parseRadius, withDistance, byDistance } = require("../utils/geo");
 
 const workerForUser = async (userId) => {
   const result = await pool.query(
@@ -93,6 +94,33 @@ const getEstates = async (_req, res) => {
   }
 };
 
+const getNearbyEstates = async (req, res) => {
+  try {
+    const worker = await pool.query(
+      "SELECT latitude, longitude FROM users WHERE id = $1",
+      [req.user.id]
+    );
+    const origin = parseCoords(worker.rows[0]?.latitude, worker.rows[0]?.longitude);
+    if (!origin) {
+      return res.status(400).json({ message: "Worker location is not set" });
+    }
+    const radiusKm = parseRadius(req.query.radiusKm) || 20;
+    const result = await pool.query(
+      `SELECT eo.id, eo.estate_name, eo.name AS estate_owner_name,
+              eo.location, u.latitude, u.longitude
+       FROM estate_owners eo
+       LEFT JOIN users u ON u.id = eo.user_id
+       WHERE u.latitude IS NOT NULL AND u.longitude IS NOT NULL`
+    );
+    return res.status(200).json(
+      withDistance(result.rows, origin, radiusKm).sort(byDistance)
+    );
+  } catch (error) {
+    console.error("Get nearby estates error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 const applyForJob = async (req, res) => {
   let client;
   try {
@@ -182,4 +210,4 @@ const applyForJob = async (req, res) => {
   }
 };
 
-module.exports = { getAvailableJobs, getEstates, applyForJob };
+module.exports = { getAvailableJobs, getEstates, getNearbyEstates, applyForJob };

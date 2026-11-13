@@ -5,8 +5,10 @@ import '../services/worker_service.dart';
 
 class EstateJobsMapPage extends StatelessWidget {
   final List<WorkerJob> jobs;
+  final int radiusKm;
+  final bool nearbyOnly;
 
-  const EstateJobsMapPage({super.key, required this.jobs});
+  const EstateJobsMapPage({super.key, required this.jobs, this.radiusKm = 20, this.nearbyOnly = false});
 
   @override
   Widget build(BuildContext context) {
@@ -15,11 +17,11 @@ class EstateJobsMapPage extends StatelessWidget {
     const center = LatLng(7.5, 80.7);
 
     return FutureBuilder<List<WorkerEstate>>(
-      future: WorkerService.getEstates(),
+      future: nearbyOnly ? WorkerService.getNearbyEstates(radiusKm: radiusKm) : WorkerService.getEstates(),
       builder: (context, estateSnapshot) {
         final estates = estateSnapshot.data ?? const <WorkerEstate>[];
         return Scaffold(
-      appBar: AppBar(title: const Text('Available Estates')),
+      appBar: AppBar(title: Text(nearbyOnly ? 'Reachable Estates (20 km)' : 'All Estates')),
       body: FlutterMap(
         options: MapOptions(initialCenter: center, initialZoom: 7),
         children: [
