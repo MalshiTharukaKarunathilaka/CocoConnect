@@ -1,219 +1,49 @@
-# 🌴 CocoConnect
+# KapConnect (worker app) - Flutter
 
-> A digital ecosystem developed for the **Coconut Growers Association of Sri Lanka (CGASL)** to modernize coconut estate management, connect stakeholders, and enhance marketplace operations.
+## Run
 
----
+This folder contains `lib/`, `pubspec.yaml` and a test. Generate the platform
+folders (android/, ios/ ...) once, then run:
 
-# Overview
-
-CocoConnect is a digital platform designed to support the Sri Lankan coconut industry by providing an integrated ecosystem for estate owners, estate managers, buyers, service providers, and administrators.
-
-The platform streamlines estate management, facilitates marketplace transactions, improves stakeholder communication, and enables data-driven decision-making through a centralized digital solution.
-
-This project is developed as a **Third-Year Information Systems Group Project** at the **University of Colombo School of Computing (UCSC)** in collaboration with the **Coconut Growers Association of Sri Lanka (CGASL)**.
-
----
-
-# Project Objectives
-
-* Digitalize coconut estate management processes.
-* Improve collaboration among industry stakeholders.
-* Provide a centralized marketplace for coconut-related products and services.
-* Simplify communication between buyers, estate owners, and service providers.
-* Improve productivity through digital record management and reporting.
-
----
-
-# Key Features
-
-## Estate Owner
-
-* Estate management
-* Harvest management
-* Marketplace management
-* Buyer communication
-* Service request management
-* Dashboard and analytics
-
-## Estate Manager
-
-* Estate monitoring
-* Harvest tracking
-* Task management
-* Workforce coordination
-* Progress reporting
-
-## Buyer
-
-* Browse products
-* Search and filter listings
-* Purchase coconut products
-* In-app negotiation and communication
-* Order management
-
-## Service Providers
-
-* Offer machinery, fertilizer, labour, and other agricultural services
-* Manage service requests
-* Track ongoing services
-
-## Administrator
-
-* User management
-* Marketplace moderation
-* System monitoring
-* Reports and analytics
-* Platform administration
-
----
-
-# Technology Stack
-
-## Mobile Application
-
-* Flutter
-* Dart
-
-## Backend
-
-* Node.js
-* Express.js
-
-## Database
-
-* PostgreSQL
-
-## Development Tools
-
-* Visual Studio Code
-* Android Studio
-* Git
-* GitHub
-* Postman
-* Figma
-
-## Future Integrations
-
-* Firebase Cloud Messaging
-* Google Maps API
-
----
-
-# Repository Structure
-
-```text
-CocoConnect
-│
-├── backend/
-│   ├── src/
-│   ├── routes/
-│   ├── controllers/
-│   ├── middleware/
-│   └── config/
-│
-├── mobile/
-│
-├── docs/
-│
-├── database/
-│
-├── README.md
-│
-└── .gitignore
 ```
-
----
-
-# Git Branch Strategy
-
-## Main Branches
-
-* `main` — Production-ready code
-* `develop` — Integration branch
-
-## Feature Branches
-
-* `estate-owner`
-* `estate-manager`
-* `buyer`
-* `admin`
-
-## Sub Feature Branches
-
-### Estate Owner
-
-* `estate-owner-dev1`
-* `estate-owner-dev2`
-
-### Buyer
-
-* `buyer-dev1`
-* `buyer-dev2`
-
----
-
-# Development Workflow
-
-1. Clone the repository.
-2. Switch to your assigned branch.
-3. Pull the latest changes before starting development.
-4. Implement your assigned feature.
-5. Commit changes using meaningful commit messages.
-6. Push changes to your feature branch.
-7. Create a Pull Request to merge into `develop`.
-8. After testing and review, approved changes will be merged into `main`.
-
----
-
-# Getting Started
-
-## Clone the Repository
-
-```bash
-git clone https://github.com/<organization-or-username>/CocoConnect.git
-```
-
-## Navigate to the Project
-
-```bash
-cd CocoConnect
-```
-
-## Backend Setup
-
-```bash
-cd backend
-npm install
-npm run dev
-```
-
-## Mobile Application
-
-```bash
-cd mobile
+flutter create --project-name kapconnect --org lk.kapconnect .
 flutter pub get
 flutter run
 ```
 
----
+`flutter create .` keeps the existing `lib/`, `pubspec.yaml` and `test/` files.
+If it asks or overwrites `lib/main.dart`, restore it from this archive.
 
-# Team Modules
+Requires Flutter 3.22+ (Dart 3.3+). Check your setup with `flutter doctor`.
 
-* Estate Owner
-* Estate Manager
-* Buyer
-* Administrator
+## Flow
 
----
+1. **Dashboard** - tap a day on the calendar (green dot = jobs available, orange = you have a booked job, red = holiday).
+2. **Jobs for the Day** - estates that published jobs for that day (filter by category).
+3. **Job details** - jobs of the estate. Accept / Decline / Negotiate.
+4. **Negotiation** - chat with the estate owner (owner replies are simulated).
+5. **Job accepted!** - confirmation; "Okay" returns to the dashboard.
 
-# Contributors
+## Rules (lib/state/jobs_state.dart)
 
-Developed by the Third-Year Information Systems undergraduate team of the **University of Colombo School of Computing (UCSC)** in collaboration with the **Coconut Growers Association of Sri Lanka (CGASL)**.
+- Only one accepted job per day. Trying to accept another shows the "Already accepted another job" pop-up.
+- Only a job you accepted can be declined; only jobs you have not accepted can be accepted.
+- Negotiate is available before and after accepting.
+- Full jobs cannot be accepted.
 
----
+## Structure
 
-# License
+```
+lib/
+  main.dart            app entry, providers
+  theme.dart           colours, shadows, money()
+  models.dart          Estate, Job, Worker, chat models
+  data/mock_data.dart  estates, jobs, holidays, date helpers
+  state/jobs_state.dart  JobsState (rules) + AppNav (tabs)
+  screens/             dashboard, day estates, job details,
+                       negotiation, confirmation, my jobs, shell
+  widgets/             calendar, job card, dialog, shared UI
+```
 
-This project is developed for academic purposes as part of the Bachelor of Science in Information Systems degree programme at the University of Colombo School of Computing (UCSC).
-
-© 2026 CocoConnect Team. All rights reserved.
+Mock data lives in `lib/data/mock_data.dart`. The map is a placeholder card;
+swap it for `google_maps_flutter` or `flutter_map` when ready.
