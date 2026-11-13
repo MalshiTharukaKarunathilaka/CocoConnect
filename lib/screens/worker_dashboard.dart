@@ -101,12 +101,19 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     try {
       await WorkerService.applyForJob(job.id);
       if (!mounted) return;
+
+      // Show the acknowledgement as soon as acceptance succeeds. A failure
+      // while refreshing the jobs list must not hide the confirmation popup.
+      await _showJobConfirmation(job);
+
       final refreshedJobs = WorkerService.getAvailableJobs();
       setState(() => _jobs = refreshedJobs);
-      await refreshedJobs;
-      await _showJobConfirmation(job);
     } on ApiException catch (error) {
       if (!mounted) return;
+      if (error.message.toLowerCase().contains('already accepted')) {
+        await _showJobConfirmation(job);
+        return;
+      }
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.message)));
@@ -120,13 +127,13 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       builder: (context) => Dialog(
         backgroundColor: _workerBackground,
         insetPadding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 24,
+          horizontal: 16,
+          vertical: 12,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(26, 28, 26, 24),
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -136,53 +143,53 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   'Job confirmation',
                   style: TextStyle(
                     color: _workerInk,
-                    fontSize: 30,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-              const SizedBox(height: 64),
+              const SizedBox(height: 16),
               Container(
-                width: 184,
-                height: 184,
+                width: 128,
+                height: 128,
                 decoration: const BoxDecoration(
                   color: Color(0xFFE6F1E9),
                   shape: BoxShape.circle,
                 ),
-                padding: const EdgeInsets.all(30),
+                padding: const EdgeInsets.all(22),
                 child: Container(
                   decoration: const BoxDecoration(
                     color: _workerGreen,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check, color: Colors.white, size: 62),
+                  child: const Icon(Icons.check, color: Colors.white, size: 44),
                 ),
               ),
-              const SizedBox(height: 52),
+              const SizedBox(height: 18),
               const Text(
                 'Job accepted!',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: _workerInk,
-                  fontSize: 44,
+                  fontSize: 30,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 10),
               const Text(
                 'You’re confirmed for this job.\n'
                 'You can find it in My jobs anytime.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: _workerMuted,
-                  fontSize: 21,
-                  height: 1.45,
+                  fontSize: 15,
+                  height: 1.3,
                 ),
               ),
-              const SizedBox(height: 38),
+              const SizedBox(height: 16),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(30, 28, 30, 30),
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(26),
@@ -197,7 +204,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                             job.category,
                             style: const TextStyle(
                               color: _workerInk,
-                              fontSize: 26,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -206,36 +213,48 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                       ],
                     ),
                     const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
+                      padding: EdgeInsets.symmetric(vertical: 12),
                       child: Divider(height: 1, color: Color(0xFFE9E2D9)),
                     ),
                     const _ConfirmationInfo(
                       icon: Icons.access_time,
                       text: 'Full day',
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 12),
                     _ConfirmationInfo(
                       icon: Icons.payments_outlined,
                       text: 'Rs. ${job.dailyRate.toStringAsFixed(0)} / day',
                     ),
+                    const SizedBox(height: 22),
+                    _ConfirmationInfo(
+                      icon: Icons.calendar_today_outlined,
+                      text: _formatJobDate(job.requiredDate),
+                    ),
+                    if (job.location.trim().isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _ConfirmationInfo(
+                        icon: Icons.location_on_outlined,
+                        text: job.location,
+                      ),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(height: 42),
+              const SizedBox(height: 16),
               SizedBox(
-                width: 250,
+                width: 190,
                 child: FilledButton(
                   onPressed: () => Navigator.pop(context),
                   style: FilledButton.styleFrom(
                     backgroundColor: _workerGreen,
-                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(34),
                     ),
                   ),
                   child: const Text(
                     'Okay',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -1662,7 +1681,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               onPressed: completed
                   ? null
                   : accepted
-                  ? null
+                  ? () => _showJobConfirmation(job)
                   : () => _apply(job),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _workerGreen,
@@ -1875,20 +1894,20 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   Widget _profilePage() {
     final user = AuthService.currentUser;
     return ListView(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
       children: [
-        const SizedBox(height: 30),
+        const SizedBox(height: 8),
         const CircleAvatar(
-          radius: 52,
+          radius: 40,
           backgroundColor: Color(0xFFE9E6DC),
-          child: Icon(Icons.person, color: _workerGreen, size: 58),
+          child: Icon(Icons.person, color: _workerGreen, size: 44),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 6),
         Center(
           child: Column(
             children: [
-              Text(user?.name ?? 'Worker', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
+              Text(user?.name ?? 'Worker', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
               OutlinedButton.icon(
                 onPressed: _editWorkerProfile,
                 icon: const Icon(Icons.edit, size: 16),
@@ -1899,9 +1918,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         ),
         const SizedBox(height: 6),
         Center(child: Text(user?.phone ?? '', style: const TextStyle(color: _workerMuted))),
-        const SizedBox(height: 20),
+        const SizedBox(height: 10),
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: _cardDecoration(),
           child: Column(
             children: const [
@@ -1910,13 +1929,13 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 title: 'Worker type',
                 value: 'Day Job Worker',
               ),
-              Divider(height: 24),
+              Divider(height: 16),
               _WorkerProfileDetail(
                 icon: Icons.work_outline,
                 title: 'Work categories',
                 value: 'Nut gathering, manual and machine work',
               ),
-              Divider(height: 24),
+              Divider(height: 16),
               _WorkerProfileDetail(
                 icon: Icons.check_circle_outline,
                 title: 'Availability',
@@ -1925,9 +1944,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: _cardDecoration(),
           child: const Row(
             children: [
@@ -1946,11 +1965,21 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: () => logOut(context),
-          icon: const Icon(Icons.logout),
-          label: const Text('Log out'),
+          icon: const Icon(Icons.logout, color: Colors.red),
+          label: const Text(
+            'Log out',
+            style: TextStyle(color: Colors.red),
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.red,
+            side: const BorderSide(color: Colors.red, width: 1.5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(26),
+            ),
+          ),
         ),
       ],
     );
@@ -2233,14 +2262,19 @@ class _ConfirmationInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: _workerGreen, size: 32),
-        const SizedBox(width: 18),
-        Text(
-          text,
-          style: const TextStyle(
-            color: _workerInk,
-            fontSize: 22,
-            fontWeight: FontWeight.w500,
+        Icon(icon, color: _workerGreen, size: 22),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _workerInk,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.2,
+            ),
           ),
         ),
       ],
