@@ -15,20 +15,25 @@ class LiveProviderCalendarRepository implements ProviderCalendarRepository {
   final MachineryApi api;
   List<Map<String, dynamic>> machines = [];
   int? selectedMachineId;
+  int _loadRevision = 0;
   LiveProviderCalendarRepository({this.api = const MachineryApi()});
   @override
   bool get isPreview => false;
   @override
   Future<ProviderCalendarMonth> loadMonth(DateTime month) async {
-    machines = await api.machines();
-    if (machines.isEmpty) {
-      selectedMachineId = null;
-      return const ProviderCalendarMonth();
+    final revision = ++_loadRevision;
+    final requestedMachine = selectedMachineId;
+    final inventory = await api.machines();
+    final machineId = inventory.any((m) => m['id'] == requestedMachine)
+        ? requestedMachine
+        : (inventory.isEmpty ? null : inventory.first['id'] as int);
+    // An earlier request must not change the inventory or selection after a switch.
+    if (revision == _loadRevision && selectedMachineId == requestedMachine) {
+      machines = inventory;
+      selectedMachineId = machineId;
     }
-    if (!machines.any((m) => m['id'] == selectedMachineId)) {
-      selectedMachineId = machines.first['id'] as int;
-    }
-    return api.calendar(selectedMachineId!, month);
+    if (machineId == null) return const ProviderCalendarMonth();
+    return api.calendar(machineId, month);
   }
 }
 

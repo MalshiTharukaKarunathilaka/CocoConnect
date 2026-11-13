@@ -12,11 +12,15 @@ class MachineryApi {
           .toList();
   Future<Map<String, dynamic>> catalog() async =>
       Map<String, dynamic>.from(await ApiClient.get('$base/catalog') as Map);
-  Future<void> createMachine(String name, String category) async {
-    await ApiClient.post('$base/provider/machines', {
+  Future<Map<String, dynamic>> createMachine(
+    String name,
+    String category,
+  ) async {
+    final result = await ApiClient.post('$base/provider/machines', {
       'name': name,
       'category': category,
     });
+    return Map<String, dynamic>.from(result as Map);
   }
 
   Future<void> saveRate(
