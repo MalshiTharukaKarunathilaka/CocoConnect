@@ -34,6 +34,9 @@ class _SignupPageState extends State<SignupPage> {
   /// Where the user is; required, used for "near me" filters.
   PickedLocation? _location;
 
+  /// The address filled in from the location, so a hand-typed one is kept.
+  String? _autoAddress;
+
   String _selectedRole = _roles.first;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
@@ -60,6 +63,13 @@ class _SignupPageState extends State<SignupPage> {
     setState(() {
       _location = picked;
       _locationController.text = picked.name;
+      // The provider's base address follows the picked place until they
+      // type their own.
+      if (_extras.address.text.trim().isEmpty ||
+          _extras.address.text == _autoAddress) {
+        _extras.address.text = picked.name;
+        _autoAddress = picked.name;
+      }
     });
   }
 
@@ -128,6 +138,7 @@ class _SignupPageState extends State<SignupPage> {
       case 'Service Provider':
         return ProviderSignupSection(
           extras: _extras,
+          location: _location,
           onChanged: () => setState(() {}),
         );
       case 'Estate Owner':
@@ -309,7 +320,14 @@ class _SignupPageState extends State<SignupPage> {
                   },
                 ),
 
-                const SizedBox(height: 22),
+                const SizedBox(height: 14),
+
+                SignupAgreement(
+                  extras: _extras,
+                  onChanged: () => setState(() {}),
+                ),
+
+                const SizedBox(height: 14),
 
                 AuthPrimaryButton(
                   label: _loading ? 'Creating account...' : 'Sign Up',

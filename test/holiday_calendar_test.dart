@@ -23,13 +23,17 @@ void main() {
     HolidayService.seed(2026, {
       '2026-12-25': const Holiday('Christmas Day', isPublic: true),
     });
-    await tester.pumpWidget(MaterialApp(
-      home: Column(children: [
-        HolidayNote(DateTime(2026, 12, 25)),
-        HolidayNote(DateTime(2026, 12, 26)),
-      ]),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Column(
+          children: [
+            HolidayNote(DateTime(2026, 12, 25)),
+            HolidayNote(DateTime(2026, 12, 26)),
+          ],
+        ),
+      ),
+    );
     expect(find.textContaining('Christmas Day'), findsOneWidget);
-    expect(find.byIcon(Icons.flag_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.celebration_rounded), findsOneWidget);
   });
 }

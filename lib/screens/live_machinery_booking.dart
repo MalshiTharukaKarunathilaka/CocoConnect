@@ -55,8 +55,9 @@ class _RequestDialogState extends State<_RequestDialog> {
     text: AuthService.currentUser?.location ?? '',
   );
   final _offer = TextEditingController();
-  TimeOfDay _start = const TimeOfDay(hour: 7, minute: 30),
-      _end = const TimeOfDay(hour: 12, minute: 0);
+  // The request covers the working day (Sri Lanka time); no times to pick.
+  static const TimeOfDay _dayStart = TimeOfDay(hour: 8, minute: 0);
+  static const TimeOfDay _dayEnd = TimeOfDay(hour: 17, minute: 0);
   String? _error;
   @override
   void dispose() {
@@ -65,6 +66,32 @@ class _RequestDialogState extends State<_RequestDialog> {
     _offer.dispose();
     super.dispose();
   }
+
+  static const List<String> _months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  static const List<String> _days = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  String _dateText(DateTime d) =>
+      '${_days[d.weekday - 1]}, ${_months[d.month - 1]} ${d.day}, ${d.year}';
 
   DateTime _utc(TimeOfDay time) => DateTime.utc(
     widget.date.year,
@@ -96,35 +123,38 @@ class _RequestDialogState extends State<_RequestDialog> {
               validator: (v) =>
                   (v ?? '').trim().isEmpty ? 'Enter the job address' : null,
             ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Start time'),
-              subtitle: Text(_start.format(context)),
-              onTap: () async {
-                final time = await showTimePicker(
-                  context: context,
-                  initialTime: _start,
-                  builder: themedPicker,
-                );
-                if (time != null && mounted) setState(() => _start = time);
-              },
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('End time'),
-              subtitle: Text(_end.format(context)),
-              onTap: () async {
-                final time = await showTimePicker(
-                  context: context,
-                  initialTime: _end,
-                  builder: themedPicker,
-                );
-                if (time != null && mounted) setState(() => _end = time);
-              },
-            ),
-            const Text(
-              'Times are in Sri Lanka time. Only this interval is requested.',
-              style: TextStyle(fontSize: 12, color: kOwnerMuted),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 4, bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: kOwnerGreenSoft,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.event_available_outlined, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _dateText(widget.date),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: kOwnerInk,
+                          ),
+                        ),
+                        const Text(
+                          'Working day, 8:00 AM - 5:00 PM (Sri Lanka time)',
+                          style: TextStyle(fontSize: 12, color: kOwnerMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             TextFormField(
               controller: _offer,
@@ -158,13 +188,19 @@ class _RequestDialogState extends State<_RequestDialog> {
       FilledButton(
         onPressed: () {
           if (!_form.currentState!.validate()) return;
-          final start = _utc(_start), end = _utc(_end);
-          if (!start.isAfter(DateTime.now().toUtc()) || !end.isAfter(start)) {
+          final now = DateTime.now().toUtc();
+          var start = _utc(_dayStart);
+          final end = _utc(_dayEnd);
+          // Booking for today after 8 AM: start from the next few minutes.
+          if (!start.isAfter(now)) start = now.add(const Duration(minutes: 5));
+          if (!end.isAfter(start)) {
             setState(
-              () => _error = 'Choose a future start time and a later end time.',
+              () =>
+                  _error = "Today's working hours are over. Pick a later date.",
             );
             return;
           }
+          setState(() => _error = null);
           Navigator.pop(context, {
             'starts_at': start.toIso8601String(),
             'ends_at': end.toIso8601String(),

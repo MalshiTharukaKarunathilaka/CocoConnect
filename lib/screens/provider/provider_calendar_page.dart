@@ -660,8 +660,9 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
       const SizedBox(height: 16),
       _inventory(),
       _calendar(data),
-      const SizedBox(height: 20),
-      _rates(data.rates),
+      const SizedBox(height: 14),
+      // The chosen date's switch sits right under the calendar.
+      _selectedDay(data),
       const SizedBox(height: 14),
       FilledButton(
         onPressed:
@@ -696,8 +697,8 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
             ],
           ),
         ),
-      const SizedBox(height: 16),
-      _selectedDay(data),
+      const SizedBox(height: 20),
+      _rates(data.rates),
     ],
   );
 
@@ -1224,8 +1225,17 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
 
   Widget _profile() {
     final user = AuthService.currentUser;
+    final String name = user?.name ?? 'Provider preview';
+    final List<String> parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    final String initials = parts.isEmpty
+        ? 'P'
+        : parts.take(2).map((w) => w[0].toUpperCase()).join();
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
         const Text(
           'Provider Profile',
@@ -1236,42 +1246,172 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
           ),
         ),
         const SizedBox(height: 16),
-        OwnerCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF2F7A52), Color(0xFF1B4D34)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1B4D34).withAlpha(60),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
             children: [
-              Text(
-                user?.name ?? 'Provider preview',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+              Container(
+                width: 64,
+                height: 64,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withAlpha(38),
+                  border: Border.all(
+                    color: Colors.white.withAlpha(110),
+                    width: 2,
+                  ),
+                ),
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              const SizedBox(height: 6),
-              const Text(
-                'Machinery Service Provider',
-                style: TextStyle(color: _green),
-              ),
-              if (user != null) ...[
-                const SizedBox(height: 12),
-                Text(user.phone),
-                if (user.location != null) ...[
-                  const SizedBox(height: 6),
-                  Text(user.location!),
-                ],
-                const SizedBox(height: 18),
-                OutlinedButton.icon(
-                  onPressed: () => confirmLogOut(context),
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Log Out'),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(34),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.agriculture_outlined,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                          SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'Machinery Service Provider',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ],
           ),
         ),
+        if (user != null) ...[
+          const SizedBox(height: 16),
+          OwnerCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _profileRow(Icons.phone_outlined, 'Mobile number', user.phone),
+                if (user.location != null && user.location!.isNotEmpty) ...[
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Divider(height: 1, color: Color(0xFFEDE7DC)),
+                  ),
+                  _profileRow(
+                    Icons.place_outlined,
+                    'Operating base',
+                    user.location!,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () => confirmLogOut(context),
+            icon: const Icon(Icons.logout, size: 19),
+            label: const Text('Log Out'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: kOwnerRed,
+              side: BorderSide(color: kOwnerRed.withAlpha(120)),
+              minimumSize: const Size.fromHeight(50),
+              shape: const StadiumBorder(),
+            ),
+          ),
+        ],
       ],
     );
   }
+
+  Widget _profileRow(IconData icon, String label, String value) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        padding: const EdgeInsets.all(9),
+        decoration: BoxDecoration(
+          color: kOwnerGreenSoft,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, size: 20, color: _green),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: kOwnerMuted),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: kOwnerInk,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 Widget _dot(Color color) => Container(
