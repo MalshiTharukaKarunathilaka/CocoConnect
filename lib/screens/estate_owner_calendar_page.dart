@@ -3,6 +3,9 @@ import '../widgets/app_bottom_nav.dart';
 import '../services/owner_service.dart';
 import '../services/chat_service.dart';
 import '../services/api_client.dart';
+import '../services/auth_service.dart';
+import '../services/holiday_service.dart';
+import '../widgets/holiday_widgets.dart';
 import 'post_day_job_page.dart';
 import 'scheduled_jobs_page.dart';
 
@@ -22,6 +25,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _selectedDay;
   List<DayJob> _postedJobs = [];
+  Estate? _estate;
   int _notificationCount = 0;
 
   static const List<String> _weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -40,27 +44,22 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     'December',
   ];
 
-  static const Set<String> _poyaDays2026 = {
-    '2026-01-03',
-    '2026-02-01',
-    '2026-03-03',
-    '2026-04-02',
-    '2026-05-01',
-    '2026-05-31',
-    '2026-06-29',
-    '2026-07-29',
-    '2026-08-28',
-    '2026-09-26',
-    '2026-10-26',
-    '2026-11-24',
-    '2026-12-24',
-  };
-
   @override
   void initState() {
     super.initState();
     _loadPostedJobs();
     _loadNotificationCount();
+    _loadEstate();
+  }
+
+  /// The signed-in owner's own estate, for the header.
+  Future<void> _loadEstate() async {
+    try {
+      final estate = await OwnerService.getEstate();
+      if (mounted) setState(() => _estate = estate);
+    } catch (_) {
+      // The header falls back to the account's own details.
+    }
   }
 
   Future<void> _loadNotificationCount() async {
@@ -164,7 +163,10 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                     children: [
                       _estateSummary(),
                       const SizedBox(height: 12),
-                      _calendarCard(),
+                      HolidayListener(
+                        years: [_month.year],
+                        builder: (_) => _calendarCard(),
+                      ),
                       const SizedBox(height: 12),
                       _categoryCard(),
                     ],
@@ -197,7 +199,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Kapconnect',
+                'KapConnect',
                 style: TextStyle(
                   color: _calendarGreen,
                   fontSize: 22,
@@ -255,6 +257,8 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   }
 
   Widget _estateSummary() {
+    final String place =
+        (_estate?.location ?? AuthService.currentUser?.location ?? '').trim();
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -274,14 +278,16 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             child: const Icon(Icons.park, size: 28, color: _calendarGreen),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Kurunegala Palm Estate',
+                  _estate?.estateName.isNotEmpty == true
+                      ? _estate!.estateName
+                      : (AuthService.currentUser?.name ?? 'Your estate'),
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: _calendarInk,
@@ -290,24 +296,25 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
               ],
             ),
           ),
+          if (place.isNotEmpty)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: const Color(0xFFF4F0E9),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
+                const Icon(
                   Icons.location_on_outlined,
                   size: 17,
                   color: Color(0xFF718096),
                 ),
-                SizedBox(width: 4),
+                const SizedBox(width: 4),
                 Text(
-                  'Zone 04',
-                  style: TextStyle(
+                  place,
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF3D4A5D),
                   ),
@@ -519,11 +526,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     final jobIcons = isPreviewDay
         ? <IconData>[]
         : jobsOnDay.map((job) => _iconForJobCategory(job.category)).toList();
-    final isPoyaDay =
-        !isPreviewDay &&
-        _poyaDays2026.contains(
-          '${_month.year}-${_month.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}',
-        );
+    final isPoyaDay = !isPreviewDay && HolidayService.of(cellDate) != null;
 
     return GestureDetector(
       onTap: () => _selectDay(cellDate),

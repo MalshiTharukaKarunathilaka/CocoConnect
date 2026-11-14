@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'coconuts_page.dart';
 import 'estate_owner_calendar_page.dart';
+import 'fertilizer/fertilizer_hub.dart';
 import 'machinery_map_page.dart';
 
 class EstateOwnerDashboard extends StatelessWidget {
@@ -36,7 +37,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                           ),
                           SizedBox(width: 5),
                           Text(
-                            'Kapconnect',
+                            'KapConnect',
                             style: TextStyle(
                               color: Color(0xFF2E7D32),
                               fontSize: 18,
@@ -128,17 +129,26 @@ class EstateOwnerDashboard extends StatelessWidget {
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) =>
-                                      const CoconutsPage(),
+                                          const CoconutsPage(),
                                     ),
                                   );
                                 },
                               ),
 
-                              const DashboardCategoryCard(
+                              DashboardCategoryCard(
                                 title: 'Fertilizer',
                                 subtitle: 'Quality nutrients',
                                 icon: Icons.eco,
-                                iconColor: Color(0xFF3B8F65),
+                                iconColor: const Color(0xFF3B8F65),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const FertilizerHub(),
+                                    ),
+                                  );
+                                },
                               ),
 
                               const DashboardCategoryCard(
@@ -156,7 +166,8 @@ class EstateOwnerDashboard extends StatelessWidget {
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const MachineryMapPage(),
+                                    builder: (context) =>
+                                        const MachineryMapPage(),
                                   ),
                                 ),
                               ),

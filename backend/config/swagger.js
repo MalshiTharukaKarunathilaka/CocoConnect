@@ -4,9 +4,9 @@ const options = {
   definition: {
     openapi: "3.0.3",
     info: {
-      title: "Kapconnect API",
+      title: "KapConnect API",
       version: "1.0.0",
-      description: "API documentation for the Kapconnect backend.",
+      description: "API documentation for the KapConnect backend.",
     },
     servers: [
       {

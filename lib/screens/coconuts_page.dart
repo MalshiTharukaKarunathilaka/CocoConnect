@@ -38,7 +38,7 @@ class CoconutsPage extends StatelessWidget {
                           ),
                           const SizedBox(width: 5),
                           const Text(
-                            'Kapconnect',
+                            'KapConnect',
                             style: TextStyle(
                               color: Color(0xFF2E7D32),
                               fontSize: 18,
@@ -90,7 +90,7 @@ class CoconutsPage extends StatelessWidget {
                       CoconutProductCard(
                         title: 'Raw Coconuts',
                         imageUrl:
-                        'https://commons.wikimedia.org/wiki/Special:FilePath/Coconut_green.JPG?width=800',
+                            'https://commons.wikimedia.org/wiki/Special:FilePath/Coconut_green.JPG?width=800',
                         onTap: () {
                           Navigator.push(
                             context,
@@ -106,7 +106,7 @@ class CoconutsPage extends StatelessWidget {
                       const CoconutProductCard(
                         title: 'DeHusked Coconut',
                         imageUrl:
-                        'https://images.pexels.com/photos/7543134/pexels-photo-7543134.jpeg?auto=compress&cs=tinysrgb&w=800',
+                            'https://images.pexels.com/photos/7543134/pexels-photo-7543134.jpeg?auto=compress&cs=tinysrgb&w=800',
                       ),
 
                       const SizedBox(height: 18),
@@ -114,7 +114,7 @@ class CoconutsPage extends StatelessWidget {
                       const CoconutProductCard(
                         title: 'Coconut Husks',
                         imageUrl:
-                        'https://images.pexels.com/photos/27596374/pexels-photo-27596374.jpeg?auto=compress&cs=tinysrgb&w=800',
+                            'https://images.pexels.com/photos/27596374/pexels-photo-27596374.jpeg?auto=compress&cs=tinysrgb&w=800',
                       ),
 
                       const SizedBox(height: 20),

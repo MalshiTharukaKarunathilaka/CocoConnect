@@ -1,5 +1,5 @@
 const { Pool, types, defaults } = require("pg");
-require("dotenv").config();
+require("dotenv").config({path: require("path").join(__dirname, "../.env")});
 
 // Return DATE columns as plain "YYYY-MM-DD" strings. By default pg turns
 // them into midnight local time, which serialises as the previous day in UTC
@@ -23,6 +23,7 @@ defaults.parseInputDatesAsUTC = true;
 if (process.env.DB_MODE === "memory") {
   console.log("Using in-memory test database - nothing is saved to Supabase");
   module.exports = require("../test/memoryDb");
+  module.exports.databaseMode = "memory";
   return;
 }
 
@@ -42,4 +43,5 @@ pool.on("error", (err) => {
   console.error("PostgreSQL error:", err);
 });
 
+pool.databaseMode = "postgres";
 module.exports = pool;

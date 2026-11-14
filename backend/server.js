@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
-require("dotenv").config();
+require("dotenv").config({path: require("path").join(__dirname, ".env")});
 
 const listingRoutes = require("./routes/listingRoutes");
 const authRoutes = require("./routes/authRoutes");
@@ -13,6 +13,7 @@ const workerRoutes = require("./routes/workerRoutes");
 const dayJobChatRoutes = require("./routes/dayJobChatRoutes");
 const swaggerDocument = require("./config/swagger");
 
+const { getHealth } = require("./controllers/healthController");
 const app = express();
 
 app.use(cors());
@@ -24,10 +25,14 @@ app.get("/api-docs.json", (req, res) => {
 
 app.get("/", (req, res) => {
   res.json({
-    message: "Kapconnect backend is running",
+    message: "KapConnect backend is running",
   });
 });
 
+app.get("/api/health", getHealth);
+
+app.use("/api/machinery", require("./routes/machineryRoutes"));
+app.use("/api/holidays", require("./routes/holidayRoutes"));
 app.use("/api/listings", listingRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/buyer", buyerRoutes);

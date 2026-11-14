@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'screens/auth_gate.dart';
 import 'screens/estate_owner_profile_page.dart';
 import 'screens/orders/orders_page.dart';
-import 'theme/app_theme.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const KapConnectApp());
 }
 
@@ -14,9 +14,9 @@ class KapConnectApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Kapconnect',
+      title: 'KapConnect',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
+      theme: ThemeData(useMaterial3: true, fontFamily: 'Arial'),
 
       // First screen
       // Restores a saved login, otherwise shows Login; then sends each

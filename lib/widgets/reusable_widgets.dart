@@ -30,10 +30,7 @@ class DashboardHeading extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           subtitle,
-          style: const TextStyle(
-            color: Color(0xFF777777),
-            fontSize: 10,
-          ),
+          style: const TextStyle(color: Color(0xFF777777), fontSize: 10),
         ),
       ],
     );
@@ -80,11 +77,7 @@ class DashboardCategoryCard extends StatelessWidget {
             CircleAvatar(
               radius: 22,
               backgroundColor: const Color(0xFFF3F3F3),
-              child: Icon(
-                icon,
-                color: iconColor,
-                size: 22,
-              ),
+              child: Icon(icon, color: iconColor, size: 22),
             ),
 
             const SizedBox(height: 8),
@@ -104,10 +97,7 @@ class DashboardCategoryCard extends StatelessWidget {
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF8A8A8A),
-                fontSize: 9,
-              ),
+              style: const TextStyle(color: Color(0xFF8A8A8A), fontSize: 9),
             ),
           ],
         ),
@@ -115,6 +105,7 @@ class DashboardCategoryCard extends StatelessWidget {
     );
   }
 }
+
 class CoconutProductCard extends StatelessWidget {
   final String title;
   final String imageUrl;
@@ -134,9 +125,7 @@ class CoconutProductCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(3),
-        border: Border.all(
-          color: const Color(0xFFE0E0E0),
-        ),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
       ),
       child: InkWell(
         onTap: onTap,
@@ -232,13 +221,11 @@ class CoconutProductCard extends StatelessWidget {
     );
   }
 }
+
 class CustomBottomNavigation extends StatelessWidget {
   final int currentIndex;
 
-  const CustomBottomNavigation({
-    super.key,
-    required this.currentIndex,
-  });
+  const CustomBottomNavigation({super.key, required this.currentIndex});
 
   @override
   Widget build(BuildContext context) {
@@ -287,8 +274,9 @@ class BottomMenuItem extends StatelessWidget {
             Icon(
               icon,
               size: 20,
-              color:
-              isActive ? const Color(0xFF2E7D32) : const Color(0xFF777777),
+              color: isActive
+                  ? const Color(0xFF2E7D32)
+                  : const Color(0xFF777777),
             ),
             const SizedBox(height: 3),
             Text(

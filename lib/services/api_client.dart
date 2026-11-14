@@ -10,8 +10,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
+  final Map<String, String> fieldErrors;
 
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(
+    this.message, {
+    this.statusCode,
+    this.fieldErrors = const {},
+  });
 
   bool get isUnauthorized => statusCode == 401;
 
@@ -19,7 +24,7 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-/// Talks to the Kapconnect backend and remembers the login token.
+/// Talks to the KapConnect backend and remembers the login token.
 class ApiClient {
   ApiClient._();
 
@@ -135,6 +140,17 @@ class ApiClient {
     final String message = data is Map && data['message'] is String
         ? data['message'] as String
         : 'Something went wrong (${response.statusCode})';
-    throw ApiException(message, statusCode: response.statusCode);
+    final rawErrors = data is Map ? data['fieldErrors'] : null;
+    final fieldErrors = <String, String>{
+      if (rawErrors is Map)
+        for (final entry in rawErrors.entries)
+          if (entry.key is String && entry.value is String)
+            entry.key as String: entry.value as String,
+    };
+    throw ApiException(
+      message,
+      statusCode: response.statusCode,
+      fieldErrors: fieldErrors,
+    );
   }
 }

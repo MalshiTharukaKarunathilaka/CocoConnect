@@ -1,0 +1,16 @@
+-- Extra account types for the fertilizer flow (combo test branch).
+-- Supabase already allows any varchar role; this file documents the new values.
+--
+-- FERTILIZER_SUPPLIER  → private fertilizer shop calendar / ack jobs
+-- CDO                  → government distribution officer calendar
+--
+-- Example (run in Supabase SQL editor if you need a demo user there):
+--   insert into public.users (name, phone, password_hash, role, location)
+--   values (
+--     'Nadeesha Perera',
+--     '0771112233',
+--     crypt('demo123', gen_salt('bf')),
+--     'FERTILIZER_SUPPLIER',
+--     'Kurunegala'
+--   );
+select 1;

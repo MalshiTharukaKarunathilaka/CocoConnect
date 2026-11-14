@@ -330,3 +330,13 @@ test("dates come back as plain YYYY-MM-DD", async () => {
   const raw = await call("GET", "/api/buyer/listings?type=HUSKED_COCONUT");
   assert.match(String(raw.data[0].available_date), /^2026-11-20/);
 });
+
+
+test('health identifies temporary storage and confirms registration tables are ready', async () => {
+  const result = await call('GET', '/api/health');
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.data.storage, {mode: 'memory', persistent: false});
+  assert.equal(result.data.provider_registration_ready, true);
+  assert.equal(result.data.machinery_workflow_ready, true);
+  assert.equal(JSON.stringify(result.data).includes('DATABASE_URL'), false);
+});

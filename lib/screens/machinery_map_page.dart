@@ -1,116 +1,113 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../widgets/open_street_map_tiles.dart';
 import '../services/auth_service.dart';
+import '../services/machinery_api.dart';
+import '../services/api_client.dart';
+import '../widgets/machinery_widgets.dart';
 import '../widgets/owner_widgets.dart';
 import 'buyer/buyer_format.dart';
+import 'my_bookings_page.dart';
 import 'service_schedule_page.dart';
 
-/// A machine shown on the demo map.
-class _Machine {
-  final String name;
-  final String provider;
-  final String type; // TRACTOR / BACKHOE
-  final String services;
-  final int rate;
-  final String unit;
-
-  /// Offset from the estate, in degrees, so the demo always sits nearby.
-  final double dLat;
-  final double dLng;
-
-  const _Machine(
-    this.name,
-    this.provider,
-    this.type,
-    this.services,
-    this.rate,
-    this.unit,
-    this.dLat,
-    this.dLng,
-  );
-}
-
-// Sample machinery for showing the idea to clients. Not from the database.
-const List<_Machine> _machines = [
-  _Machine(
-    'Massey Ferguson 240',
-    'Sunil Machinery',
-    'TRACTOR',
-    'Slasher · Disc Ploughing · Rotary',
-    5000,
-    'acre',
-    0.018,
-    0.022,
-  ),
-  _Machine(
-    'Kubota M6040 4WD',
-    'Nimal Farm Mechanization',
-    'TRACTOR',
-    'Slasher · Trailer haulage',
-    4800,
-    'acre',
-    -0.024,
-    0.031,
-  ),
-  _Machine(
-    'Mahindra 575 DI',
-    'Dambokka Agro',
-    'TRACTOR',
-    'Koku Nagula · Rotary',
-    4500,
-    'acre',
-    0.035,
-    -0.019,
-  ),
-  _Machine(
-    'Swaraj 744 FE',
-    'Ruwan Tractor Service',
-    'TRACTOR',
-    'Disc Ploughing · Trailer',
-    6800,
-    'acre',
-    -0.041,
-    -0.028,
-  ),
-  _Machine(
-    'JCB 3CX',
-    'Kithsiri Earthmovers',
-    'BACKHOE',
-    'Ditch & drainage · Pit digging',
-    4200,
-    'hour',
-    0.006,
-    -0.043,
-  ),
-  _Machine(
-    'CAT 424B',
-    'Lanka Excavations',
-    'BACKHOE',
-    'Canal digging · Land clearing',
-    6500,
-    'hour',
-    -0.052,
-    0.009,
-  ),
-];
-
-IconData _iconFor(String type) =>
-    type == 'BACKHOE' ? Icons.construction : Icons.agriculture;
-
-/// Estate owners see tractors and backhoes around their estate on a map.
+/// Estate owners see tractors, backhoes and hand tractors around their estate.
+/// Pass [type] (TRACTOR / BACKHOE / HAND_TRACTOR) to start on one type.
 class MachineryMapPage extends StatefulWidget {
-  const MachineryMapPage({super.key});
+  final String? type;
+
+  const MachineryMapPage({super.key, this.type});
 
   @override
-  State<MachineryMapPage> createState() => _MachineryMapPageState();
+  State<MachineryMapPage> createState() => MachineInforyMapPageState();
 }
 
-class _MachineryMapPageState extends State<MachineryMapPage> {
+class MachineInforyMapPageState extends State<MachineryMapPage> {
   final _map = MapController();
-  String _filter = 'ALL';
-  _Machine? _selected = _machines.first;
+  List<MachineInfo> _machines = [];
+  bool _loading = true;
+  String? _error;
+  @override
+  void initState() {
+    super.initState();
+    _loadMachines();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitRadius());
+  }
+
+  Future<void> _loadMachines() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final rows = await const MachineryApi().machines(owner: true);
+      if (!mounted) return;
+      setState(() {
+        _machines = rows.map((row) {
+          final services = (row['services'] as List)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          final location = row['latitude'] == null || row['longitude'] == null
+              ? null
+              : LatLng(
+                  (row['latitude'] as num).toDouble(),
+                  (row['longitude'] as num).toDouble(),
+                );
+          return MachineInfo(
+            '${row['name']}',
+            '${row['provider_name']}',
+            switch (row['category']) {
+              'Backhoe' => 'BACKHOE',
+              'Hand Tractor' => 'HAND_TRACTOR',
+              _ => 'TRACTOR',
+            },
+            services.map((s) => '${s['name']}').join(' - '),
+            double.parse('${services.first['rate']}'),
+            '${services.first['unit']}',
+            0,
+            0,
+            0,
+            0,
+            0,
+            databaseId: row['id'] as int,
+            location: location,
+            liveServices: services,
+          );
+        }).toList();
+        _selected = _shown.isEmpty ? null : _shown.first;
+      });
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  late String _filter = widget.type ?? 'ALL';
+
+  /// How far from the estate to look, in km. Only used when the owner has a
+  /// saved location to measure from.
+  static const List<double> _radiusOptions = [2, 5, 10, 25, 50];
+  double _radiusKm = 25;
+  late MachineInfo? _selected = _shown.isEmpty ? null : _shown.first;
+
+  void _openCalendar(MachineInfo m) => Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ServiceSchedulePage(
+        machineName: m.name,
+        provider: m.provider,
+        type: m.type,
+        info: m,
+        machineAt: m.location,
+        estateAt: AuthService.currentUser?.hasCoordinates == true
+            ? _estate
+            : null,
+        km: _km(m),
+      ),
+    ),
+  );
 
   LatLng get _estate {
     final AppUser? me = AuthService.currentUser;
@@ -120,15 +117,67 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
     );
   }
 
-  LatLng _at(_Machine m) =>
-      LatLng(_estate.latitude + m.dLat, _estate.longitude + m.dLng);
+  /// The bottom card covers the lower part of the map, so look at a point a
+  /// little south of the estate; that puts the estate and every machine in
+  /// the visible part above the card.
+  static const double _homeZoom = 11.5;
+  LatLng get _home => LatLng(_estate.latitude - 0.055, _estate.longitude);
 
-  double _km(_Machine m) =>
-      const Distance().as(LengthUnit.Meter, _estate, _at(m)) / 1000;
+  LatLng _at(MachineInfo m) => m.location ?? _estate;
 
-  List<_Machine> get _shown =>
-      _machines.where((m) => _filter == 'ALL' || m.type == _filter).toList()
+  double _km(MachineInfo m) =>
+      m.location == null || AuthService.currentUser?.hasCoordinates != true
+      ? double.infinity
+      : const Distance().as(LengthUnit.Meter, _estate, _at(m)) / 1000;
+
+  bool get _hasHome => AuthService.currentUser?.hasCoordinates == true;
+
+  bool _inRadius(MachineInfo m) => !_hasHome || _km(m) <= _radiusKm;
+
+  List<MachineInfo> get _shown =>
+      _machines
+          .where((m) => (_filter == 'ALL' || m.type == _filter) && _inRadius(m))
+          .toList()
         ..sort((a, b) => _km(a).compareTo(_km(b)));
+
+  /// How many machines of a type are inside the chosen distance.
+  int _countFor(String code) => _machines
+      .where((m) => (code == 'ALL' || m.type == code) && _inRadius(m))
+      .length;
+
+  /// Zooms the map so the whole search circle is on screen, clear of the chips
+  /// at the top and the machine card at the bottom.
+  void _fitRadius() {
+    if (!_hasHome) {
+      _map.move(_home, _homeZoom);
+      return;
+    }
+    final double dLat = _radiusKm / 111.32;
+    final double dLng =
+        _radiusKm / (111.32 * math.cos(_estate.latitude * math.pi / 180));
+    try {
+      _map.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds(
+            LatLng(_estate.latitude - dLat, _estate.longitude - dLng),
+            LatLng(_estate.latitude + dLat, _estate.longitude + dLng),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 130, 24, 300),
+        ),
+      );
+    } catch (_) {
+      // The map is not on screen yet; the next change will fit it.
+    }
+  }
+
+  void _setRadius(double km) {
+    setState(() {
+      _radiusKm = km;
+      final List<MachineInfo> list = _shown;
+      _selected = list.isEmpty ? null : list.first;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitRadius());
+  }
 
   @override
   void dispose() {
@@ -138,100 +187,136 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<_Machine> shown = _shown;
+    final List<MachineInfo> shown = _shown;
     return OwnerPage(
       child: Column(
         children: [
           OwnerHeader(
             title: 'Machinery Near You',
-            subtitle: 'TRACTORS & BACKHOES',
+            subtitle: 'TRACTORS, BACKHOES & HAND TRACTORS',
             actions: [
               IconButton(
-                tooltip: 'Service schedule',
+                tooltip: 'My bookings',
                 icon: const Icon(
-                  Icons.calendar_month_outlined,
+                  Icons.receipt_long_outlined,
                   color: kOwnerGreen,
                 ),
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const ServiceSchedulePage(),
+                    builder: (context) => const MyBookingsPage(),
                   ),
                 ),
               ),
             ],
           ),
+          if (_loading) const LinearProgressIndicator(),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text(_error!),
+                  TextButton(
+                    onPressed: _loadMachines,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          if (!_loading && _error == null && shown.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'No registered machinery with service rates is available yet.',
+              ),
+            ),
           Expanded(
             child: Stack(
               children: [
                 FlutterMap(
                   mapController: _map,
                   options: MapOptions(
-                    initialCenter: _estate,
-                    initialZoom: 11.6,
+                    initialCenter: _home,
+                    initialZoom: _homeZoom,
                   ),
                   children: [
                     kapConnectMapTiles(),
-                    CircleLayer(
-                      circles: [
-                        CircleMarker(
-                          point: _estate,
-                          radius: 7000,
-                          useRadiusInMeter: true,
-                          color: kOwnerGreen.withValues(alpha: 0.08),
-                          borderColor: kOwnerGreen.withValues(alpha: 0.4),
-                          borderStrokeWidth: 1.5,
-                        ),
-                      ],
-                    ),
+                    if (_hasHome)
+                      CircleLayer(
+                        circles: [
+                          CircleMarker(
+                            point: _estate,
+                            radius: _radiusKm * 1000,
+                            useRadiusInMeter: true,
+                            color: kOwnerGreen.withValues(alpha: 0.08),
+                            borderColor: kOwnerGreen.withValues(alpha: 0.5),
+                            borderStrokeWidth: 1.5,
+                          ),
+                        ],
+                      ),
                     MarkerLayer(
                       markers: [
-                        for (final m in shown) _marker(m),
-                        Marker(
-                          point: _estate,
-                          width: 120,
-                          height: 66,
-                          alignment: Alignment.topCenter,
-                          child: Column(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: kOwnerGreen,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text(
-                                  'Your Estate',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
+                        for (final m in shown.where((m) => m.location != null))
+                          _marker(m),
+                        if (AuthService.currentUser?.hasCoordinates == true)
+                          Marker(
+                            point: _estate,
+                            width: 120,
+                            height: 66,
+                            alignment: Alignment.topCenter,
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: kOwnerGreen,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'Your Estate',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const Icon(
-                                Icons.location_on,
-                                color: kOwnerGreen,
-                                size: 36,
-                              ),
-                            ],
+                                const Icon(
+                                  Icons.location_on,
+                                  color: kOwnerGreen,
+                                  size: 36,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ],
                 ),
-                Positioned(left: 12, right: 12, top: 12, child: _chips()),
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  top: 12,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _chips(),
+                      const SizedBox(height: 8),
+                      _radiusChips(),
+                    ],
+                  ),
+                ),
                 Positioned(
                   right: 12,
-                  top: 64,
+                  top: 108,
                   child: FloatingActionButton.small(
                     heroTag: 'recenter',
                     backgroundColor: Colors.white,
-                    onPressed: () => _map.move(_estate, 11.6),
+                    onPressed: _fitRadius,
                     child: const Icon(Icons.my_location, color: kOwnerGreen),
                   ),
                 ),
@@ -244,7 +329,7 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
     );
   }
 
-  Marker _marker(_Machine m) {
+  Marker _marker(MachineInfo m) {
     final bool on = identical(m, _selected);
     final double size = on ? 54 : 44;
     return Marker(
@@ -277,7 +362,7 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
                 ],
               ),
               child: Icon(
-                _iconFor(m.type),
+                machineIcon(m.type),
                 color: on ? Colors.white : kOwnerGreen,
                 size: on ? 28 : 22,
               ),
@@ -306,12 +391,86 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
     );
   }
 
+  /// "Within 2 | 5 | 10 | 25 | 50 km": only machines inside the circle show.
+  Widget _radiusChips() {
+    if (!_hasHome) {
+      return Material(
+        color: Colors.white,
+        shape: const StadiumBorder(),
+        elevation: 2,
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Text(
+            'Save your estate location in your profile to filter by distance',
+            style: TextStyle(fontSize: 11.5, color: kOwnerMuted),
+          ),
+        ),
+      );
+    }
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          Material(
+            color: Colors.white,
+            shape: const StadiumBorder(),
+            elevation: 2,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.radar, size: 16, color: kOwnerGreen),
+                  SizedBox(width: 5),
+                  Text(
+                    'Within',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: kOwnerInk,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          for (final double km in _radiusOptions)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Material(
+                color: _radiusKm == km ? kOwnerGreen : Colors.white,
+                shape: const StadiumBorder(),
+                elevation: 2,
+                child: InkWell(
+                  customBorder: const StadiumBorder(),
+                  onTap: () => _setRadius(km),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Text(
+                      '${km.toStringAsFixed(0)} km',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: _radiusKm == km ? Colors.white : kOwnerInk,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _chips() {
     Widget chip(String code, String label, IconData? icon) {
       final bool on = _filter == code;
-      final int count = code == 'ALL'
-          ? _machines.length
-          : _machines.where((m) => m.type == code).length;
+      final int count = _countFor(code);
       return Padding(
         padding: const EdgeInsets.only(right: 8),
         child: Material(
@@ -361,18 +520,21 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
           chip('ALL', 'All', null),
           chip('TRACTOR', 'Tractors', Icons.agriculture),
           chip('BACKHOE', 'Backhoes', Icons.construction),
+          chip('HAND_TRACTOR', 'Hand Tractors', Icons.grass),
         ],
       ),
     );
   }
 
-  Widget _sheet(List<_Machine> shown) {
-    final _Machine? m = _selected;
+  Widget _sheet(List<MachineInfo> shown) {
+    final MachineInfo? m = _selected;
+    final bool nearest =
+        m != null && shown.isNotEmpty && identical(m, shown.first);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         boxShadow: [
           BoxShadow(
             color: Color(0x22000000),
@@ -385,6 +547,7 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const SizedBox(height: 8),
           Center(
             child: Container(
               width: 40,
@@ -395,95 +558,181 @@ class _MachineryMapPageState extends State<MachineryMapPage> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            '${shown.length} available near your estate',
-            style: const TextStyle(
-              fontSize: 12.5,
-              color: kOwnerMuted,
-              fontWeight: FontWeight.w600,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            child: Text(
+              _hasHome
+                  ? '${shown.length} available within ${_radiusKm.toStringAsFixed(0)} km of your estate · tap a marker'
+                  : '${shown.length} available · tap a marker',
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: kOwnerMuted,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-          const SizedBox(height: 10),
-          if (m != null)
-            Row(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: const BoxDecoration(
-                    color: kOwnerGreenSoft,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(_iconFor(m.type), color: kOwnerGreen, size: 28),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        m.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: kOwnerInk,
-                        ),
-                      ),
-                      Text(
-                        m.provider,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: kOwnerMuted,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${_km(m).toStringAsFixed(1)} km away · ~${(_km(m) / 20 * 60 + 5).round()} min',
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: kOwnerGreen,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+          if (m == null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+              child: Text(
+                _hasHome
+                    ? 'No machines within ${_radiusKm.toStringAsFixed(0)} km. Try a larger distance.'
+                    : 'No machines of this type nearby right now.',
+                style: const TextStyle(fontSize: 13.5, color: kOwnerMuted),
+              ),
+            )
+          else ...[
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _openCalendar(m),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      rupees(m.rate),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: kOwnerBrown,
-                      ),
+                    Stack(
+                      children: [
+                        MachinePhoto(m, width: 116, height: 116, radius: 14),
+                        if (nearest)
+                          const Positioned(
+                            left: 6,
+                            top: 6,
+                            child: PhotoChip(
+                              'Nearest',
+                              icon: Icons.star,
+                              filled: true,
+                            ),
+                          ),
+                        Positioned(
+                          left: 6,
+                          bottom: 6,
+                          child: PhotoChip(machineLabel(m.type)),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '/ ${m.unit}',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: kOwnerMuted,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 116,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  m.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: kOwnerInk,
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        m.provider,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: kOwnerMuted,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    if (m.databaseId == null)
+                                      const Icon(
+                                        Icons.verified,
+                                        size: 15,
+                                        color: kOwnerGreen,
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    if (m.databaseId == null)
+                                      const Icon(
+                                        Icons.star,
+                                        size: 15,
+                                        color: Color(0xFFF2A900),
+                                      ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      (m.databaseId != null
+                                          ? 'Registered provider'
+                                          : '${m.rating}'),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: kOwnerInk,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        (_km(m).isFinite
+                                            ? ' - ${_km(m).toStringAsFixed(1)} km straight-line distance'
+                                            : ' - Distance unavailable'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          color: kOwnerMuted,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Text(
+                              m.services,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: kOwnerInk,
+                              ),
+                            ),
+                            Text.rich(
+                              TextSpan(
+                                text: rupees(m.rate),
+                                children: [
+                                  TextSpan(
+                                    text: ' / ${m.unit}',
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.normal,
+                                      color: kOwnerMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              style: const TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                                color: kOwnerBrown,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
-          if (m != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              m.services,
-              style: const TextStyle(fontSize: 12.5, color: kOwnerInk),
-            ),
-            const SizedBox(height: 12),
-            OwnerPrimaryButton(
-              label:
-                  'Book ${m.type == 'BACKHOE' ? 'this Backhoe' : 'this Tractor'}',
-              arrow: true,
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Booking is coming soon')),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: OwnerPrimaryButton(
+                label: 'View Calendar & Book',
+                arrow: true,
+                onPressed: () => _openCalendar(m),
               ),
             ),
           ],

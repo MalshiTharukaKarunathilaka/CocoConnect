@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
-const Color kAuthGreen = Color(0xFF2E7D32);
-const Color kAuthBrown = Color(0xFFB26A2C);
-const Color kAuthGrey = Color(0xFF777777);
-const Color kAuthBorder = Color(0xFFE0E0E0);
-const Color kAuthPrefixFill = Color(0xFFF2EBE0);
+// Match DESIGN_SYSTEM.md so login screens use the same brand green.
+const Color kAuthGreen = Color(0xFF256B45);
+const Color kAuthBrown = Color(0xFF8B4A1C);
+const Color kAuthGrey = Color(0xFF6B7280);
+const Color kAuthBorder = Color(0xFFE5E7EB);
+const Color kAuthPrefixFill = Color(0xFFF8F6F1);
 
 class AuthScaffold extends StatelessWidget {
   final List<Widget> children;

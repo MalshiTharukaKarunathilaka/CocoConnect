@@ -5,6 +5,7 @@ import '../services/owner_service.dart';
 import '../widgets/reusable_widgets.dart';
 import 'account_dialogs.dart';
 import 'auth_gate.dart';
+import '../theme/app_theme.dart';
 
 const Color _darkGreen = Color(0xFF1F6B3D);
 const Color _ink = Color(0xFF222222);
@@ -33,10 +34,14 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
     }
   }
 
-  Future<void> _editEstate(Estate estate) async {
-    final bool? saved = await showDialog<bool>(
+  Future<void> _editEstate(Estate estate, {EstateField? focus}) async {
+    final bool? saved = await showThemedDialog<bool>(
       context: context,
-      builder: (context) => EditEstateDialog(estate: estate),
+      builder: (context) => EditEstateDialog(
+        estate: estate,
+        focus: focus,
+        fallbackLocation: AuthService.currentUser?.location,
+      ),
     );
     if (saved == true) _reload();
   }
@@ -44,7 +49,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
   Future<void> _editAccount() async {
     final AppUser? user = AuthService.currentUser;
     if (user == null) return;
-    final bool? saved = await showDialog<bool>(
+    final bool? saved = await showThemedDialog<bool>(
       context: context,
       builder: (context) => EditProfileDialog(user: user),
     );
@@ -85,7 +90,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                       ),
                       const Expanded(
                         child: Text(
-                          'Kapconnect',
+                          'KapConnect',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Color(0xFF2E7D32),
@@ -390,27 +395,48 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
               ),
               const Divider(height: 20),
               EstateDetailItem(
+                icon: Icons.storefront_outlined,
+                title: 'Estate Name',
+                value: estate.estateName,
+                onTap: () => _editEstate(estate, focus: EstateField.name),
+              ),
+              const SizedBox(height: 12),
+              EstateDetailItem(
                 icon: Icons.location_on_outlined,
                 title: 'Location',
-                value: estate.location ?? '',
+                // The estate's own location, otherwise the one on the account.
+                value: (estate.location ?? '').trim().isNotEmpty
+                    ? estate.location!
+                    : (AuthService.currentUser?.location ?? ''),
+                note:
+                    (estate.location ?? '').trim().isEmpty &&
+                        (AuthService.currentUser?.location ?? '')
+                            .trim()
+                            .isNotEmpty
+                    ? 'from your account. Tap to save it on your estate'
+                    : null,
+                onTap: () => _editEstate(estate, focus: EstateField.location),
               ),
               const SizedBox(height: 12),
               EstateDetailItem(
                 icon: Icons.terrain_outlined,
                 title: 'Total Land Area',
                 value: estate.totalLandArea ?? '',
+                onTap: () => _editEstate(estate, focus: EstateField.area),
               ),
               const SizedBox(height: 12),
               EstateDetailItem(
                 icon: Icons.eco_outlined,
                 title: 'Primary Crop',
                 value: estate.primaryCrop ?? '',
+                onTap: () => _editEstate(estate, focus: EstateField.crop),
               ),
               const SizedBox(height: 12),
               EstateDetailItem(
                 icon: Icons.calendar_month_outlined,
                 title: 'Year Established',
                 value: estate.yearEstablished?.toString() ?? '',
+                onTap: () => _editEstate(estate, focus: EstateField.year),
               ),
             ],
           ),
@@ -636,50 +662,85 @@ class EstateDetailItem extends StatelessWidget {
   final IconData icon;
   final String title;
 
-  /// Empty shows a muted "Not added yet".
+  /// Empty shows a muted "Tap to add".
   final String value;
+
+  /// A small line under the value, e.g. where it came from.
+  final String? note;
+
+  /// Tapping the row edits this detail.
+  final VoidCallback? onTap;
 
   const EstateDetailItem({
     super.key,
     required this.icon,
     required this.title,
     required this.value,
+    this.note,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final bool empty = value.trim().isEmpty;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: const Color(0xFF7A837A), size: 19),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Color(0xFF4A4A4A),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: const Color(0xFF7A837A), size: 19),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Color(0xFF4A4A4A),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    empty ? 'Tap to add' : value,
+                    style: TextStyle(
+                      color: empty ? const Color(0xFFAAAAAA) : _ink,
+                      fontSize: 13,
+                      fontStyle: empty ? FontStyle.italic : FontStyle.normal,
+                    ),
+                  ),
+                  if (note != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        note!,
+                        style: const TextStyle(
+                          color: Color(0xFFB26A2C),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (onTap != null)
+              const Padding(
+                padding: EdgeInsets.only(left: 6, top: 2),
+                child: Icon(
+                  Icons.edit_outlined,
+                  size: 16,
+                  color: Color(0xFF9AA39A),
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                empty ? 'Not added yet' : value,
-                style: TextStyle(
-                  color: empty ? const Color(0xFFAAAAAA) : _ink,
-                  fontSize: 13,
-                  fontStyle: empty ? FontStyle.italic : FontStyle.normal,
-                ),
-              ),
-            ],
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

@@ -1,6 +1,6 @@
 {
-    "name": "Kapconnect",
-    "short_name": "Kapconnect",
+    "name": "KapConnect",
+    "short_name": "KapConnect",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
