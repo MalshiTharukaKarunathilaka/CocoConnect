@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../widgets/owner_widgets.dart';
 import 'fertilizer_data.dart';
+import 'fertilizer_order_sheet.dart';
 
 class FertilizerTalkPage extends StatefulWidget {
   const FertilizerTalkPage({super.key, required this.place});
@@ -24,6 +25,18 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
     list.add(FertChat('You', text, TimeOfDay.now().format(context)));
     _store.shopTalks[widget.place.id] = list;
     _ctrl.clear();
+    setState(() {});
+  }
+
+  Future<void> _placeOrderFromChat() async {
+    // Why: after talking price/details, the owner can send the order without leaving chat.
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => FertilizerOrderSheet(place: widget.place),
+    );
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -89,6 +102,25 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
                   ),
                 );
               },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kOwnerGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: _placeOrderFromChat,
+                icon: const Icon(Icons.shopping_bag_outlined, size: 18),
+                label: const Text(
+                  'Place order',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
             ),
           ),
           Padding(

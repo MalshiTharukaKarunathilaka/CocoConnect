@@ -124,9 +124,8 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
   @override
   Widget build(BuildContext context) {
-    final list = _visible;
-    // Map fills the screen. List is a bottom sheet — drag/scroll it up to open.
-    // Why: keeps the map highlighted; avoids FlutterMap-inside-page-scroll blank bug.
+    // Map fills the screen. My orders + requests sit in a bottom sheet — drag up to read.
+    // Why: map stays highlighted; suppliers stay on the map pins, not in this list.
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -204,7 +203,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                 snap: true,
                 snapSizes: const [0.32, 0.5, 0.68],
                 builder: (context, scrollController) {
-                  return _supplierSheet(list, scrollController);
+                  return _ordersRequestsSheet(scrollController);
                 },
               ),
             ],
@@ -226,7 +225,13 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     );
   }
 
-  Widget _supplierSheet(List<FertPlace> list, ScrollController scrollController) {
+  Widget _ordersRequestsSheet(ScrollController scrollController) {
+    final orders = _store.ownerOrders('Your Estate');
+    final requests = _store.govRequests
+        .where((r) => r.owner == 'Your Estate')
+        .toList();
+    final total = orders.length + requests.length;
+
     return Material(
       color: Colors.white,
       elevation: 10,
@@ -252,7 +257,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
               children: [
                 const Expanded(
                   child: Text(
-                    'Who can supply you',
+                    'My orders & requests',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                   ),
                 ),
@@ -264,7 +269,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                     borderRadius: BorderRadius.circular(99),
                   ),
                   child: Text(
-                    '${list.length}',
+                    '$total',
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       color: AppColors.green,
@@ -276,97 +281,133 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
             ),
           ),
           Expanded(
-            child: list.isEmpty
-                ? ListView(
-                    controller: scrollController,
-                    children: const [
-                      SizedBox(height: 24),
-                      Center(
-                        child: Text(
-                          'No matches',
-                          style: TextStyle(color: AppColors.muted),
-                        ),
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    controller: scrollController,
-                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-                    itemCount: list.length,
-                    itemBuilder: (_, i) {
-                      final pl = list[i];
-                      final on = identical(_selected, pl);
-                      final far = pl.distanceKm > _radiusKm;
-                      final where = far
-                          ? '${pl.distanceKm.toStringAsFixed(0)} km · delivers'
-                          : '${pl.distanceKm.toStringAsFixed(1)} km';
-                      return Material(
-                        color: on ? AppColors.greenSoft : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () => setState(() {
-                            _selected = on ? null : pl;
-                            _clusterKey = null;
-                          }),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 10,
-                            ),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: _pinColor(pl),
-                                  child: Text(
-                                    _pinMark(pl),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        pl.company,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                      Text(
-                                        '${pl.brandLine} · $where',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: AppColors.muted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Text(
-                                  'LKR ${withCommas(pl.minPrice50)}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 12,
-                                    color: AppColors.green,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+            child: ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(2, 4, 2, 8),
+                  child: Text(
+                    'My orders',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.muted,
+                    ),
                   ),
+                ),
+                if (orders.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'No orders yet',
+                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                  )
+                else
+                  for (final o in orders) _orderRow(o),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(2, 10, 2, 8),
+                  child: Text(
+                    'Requests',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ),
+                if (requests.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'No requests yet',
+                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                  )
+                else
+                  for (final r in requests) _requestRow(r),
+              ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _orderRow(FertOrder o) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.cream,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  o.product,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${o.company} · ${o.qty50} bags · ${shortDate(o.preferredDate)}',
+                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          StatusPill.forStatus(o.status),
+        ],
+      ),
+    );
+  }
+
+  Widget _requestRow(FertGovRequest r) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.cream,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  r.fertilizer,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${r.id} · ${r.requested} bags · ${r.cdo}',
+                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          StatusPill.forStatus(r.status),
         ],
       ),
     );
