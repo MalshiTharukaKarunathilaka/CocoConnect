@@ -25,7 +25,7 @@ app.get("/api-docs.json", (req, res) => {
 
 app.get("/", (req, res) => {
   res.json({
-    message: "Kapconnect backend is running",
+    message: "KapConnect backend is running",
   });
 });
 

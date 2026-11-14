@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import '../services/owner_service.dart';
 
 const Color _jobGreen = Color(0xFF245F48);
@@ -22,9 +23,38 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
     text: '2500',
   );
 
+  /// Where the work is: starts as the owner's own estate, and can be edited.
+  final TextEditingController _locationController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _prefillLocation();
+  }
+
+  Future<void> _prefillLocation() async {
+    final String own = AuthService.currentUser?.location?.trim() ?? '';
+    _locationController.text = own;
+    try {
+      final estate = await OwnerService.getEstate();
+      final String place = (estate.location ?? own).trim();
+      final String text = [
+        if (estate.estateName.trim().isNotEmpty) estate.estateName.trim(),
+        if (place.isNotEmpty) place,
+      ].join(', ');
+      // Do not overwrite something the owner has already started typing.
+      if (mounted && _locationController.text.trim() == own) {
+        _locationController.text = text;
+      }
+    } catch (_) {
+      // Keep the account's own location.
+    }
+  }
+
   @override
   void dispose() {
     _rateController.dispose();
+    _locationController.dispose();
     super.dispose();
   }
 
@@ -62,12 +92,20 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
       return;
     }
 
+    final String where = _locationController.text.trim();
+    if (where.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter where the work will be')),
+      );
+      return;
+    }
+
     try {
       await OwnerService.createDayJob(
         category: _category,
         workersNeeded: _workers,
         requiredDate: widget.requiredDate,
-        location: 'Green Valley Estate, Wattagama Rd, Kurunegala',
+        location: where,
         dailyRate: rate,
         paymentMethod: _paymentMethod,
       );
@@ -324,10 +362,14 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              'Green Valley Estate, Wattagama Rd, Kurunegala',
+            child: TextField(
+              controller: _locationController,
               maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              decoration: const InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                hintText: 'Estate name and place',
+              ),
               style: const TextStyle(
                 color: _jobInk,
                 fontSize: 13,

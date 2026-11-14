@@ -254,7 +254,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                     ),
                   ),
                   child: const Text(
-                    'Okay',
+                    'Close',
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -318,7 +318,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           const SizedBox(width: 14),
           const Flexible(
             child: Text(
-              'Kapconnect',
+              'KapConnect',
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: _workerGreen,
@@ -1510,7 +1510,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         ),
         const SizedBox(height: 14),
         Text(
-          '${firstJob.location}  ·  2.4 km away',
+          firstJob.distanceKm == null
+              ? firstJob.location
+              : '${firstJob.location}  ·  ${firstJob.distanceKm!.toStringAsFixed(1)} km away',
           style: const TextStyle(color: _workerMuted, fontSize: 16),
         ),
         const SizedBox(height: 5),

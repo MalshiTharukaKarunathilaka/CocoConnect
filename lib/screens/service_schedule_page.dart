@@ -902,9 +902,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
             children: [
               stat(
                 m.databaseId != null ? Icons.verified_user : Icons.star,
-                m.databaseId != null
-                    ? kOwnerGreen
-                    : const Color(0xFFF2A900),
+                m.databaseId != null ? kOwnerGreen : const Color(0xFFF2A900),
                 m.databaseId != null ? 'Registered' : '${m.rating}',
                 m.databaseId != null ? 'provider' : '${m.jobs} jobs',
               ),
@@ -1310,7 +1308,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   }
 
   Widget _dayCell(int n, int days) {
-    if (n < 1 || n > days) return const SizedBox(height: 52);
+    if (n < 1 || n > days) return const AspectRatio(aspectRatio: 1);
     final DateTime d = DateTime(_month.year, _month.month, n);
     final bool selected = _key(d) == _key(_day);
     final bool today = _key(d) == _key(_today);
@@ -1341,68 +1339,73 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
       onTap: dim ? null : () => _pickDay(d),
       child: Stack(
         children: [
-          Container(
-            height: 52,
-            margin: const EdgeInsets.all(2.5),
-            decoration: BoxDecoration(
-              color: selected ? strong : soft,
-              borderRadius: BorderRadius.circular(16),
-              border: today && !selected
-                  ? Border.all(color: kOwnerGreen, width: 1.6)
-                  : null,
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: strong.withValues(alpha: 0.4),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '$n',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: selected || today
-                        ? FontWeight.bold
-                        : FontWeight.w500,
-                    color: selected
-                        ? Colors.white
-                        : dim
-                        ? const Color(0xFFB4B8BC)
-                        : st == _Day.free
-                        ? kOwnerInk
-                        : strong,
-                    decoration: strike ? TextDecoration.lineThrough : null,
-                    decorationColor: selected ? Colors.white : strong,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  height: 8,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!dim) _dot(selected ? Colors.white : strong),
-                      for (final b in others.take(2))
-                        Container(
-                          width: 7,
-                          height: 7,
-                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                          decoration: BoxDecoration(
-                            color: machineColor(b.info?.type ?? 'TRACTOR'),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 1.2),
-                          ),
+          AspectRatio(
+            aspectRatio: 1,
+            child: Container(
+              margin: const EdgeInsets.all(2.5),
+              decoration: BoxDecoration(
+                color: selected ? strong : soft,
+                borderRadius: BorderRadius.circular(16),
+                border: today && !selected
+                    ? Border.all(color: kOwnerGreen, width: 1.6)
+                    : null,
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                          color: strong.withValues(alpha: 0.4),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
-                    ],
+                      ]
+                    : null,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '$n',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: selected || today
+                          ? FontWeight.bold
+                          : FontWeight.w500,
+                      color: selected
+                          ? Colors.white
+                          : dim
+                          ? const Color(0xFFB4B8BC)
+                          : st == _Day.free
+                          ? kOwnerInk
+                          : strong,
+                      decoration: strike ? TextDecoration.lineThrough : null,
+                      decorationColor: selected ? Colors.white : strong,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    height: 8,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!dim) _dot(selected ? Colors.white : strong),
+                        for (final b in others.take(2))
+                          Container(
+                            width: 7,
+                            height: 7,
+                            margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                            decoration: BoxDecoration(
+                              color: machineColor(b.info?.type ?? 'TRACTOR'),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.2,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           if (holiday != null)
