@@ -49,6 +49,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   DateTime? _selectedDate;
   String? _selectedEstate;
   int? _radiusKm = 20;
+  int? _decliningJobId;
 
   @override
   void initState() {
@@ -930,7 +931,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               Expanded(
                 child: _CalendarTypeChip(
                   icon: Icons.agriculture,
-                  label: 'Machine Worker',
+                  label: 'Machine Weeder',
                 ),
               ),
             ],
@@ -1107,7 +1108,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               else ...[
                 _jobDetailsHeader(detailsJobs),
                 const SizedBox(height: 16),
-                for (final job in detailsJobs) _nearbyJobCard(job),
+                for (final job in detailsJobs) _nearbyJobCard(job, jobs),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
@@ -1539,9 +1540,11 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     );
   }
 
-  Widget _nearbyJobCard(WorkerJob job) {
-    final applied = job.applicationId != null;
-    final accepted = job.applicationStatus?.toLowerCase() == 'accepted';
+  Widget _nearbyJobCard(WorkerJob job, List<WorkerJob> allJobs) {
+    final applicationStatus = job.applicationStatus?.toLowerCase();
+    final accepted = applicationStatus == 'accepted';
+    final applied = job.applicationId != null && applicationStatus != 'declined';
+    final declining = _decliningJobId == job.id;
     final completed =
         job.status.toLowerCase() == 'completed' ||
         job.applicationStatus?.toLowerCase() == 'completed';
@@ -1681,8 +1684,10 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               onPressed: completed
                   ? null
                   : accepted
-                  ? () => _showJobConfirmation(job)
-                  : () => _apply(job),
+                  ? declining
+                        ? null
+                        : () => _declineJob(job)
+                  : () => _acceptOrShowSameDayConflict(job, allJobs),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _workerGreen,
                 side: const BorderSide(color: _workerGreen, width: 1.5),
@@ -1695,7 +1700,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 completed
                     ? 'Completed'
                     : accepted
-                    ? 'Accepted'
+                    ? declining
+                          ? 'Declining...'
+                          : 'Decline job'
                     : 'Accept job',
               ),
             ),
@@ -1729,14 +1736,87 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     );
   }
 
-  void _showDeclineMessage(WorkerJob job) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Decline is not available yet.')),
+  Future<void> _acceptOrShowSameDayConflict(
+    WorkerJob job,
+    List<WorkerJob> allJobs,
+  ) async {
+    final conflictingJob = allJobs.where((other) {
+      return other.id != job.id &&
+          other.applicationStatus?.toLowerCase() == 'accepted' &&
+          other.requiredDate.year == job.requiredDate.year &&
+          other.requiredDate.month == job.requiredDate.month &&
+          other.requiredDate.day == job.requiredDate.day;
+    }).firstOrNull;
+
+    if (conflictingJob == null) {
+      await _apply(job);
+      return;
+    }
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Job already selected'),
+        content: Text(
+          'You cannot select two jobs on the same day. Decline your '
+          '${conflictingJob.category} job first if you want to accept this job.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 
+  Future<void> _declineJob(WorkerJob job) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Decline this job?'),
+        content: Text(
+          'Your place on the ${job.category} job will become available to another worker.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Keep job'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Decline job'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _decliningJobId = job.id);
+    try {
+      await WorkerService.declineJob(job.id);
+      if (!mounted) return;
+      setState(() {
+        _decliningJobId = null;
+        _jobs = WorkerService.getAvailableJobs();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Job declined. Your place is now available.')),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _decliningJobId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
+  }
+
   Future<void> _openNegotiation(WorkerJob job) async {
-    if (job.applicationId == null) {
+    if (job.applicationId == null ||
+        job.applicationStatus?.toLowerCase() != 'accepted') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Apply for this job before negotiating.')),
       );
