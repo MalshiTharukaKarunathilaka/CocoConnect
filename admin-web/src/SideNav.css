@@ -464,3 +464,10 @@
 /* two stats: sit together in the middle of the page */
 .sb[style*="--n: 2"] { display: flex; justify-content: center; gap: clamp(60px, 12vw, 200px); }
 .sb[style*="--n: 2"] .sb-item { flex: 0 0 auto; }
+
+/* coconut volume card */
+.mv-pile { width: min(100%, 330px); height: auto; mix-blend-mode: multiply; margin-bottom: -6px; }
+.mv-graphs { margin-top: 14px; }
+.mv-graph { border: 1.5px solid #d4e0d8; border-radius: 14px; padding: 12px 14px 6px; background: #fff; min-width: 0; }
+.mv-graph > b { display: block; font-size: 0.9rem; }
+.mv-graph > small { display: block; font-size: 0.74rem; color: #6b7a71; margin: 2px 0 6px; }

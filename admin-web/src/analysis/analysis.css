@@ -542,3 +542,5 @@
   border-radius: 999px;
 }
 .an-scope-chip b { color: #1a5f38; font-weight: 650; }
+
+.an-pin-lab { position: absolute; left: 50%; top: 100%; transform: translate(-50%, 1px); background: #fff; color: #17251d; font: 700 10px/1 inherit; padding: 2px 6px; border-radius: 999px; white-space: nowrap; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); pointer-events: none; }

@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Character, DrawnCharacter, Pair } from './People'
 import { glyphHtml } from './pins'
 import PriceMap, { Coconut } from './PriceMap'
+import LandTopic, { LAND_TOPICS } from './LandTopics'
 import { api } from '../api'
 import { loadRegions, regionFigures } from './regions'
 import {
@@ -228,7 +229,7 @@ function AgeCard({ age, title = 'Age', noun = 'workers' }) {
   )
 }
 
-function Trend({ data, keys, colors = PALETTE, fmt = compact, axisFmt, height = 240, area }) {
+function Trend({ data, keys, colors = PALETTE, fmt = compact, axisFmt, height = 240, area, tight }) {
   const Ch = area ? AreaChart : LineChart
   return (
     <div className="an-trend">
@@ -236,7 +237,7 @@ function Trend({ data, keys, colors = PALETTE, fmt = compact, axisFmt, height = 
       <Ch data={data} margin={{ left: -8, right: 14, top: 6 }}>
         <CartesianGrid stroke="#dfe5df" strokeDasharray="2 5" vertical={false} />
         <XAxis dataKey="name" {...ax} />
-        <YAxis {...ax} tickFormatter={axisFmt || fmt} />
+        <YAxis {...ax} tickFormatter={axisFmt || fmt} domain={tight ? [(m) => Math.floor(m - 3), (m) => Math.ceil(m + 3)] : undefined} />
         {tipEl(fmt)}
         {keys.map((k, i) =>
           area ? (
@@ -550,6 +551,21 @@ function areaShare(d, district, region) {
   return f ? f.share : 1
 }
 
+const hashStr = (t) => [...String(t)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 100003, 7)
+/** Sample gender and age split for n people. male is the base share of men; ageW the base weight of each age group. */
+function peopleMix(key, n, male, ageW) {
+  const j = (i) => 0.88 + ((hashStr(key + i) % 1000) / 1000) * 0.24
+  const men = Math.round(n * Math.min(0.97, male * j('g')))
+  const w = ageW.map((x, i) => x * j(`a${i}`))
+  const ws = sumBy(w, (x) => x) || 1
+  const age = w.map((x) => Math.round((n * x) / ws))
+  age[2] += n - sumBy(age, (x) => x)
+  return {
+    gender: [{ name: 'Male', value: men, color: '#256b45' }, { name: 'Female', value: n - men, color: '#d9741a' }],
+    age: AGE_GROUPS.map((a, i) => ({ name: a, value: Math.max(0, age[i]) })),
+  }
+}
+
 const slugOf = (name) => String(name || '').toLowerCase().replaceAll(' ', '-')
 
 /** One flat band of figures with a 3D picture beside each number. items: [name, value, sub, figure] */
@@ -787,10 +803,14 @@ function Clients({ d, sel, setSel }) {
   const byArea = areaBars(sel, perD)
   const topArea = sel.region ? { name: sel.region, value: orders } : byArea[0]
   const rows = prod.map((p) => [p.name, num(p.orders), rs(p.value), pct(p.value, revenue)])
+  const buyers = Math.round(orders / 3.4)
+  const mix = peopleMix(`client|${scopeName(sel)}|${sel.region || ''}`, buyers, 0.72, [8, 28, 34, 21, 9])
   const sections = () => [
     { title: `Buyers - ${scopeName(sel)} (2026, Jan-Oct)`, columns: ['Product', 'Orders', 'Revenue', 'Share'], rows },
     { title: 'Orders per month', columns: ['Month', 'Orders'], rows: monthly.map((m) => [m.name, m.Orders]) },
     { title: 'Orders by area', columns: ['Area', 'Orders'], rows: byArea.map((r) => [r.name, r.value]) },
+    { title: 'Buyers by gender', columns: ['Gender', 'Buyers'], rows: mix.gender.map((g) => [g.name, g.value]) },
+    { title: 'Buyers by age', columns: ['Age', 'Buyers'], rows: mix.age.map((a) => [a.name, a.value]) },
   ]
   return (
     <PageHead title="Client demography" sub="Who buys what the land owners produce" name="Clients" sel={sel} onSel={setSel} sections={sections}>
@@ -805,14 +825,21 @@ function Clients({ d, sel, setSel }) {
       />
       <FigTiles
         items={[
-          ['Most bought', topProd ? topProd.name : '-', topProd ? `${pct(topProd.value, revenue)} of the value` : '', glyphRow(['palm', 'palm'], ['#2f8a4f', '#8b4a1c'], 54)],
+          ['Buyers', num(buyers), `${pct(mix.gender[1].value, buyers)} women \u00b7 ${pct(mix.gender[0].value, buyers)} men`, <Pair stage={Math.max(0, mix.age.indexOf([...mix.age].sort((a, b) => b.value - a.value)[0]))} height={96} />],
           [sel.region ? 'CDO area' : sel.province ? 'Top district' : 'Top province', topArea ? topArea.name : '-', `${num(topArea?.value)} orders`, glyphRow(['sack'], ['#d9a441'], 62)],
         ]}
       />
       <ProvinceStrip startOpen byD={perD} fmt={num} unit="orders" sel={sel} setSel={setSel} {...landStrip(d, sel, setSel, perD, 'Buyer orders', cdoVals)} />
-      <Card title="Where the buyers are" sub="Orders placed in 2026. Click a province or district to drill down." className="an-card-map">
-        <DrillMap geo={d.geo} values={perD} fmt={num} unit="orders" sel={sel} onSel={setSel} scale={AMBER} height={500} />
+      <Card title="Where the buyers are" sub="Buyers who placed orders in 2026. Click a province or district to drill down." className="an-card-map">
+        <DrillMap
+          geo={d.geo} values={Object.fromEntries(Object.entries(perD).map(([k, v]) => [k, Math.round(v / 3.4)]))} cdoValues={Object.fromEntries((d.cdo ? d.cdo.features.map((x) => x.properties.region) : []).map((n) => [n, Math.round(cdoVals(n) / 3.4)]))}
+          fmt={num} unit="buyers" sel={sel} onSel={setSel} scale={AMBER} height={500} badge={personBadge(num)}
+        />
       </Card>
+      <div className="an-grid2">
+        <AgeCard age={mix.age} title="Buyers by age" noun="buyers" />
+        <GenderCard gender={mix.gender} title="Buyers by gender" />
+      </div>
       <div className="an-grid2">
         <Card title="Orders per month" sub="Jan – Oct 2026">
           <Trend data={monthly} keys={['Orders']} colors={['#d9a441']} area fmt={num} height={220} />
@@ -859,7 +886,9 @@ function MachinerySuppliers({ d, sel, setSel, bar }) {
     return Object.values(by).sort((a, b) => b.machines - a.machines)
   }, [scoped, bookings, d])
   const avgRating = scoped.length ? sumBy(scoped, (m) => m.rating) / scoped.length : 0
-  const typeMix = Object.keys(MACHINE_TYPES).map((k) => ({ name: tl(k), value: scoped.filter((m) => m.type === k).length, color: MACHINE_TYPES[k].color }))
+  const typeMix = Object.keys(MACHINE_TYPES).map((k) => ({ name: tl(k), value: scoped.filter((m) => m.type === k).length, color: MACHINE_TYPES[k].color, glyph: MACHINE_KIND[k] }))
+  const staff = Math.round(scoped.length * 1.8)
+  const mix = peopleMix(`msup|${scopeName(sel)}|${sel.region || ''}`, staff, 0.9, [6, 30, 36, 20, 8])
   const markers = d.machines.filter((m) => !mtype || tl(m.type) === mtype).map((m) => ({
     lat: m.lat, lng: m.lng, icon: m.type === 'BACKHOE' ? 'backhoe' : m.type === 'HAND_TRACTOR' ? 'hand' : 'tractor', size: 34,
     dim: !inArea(m), color: MACHINE_TYPES[m.type].color,
@@ -899,11 +928,15 @@ function MachinerySuppliers({ d, sel, setSel, bar }) {
         />
       </Card>
       <div className="an-grid2">
+        <AgeCard age={mix.age} title="Owners and operators by age" noun="people" />
+        <GenderCard gender={mix.gender} title="Owners and operators by gender" />
+      </div>
+      <div className="an-grid2">
         <Card title="Machines by supplier" sub={scopeName(sel)}>
           <Bars data={suppliers.slice(0, 10).map((s) => ({ name: s.name, value: s.machines }))} horizontal single height={Math.max(200, Math.min(10, suppliers.length) * 32)} nameWidth={150} fmt={num} />
         </Card>
         <Card title="Machine types" sub="What the suppliers offer">
-          <Donut data={typeMix} height={190} />
+          <Donut data={typeMix} height={210} />
         </Card>
       </div>
       <Card title={`Machinery suppliers \u00b7 ${scopeName(sel)}`} sub={`${suppliers.length} suppliers`}>
@@ -937,6 +970,8 @@ function FertilizerSuppliers({ d, sel, setSel, bar }) {
   const total = sumBy(donors, (x) => x.kgHere)
   const types = FERT_TYPES.map((t, i) => ({ name: t, value: sumBy(donors.filter((x) => x.type === t), (x) => x.kgHere), color: PALETTE[i % PALETTE.length] })).filter((t) => t.value > 0)
   const farmers = sumBy(donors, (x) => x.farmers)
+  const staff = Math.round(sumBy(donors, (x) => x.reach) * 3.2)
+  const mix = peopleMix(`fsup|${scopeName(sel)}|${sel.region || ''}`, staff, 0.68, [10, 34, 32, 18, 6])
   const rows = donors.map((x) => [x.donor, x.type, x.date, kgText(x.kg), kgText(x.kgHere), `${x.reach} districts`])
   const sections = () => [
     { title: `Fertilizer suppliers - ${scopeName(sel)}`, columns: ['Supplier', 'Fertilizer', 'Date', 'Donated', 'Delivered here', 'Reach'], rows },
@@ -964,6 +999,10 @@ function FertilizerSuppliers({ d, sel, setSel, bar }) {
       <Card title="Where the fertilizer went" sub="Delivered by all suppliers. Click a province or district to drill down." className="an-card-map">
         <DrillMap geo={d.geo} values={perD} fmt={kgText} unit="" sel={sel} onSel={setSel} scale={BLUE} height={500} badge={sackBadge(kgText)} />
       </Card>
+      <div className="an-grid2">
+        <AgeCard age={mix.age} title="Supplier field staff by age" noun="people" />
+        <GenderCard gender={mix.gender} title="Supplier field staff by gender" />
+      </div>
       <div className="an-grid2">
         <Card title="Fertilizer by supplier" sub={scopeName(sel)}>
           <Bars data={donors.slice(0, 10).map((x) => ({ name: x.donor, value: x.kgHere }))} horizontal single height={Math.max(200, Math.min(10, donors.length) * 32)} nameWidth={170} fmt={kgText} />
@@ -1118,6 +1157,20 @@ function Fertilizer({ d, sel, setSel, extra }) {
   const monthly = MONTHS.map((m, i) => ({ name: m, [M.label]: sumBy(scoped.filter((f) => f.month === i + 1), M.val) }))
   const types = FERT_TYPES.map((t) => ({ name: t, value: sumBy(d.fert.filter((f) => f.year === year && f.type === t && inScope(sel, f.district)), M.val) * areaK }))
   const byArea = areaBars(sel, perD)
+  // what each estate got: its district's figure, split by area of land (inside CDO areas for Kurunegala)
+  const estVal = useMemo(() => {
+    const acres = {}
+    const key = (e) => `${e.district}|${e.region || ''}`
+    d.estates.forEach((e) => (acres[key(e)] = (acres[key(e)] || 0) + e.acres))
+    return Object.fromEntries(d.estates.map((e) => [e.id, (perD[e.district] || 0) * (e.region ? areaShare(d, e.district, e.region) : 1) * (e.acres / (acres[key(e)] || 1))]))
+  }, [d, perD])
+  const cdoVal = Object.fromEntries((d.cdo ? d.cdo.features.map((f) => f.properties.region) : []).map((n) => [n, (perD.Kurunegala || 0) * areaShare(d, 'Kurunegala', n)]))
+  const estHere = d.estates.filter((e) => inScope(sel, e.district) && (!sel.region || e.region === sel.region))
+  const estMax = Math.max(1, ...estHere.map((e) => estVal[e.id]))
+  const estMarkers = sel.province ? estHere.map((e) => ({
+    lat: e.lat, lng: e.lng, icon: 'sack', color: M.color, size: Math.round(20 + (estVal[e.id] / estMax) * 10), label: sel.region || estHere.length <= 14 ? M.fmt(estVal[e.id]) : undefined,
+    tip: <div className="an-tip"><b>{e.name}</b><br />{M.label}: {M.fmt(estVal[e.id])}<br />{label(e.district)}{e.region ? ` · ${e.region}` : ''} · {e.acres} acres</div>,
+  })) : []
   const top = byArea[0]
   const areaSum = sumBy(byArea, (x) => x.value)
 
@@ -1167,7 +1220,11 @@ function Fertilizer({ d, sel, setSel, extra }) {
             className="an-card-map"
             right={<button className="an-more an-noprint" onClick={() => setOpen(true)}>Open details</button>}
           >
-            <DrillMap geo={d.geo} values={perD} fmt={M.fmt} sel={sel} onSel={setSel} height={540} badge={sackBadge(M.fmt)} />
+            <DrillMap
+              geo={d.geo} values={perD} cdoValues={cdoVal} fmt={M.fmt} sel={sel} onSel={setSel} height={540} badge={sackBadge(M.fmt)}
+              markers={estMarkers} markerKey={`fert-${metric}-${year}-${type}`}
+              legend={sel.province ? [{ icon: 'sack', color: M.color, text: `Estate (hover or open a CDO area to see its ${M.label.toLowerCase()})` }] : undefined}
+            />
           </Card>
         }
         side={
@@ -1724,6 +1781,17 @@ export function MarketPrices({ stage }) {
   const badge = { html: (v) => `<b class="solo">${v ? 'Rs. ' + Number(v).toFixed(0) : '-'}</b>` }
   const rows = land ? [land] : [...scoped].sort((a, b) => b.price[stage] - a.price[stage]).slice(0, 8)
   const stepName = STEPS.find((x) => x[0] === stage)
+  const season = [0.97, 0.98, 1, 1.02, 1.04, 1.03, 1.01, 0.99, 0.98, 0.99, 1.01, 1.02]
+  const priceRows = land ? [land] : scoped
+  const priceSeries = MONTHS.map((m, i) => ({ name: m, ...Object.fromEntries(STEPS.map(([k, name]) => [name, avgOf(priceRows, k) * season[i]])) }))
+  const priceBars = land
+    ? STEPS.map(([k, name]) => ({ name, value: land.price[k] }))
+    : sel.province
+      ? districtsOf(sel.province).filter((x) => perD[x.name] > 0).map((x) => ({ name: label(x.name), value: perD[x.name], color: PROVINCE_COLORS[sel.province] })).sort((a, b) => b.value - a.value)
+      : PROVINCE_NAMES.map((p) => {
+          const v = districtsOf(p).map((x) => perD[x.name]).filter((x) => x > 0)
+          return { name: p, value: v.length ? sumBy(v, (x) => x) / v.length : 0, color: PROVINCE_COLORS[p] }
+        }).filter((r) => r.value > 0).sort((a, b) => b.value - a.value)
 
   return (
     <div className="an-card mp">
@@ -1779,6 +1847,18 @@ export function MarketPrices({ stage }) {
           </div>
         </div>
       </div>
+      <div className="an-grid2 mv-graphs">
+        <div className="mv-graph">
+          <b>Price each month · {place}</b>
+          <small>Rupees per nut at each step. Sample figures; a little higher in the dry months</small>
+          <Trend data={priceSeries} keys={STEPS.map((x) => x[1])} colors={['#2f8a4f', '#d99a0b', '#0288d1']} fmt={(v) => `Rs. ${v.toFixed(0)}`} height={230} tight />
+        </div>
+        <div className="mv-graph">
+          <b>{land ? 'Price at each step' : sel.province ? `Average price by district · ${sel.province}` : 'Average price by province'}</b>
+          <small>{land ? 'This land, rupees per nut' : `${STEPS.find((x) => x[0] === stage)[1]} step, rupees per nut`}</small>
+          <Bars data={priceBars} horizontal single height={Math.max(230, priceBars.length * 26)} fmt={(v) => `Rs. ${v.toFixed(0)}`} colors={['#cf9526']} />
+        </div>
+      </div>
       <div className="mp-lands">
         <b>{land ? 'Selected land' : `Lands in ${place}`}</b>
         <div>
@@ -1797,6 +1877,121 @@ export function MarketPrices({ stage }) {
 }
 
 /** Sales figures that sit with the marketplace steps (shown on the Transactions page). */
+const VSTEPS = { orders: 'listed in orders', deal: 'agreed in deals', transactions: 'sold in transactions' }
+const nuts = (n) => `${Math.round(n).toLocaleString('en-US')} nuts`
+
+export function MarketVolumes({ stage }) {
+  const { data: d } = useData()
+  const [sel, setSel] = useState({})
+  const [landId, setLandId] = useState(null)
+  const lands = useMemo(() => (d ? d.estates.filter((e) => e.volume) : []), [d])
+  if (!d) return <Loading />
+  const inArea = (e) => inScope(sel, e.district) && (!sel.region || e.region === sel.region)
+  const scoped = lands.filter(inArea)
+  const vol = (e, st = stage) => e.volume[st]
+  const total = (rows, st = stage) => sumBy(rows, (e) => vol(e, st))
+  const perD = Object.fromEntries(DISTRICTS.map((x) => [x.name, total(lands.filter((e) => e.district === x.name))]))
+  const cdoNames = d.cdo ? d.cdo.features.map((f) => f.properties.region) : []
+  const cdoValues = Object.fromEntries(cdoNames.map((n) => [n, total(lands.filter((e) => e.region === n))]))
+  const land = landId ? lands.find((e) => e.id === landId) : null
+  const place = land ? land.name : sel.region || (sel.district ? label(sel.district) : sel.province ? `${sel.province} Province` : 'Sri Lanka')
+  const rowsHere = land ? [land] : scoped
+  const here = total(rowsHere)
+  const biggest = [...rowsHere].sort((a, b) => vol(b) - vol(a))[0]
+  const markers = lands.map((e) => ({
+    lat: e.lat, lng: e.lng, icon: 'palm', size: e.id === landId ? 34 : 18 + Math.min(14, Math.round(vol(e) / 450)), color: '#2f8a4f',
+    dim: !inArea(e) || (!!landId && e.id !== landId),
+    onClick: () => setLandId(e.id === landId ? null : e.id),
+    tip: <div className="an-tip"><b>{e.name}</b><br />{label(e.district)} · {nuts(vol(e))} a month<br />Click to see its volume</div>,
+  }))
+  const pick = (s) => { setLandId(null); setSel(s) }
+  const badge = { html: (v) => `<b>${v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k' : Math.round(v || 0)}</b>` }
+  const rows = land ? [land] : [...scoped].sort((a, b) => vol(b) - vol(a)).slice(0, 8)
+  const season = [0.9, 0.85, 0.95, 1, 1.1, 1.1, 1.05, 1, 1, 1.05, 1, 0.95]
+  const seasonSum = sumBy(season, (w) => w)
+  const monthSeries = MONTHS.map((m, i) => ({ name: m, ...Object.fromEntries(STEPS.map(([k, name]) => [name, (total(rowsHere, k) * season[i]) / seasonSum])) }))
+
+  return (
+    <div className="an-card mp">
+      <header>
+        <div>
+          <h3>Coconut volume · {STEPS.find((x) => x[0] === stage)[1]} step</h3>
+          <p>Nuts a month {VSTEPS[stage]}. Pick a province, district or area for the total, then pick a land for its own volume</p>
+        </div>
+      </header>
+      <div className="pc">
+        <div className="pc-map" style={{ position: 'relative' }}>
+          <DrillMap
+            geo={d.geo} values={perD} cdoValues={cdoValues} fmt={(v) => nuts(v)} unit="a month" sel={sel} onSel={pick}
+            scale={BLUE} markers={markers} markerKey={`mv-${stage}-${landId}`} badge={badge} height={460}
+            legend={[{ icon: 'palm', color: '#2f8a4f', text: 'Coconut land (bigger pin, more nuts)' }]}
+          />
+        </div>
+        <div className="pc-stage mp-stage">
+          <div className="pc-show" key={`${place}|${landId}|${stage}`}>
+            <img className="mv-pile" src="/crops/coconut-pile.png" alt="" />
+            <div className="pc-info">
+              <small>{land ? `Selected land · ${label(land.district)}` : 'Total volume'}</small>
+              <h3>{place}</h3>
+              {rowsHere.length ? (
+                <>
+                  <b className="pc-price">{Math.round(here).toLocaleString('en-US')}<i> nuts</i></b>
+                  <span className="pc-per">a month {VSTEPS[stage]}{land ? '' : ` · ${rowsHere.length} coconut lands`}</span>
+                  {!land && (
+                    <div className="pc-chips">
+                      <em>Average {nuts(here / rowsHere.length)} a land</em>
+                      {biggest && <em>Biggest {biggest.name} {nuts(vol(biggest))}</em>}
+                    </div>
+                  )}
+                  <div className="mp-ladder">
+                    {STEPS.map(([k, name]) => (
+                      <div key={k} className={k === stage ? 'on' : ''}>
+                        <small>{name}</small>
+                        <b>{compact(total(rowsHere, k))}</b>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="pc-none">No coconut lands here yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="an-grid2 mv-graphs">
+        <div className="mv-graph">
+          <b>Volume each month · {place}</b>
+          <small>Nuts a month at each step. Sample figures; peaks in the dry months</small>
+          <Trend data={monthSeries} keys={STEPS.map((x) => x[1])} colors={['#2f8a4f', '#d99a0b', '#0288d1']} fmt={compact} height={230} />
+        </div>
+        <div className="mv-graph">
+          <b>{land ? 'Volume at each step' : sel.province ? `Volume by district · ${sel.province}` : 'Volume by province'}</b>
+          <small>{land ? 'This land, nuts a month' : `${VSTEPS[stage][0].toUpperCase()}${VSTEPS[stage].slice(1)}, nuts a month`}</small>
+          {land ? (
+            <Bars data={STEPS.map(([k, name]) => ({ name, value: vol(land, k) }))} horizontal single height={230} fmt={num} colors={['#2f8a4f']} />
+          ) : (
+            <Bars data={areaBars(sel, perD)} horizontal single height={Math.max(230, areaBars(sel, perD).length * 26)} fmt={num} />
+          )}
+        </div>
+      </div>
+      <div className="mp-lands">
+        <b>{land ? 'Selected land' : `Biggest lands in ${place}`}</b>
+        <div>
+          {rows.map((e) => (
+            <button key={e.id} className={e.id === landId ? 'on' : ''} onClick={() => setLandId(e.id === landId ? null : e.id)}>
+              <span>{e.name}</span>
+              <em>{label(e.district)}</em>
+              <strong>{nuts(vol(e))}</strong>
+            </button>
+          ))}
+          {!rows.length && <p className="pc-none">No coconut lands here yet.</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function SalesSummary() {
   const { data: d } = useData()
   if (!d) return null
@@ -1848,7 +2043,10 @@ export default function Analysis({ view }) {
       {view === 'an-fert' && <Fertilizer {...props} />}
       {view === 'an-mach' && <Machinery {...props} />}
       {view === 'an-sales' && <Sales {...props} />}
+      {LAND_TOPICS[view] && <LandTopic view={view} {...props} />}
     </div>
     </RegionSlot.Provider>
   )
 }
+
+export { Bars, Donut, FigTiles, PhotoRow, ProvinceStrip, Split, areaBars, glyphRow, landStrip }

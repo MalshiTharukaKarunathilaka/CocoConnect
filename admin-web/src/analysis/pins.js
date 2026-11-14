@@ -25,6 +25,30 @@ const GLYPH = {
     <path d="M11.2 3.6 L20.8 3.6 L19.4 9 C26.2 12 28.4 19 26.4 25 C25.4 28.4 22 29.6 16 29.6 C10 29.6 6.6 28.4 5.6 25 C3.6 19 5.8 12 12.6 9 Z" fill="#fff"/>
     <path d="M12.4 9.8 Q16 11.8 19.6 9.8" stroke="${bg}" stroke-width="1.7" stroke-linecap="round" fill="none"/>
     <path d="M16 15.4 V24 M11.8 19.7 H20.2" stroke="${bg}" stroke-width="2.4" stroke-linecap="round" fill="none"/>`,
+  fish: (bg) => `
+    <path d="M2.5 16 C8 6.500 18 6.500 23 16 C18 25.500 8 25.500 2.500 16Z" fill="#fff"/>
+    <path d="M21.500 16 L30 8.500 V23.500 Z" fill="#fff"/>
+    <circle cx="9" cy="14" r="1.600" fill="${bg}"/>`,
+  cow: (bg) => `
+    <path d="M7 6 C4 6 2 4 2 2.500 C5 2.500 7 3.500 8 5Z M25 6 C28 6 30 4 30 2.500 C27 2.500 25 3.500 24 5Z" fill="#fff"/>
+    <path d="M8 5 H24 C26.500 9 26.500 14 24 17 H8 C5.500 14 5.500 9 8 5Z" fill="#fff"/>
+    <path d="M7 16 H25 V25 C25 28.500 22 30 16 30 C10 30 7 28.500 7 25Z" fill="#fff"/>
+    <circle cx="12" cy="10.500" r="1.500" fill="${bg}"/><circle cx="20" cy="10.500" r="1.500" fill="${bg}"/>
+    <ellipse cx="16" cy="23.500" rx="6" ry="4" fill="${bg}"/>
+    <circle cx="14" cy="23.500" r="1.200" fill="#fff"/><circle cx="18" cy="23.500" r="1.200" fill="#fff"/>`,
+  sun: (bg) => `
+    <circle cx="16" cy="16" r="6.500" fill="#fff"/>
+    <path d="M16 2.500V6.500M16 25.500V29.500M2.500 16H6.500M25.500 16H29.500M6.500 6.500L9.300 9.300M22.700 22.700L25.500 25.500M25.500 6.500L22.700 9.300M9.300 22.700L6.500 25.500" stroke="#fff" stroke-width="2.800" stroke-linecap="round" fill="none"/>`,
+  cloud: (bg) => `
+    <path d="M9 25 C3 25 2 17.500 7.500 16.500 C7.500 9.500 16.500 7 19.500 13 C25 11 30 16.500 26 21 C29.500 23 27.500 25 24 25Z" fill="#fff"/>
+    <text x="16" y="21.500" text-anchor="middle" font-size="7.500" font-weight="700" font-family="Arial" fill="${bg}">CO2</text>`,
+  tent: (bg) => `
+    <path d="M1.500 27 L16 4.500 L30.500 27Z" fill="#fff"/>
+    <path d="M12 27 L16 15 L20 27Z" fill="${bg}"/>`,
+  sprout: (bg) => `
+    <path d="M16 29.500 V15" stroke="#fff" stroke-width="2.800" stroke-linecap="round" fill="none"/>
+    <path d="M16 18 C8 18 3.500 13 3.500 6 C11.500 6 16 10.500 16 18Z" fill="#fff"/>
+    <path d="M16 14.500 C16 8 20 3.500 28.500 3.500 C28.500 11 24.500 15.500 16 14.500Z" fill="#fff"/>`,
   // farm tractor: hood and exhaust at the front, glass cab, huge rear wheel
   tractor: (bg) => `
     <rect x="5.4" y="5" width="2.2" height="9" rx="1" fill="#fff"/>
@@ -94,11 +118,11 @@ export const glyphHtml = (kind, color, size = 16) => markup(kind, color, size)
 
 const cache = {}
 /** A Leaflet icon for a pin. Cached, because there can be a hundred of them. */
-export function pinIcon(kind, color, size, dim) {
-  const key = `${kind}|${color}|${size}|${dim}`
+export function pinIcon(kind, color, size, dim, label) {
+  const key = `${kind}|${color}|${size}|${dim}|${label || ''}`
   if (!cache[key]) {
     cache[key] = L.divIcon({
-      html: markup(kind, color, size),
+      html: markup(kind, color, size) + (label ? `<span class="an-pin-lab">${label}</span>` : ''),
       className: `an-pin${dim ? ' dim' : ''}`,
       iconSize: [size, size],
       iconAnchor: [size / 2, kind === 'palm' || PHOTO[kind] ? size - 2 : size / 2],

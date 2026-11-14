@@ -243,6 +243,7 @@ export function buildDataset(geo, cdo) {
   // Coconut prices (Rs per nut) at each marketplace step: what was asked in the order,
   // what was agreed in the deal, and what was finally paid. A separate generator again.
   const prng = rngOf(8112026)
+  const vrng = rngOf(3092026)
   const hash = (t) => [...t].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 997, 7)
   for (const e of estates) {
     if (e.crop !== 'Coconut') continue
@@ -251,13 +252,17 @@ export function buildDataset(geo, cdo) {
     const deal = Math.round(order * (0.955 + prng() * 0.02) * 100) / 100
     const txn = Math.round(deal * (0.975 + prng() * 0.02) * 100) / 100
     e.price = { orders: order, deal, transactions: txn }
+    // nuts per month: what is listed in orders, what is agreed in deals, what is finally sold (own generator)
+    const v = Math.round(((e.palms || e.acres * 70) * (6 + vrng() * 3)) / 10) * 10
+    const dealV = Math.round((v * (0.62 + vrng() * 0.18)) / 10) * 10
+    e.volume = { orders: v, deal: dealV, transactions: Math.round((dealV * (0.8 + vrng() * 0.15)) / 10) * 10 }
   }
 
   // Day workers ----------------------------------------------------------
   const workers = [] // one row per district x category, with its own breakdowns
   for (const d of DISTRICTS) {
     for (const c of JOB_CATEGORIES) {
-      const n = Math.round(d.w * 5200 * c.share * (0.8 + rng() * 0.4))
+      const n = Math.round(d.w * 700 * c.share * (0.8 + rng() * 0.4))
       const female = Math.round(n * c.female * (0.85 + rng() * 0.3))
       const other = Math.round(n * 0.004)
       workers.push({
@@ -365,7 +370,7 @@ export function buildDataset(geo, cdo) {
   }
 
   // Named donations and where each one was distributed ---------------------
-  const DONORS = ['Ministry of Agriculture', 'Coconut Cultivation Board', 'Lanka Fertilizer Ltd', 'FAO Sri Lanka', 'Rotary Club of Colombo', 'Ceylon Agro Foundation', 'Hayleys Agriculture', 'JICA Sri Lanka', 'Sarvodaya', 'CIC Holdings', 'World Vision Lanka', 'Lions Club Kurunegala']
+  const DONORS = ['Ministry of Agriculture', 'Coconut Cultivation Board', 'Lanka Fertilizer Ltd', 'FAO Sri Lanka', 'Rotary Club of Colombo', 'Ceylon Agro Foundation', 'Hayleys Agriculture', 'JICA Sri Lanka', 'Sarvodaya', 'CDO Sri Lanka', 'World Vision Lanka', 'Lions Club Kurunegala']
   const donations = DONORS.map((donor, i) => {
     const type = FERT_TYPES[Math.floor(rng() * FERT_TYPES.length)]
     const when = new Date(Date.parse('2024-03-01') + (i / (DONORS.length - 1)) * (Date.parse('2026-09-15') - Date.parse('2024-03-01')))

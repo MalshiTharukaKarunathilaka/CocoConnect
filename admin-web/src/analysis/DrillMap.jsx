@@ -236,7 +236,7 @@ export default function DrillMap({
           <Marker
             key={`${markerKey}-${i}`}
             position={[m.lat, m.lng]}
-            icon={pinIcon(m.icon || 'palm', m.color, m.size || 26, m.dim)}
+            icon={pinIcon(m.icon || 'palm', m.color, m.size || 26, m.dim, m.label)}
             eventHandlers={m.onClick ? { click: m.onClick } : undefined}
           >
             <Tooltip direction="top" offset={[0, -12]}>{m.tip}</Tooltip>

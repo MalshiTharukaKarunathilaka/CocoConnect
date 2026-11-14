@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from './api'
 import './AdminApp.css'
-import Analysis, { MarketPrices, SalesSummary, SubscriptionGrowth } from './analysis/AnalysisPages'
+import { LAND_TOPICS } from './analysis/LandTopics'
+import Analysis, { MarketPrices, MarketVolumes, SalesSummary, SubscriptionGrowth } from './analysis/AnalysisPages'
 import DisputeFlow from './DisputeFlow'
 import './analysis/analysis.css'
 import SideNav from './SideNav'
@@ -330,8 +331,8 @@ export default function AdminApp({ user: account, logout }) {
   }
 
   let content = null
-  const isAnalysis = view.startsWith('an-')
-  if (view.startsWith('soon-')) {
+  const isAnalysis = view.startsWith('an-') || LAND_TOPICS[view]
+  if (view.startsWith('soon-') && !LAND_TOPICS[view]) {
     content = (
       <div className="adm-card adm-soon">
         <h2>{itemLabel(view) || 'Coming soon'}</h2>
@@ -831,6 +832,7 @@ export default function AdminApp({ user: account, logout }) {
     content = (
       <>
         <MarketPrices stage={view} />
+        <MarketVolumes stage={view} />
         {view === 'transactions' && <SalesSummary />}
         {content}
       </>
