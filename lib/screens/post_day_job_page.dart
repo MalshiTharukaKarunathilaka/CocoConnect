@@ -18,9 +18,46 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
   int _workers = 5;
   String _category = 'Nut Gatherer';
   String _paymentMethod = 'Direct Bank Transfer';
+  String _estateName = '';
+  String _estateLocation = '';
+  bool _loadingEstate = true;
+  bool _broadcasting = false;
   final TextEditingController _rateController = TextEditingController(
     text: '2500',
   );
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEstate();
+  }
+
+  Future<void> _loadEstate() async {
+    try {
+      final estate = await OwnerService.getEstate();
+      if (!mounted) return;
+      setState(() {
+        _estateName = estate.estateName.trim();
+        _estateLocation = estate.location?.trim() ?? '';
+        _loadingEstate = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingEstate = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not load your estate location')),
+      );
+    }
+  }
+
+  String get _displayLocation {
+    if (_estateLocation.isEmpty) return '';
+    if (_estateName.isEmpty ||
+        _estateLocation.toLowerCase().contains(_estateName.toLowerCase())) {
+      return _estateLocation;
+    }
+    return '$_estateName, $_estateLocation';
+  }
 
   @override
   void dispose() {
@@ -54,6 +91,14 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
   ];
 
   Future<void> _broadcast() async {
+    if (_loadingEstate || _estateLocation.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Add your estate location before posting this job'),
+        ),
+      );
+      return;
+    }
     final rate = double.tryParse(_rateController.text.trim());
     if (rate == null || rate < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -63,11 +108,12 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
     }
 
     try {
+      setState(() => _broadcasting = true);
       await OwnerService.createDayJob(
         category: _category,
         workersNeeded: _workers,
         requiredDate: widget.requiredDate,
-        location: 'Green Valley Estate, Wattagama Rd, Kurunegala',
+        location: _estateLocation,
         dailyRate: rate,
         paymentMethod: _paymentMethod,
       );
@@ -78,6 +124,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
       Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
+      setState(() => _broadcasting = false);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Could not broadcast job: $error')));
@@ -123,11 +170,22 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
                               height: 56,
                               width: 338,
                               child: FilledButton.icon(
-                                onPressed: _broadcast,
-                                icon: const Icon(Icons.arrow_forward, size: 25),
-                                label: const Text(
-                                  'Broadcast Job',
-                                  style: TextStyle(
+                                onPressed: _broadcasting ? null : _broadcast,
+                                icon: _broadcasting
+                                    ? const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(Icons.arrow_forward, size: 25),
+                                label: Text(
+                                  _broadcasting
+                                      ? 'Broadcasting...'
+                                      : 'Broadcast Job',
+                                  style: const TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -324,16 +382,26 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              'Green Valley Estate, Wattagama Rd, Kurunegala',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _jobInk,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: _loadingEstate
+                ? const LinearProgressIndicator(
+                    minHeight: 3,
+                    color: _jobGreen,
+                    backgroundColor: Color(0xFFD8EEE1),
+                  )
+                : Text(
+                    _displayLocation.isEmpty
+                        ? 'Estate location not set'
+                        : _displayLocation,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: _displayLocation.isEmpty
+                          ? const Color(0xFFB42318)
+                          : _jobInk,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ),
         ],
       ),

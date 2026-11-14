@@ -436,6 +436,11 @@ test("worker acceptance appears in the estate owner's job details", async () => 
     },
   });
   assert.equal(created.status, 201);
+  assert.equal(
+    created.data.location,
+    "Kandy",
+    "day job uses the authenticated owner's saved estate location"
+  );
 
   const applied = await call(
     "POST",

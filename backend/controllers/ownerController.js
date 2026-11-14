@@ -962,19 +962,25 @@ const createDayJob = async (req, res) => {
       category,
       workersNeeded,
       requiredDate,
-      location,
       dailyRate,
       paymentMethod,
     } = req.body;
     const workers = Number(workersNeeded);
     const rate = Number(dailyRate);
+    const estate = await getOwnEstate(pool, req.user.id);
+    const jobLocation = String(estate.location || "").trim();
+
+    if (!jobLocation) {
+      return res.status(400).json({
+        message: "Add your estate location before posting a day job",
+      });
+    }
 
     if (
       !String(category || "").trim() ||
       !Number.isInteger(workers) ||
       workers < 1 ||
       !String(requiredDate || "").trim() ||
-      !String(location || "").trim() ||
       !Number.isFinite(rate) ||
       rate < 0 ||
       !String(paymentMethod || "").trim()
@@ -982,7 +988,6 @@ const createDayJob = async (req, res) => {
       return res.status(400).json({ message: "All day job fields are required" });
     }
 
-    const estate = await getOwnEstate(pool, req.user.id);
     const result = await pool.query(
       `INSERT INTO day_jobs
         (estate_owner_id, category, workers_needed, required_date, location,
@@ -994,7 +999,7 @@ const createDayJob = async (req, res) => {
         String(category).trim(),
         workers,
         String(requiredDate).trim(),
-        String(location).trim(),
+        jobLocation,
         rate,
         String(paymentMethod).trim(),
       ]
