@@ -190,7 +190,7 @@ class ChatDetail {
   }
 }
 
-enum NotificationType { offer, chat, sellOffer }
+enum NotificationType { offer, chat, sellOffer, dayJobChat }
 
 class AppNotification {
   /// Stable id, used to remember which ones were already seen.
@@ -203,6 +203,7 @@ class AppNotification {
   final int? negotiationId;
   final int? requestId;
   final int? orderId;
+  final int? dayJobChatId;
 
   const AppNotification({
     required this.key,
@@ -214,6 +215,7 @@ class AppNotification {
     required this.negotiationId,
     required this.requestId,
     required this.orderId,
+    required this.dayJobChatId,
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> json) =>
@@ -221,6 +223,7 @@ class AppNotification {
         key: json['key'] as String? ?? '',
         type: switch (json['type']) {
           'CHAT' => NotificationType.chat,
+          'DAY_JOB_CHAT' => NotificationType.dayJobChat,
           'SELL_OFFER' => NotificationType.sellOffer,
           _ => NotificationType.offer,
         },
@@ -231,6 +234,7 @@ class AppNotification {
         negotiationId: json['negotiation_id'] as int?,
         requestId: json['request_id'] as int?,
         orderId: json['order_id'] as int?,
+        dayJobChatId: json['day_job_chat_id'] as int?,
       );
 }
 

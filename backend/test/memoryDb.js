@@ -49,7 +49,7 @@ db.public.none(`
 // A demo admin for reviewing price disputes: 0700000000 / admin123.
 db.public.none(`
   INSERT INTO users (name, phone, password_hash, role, location) VALUES
-    ('CocoConnect Admin', '0700000000',
+    ('Kapconnect Admin', '0700000000',
      '${require("bcryptjs").hashSync("admin123", 10)}', 'ADMIN', 'Colombo');
 `);
 

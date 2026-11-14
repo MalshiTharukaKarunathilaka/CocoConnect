@@ -5,6 +5,7 @@ import 'buyer/buyer_categories_page.dart';
 import 'estate_owner_dashboard.dart';
 import 'onboarding_page.dart';
 import 'provider/provider_calendar_page.dart';
+import 'worker_dashboard.dart';
 
 /// First screen: reopens a saved login, otherwise shows the welcome screen.
 class AuthGate extends StatefulWidget {
@@ -46,6 +47,8 @@ Widget? homeFor(AppUser user) {
       return const EstateOwnerDashboard();
     case 'SERVICE_PROVIDER':
       return const ProviderCalendarPage();
+    case 'WORKER':
+      return const WorkerDashboard();
     default:
       return null;
   }

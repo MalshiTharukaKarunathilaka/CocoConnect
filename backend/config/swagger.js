@@ -4,9 +4,9 @@ const options = {
   definition: {
     openapi: "3.0.3",
     info: {
-      title: "KapConnect API",
+      title: "Kapconnect API",
       version: "1.0.0",
-      description: "API documentation for the KapConnect backend.",
+      description: "API documentation for the Kapconnect backend.",
     },
     servers: [
       {
@@ -58,7 +58,13 @@ const options = {
             password: { type: "string", example: "secret123" },
             role: {
               type: "string",
-              enum: ["BUYER", "ESTATE_OWNER", "ESTATE_MANAGER", "SERVICE_PROVIDER"],
+              enum: [
+                "BUYER",
+                "ESTATE_OWNER",
+                "ESTATE_MANAGER",
+                "SERVICE_PROVIDER",
+                "WORKER",
+              ],
               example: "BUYER",
             },
             location: { type: "string", example: "Colombo" },

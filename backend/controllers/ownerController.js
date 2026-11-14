@@ -835,6 +835,183 @@ const getMarketStats = async (req, res) => {
   }
 };
 
+const getDayJobs = async (req, res) => {
+  try {
+    const estate = await getOwnEstate(pool, req.user.id);
+    const date = String(req.query.date || "").trim();
+    const params = [estate.id];
+    const dateFilter = date ? "AND required_date = $2" : "";
+    if (date) params.push(date);
+
+    const result = await pool.query(
+      `SELECT * FROM day_jobs
+       WHERE estate_owner_id = $1 ${dateFilter}
+       ORDER BY required_date, created_at DESC, id DESC`,
+      params
+    );
+
+    const jobs = result.rows;
+    const acceptedWorkers = new Map();
+    if (jobs.length > 0) {
+      const jobParams = jobs.map((job) => job.id);
+      const placeholders = jobParams.map((_, index) => `$${index + 1}`).join(", ");
+      const workers = await pool.query(
+        `SELECT
+           dja.day_job_id,
+           dja.worker_id AS id,
+           COALESCE(u.name, 'Worker') AS name
+         FROM day_job_applications dja
+         JOIN worker w ON w.id = dja.worker_id
+         LEFT JOIN users u ON u.id = w.user_id
+         WHERE dja.day_job_id IN (${placeholders})
+           AND UPPER(dja.status) = 'ACCEPTED'
+         ORDER BY dja.created_at, dja.id`,
+        jobParams
+      );
+      for (const worker of workers.rows) {
+        const list = acceptedWorkers.get(worker.day_job_id) || [];
+        list.push({ id: worker.id, name: worker.name });
+        acceptedWorkers.set(worker.day_job_id, list);
+      }
+    }
+
+    return res.status(200).json(
+      jobs.map((job) => ({
+        ...job,
+        accepted_workers: acceptedWorkers.get(job.id) || [],
+      }))
+    );
+  } catch (error) {
+    if (error.code === "42P01") {
+      return res.status(500).json({
+        message:
+          "Day jobs are not configured. Run backend/sql/008_day_jobs.sql in Supabase.",
+      });
+    }
+    return serverError(res, "Get day jobs", error);
+  }
+};
+
+const getWorkerProfile = async (req, res) => {
+  try {
+    const workerId = Number(req.params.id);
+    if (!Number.isInteger(workerId)) {
+      return res.status(400).json({ message: "Invalid worker" });
+    }
+
+    const estate = await getOwnEstate(pool, req.user.id);
+    const profile = await pool.query(
+      `SELECT DISTINCT w.id, u.name, u.phone, u.location
+       FROM worker w
+       JOIN users u ON u.id = w.user_id
+       JOIN day_job_applications access_application
+         ON access_application.worker_id = w.id
+       JOIN day_jobs access_job
+         ON access_job.id = access_application.day_job_id
+       WHERE w.id = $1
+         AND access_job.estate_owner_id = $2
+         AND UPPER(access_application.status) = 'ACCEPTED'`,
+      [workerId, estate.id]
+    );
+    if (profile.rows.length === 0) {
+      return res.status(404).json({ message: "Worker profile not found" });
+    }
+
+    const stats = await pool.query(
+      `SELECT
+         COALESCE(SUM(
+           CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) <> 'COMPLETED'
+                  AND dj.required_date >= CURRENT_DATE
+             THEN 1 ELSE 0 END
+         ), 0)::integer AS accepted_jobs,
+         COALESCE(SUM(
+           CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
+                  OR dj.required_date < CURRENT_DATE
+             THEN 1 ELSE 0 END
+         ), 0)::integer AS completed_jobs
+       FROM day_job_applications dja
+       JOIN day_jobs dj ON dj.id = dja.day_job_id
+       WHERE dja.worker_id = $1
+         AND UPPER(dja.status) = 'ACCEPTED'`,
+      [workerId]
+    );
+    const categories = await pool.query(
+      `SELECT DISTINCT dj.category
+       FROM day_job_applications dja
+       JOIN day_jobs dj ON dj.id = dja.day_job_id
+       WHERE dja.worker_id = $1
+         AND UPPER(dja.status) = 'ACCEPTED'
+       ORDER BY dj.category`,
+      [workerId]
+    );
+
+    return res.status(200).json({
+      ...profile.rows[0],
+      accepted_jobs: Number(stats.rows[0]?.accepted_jobs || 0),
+      completed_jobs: Number(stats.rows[0]?.completed_jobs || 0),
+      work_categories: categories.rows.map((row) => row.category),
+    });
+  } catch (error) {
+    return serverError(res, "Get worker profile", error);
+  }
+};
+
+const createDayJob = async (req, res) => {
+  try {
+    const {
+      category,
+      workersNeeded,
+      requiredDate,
+      location,
+      dailyRate,
+      paymentMethod,
+    } = req.body;
+    const workers = Number(workersNeeded);
+    const rate = Number(dailyRate);
+
+    if (
+      !String(category || "").trim() ||
+      !Number.isInteger(workers) ||
+      workers < 1 ||
+      !String(requiredDate || "").trim() ||
+      !String(location || "").trim() ||
+      !Number.isFinite(rate) ||
+      rate < 0 ||
+      !String(paymentMethod || "").trim()
+    ) {
+      return res.status(400).json({ message: "All day job fields are required" });
+    }
+
+    const estate = await getOwnEstate(pool, req.user.id);
+    const result = await pool.query(
+      `INSERT INTO day_jobs
+        (estate_owner_id, category, workers_needed, required_date, location,
+         daily_rate, payment_method)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        estate.id,
+        String(category).trim(),
+        workers,
+        String(requiredDate).trim(),
+        String(location).trim(),
+        rate,
+        String(paymentMethod).trim(),
+      ]
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (error) {
+    if (error.code === "42P01") {
+      return res.status(500).json({
+        message:
+          "Day jobs are not configured. Run backend/sql/008_day_jobs.sql in Supabase.",
+      });
+    }
+    return serverError(res, "Create day job", error);
+  }
+};
+
 module.exports = {
   acceptNegotiation,
   completeOrder,
@@ -852,4 +1029,7 @@ module.exports = {
   sendMessage,
   declineNegotiation,
   getMyOrders,
+  getDayJobs,
+  getWorkerProfile,
+  createDayJob,
 };

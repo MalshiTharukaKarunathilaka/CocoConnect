@@ -5,7 +5,13 @@ const { parseCoords } = require("../utils/geo");
 const { validateProvider, normalizeNic } = require("../utils/providerValidation");
 const { storageInfo } = require("./healthController");
 
-const ROLES = ["BUYER", "ESTATE_OWNER", "ESTATE_MANAGER", "SERVICE_PROVIDER"];
+const ROLES = [
+  "BUYER",
+  "ESTATE_OWNER",
+  "ESTATE_MANAGER",
+  "SERVICE_PROVIDER",
+  "WORKER",
+];
 
 // "Estate Owner" (as shown in the app) -> "ESTATE_OWNER"
 const normaliseRole = (role) =>
@@ -128,6 +134,15 @@ const signup = async (req, res) => {
     }
     const token = createToken(user);
     await client.query("COMMIT");
+
+    if (role === "WORKER") {
+      await pool.query(
+        `INSERT INTO worker (user_id, worker_name, job_category, jobs)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (user_id) DO NOTHING`,
+        [user.id, JSON.stringify(String(name).trim()), "[]", "[]"]
+      );
+    }
 
     return res.status(201).json({
       message: "Account created successfully",

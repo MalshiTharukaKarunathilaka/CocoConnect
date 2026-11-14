@@ -151,10 +151,17 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
     final Estate estate = summary.estate;
     final AppUser? user = AuthService.currentUser;
 
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-      children: [
+    return LayoutBuilder(
+      builder: (context, constraints) => FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.topCenter,
+        child: SizedBox(
+          width: constraints.maxWidth,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
         // Identity
         Center(
           child: Container(
@@ -475,7 +482,11 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
             ],
           ),
         ),
-      ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
