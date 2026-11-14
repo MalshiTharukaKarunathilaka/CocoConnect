@@ -124,48 +124,92 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
   @override
   Widget build(BuildContext context) {
+    final list = _visible;
+    // Map fills the screen. List is a bottom sheet — drag/scroll it up to open.
+    // Why: keeps the map highlighted; avoids FlutterMap-inside-page-scroll blank bug.
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+          child: Row(
             children: [
-              const Text(
-                'ESTATE OWNER',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                  color: AppColors.green,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _channel == 'gov'
+                          ? 'GOVERNMENT'
+                          : _channel == 'private'
+                              ? 'PRIVATE SUPPLIERS'
+                              : 'ESTATE OWNER',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: AppColors.green,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _channel == 'gov'
+                          ? 'Government programme'
+                          : 'Suppliers near you',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Suppliers near you',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Tap a pin to order. Quantities use a 50 kg base unit. '
-                'After you place an order it stays in Pending Ack until the provider accepts. '
-                'Use My orders on the map to view or cancel.',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  height: 1.45,
-                  color: AppColors.muted,
+              TextButton(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const FertilizerOrdersPage(),
+                    ),
+                  );
+                  setState(() {});
+                },
+                child: Text(
+                  _pendingMine > 0 ? 'Orders · $_pendingMine' : 'Orders',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
             ],
           ),
         ),
-        Expanded(child: _mapBlock()),
+        Expanded(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: _mapBlock(),
+                  ),
+                ),
+              ),
+              // Peek shows title + first rows so the list is visible; drag up for more.
+              DraggableScrollableSheet(
+                initialChildSize: 0.32,
+                minChildSize: 0.28,
+                maxChildSize: 0.68,
+                snap: true,
+                snapSizes: const [0.32, 0.5, 0.68],
+                builder: (context, scrollController) {
+                  return _supplierSheet(list, scrollController);
+                },
+              ),
+            ],
+          ),
+        ),
       ],
     );
 
@@ -178,6 +222,152 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
           constraints: const BoxConstraints(maxWidth: 430),
           child: Material(color: AppColors.cream, child: SafeArea(child: body)),
         ),
+      ),
+    );
+  }
+
+  Widget _supplierSheet(List<FertPlace> list, ScrollController scrollController) {
+    return Material(
+      color: Colors.white,
+      elevation: 10,
+      shadowColor: const Color(0x33183E29),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 8),
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.line,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Who can supply you',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.greenSoft,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    '${list.length}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.green,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: list.isEmpty
+                ? ListView(
+                    controller: scrollController,
+                    children: const [
+                      SizedBox(height: 24),
+                      Center(
+                        child: Text(
+                          'No matches',
+                          style: TextStyle(color: AppColors.muted),
+                        ),
+                      ),
+                    ],
+                  )
+                : ListView.builder(
+                    controller: scrollController,
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                    itemCount: list.length,
+                    itemBuilder: (_, i) {
+                      final pl = list[i];
+                      final on = identical(_selected, pl);
+                      final far = pl.distanceKm > _radiusKm;
+                      final where = far
+                          ? '${pl.distanceKm.toStringAsFixed(0)} km · delivers'
+                          : '${pl.distanceKm.toStringAsFixed(1)} km';
+                      return Material(
+                        color: on ? AppColors.greenSoft : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => setState(() {
+                            _selected = on ? null : pl;
+                            _clusterKey = null;
+                          }),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: _pinColor(pl),
+                                  child: Text(
+                                    _pinMark(pl),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        pl.company,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${pl.brandLine} · $where',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.muted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  'LKR ${withCommas(pl.minPrice50)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                    color: AppColors.green,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -341,47 +531,12 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
         ),
         Positioned(
           right: 12,
-          bottom: 78,
+          bottom: 180,
           child: FloatingActionButton.small(
             heroTag: 'fert-recenter',
             backgroundColor: Colors.white,
             onPressed: () => _map.move(_home, _homeZoom),
             child: const Icon(Icons.my_location, color: AppColors.green),
-          ),
-        ),
-        Positioned(
-          left: 12,
-          right: 12,
-          bottom: 16,
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.green,
-                foregroundColor: Colors.white,
-                elevation: 6,
-                shadowColor: const Color(0x47256B45),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-              ),
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const FertilizerOrdersPage(),
-                  ),
-                );
-                setState(() {});
-              },
-              child: Text(
-                _pendingMine > 0
-                    ? 'My orders · $_pendingMine'
-                    : 'My orders',
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
           ),
         ),
         if (_clusterKey != null &&
@@ -390,14 +545,14 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
           Positioned(
             left: 24,
             right: 24,
-            bottom: 80,
+            bottom: 120,
             child: _clusterPop(groups[_clusterKey!]!),
           ),
         if (_selected != null)
           Positioned(
             left: 24,
             right: 24,
-            bottom: 80,
+            bottom: 120,
             child: _placePop(_selected!),
           ),
       ],

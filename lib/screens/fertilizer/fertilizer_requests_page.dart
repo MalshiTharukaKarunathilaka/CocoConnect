@@ -31,46 +31,31 @@ class FertilizerRequestsPage extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         const Text(
-          'My requests & messages',
+          'My requests',
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 16),
         const Text(
-          'Private supplier requests and government programme requests stay in one place.',
-          style: TextStyle(fontSize: 12.5, color: AppColors.muted, height: 1.45),
-        ),
-        const SizedBox(height: 18),
-        const Text(
-          'Private supplier requests',
+          'Private suppliers',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'These go to the shop you picked on the map.',
-          style: TextStyle(fontSize: 12.5, color: AppColors.muted),
         ),
         const SizedBox(height: 10),
         if (private.isEmpty)
-          _empty('No private orders yet. Open the map and tap a pin.')
+          _empty('No private orders yet')
         else
           for (final o in private) _privateCard(o),
         const SizedBox(height: 22),
         const Text(
-          'Government programme',
+          'Government',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Reviewed by the CDO for your demo cultivation area.',
-          style: TextStyle(fontSize: 12.5, color: AppColors.muted),
         ),
         const SizedBox(height: 10),
         if (gov.isEmpty)
-          _empty('No government requests yet.')
+          _empty('No government requests yet')
         else
           for (final r in gov) _govCard(r),
       ],

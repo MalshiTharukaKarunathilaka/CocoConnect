@@ -68,6 +68,7 @@ flutter:
   assets:
     - assets/services/
     - assets/machines/
+    - assets/branding/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -79,12 +79,17 @@ class _ProviderHubState extends State<ProviderHub> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'KapConnect',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.green,
-                    fontSize: 16,
+                Image.asset(
+                  'assets/branding/kapconnect_logo.png',
+                  height: 26,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Text(
+                    'KapConnect',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.green,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
                 Text(

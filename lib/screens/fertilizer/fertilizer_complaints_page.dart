@@ -34,17 +34,12 @@ class _FertilizerComplaintsPageState extends State<FertilizerComplaintsPage> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Quality complaints',
+          'Complaints',
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
           ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Report bag quality, wrong quantity, or missing delivery. Sample data only.',
-          style: TextStyle(fontSize: 12.5, color: AppColors.muted, height: 1.45),
         ),
         const SizedBox(height: 12),
         Align(
@@ -60,7 +55,7 @@ class _FertilizerComplaintsPageState extends State<FertilizerComplaintsPage> {
               if (ok == true && mounted) setState(() {});
             },
             icon: const Icon(Icons.add),
-            label: const Text('File complaint'),
+            label: const Text('New complaint'),
           ),
         ),
         const SizedBox(height: 16),

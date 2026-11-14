@@ -20,38 +20,33 @@ class FertilizerRoleGate extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(22, 28, 22, 28),
                 children: [
-                  Text(
-                    'KapConnect',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.green,
-                      letterSpacing: -0.4,
+                  Center(
+                    child: Image.asset(
+                      'assets/branding/kapconnect_logo.png',
+                      height: 88,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Text(
+                        'KapConnect',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.green,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 10),
                   const Text(
                     'Fertilizer login',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 26,
+                      fontSize: 22,
                       fontWeight: FontWeight.w800,
                       color: AppColors.ink,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Choose a role. Each login uses phone + password. '
-                    'Orders stay in one shared demo store so data syncs when you switch.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      height: 1.45,
-                      color: AppColors.muted,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -59,7 +54,7 @@ class FertilizerRoleGate extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Text(
-                      'Demo password for every role: demo123',
+                      'Password: demo123',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontWeight: FontWeight.w700,

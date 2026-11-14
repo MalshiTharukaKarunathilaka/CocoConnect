@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../account_dialogs.dart';
 import 'fertilizer_complaints_page.dart';
-import 'fertilizer_gov_request_sheet.dart';
 import 'fertilizer_map_page.dart';
 import 'fertilizer_requests_page.dart';
 
 /// Owner fertilizer shell — same tabs as the HTML demo bottom nav.
-/// Why: one place for map filters + requests + complaints so the flow feels like the demo.
 class FertilizerHub extends StatefulWidget {
   const FertilizerHub({super.key, this.initialTab = 0});
 
@@ -26,7 +24,7 @@ class _FertilizerHubState extends State<FertilizerHub> {
     _tab = widget.initialTab.clamp(0, 4);
   }
 
-  /// Map channel for tabs 0/1/2 (hub / shops / government).
+  /// Same as the HTML demo: Hub=all, Suppliers=shops, Government=CDO map.
   String get _channel {
     if (_tab == 1) return 'private';
     if (_tab == 2) return 'gov';
@@ -83,37 +81,37 @@ class _FertilizerHubState extends State<FertilizerHub> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'KapConnect',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.green,
-                    letterSpacing: -0.4,
-                  ),
+                Row(
+                  children: [
+                    Image.asset(
+                      'assets/branding/kapconnect_logo.png',
+                      height: 40,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Text(
+                        'KapConnect',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.green,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  'Fertilizer hub',
-                  style: TextStyle(
+                  _tabTitle,
+                  style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: AppColors.muted,
-                  ),
-                ),
-                Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  width: 36,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: AppColors.green,
-                    borderRadius: BorderRadius.circular(4),
                   ),
                 ),
               ],
             ),
           ),
           IconButton(
-            tooltip: 'Switch role / log out',
+            tooltip: 'Log out',
             onPressed: () => confirmLogOut(context),
             icon: const Icon(Icons.logout, color: AppColors.green, size: 22),
           ),
@@ -122,62 +120,25 @@ class _FertilizerHubState extends State<FertilizerHub> {
     );
   }
 
+  String get _tabTitle {
+    switch (_tab) {
+      case 1:
+        return 'Private suppliers';
+      case 2:
+        return 'Government';
+      case 3:
+        return 'Requests';
+      case 4:
+        return 'Complaints';
+      default:
+        return 'Fertilizer hub';
+    }
+  }
+
   Widget _body() {
     if (_tab == 3) return const FertilizerRequestsPage(embedded: true);
     if (_tab == 4) return const FertilizerComplaintsPage(embedded: true);
-    if (_tab == 2) {
-      return ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text(
-            'ESTATE OWNER',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: AppColors.green,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Government programme',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Check demo CDO-area stock and submit a quantity request. Map pins also filter to government.',
-            style: TextStyle(fontSize: 12.5, color: AppColors.muted),
-          ),
-          const SizedBox(height: 14),
-          ElevatedButton(
-            onPressed: () async {
-              await showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => const FertilizerGovRequestSheet(),
-              );
-              setState(() {});
-            },
-            child: const Text('Request Board fertilizer'),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Government suppliers on the map',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 420,
-            child: FertilizerMapPage(
-              key: const ValueKey('map-gov-embedded'),
-              channel: 'gov',
-              embedded: true,
-            ),
-          ),
-        ],
-      );
-    }
+    // Government = same map + list as demo, filtered to CDO pins only.
     return FertilizerMapPage(
       key: ValueKey('map-$_channel'),
       channel: _channel,
@@ -187,14 +148,14 @@ class _FertilizerHubState extends State<FertilizerHub> {
 
   Widget _bottomNav() {
     const items = [
-      (Icons.home_outlined, 'Fertilizer hub'),
-      (Icons.grid_view_rounded, 'Private suppliers'),
-      (Icons.account_balance_outlined, 'Government programme'),
-      (Icons.schedule, 'My requests & messages'),
-      (Icons.flag_outlined, 'Quality complaints'),
+      (Icons.home_outlined, 'Hub'),
+      (Icons.grid_view_rounded, 'Suppliers'),
+      (Icons.account_balance_outlined, 'Government'),
+      (Icons.schedule, 'Requests'),
+      (Icons.flag_outlined, 'Complaints'),
     ];
     return Container(
-      height: 68,
+      height: 64,
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: AppColors.line)),
@@ -236,9 +197,9 @@ class _FertilizerHubState extends State<FertilizerHub> {
                     Text(
                       items[i].$2,
                       textAlign: TextAlign.center,
-                      maxLines: 2,
+                      maxLines: 1,
                       style: TextStyle(
-                        fontSize: 8.5,
+                        fontSize: 10,
                         height: 1.1,
                         fontWeight: FontWeight.w700,
                         color: _tab == i ? AppColors.green : AppColors.muted,
