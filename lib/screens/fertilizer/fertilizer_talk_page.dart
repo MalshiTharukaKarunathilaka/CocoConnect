@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../widgets/owner_widgets.dart';
 import 'fertilizer_data.dart';
-import 'fertilizer_order_sheet.dart';
+// hide color aliases so they don't clash with owner_widgets
+import 'fertilizer_order_sheet.dart' show FertilizerOrderSheet;
 
 class FertilizerTalkPage extends StatefulWidget {
   const FertilizerTalkPage({super.key, required this.place});
