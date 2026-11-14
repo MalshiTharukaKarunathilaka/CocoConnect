@@ -59,7 +59,6 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   @override
   void initState() {
     super.initState();
-    _selectedDay = DateTime(_month.year, _month.month, 15);
     _loadPostedJobs();
     _loadNotificationCount();
   }
@@ -461,7 +460,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             runSpacing: 10,
             children: const [
               _CategoryChip(Icons.eco, 'Nut Gatherer'),
-              _CategoryChip(Icons.agriculture, 'Machine Worker'),
+              _CategoryChip(Icons.agriculture, 'Machine Weeder'),
               _CategoryChip(Icons.build, 'Manual Worker'),
               _CategoryChip(Icons.star_border, 'Holiday'),
             ],
