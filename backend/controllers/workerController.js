@@ -45,6 +45,7 @@ const getAvailableJobs = async (req, res) => {
          dj.*,
          eo.estate_name,
          eo.name AS estate_owner_name,
+         eo.location AS estate_location,
          u.latitude AS estate_latitude,
          u.longitude AS estate_longitude,
          dja.id AS application_id,

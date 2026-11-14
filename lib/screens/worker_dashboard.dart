@@ -1557,6 +1557,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   Widget _nearbyJobCard(WorkerJob job, List<WorkerJob> allJobs) {
     final applicationStatus = job.applicationStatus?.toLowerCase();
+    final estateLocation = job.estateLocation.trim().isNotEmpty
+        ? job.estateLocation.trim()
+        : job.location.trim();
     final accepted = applicationStatus == 'accepted';
     final applied = job.applicationId != null && applicationStatus != 'declined';
     final declining = _decliningJobId == job.id;
@@ -1617,6 +1620,39 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             _jobDescription(job.category),
             style: const TextStyle(color: _workerMuted, fontSize: 16, height: 1.35),
           ),
+          if (estateLocation.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              decoration: BoxDecoration(
+                border: Border.all(color: _workerGreen),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.location_on_outlined,
+                    color: Color(0xFFD67A18),
+                    size: 19,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      estateLocation,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _workerInk,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Text(
             'Rs.${job.dailyRate.toStringAsFixed(0)} / day',

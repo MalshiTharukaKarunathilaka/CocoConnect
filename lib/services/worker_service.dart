@@ -12,6 +12,7 @@ class WorkerJob {
   final String status;
   final String estateName;
   final String estateOwnerName;
+  final String estateLocation;
   final double? latitude;
   final double? longitude;
   final double? distanceKm;
@@ -30,6 +31,7 @@ class WorkerJob {
     required this.status,
     required this.estateName,
     required this.estateOwnerName,
+    required this.estateLocation,
     required this.latitude,
     required this.longitude,
     required this.distanceKm,
@@ -49,6 +51,10 @@ class WorkerJob {
     status: json['status'] as String? ?? 'OPEN',
     estateName: json['estate_name'] as String? ?? 'Estate',
     estateOwnerName: json['estate_owner_name'] as String? ?? 'Estate owner',
+    estateLocation:
+        json['estate_location'] as String? ??
+        json['location'] as String? ??
+        '',
     latitude: (json['estate_latitude'] as num?)?.toDouble(),
     longitude: (json['estate_longitude'] as num?)?.toDouble(),
     distanceKm: _optionalNumber(json['distance_km']),
