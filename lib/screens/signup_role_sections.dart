@@ -32,7 +32,6 @@ const List<String> kSignupDistricts = [
   'Trincomalee',
   'Vavuniya',
 ];
-const List<String> kSignupMachines = ['Tractor', 'Backhoe', 'Hand Tractor'];
 const List<int> kSignupRadii = [5, 10, 15, 25];
 
 /// What the sign-up form asks for beyond the shared fields (name, phone,
@@ -43,7 +42,6 @@ class SignupExtras {
   final email = TextEditingController();
   final address = TextEditingController();
   String? district;
-  String machinery = kSignupMachines.first;
   int radius = 5;
   bool agreed = false;
 
@@ -215,22 +213,11 @@ class ProviderSignupSection extends StatelessWidget {
             },
           ),
         ),
-        _labelled(
-          'Machinery type',
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final m in kSignupMachines)
-                RoleChip(
-                  label: m,
-                  isSelected: extras.machinery == m,
-                  onTap: () {
-                    extras.machinery = m;
-                    onChanged();
-                  },
-                ),
-            ],
+        const Padding(
+          padding: EdgeInsets.only(top: 18),
+          child: Text(
+            'After registration, add your machinery and set service rates '
+            'from your calendar page.',
           ),
         ),
         _labelled(

@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS service_providers (
   identity_number varchar(40) NOT NULL,
   email varchar(254),
   category varchar(30) NOT NULL CHECK (category = 'Machinery'),
-  machinery_type varchar(60) NOT NULL,
+  machinery_type varchar(60),
   district varchar(60) NOT NULL,
   address text NOT NULL,
   radius_km integer NOT NULL CHECK (radius_km IN (5, 10, 15, 25)),

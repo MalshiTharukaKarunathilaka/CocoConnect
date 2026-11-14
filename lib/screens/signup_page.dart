@@ -96,7 +96,6 @@ class _SignupPageState extends State<SignupPage> {
                 'identity_number': _extras.nic.text.trim(),
                 'email': _extras.email.text.trim(),
                 'category': 'Machinery',
-                'machinery_type': _extras.machinery,
                 'district': _extras.district,
                 'address': _extras.address.text.trim(),
                 'radius_km': _extras.radius,

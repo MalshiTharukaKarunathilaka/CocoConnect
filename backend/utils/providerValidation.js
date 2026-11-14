@@ -49,7 +49,7 @@ const validateProvider = (body, role, phone, coords) => {
   }
   if (role !== 'SERVICE_PROVIDER') errors.role = 'Choose a Service Provider account.';
   if (provider.category !== 'Machinery') errors.category = 'Choose the Machinery service category.';
-  if (!machineryTypes.includes(provider.machinery_type)) errors.machinery_type = 'Choose Tractor, Backhoe or Hand Tractor.';
+  if (provider.machinery_type != null && !machineryTypes.includes(provider.machinery_type)) errors.machinery_type = 'Choose Tractor, Backhoe or Hand Tractor.';
   if (!districts.includes(provider.district)) errors.district = 'Select your operating district.';
   if (!/^07\d{8}$/.test(phone)) errors.phone = 'Enter a valid Sri Lankan mobile number, e.g. 0771234567.';
   if (typeof provider.identity_number !== 'string') {

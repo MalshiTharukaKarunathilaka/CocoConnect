@@ -123,7 +123,7 @@ const signup = async (req, res) => {
           (user_id, identity_number, email, category, machinery_type, district, address, radius_km)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [user.id, normalizeNic(provider.identity_number), (provider.email || "").trim() || null,
-         provider.category, provider.machinery_type, provider.district, provider.address.trim(), provider.radius_km]
+         provider.category, provider.machinery_type ?? null, provider.district, provider.address.trim(), provider.radius_km]
       );
     }
     const token = createToken(user);

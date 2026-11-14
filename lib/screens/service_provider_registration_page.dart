@@ -114,7 +114,6 @@ class _RegistrationState extends State<ServiceProviderRegistrationPage> {
 
   PickedLocation? _location;
   String? _district;
-  String _machinery = 'Tractor';
   int _radius = 5;
   bool _hidden = true, _confirmHidden = true, _agreed = false;
   bool _saving = false, _locating = false;
@@ -145,7 +144,6 @@ class _RegistrationState extends State<ServiceProviderRegistrationPage> {
     'Trincomalee',
     'Vavuniya',
   ];
-  static const _machines = ['Tractor', 'Backhoe', 'Hand Tractor'];
 
   @override
   void dispose() {
@@ -238,7 +236,6 @@ class _RegistrationState extends State<ServiceProviderRegistrationPage> {
           'identity_number': _nic.text.trim(),
           'email': _email.text.trim(),
           'category': 'Machinery',
-          'machinery_type': _machinery,
           'district': _district,
           'address': _address.text.trim(),
           'radius_km': _radius,
@@ -412,9 +409,7 @@ class _RegistrationState extends State<ServiceProviderRegistrationPage> {
         Text(label, style: const TextStyle(fontSize: 13)),
         const SizedBox(height: 5),
         DropdownButtonFormField<String>(
-          key: _fieldKey(
-            label == 'Machinery Category *' ? 'machinery_type' : 'district',
-          ),
+          key: _fieldKey('district'),
           initialValue: value,
           isExpanded: true,
           decoration: _decoration('Select district', icon),
@@ -427,16 +422,10 @@ class _RegistrationState extends State<ServiceProviderRegistrationPage> {
               )
               .toList(),
           onChanged: (value) {
-            _serverErrors.remove(
-              label == 'Machinery Category *' ? 'machinery_type' : 'district',
-            );
+            _serverErrors.remove('district');
             changed(value);
           },
-          validator: (value) =>
-              _required(value) ??
-              _serverErrors[label == 'Machinery Category *'
-                  ? 'machinery_type'
-                  : 'district'],
+          validator: (value) => _required(value) ?? _serverErrors['district'],
         ),
       ],
     ),
@@ -564,33 +553,13 @@ class _RegistrationState extends State<ServiceProviderRegistrationPage> {
                           subtitle: 'Personal & official verification details',
                         ),
                         _card(
-                          'Service Category & Equipment Details',
+                          'Machinery Setup',
                           Icons.agriculture_outlined,
-                          [
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Primary Service Category *',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                            const SizedBox(height: 6),
-                            const Align(
-                              alignment: Alignment.centerLeft,
-                              child: Chip(
-                                avatar: Icon(
-                                  Icons.agriculture_outlined,
-                                  color: _green,
-                                  size: 18,
-                                ),
-                                label: Text('Machinery'),
-                                backgroundColor: kOwnerGreenSoft,
-                              ),
-                            ),
-                            _dropdown(
-                              'Machinery Category *',
-                              _machinery,
-                              _machines,
-                              Icons.local_shipping_outlined,
-                              (v) => setState(() => _machinery = v!),
+                          const [
+                            SizedBox(height: 12),
+                            Text(
+                              'After registration, add your machinery and set '
+                              'service rates from your calendar page.',
                             ),
                           ],
                         ),

@@ -13,7 +13,7 @@ Future<RegistrationStorage> _temporaryStorage() async =>
 void main() {
   for (final width in [320.0, 390.0]) {
     testWidgets(
-      'registration fits $width px and offers the actual machinery categories',
+      'registration fits $width px and defers machinery setup to the calendar',
       (tester) async {
         tester.view.physicalSize = Size(width, 800);
         tester.view.devicePixelRatio = 1;
@@ -30,28 +30,12 @@ void main() {
         expect(find.byType(OwnerPage), findsOneWidget);
         expect(find.text('Provider Registration'), findsOneWidget);
         expect(tester.takeException(), isNull);
-        await tester.scrollUntilVisible(
-          find.text('Machinery Category *'),
-          200,
-          scrollable: find.byType(Scrollable).first,
+        expect(find.text('Machinery Category *'), findsNothing);
+        expect(find.text('Tractor'), findsNothing);
+        expect(
+          find.textContaining('After registration, add your machinery'),
+          findsOneWidget,
         );
-        await tester.pumpAndSettle();
-        await tester.ensureVisible(find.text('Tractor').last);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Tractor').last);
-        await tester.pumpAndSettle();
-        expect(find.text('Backhoe'), findsOneWidget);
-        expect(find.text('Hand Tractor'), findsOneWidget);
-        expect(find.text('Excavator'), findsNothing);
-        expect(find.text('Harvester'), findsNothing);
-        await tester.tap(find.text('Backhoe'));
-        await tester.pumpAndSettle();
-        expect(find.text('Backhoe'), findsOneWidget);
-        await tester.tap(find.text('Backhoe'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Hand Tractor'));
-        await tester.pumpAndSettle();
-        expect(find.text('Hand Tractor'), findsOneWidget);
         await tester.scrollUntilVisible(
           find.text('Complete & Register Account'),
           200,

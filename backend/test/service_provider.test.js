@@ -75,3 +75,13 @@ test('provider international phone format is normalized for registration and log
   assert.equal(result.data.user.phone, '0771234599');
   assert.equal((await call(login, {phone: '0771234599', password: body.password})).code, 200);
 });
+
+test('providers can register without machinery and start with an empty fleet', async () => {
+  const {machinery_type, ...details} = body.service_provider;
+  const result = await call(signup, {...body, phone: '0771234588', service_provider: details});
+  assert.equal(result.code, 201, JSON.stringify(result.data));
+  const profile = (await pool.query('SELECT * FROM service_providers WHERE user_id = $1', [result.data.user.id])).rows[0];
+  assert.equal(profile.machinery_type, null);
+  const machines = await pool.query('SELECT * FROM machinery WHERE provider_id = $1', [profile.id]);
+  assert.equal(machines.rows.length, 0);
+});
