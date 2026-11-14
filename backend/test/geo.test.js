@@ -139,6 +139,55 @@ test("buyers see estates within the chosen distance", async () => {
   assert.ok(anywhere.data.every((l) => l.distance_km === null));
 });
 
+test("workers see estates and jobs within the selected radius", async () => {
+  const worker = await signup(
+    "Colombo Worker",
+    "0720000001",
+    "WORKER",
+    COLOMBO
+  );
+  const dayJob = async (owner, category) => {
+    const created = await call("POST", "/api/owner/day-jobs", {
+      token: owner.token,
+      body: {
+        category,
+        workersNeeded: 2,
+        requiredDate: "2026-12-20",
+        location: owner.user.location,
+        dailyRate: 2500,
+        paymentMethod: "Cash",
+      },
+    });
+    assert.equal(created.status, 201);
+  };
+  await dayJob(near, "Nearby Worker Job");
+  await dayJob(mid, "Mid-distance Worker Job");
+  await dayJob(far, "Far Worker Job");
+
+  const within10 = await call(
+    "GET",
+    "/api/worker/nearby-estates?radiusKm=10",
+    { token: worker.token }
+  );
+  assert.equal(within10.status, 200);
+  assert.deepEqual(
+    within10.data.map((estate) => estate.estate_name),
+    ["Kelaniya Owner Estate"]
+  );
+  assert.ok(within10.data[0].distance_km > 6);
+  assert.ok(within10.data[0].distance_km < 9);
+
+  const jobs = await call("GET", "/api/worker/jobs", {
+    token: worker.token,
+  });
+  const nearJob = jobs.data.find(
+    (job) => job.category === "Nearby Worker Job"
+  );
+  const farJob = jobs.data.find((job) => job.category === "Far Worker Job");
+  assert.ok(nearJob.distance_km > 6 && nearJob.distance_km < 9);
+  assert.ok(farJob.distance_km > 80);
+});
+
 test("listings matching a request: enough nuts, date within 7 days, cheapest first", async () => {
   const match = await call(
     "GET",

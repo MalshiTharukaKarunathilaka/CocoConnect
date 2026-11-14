@@ -14,6 +14,7 @@ class WorkerJob {
   final String estateOwnerName;
   final double? latitude;
   final double? longitude;
+  final double? distanceKm;
   final int? applicationId;
   final String? applicationStatus;
 
@@ -31,6 +32,7 @@ class WorkerJob {
     required this.estateOwnerName,
     required this.latitude,
     required this.longitude,
+    required this.distanceKm,
     required this.applicationId,
     required this.applicationStatus,
   });
@@ -49,6 +51,7 @@ class WorkerJob {
     estateOwnerName: json['estate_owner_name'] as String? ?? 'Estate owner',
     latitude: (json['estate_latitude'] as num?)?.toDouble(),
     longitude: (json['estate_longitude'] as num?)?.toDouble(),
+    distanceKm: _optionalNumber(json['distance_km']),
     applicationId: (json['application_id'] as num?)?.toInt(),
     applicationStatus: json['application_status'] as String?,
   );
@@ -56,11 +59,11 @@ class WorkerJob {
 
 class WorkerEstate {
   final String estateName, ownerName, location;
-  final double? latitude, longitude;
-  const WorkerEstate({required this.estateName, required this.ownerName, required this.location, this.latitude, this.longitude});
+  final double? latitude, longitude, distanceKm;
+  const WorkerEstate({required this.estateName, required this.ownerName, required this.location, this.latitude, this.longitude, this.distanceKm});
   factory WorkerEstate.fromJson(Map<String, dynamic> j) => WorkerEstate(
     estateName: j['estate_name'] as String? ?? 'Estate', ownerName: j['estate_owner_name'] as String? ?? 'Estate owner',
-    location: j['location'] as String? ?? '', latitude: _optionalNumber(j['estate_latitude'] ?? j['latitude']), longitude: _optionalNumber(j['estate_longitude'] ?? j['longitude']));
+    location: j['location'] as String? ?? '', latitude: _optionalNumber(j['estate_latitude'] ?? j['latitude']), longitude: _optionalNumber(j['estate_longitude'] ?? j['longitude']), distanceKm: _optionalNumber(j['distance_km']));
 }
 
 double? _optionalNumber(dynamic value) => value is num ? value.toDouble() : double.tryParse('$value');

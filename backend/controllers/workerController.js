@@ -1,5 +1,10 @@
 const pool = require("../config/db");
-const { parseCoords, parseRadius, withDistance, byDistance } = require("../utils/geo");
+const {
+  parseCoords,
+  parseRadius,
+  withDistance,
+  byDistance,
+} = require("../utils/geo");
 
 const workerForUser = async (userId) => {
   const result = await pool.query(
@@ -64,7 +69,24 @@ const getAvailableJobs = async (req, res) => {
       [worker.id]
     );
 
-    return res.status(200).json(result.rows);
+    const user = await pool.query(
+      "SELECT latitude, longitude FROM users WHERE id = $1",
+      [req.user.id]
+    );
+    const origin = parseCoords(
+      user.rows[0]?.latitude,
+      user.rows[0]?.longitude
+    );
+    const jobsWithDistance = withDistance(
+      result.rows.map((row) => ({
+        ...row,
+        latitude: row.estate_latitude,
+        longitude: row.estate_longitude,
+      })),
+      origin
+    );
+
+    return res.status(200).json(jobsWithDistance);
   } catch (error) {
     console.error("Get worker jobs error:", error);
     if (error.code === "42703" || error.code === "42P01") {
