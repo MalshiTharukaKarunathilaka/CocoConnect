@@ -277,3 +277,71 @@ Future<T?> showThemedBottomSheet<T>({
 /// The pickers take their theme from here.
 Widget themedPicker(BuildContext context, Widget? child) =>
     AppThemeScope(child: child ?? const SizedBox.shrink());
+
+/// The app-wide theme, the same look as before (Material 3 with Arial).
+class AppTheme {
+  AppTheme._();
+
+  static ThemeData light() => ThemeData(useMaterial3: true, fontFamily: 'Arial');
+}
+
+/// A small coloured label for a status such as "Accepted" or "Pending Ack".
+class StatusPill extends StatelessWidget {
+  const StatusPill(
+    this.text, {
+    super.key,
+    this.fg = AppColors.green,
+    this.bg = AppColors.greenSoft,
+  });
+
+  final String text;
+  final Color fg, bg;
+
+  factory StatusPill.forStatus(String status) {
+    switch (status) {
+      case 'Pending Ack':
+      case 'Negotiating':
+      case 'Negotiation':
+      case 'Submitted':
+        return StatusPill(
+          status,
+          fg: AppColors.warning,
+          bg: AppColors.warningSoft,
+        );
+      case 'Cancelled':
+      case 'Rejected':
+        return StatusPill(
+          status,
+          fg: AppColors.dangerText,
+          bg: AppColors.dangerSoft,
+        );
+      case 'Accepted':
+      case 'Receipt Confirmed':
+      case 'Distributed':
+        return const StatusPill('Accepted');
+      default:
+        return StatusPill(
+          status,
+          fg: AppColors.info,
+          bg: AppColors.infoSoft,
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: fg,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+}

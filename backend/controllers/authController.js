@@ -11,6 +11,8 @@ const ROLES = [
   "ESTATE_MANAGER",
   "SERVICE_PROVIDER",
   "WORKER",
+  "FERTILIZER_SUPPLIER",
+  "CDO",
 ];
 
 // "Estate Owner" (as shown in the app) -> "ESTATE_OWNER"
