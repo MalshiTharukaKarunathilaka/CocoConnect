@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/owner_service.dart';
 import 'accepted_workers_page.dart';
+import 'worker_profile_page.dart';
 
 const Color _detailGreen = Color(0xFF2A704E);
 const Color _detailBackground = Color(0xFFFCF9F3);
@@ -81,7 +82,7 @@ class JobDetailPage extends StatelessWidget {
               ),
               const SizedBox(height: 22),
               for (final worker in job.acceptedWorkers) ...[
-                _workerCard(context, _Worker(worker.name, Icons.person)),
+                _workerCard(context, worker),
                 const SizedBox(height: 20),
               ],
             ],
@@ -392,7 +393,7 @@ class JobDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _workerCard(BuildContext context, _Worker worker) {
+  Widget _workerCard(BuildContext context, AcceptedWorker worker) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
       decoration: BoxDecoration(
@@ -411,7 +412,7 @@ class JobDetailPage extends StatelessWidget {
                   color: Color(0xFFD8EBDD),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(worker.icon, color: _detailGreen, size: 44),
+                child: const Icon(Icons.person, color: _detailGreen, size: 44),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -435,8 +436,15 @@ class JobDetailPage extends StatelessWidget {
                   icon: Icons.person_outline,
                   background: const Color(0xFFE8E9ED),
                   foreground: _detailInk,
-                  onPressed: () =>
-                      _showMessage(context, '${worker.name} profile'),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => WorkerProfilePage(
+                        workerId: worker.id,
+                        fallbackName: worker.name,
+                      ),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -446,7 +454,10 @@ class JobDetailPage extends StatelessWidget {
                   icon: Icons.star,
                   background: _detailGreen,
                   foreground: Colors.white,
-                  onPressed: () => _showRatingSheet(context, worker),
+                  onPressed: () => _showRatingSheet(
+                    context,
+                    _Worker(worker.name, Icons.person),
+                  ),
                 ),
               ),
             ],

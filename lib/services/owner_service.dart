@@ -72,6 +72,38 @@ class AcceptedWorker {
   );
 }
 
+class WorkerProfile {
+  final int id;
+  final String name;
+  final String phone;
+  final String location;
+  final List<String> workCategories;
+  final int acceptedJobs;
+  final int completedJobs;
+
+  const WorkerProfile({
+    required this.id,
+    required this.name,
+    required this.phone,
+    required this.location,
+    required this.workCategories,
+    required this.acceptedJobs,
+    required this.completedJobs,
+  });
+
+  factory WorkerProfile.fromJson(Map<String, dynamic> json) => WorkerProfile(
+    id: (json['id'] as num).toInt(),
+    name: json['name'] as String? ?? 'Worker',
+    phone: json['phone'] as String? ?? '',
+    location: json['location'] as String? ?? '',
+    workCategories: ((json['work_categories'] as List<dynamic>?) ?? const [])
+        .map((category) => '$category')
+        .toList(),
+    acceptedJobs: (json['accepted_jobs'] as num?)?.toInt() ?? 0,
+    completedJobs: (json['completed_jobs'] as num?)?.toInt() ?? 0,
+  );
+}
+
 class Estate {
   final int id;
   final String estateName;
@@ -289,6 +321,11 @@ class OwnerService {
     return (data as List)
         .map((item) => DayJob.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  static Future<WorkerProfile> getWorkerProfile(int workerId) async {
+    final data = await ApiClient.get('/api/owner/workers/$workerId');
+    return WorkerProfile.fromJson(data as Map<String, dynamic>);
   }
 
   /// [sort] is 'price' (highest bid first), 'date' or 'nearest';

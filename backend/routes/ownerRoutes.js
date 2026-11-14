@@ -18,6 +18,7 @@ const {
   declineNegotiation,
   getMyOrders,
   getDayJobs,
+  getWorkerProfile,
   createDayJob,
 } = require("../controllers/ownerController");
 const { requireAuth, requireRole } = require("../middleware/auth");
@@ -363,5 +364,6 @@ router.get("/market-stats", getMarketStats);
 
 router.get("/day-jobs", getDayJobs);
 router.post("/day-jobs", createDayJob);
+router.get("/workers/:id", getWorkerProfile);
 
 module.exports = router;

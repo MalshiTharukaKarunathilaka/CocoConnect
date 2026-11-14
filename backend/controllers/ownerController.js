@@ -892,6 +892,70 @@ const getDayJobs = async (req, res) => {
   }
 };
 
+const getWorkerProfile = async (req, res) => {
+  try {
+    const workerId = Number(req.params.id);
+    if (!Number.isInteger(workerId)) {
+      return res.status(400).json({ message: "Invalid worker" });
+    }
+
+    const estate = await getOwnEstate(pool, req.user.id);
+    const profile = await pool.query(
+      `SELECT DISTINCT w.id, u.name, u.phone, u.location
+       FROM worker w
+       JOIN users u ON u.id = w.user_id
+       JOIN day_job_applications access_application
+         ON access_application.worker_id = w.id
+       JOIN day_jobs access_job
+         ON access_job.id = access_application.day_job_id
+       WHERE w.id = $1
+         AND access_job.estate_owner_id = $2
+         AND UPPER(access_application.status) = 'ACCEPTED'`,
+      [workerId, estate.id]
+    );
+    if (profile.rows.length === 0) {
+      return res.status(404).json({ message: "Worker profile not found" });
+    }
+
+    const stats = await pool.query(
+      `SELECT
+         COALESCE(SUM(
+           CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) <> 'COMPLETED'
+                  AND dj.required_date >= CURRENT_DATE
+             THEN 1 ELSE 0 END
+         ), 0)::integer AS accepted_jobs,
+         COALESCE(SUM(
+           CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
+                  OR dj.required_date < CURRENT_DATE
+             THEN 1 ELSE 0 END
+         ), 0)::integer AS completed_jobs
+       FROM day_job_applications dja
+       JOIN day_jobs dj ON dj.id = dja.day_job_id
+       WHERE dja.worker_id = $1
+         AND UPPER(dja.status) = 'ACCEPTED'`,
+      [workerId]
+    );
+    const categories = await pool.query(
+      `SELECT DISTINCT dj.category
+       FROM day_job_applications dja
+       JOIN day_jobs dj ON dj.id = dja.day_job_id
+       WHERE dja.worker_id = $1
+         AND UPPER(dja.status) = 'ACCEPTED'
+       ORDER BY dj.category`,
+      [workerId]
+    );
+
+    return res.status(200).json({
+      ...profile.rows[0],
+      accepted_jobs: Number(stats.rows[0]?.accepted_jobs || 0),
+      completed_jobs: Number(stats.rows[0]?.completed_jobs || 0),
+      work_categories: categories.rows.map((row) => row.category),
+    });
+  } catch (error) {
+    return serverError(res, "Get worker profile", error);
+  }
+};
+
 const createDayJob = async (req, res) => {
   try {
     const {
@@ -966,5 +1030,6 @@ module.exports = {
   declineNegotiation,
   getMyOrders,
   getDayJobs,
+  getWorkerProfile,
   createDayJob,
 };
