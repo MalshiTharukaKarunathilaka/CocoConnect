@@ -202,7 +202,7 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                           crossAxisCount: 7,
                           mainAxisSpacing: 5,
                           crossAxisSpacing: 5,
-                          childAspectRatio: 0.78,
+                          childAspectRatio: 1,
                         ),
                         itemBuilder: (_, i) {
                           if (i < firstWeekday) {
@@ -214,47 +214,52 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                           final pend = _byDate[key] ?? const <FertOrder>[];
                           return InkWell(
                             onTap: () => _openDay(date, pend),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(14),
                             child: Container(
-                              padding: const EdgeInsets.all(4),
+                              margin: const EdgeInsets.all(2),
+                              padding: const EdgeInsets.all(5),
                               decoration: BoxDecoration(
                                 color: pend.isNotEmpty
-                                    ? const Color(0xFFFFF5F4)
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: pend.isNotEmpty
-                                      ? kOwnerRed
-                                      : kOwnerBorder,
-                                ),
+                                    ? const Color(0xFFFDECEC)
+                                    : const Color(0xFFF0F6F1),
+                                borderRadius: BorderRadius.circular(14),
+                                border: pend.isNotEmpty
+                                    ? Border.all(color: kOwnerRed, width: 1.2)
+                                    : null,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Stack(
                                 children: [
-                                  Text(
-                                    '$day',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                                  Positioned(
+                                    left: 2,
+                                    top: 1,
+                                    child: Text(
+                                      '$day',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: kOwnerInk,
+                                      ),
                                     ),
                                   ),
                                   if (pend.isNotEmpty)
-                                    Container(
-                                      margin: const EdgeInsets.only(top: 2),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                        vertical: 1,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: kOwnerRed,
-                                        borderRadius: BorderRadius.circular(99),
-                                      ),
-                                      child: Text(
-                                        '${pend.length} pending',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 8,
-                                          fontWeight: FontWeight.bold,
+                                    Positioned(
+                                      left: 2,
+                                      bottom: 0,
+                                      child: Container(
+                                        width: 16,
+                                        height: 16,
+                                        alignment: Alignment.center,
+                                        decoration: const BoxDecoration(
+                                          color: kOwnerRed,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Text(
+                                          '${pend.length}',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ),
                                     ),

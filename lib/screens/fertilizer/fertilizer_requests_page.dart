@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'fertilizer_chrome.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
@@ -21,27 +22,8 @@ class FertilizerRequestsPage extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
       children: [
         const Text(
-          'ESTATE OWNER',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.8,
-            color: AppColors.green,
-          ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'My requests',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Text(
           'Private suppliers',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
         if (private.isEmpty)
@@ -51,7 +33,7 @@ class FertilizerRequestsPage extends StatelessWidget {
         const SizedBox(height: 22),
         const Text(
           'Government',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
         if (gov.isEmpty)
@@ -62,10 +44,10 @@ class FertilizerRequestsPage extends StatelessWidget {
     );
 
     if (embedded) return ColoredBox(color: AppColors.cream, child: body);
-    return Scaffold(
-      backgroundColor: AppColors.cream,
-      appBar: AppBar(title: const Text('My requests')),
-      body: body,
+    return FertPage(
+      title: 'My requests',
+      subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
+      child: body,
     );
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'fertilizer_chrome.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_complaint_sheet.dart';
@@ -23,25 +24,6 @@ class _FertilizerComplaintsPageState extends State<FertilizerComplaintsPage> {
     final body = ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
       children: [
-        const Text(
-          'ESTATE OWNER',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.8,
-            color: AppColors.green,
-          ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Complaints',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
           child: ElevatedButton.icon(
@@ -117,10 +99,10 @@ class _FertilizerComplaintsPageState extends State<FertilizerComplaintsPage> {
     if (widget.embedded) {
       return ColoredBox(color: AppColors.cream, child: body);
     }
-    return Scaffold(
-      backgroundColor: AppColors.cream,
-      appBar: AppBar(title: const Text('Quality complaints')),
-      body: body,
+    return FertPage(
+      title: 'Quality complaints',
+      subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
+      child: body,
     );
   }
 }

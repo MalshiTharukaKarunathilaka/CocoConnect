@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'fertilizer_chrome.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../services/auth_service.dart';
@@ -140,26 +141,11 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                   children: [
                     Text(
                       _channel == 'gov'
-                          ? 'GOVERNMENT'
-                          : _channel == 'private'
-                              ? 'PRIVATE SUPPLIERS'
-                              : 'ESTATE OWNER',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.green,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _channel == 'gov'
                           ? 'Government programme'
                           : 'Suppliers near you',
                       style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.4,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
                         color: AppColors.ink,
                       ),
                     ),
@@ -215,14 +201,10 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
     if (widget.embedded) return ColoredBox(color: AppColors.cream, child: body);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFEFEFEF),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
-          child: Material(color: AppColors.cream, child: SafeArea(child: body)),
-        ),
-      ),
+    return FertPage(
+      title: 'Suppliers near you',
+      subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
+      child: Material(color: AppColors.cream, child: body),
     );
   }
 

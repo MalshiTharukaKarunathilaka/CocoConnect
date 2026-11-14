@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/owner_widgets.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
@@ -45,28 +46,9 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
             child: SafeArea(
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.arrow_back),
-                        ),
-                        const Expanded(
-                          child: Text(
-                            'My fertilizer orders',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.green,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 48),
-                      ],
-                    ),
+                  const OwnerHeader(
+                    title: 'My fertilizer orders',
+                    subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
