@@ -30,7 +30,7 @@ export function Character(props) {
   )
 }
 
-function DrawnCharacter({ gender = 'M', stage = 1, height = 190, active = false, delay = 0 }) {
+export function DrawnCharacter({ gender = 'M', stage = 1, height = 190, active = false, delay = 0 }) {
   const uid = useId().replace(/:/g, '')
   const female = gender === 'F'
   const hair = HAIR[stage]

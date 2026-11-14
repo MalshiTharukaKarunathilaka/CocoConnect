@@ -7,9 +7,11 @@ import { glyphHtml, pinIcon } from './pins'
 
 export const GREEN_SCALE = ['#e3f0e6', '#bcdcc6', '#86be9c', '#4f9a6f', '#256b45']
 const OFF = '#e9eeec'
-const colorFor = (v, max, scale) => {
+const colorFor = (v, max, scale, min = 0) => {
   if (!max || v <= 0) return scale[0]
-  const i = Math.min(scale.length - 1, Math.floor((v / max) * scale.length * 0.999))
+  const span = max - min
+  const t = min > 0 ? (span > 0 ? (v - min) / span : 0.5) : v / max
+  const i = Math.min(scale.length - 1, Math.max(0, Math.floor(t * scale.length * 0.999)))
   return scale[i]
 }
 
@@ -24,7 +26,7 @@ function Fitter({ geo, sel }) {
   return null
 }
 
-// Districts that can be split further. Only Kurunegala for now: 10 CDO regions.
+// Districts that can be split further. Only Kurunegala for now: 10 CDO areas.
 const SUB_FILES = { Kurunegala: '/geo/kurunegala-cdo.json' }
 const subCache = {}
 const loadSub = (district) => (subCache[district] ||= fetch(SUB_FILES[district]).then((r) => r.json()))
@@ -47,6 +49,10 @@ export default function DrillMap({
   markerKey,
   height = 520,
   legend = [],
+  overlay = null,
+  agg = 'sum', // 'avg' when the values are prices
+  cdoValues = null, // optional {areaName: value} for the CDO areas
+  badge = null, // { html: (value, name, index) => string }: a picture and the amount on every area
 }) {
   const [tiles, setTiles] = useState(false)
   const level = sel.district ? 2 : sel.province ? 1 : 0
@@ -62,7 +68,7 @@ export default function DrillMap({
   }, [subDistrict])
 
   // value of each region: its share of the district, from the pins inside it (or its area if there are none)
-  const subValues = useMemo(() => {
+  const subCalc = useMemo(() => {
     if (!subGeo) return {}
     const total = values[subDistrict] || 0
     const feats = subGeo.features
@@ -72,18 +78,66 @@ export default function DrillMap({
     const sum = weights.reduce((a, b) => a + b, 0) || 1
     return Object.fromEntries(feats.map((f, i) => [f.properties.region, (total * weights[i]) / sum]))
   }, [subGeo, subDistrict, values, markers])
+  const subValues = cdoValues || subCalc
   const subMax = Math.max(...Object.values(subValues), 0)
 
   const provTotals = useMemo(() => {
     const t = {}
-    for (const d of DISTRICTS) t[d.province] = (t[d.province] || 0) + (values[d.name] || 0)
+    const n = {}
+    for (const d of DISTRICTS) {
+      t[d.province] = (t[d.province] || 0) + (values[d.name] || 0)
+      if (values[d.name] > 0) n[d.province] = (n[d.province] || 0) + 1
+    }
+    if (agg === 'avg') for (const p of Object.keys(t)) t[p] = n[p] ? t[p] / n[p] : 0
     return t
-  }, [values])
+  }, [values, agg])
+
+  // One badge per area that is in view: provinces, then the districts of a province, then CDO areas.
+  const badges = useMemo(() => {
+    if (!badge) return []
+    const centreOf = (feats) => {
+      const cs = feats.map((f) => f.properties.c).filter(Boolean)
+      return [cs.reduce((a, c) => a + c[0], 0) / cs.length, cs.reduce((a, c) => a + c[1], 0) / cs.length]
+    }
+    const out = []
+    if (level === 0) {
+      Object.keys(PROVINCE_COLORS).forEach((p) => {
+        const feats = geo.features.filter((f) => provinceOf(f.properties.district) === p)
+        if (feats.length) out.push({ name: p, pos: centreOf(feats), value: provTotals[p] || 0, go: () => onSel({ province: p }) })
+      })
+    } else if (!sel.district) {
+      geo.features.filter((f) => provinceOf(f.properties.district) === sel.province).forEach((f) => {
+        const name = f.properties.district
+        out.push({ name: label(name), pos: f.properties.c, value: values[name] || 0, go: () => onSel({ province: sel.province, district: name }) })
+      })
+    } else if (subGeo && !region) {
+      subGeo.features.forEach((f) => {
+        const name = f.properties.region
+        out.push({ name, pos: f.properties.c, value: subValues[name] || 0, go: () => setRegion(name) })
+      })
+    } else if (subGeo && region) {
+      const f = subGeo.features.find((x) => x.properties.region === region)
+      if (f) out.push({ name: region, pos: f.properties.c, value: subValues[region] || 0, go: () => setRegion(null) })
+    } else {
+      const f = geo.features.find((x) => x.properties.district === sel.district)
+      if (f) out.push({ name: label(sel.district), pos: f.properties.c, value: values[sel.district] || 0, go: () => {} })
+    }
+    return out.filter((b) => b.pos)
+  }, [badge, level, geo, sel.province, sel.district, region, subGeo, values, subValues]) // eslint-disable-line
 
   const max = useMemo(() => {
     if (level === 0) return Math.max(...Object.values(provTotals), 0)
     return Math.max(...DISTRICTS.filter((d) => d.province === sel.province).map((d) => values[d.name] || 0), 0)
   }, [level, provTotals, values, sel.province])
+
+  // For averages (prices) the values are all close together, so spread the colours between the lowest and highest.
+  const lowest = (list) => {
+    if (agg !== 'avg') return 0
+    const v = list.filter((x) => x > 0)
+    return v.length ? Math.min(...v) : 0
+  }
+  const min = level === 0 ? lowest(Object.values(provTotals)) : lowest(DISTRICTS.filter((d) => d.province === sel.province).map((d) => values[d.name] || 0))
+  const subMin = lowest(Object.values(subValues))
 
   const sig = Object.values(values).join(',')
   const key = `${level}|${sel.province}|${sel.district}|${sig}|${tiles}`
@@ -94,13 +148,13 @@ export default function DrillMap({
     const name = f.properties.district
     const prov = provinceOf(name)
     const base = { weight: 0.8, color: '#ffffff', fillOpacity: tiles ? 0.62 : 0.95 }
-    if (level === 0) return { ...base, fillColor: colorFor(provTotals[prov], max, rampFor(prov)) }
+    if (level === 0) return { ...base, fillColor: colorFor(provTotals[prov], max, rampFor(prov), min) }
     if (prov !== sel.province) return { ...base, fillColor: OFF, fillOpacity: tiles ? 0.25 : 0.8 }
     const chosen = sel.district === name
     if (chosen && subGeo) return { ...base, fillColor: rampFor(prov)[0], fillOpacity: 0.3, weight: 2.5, color: '#15201a' }
     return {
       ...base,
-      fillColor: colorFor(values[name] || 0, max, rampFor(prov)),
+      fillColor: colorFor(values[name] || 0, max, rampFor(prov), min),
       weight: chosen ? 3 : 1.2,
       color: chosen ? '#15201a' : '#ffffff',
     }
@@ -153,7 +207,7 @@ export default function DrillMap({
                 weight: on ? 3.5 : 1.6,
                 color: on ? '#15201a' : '#ffffff',
                 fillOpacity: tiles ? 0.7 : 0.97,
-                fillColor: colorFor(subValues[f.properties.region] || 0, subMax, rampFor(provinceOf(subDistrict))),
+                fillColor: colorFor(subValues[f.properties.region] || 0, subMax, rampFor(provinceOf(subDistrict)), subMin),
               }
             }}
             onEachFeature={(f, layer) => {
@@ -167,11 +221,23 @@ export default function DrillMap({
             }}
           />
         )}
+        {badges.map((b, i) => (
+          <Marker
+            key={`badge-${level}-${b.name}-${i}`}
+            position={b.pos}
+            zIndexOffset={800}
+            icon={L.divIcon({ html: `<div class="an-badge">${badge.html(b.value, b.name, i)}</div>`, className: 'an-badge-wrap', iconSize: [96, 90], iconAnchor: [48, 84] })}
+            eventHandlers={{ click: b.go }}
+          >
+            <Tooltip direction="top" offset={[0, -78]}>{b.name}</Tooltip>
+          </Marker>
+        ))}
         {markers.map((m, i) => (
           <Marker
             key={`${markerKey}-${i}`}
             position={[m.lat, m.lng]}
             icon={pinIcon(m.icon || 'palm', m.color, m.size || 26, m.dim)}
+            eventHandlers={m.onClick ? { click: m.onClick } : undefined}
           >
             <Tooltip direction="top" offset={[0, -12]}>{m.tip}</Tooltip>
           </Marker>
@@ -190,8 +256,9 @@ export default function DrillMap({
       <button className={`an-map-tiles ${tiles ? 'on' : ''}`} onClick={() => setTiles(!tiles)}>
         {tiles ? 'Street map: on' : 'Street map'}
       </button>
+      {overlay}
       <div className="an-map-hint">
-        {level === 0 ? 'Click a province to drill down' : level === 1 ? 'Click a district to pinpoint' : subGeo ? `${subGeo.features.length} CDO regions in ${label(subDistrict)}. Click a region to pinpoint` : 'Use the path at the top-left to go back'}
+        {level === 0 ? 'Click a province to drill down' : level === 1 ? 'Click a district to pinpoint' : subGeo ? `${subGeo.features.length} CDO areas in ${label(subDistrict)}. Click an area to pinpoint` : 'Use the path at the top-left to go back'}
       </div>
 
       <div className="an-map-legend">

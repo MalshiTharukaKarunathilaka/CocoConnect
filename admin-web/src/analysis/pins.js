@@ -68,7 +68,29 @@ const OUTLINE =
 const glyph = (kind, color, px) =>
   `<svg viewBox="0 0 32 32" width="${px}" height="${px}" style="display:block;overflow:visible;filter:${OUTLINE}">${GLYPH[kind]('#ffffff').replaceAll('"#fff"', `"${color}"`)}</svg>`
 
-export const glyphHtml = (kind, color, size = 16) => (kind === 'palm' ? palm(size) : glyph(kind, color, size))
+// Crop pictures (real artwork) used as pins for pepper and pineapple.
+const PHOTO = {
+  pepper: ['/crops/pepper.png', 1.1], pineapple: ['/crops/pineapple.png', 0.82],
+  sack: ['/crops/sack.png', 0.95, 0.95],
+  tractor: ['/crops/tractor.png', 1.41, 0.7], hand: ['/crops/hand-tractor.png', 1.45, 0.7], backhoe: ['/crops/backhoe.png', 2.1, 0.6],
+}
+// A sack can be shown in other colours: turn the brown picture round the colour wheel.
+const hueOf = (hex) => {
+  const n = parseInt(String(hex || '#a5651e').replace('#', ''), 16)
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b)
+  if (mx === mn) return 30
+  const d = mx - mn
+  const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return Math.round(((h * 60) + 360) % 360)
+}
+const photo = (kind, size, color) => {
+  const [src, ratio, k = 1] = PHOTO[kind]
+  const h = Math.round(size * k)
+  return `<img src="${src}" alt="" width="${Math.round(h * ratio)}" style="display:block;height:${h}px;width:auto;filter:${kind === 'sack' && color ? `hue-rotate(${hueOf(color) - 33}deg) ` : ''}drop-shadow(0 2px 2px rgba(0,0,0,.35))"/>`
+}
+const markup = (kind, color, size) => (kind === 'palm' ? palm(size) : PHOTO[kind] ? photo(kind, size, color) : glyph(kind, color, size))
+export const glyphHtml = (kind, color, size = 16) => markup(kind, color, size)
 
 const cache = {}
 /** A Leaflet icon for a pin. Cached, because there can be a hundred of them. */
@@ -76,10 +98,10 @@ export function pinIcon(kind, color, size, dim) {
   const key = `${kind}|${color}|${size}|${dim}`
   if (!cache[key]) {
     cache[key] = L.divIcon({
-      html: kind === 'palm' ? palm(size) : glyph(kind, color, size),
+      html: markup(kind, color, size),
       className: `an-pin${dim ? ' dim' : ''}`,
       iconSize: [size, size],
-      iconAnchor: [size / 2, kind === 'palm' ? size - 2 : size / 2],
+      iconAnchor: [size / 2, kind === 'palm' || PHOTO[kind] ? size - 2 : size / 2],
     })
   }
   return cache[key]

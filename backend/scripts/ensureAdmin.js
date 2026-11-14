@@ -11,7 +11,7 @@ async function main() {
   if (existing.rows[0]) {
     await pool.query(
       `UPDATE users
-       SET role = 'ADMIN', status = 'ACTIVE', password_hash = $2, name = COALESCE(name, 'CocoConnect Admin')
+       SET role = 'ADMIN', status = 'ACTIVE', password_hash = $2, name = COALESCE(name, 'KapConnect Admin')
        WHERE phone = $1`,
       [phone, hash]
     );
@@ -19,7 +19,7 @@ async function main() {
   } else {
     await pool.query(
       `INSERT INTO users (name, phone, password_hash, role, location, status)
-       VALUES ('CocoConnect Admin', $1, $2, 'ADMIN', 'Colombo', 'ACTIVE')`,
+       VALUES ('KapConnect Admin', $1, $2, 'ADMIN', 'Colombo', 'ACTIVE')`,
       [phone, hash]
     );
     console.log(`Created admin account ${phone}`);

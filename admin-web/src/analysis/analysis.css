@@ -516,3 +516,29 @@
 .an-cal-d.holiday:not(.on):not(.today) { background: #fff8ea; border-color: #f0d9a8; }
 .an-cal-key { margin: 10px 2px 0; font-size: 0.75rem; color: #5c6b62; }
 .an-cal-hol { margin: 4px 0 8px; padding: 6px 10px; border-radius: 10px; background: #fff3d6; color: #8a5a0a; font-size: 0.8rem; font-weight: 700; }
+
+/* page header card under the big "Analysis dashboard" title */
+.an-head {
+  background: #fff;
+  border: 1px solid var(--line, #e2e7e4);
+  border-left: 4px solid #1a5f38;
+  border-radius: 16px;
+  padding: 18px 22px;
+  box-shadow: 0 1px 2px rgba(20, 40, 30, 0.04);
+  align-items: center;
+}
+.an-head h2 { font-size: 1.35rem; font-weight: 650; letter-spacing: -0.02em; }
+.an-head p { margin: 4px 0 0; font-size: 0.86rem; }
+.an-scope { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.an-scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #e8f2ec;
+  color: #1a5f38;
+  font-size: 0.76rem;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+.an-scope-chip b { color: #1a5f38; font-weight: 650; }

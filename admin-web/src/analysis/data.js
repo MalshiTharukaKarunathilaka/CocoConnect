@@ -113,7 +113,7 @@ export const JOB_CATEGORIES = [
 ]
 export const AGE_GROUPS = ['18–25', '26–35', '36–45', '46–55', '56+']
 export const GENDERS = ['Male', 'Female', 'Other']
-export const ESTATE_TYPES = ['Small holding (< 5 ac)', 'Medium estate (5–25 ac)', 'Large plantation (25+ ac)']
+export const ESTATE_TYPES = ['Non-systematic plantation (< 5 ac)', 'Systematic plantation (5–25 ac)', 'Corporate plantation (25+ ac)']
 
 export const FERT_TYPES = ['Urea', 'TSP', 'MOP', 'Dolomite', 'Organic compost', 'Coconut special mix']
 export const FERT_YEARS = [2022, 2023, 2024, 2025, 2026]
@@ -128,12 +128,12 @@ export const BOOKING_STATUSES = ['Completed', 'Confirmed', 'Pending', 'Cancelled
 export const PRODUCTS = ['Raw coconuts', 'Dehusked coconuts', 'Coconut husks']
 
 const NAME_A = ['Green Palm', 'Sunrise', 'Hill View', 'Lakshmi', 'Ceylon Gold', 'Rathna', 'Sea Breeze', 'Kapruka', 'Nelum', 'Mihiri', 'Ruhuna', 'Lanka Pride', 'Coco Valley', 'Isuru', 'Thilini', 'Vijaya', 'Siri', 'Dhanya', 'Pearl', 'Royal Palm', 'Nila', 'Ganga', 'Ranmali', 'Sandun']
-const NAME_B = ['Estate', 'Plantation', 'Gardens', 'Holdings', 'Coconut Land']
+const NAME_B = ['Land', 'Plantation', 'Gardens', 'Holdings', 'Farm']
 const OWNERS = ['K. Perera', 'S. Fernando', 'N. Silva', 'R. Jayasuriya', 'M. Rajapaksha', 'A. Bandara', 'T. Wijesinghe', 'P. Gunawardena', 'D. Senanayake', 'L. Herath', 'C. Dissanayake', 'H. Amarasinghe', 'V. Kumar', 'F. Rahman', 'J. Selvam']
 const PROVIDERS = ['Kamal Agro Services', 'Ruwan Machinery', 'Southern Tractors', 'Lanka Earthworks', 'Nimal Hire', 'Green Field Services', 'Ceylon Agro Hire', 'Perera Brothers', 'Sampath Machinery', 'Wijaya Contractors']
 
 // ---- builder ---------------------------------------------------------------
-export function buildDataset(geo) {
+export function buildDataset(geo, cdo) {
   const rng = rngOf(20261104)
   const shapes = {}
   for (const f of geo.features) {
@@ -176,7 +176,7 @@ export function buildDataset(geo) {
       lng,
       acres,
       palms: Math.round(acres * (60 + rng() * 25)),
-      plan: acres > 25 ? 'Large plantation' : acres > 5 ? 'Medium estate' : 'Small holding',
+      plan: acres > 25 ? 'Corporate plantation' : acres > 5 ? 'Systematic plantation' : 'Non-systematic plantation',
       registeredOn: when.toISOString().slice(0, 10),
     })
   }
@@ -185,9 +185,72 @@ export function buildDataset(geo) {
   // Who owns them. A separate generator, so the other sample numbers stay exactly as they were.
   const orng = rngOf(7102026)
   for (const e of estates) {
-    const big = e.plan === 'Large plantation'
+    const big = e.plan === 'Corporate plantation'
     e.ownerAge = wpick(orng, [0, 1, 2, 3, 4], (i) => [0.04, 0.17, 0.3, 0.29, 0.2][i] * (big && i === 0 ? 0.3 : 1))
     e.ownerGender = orng() < (big ? 0.84 : 0.7) ? 0 : 1 // 0 = male, 1 = female
+  }
+
+  // Crops, and a few more lands inside every small CDO area of Kurunegala so each one has pins.
+  // Separate generators again, so every other sample number stays as it was.
+  const crng = rngOf(5312026)
+  const inRing = (ring, x, y) => pointIn(ring, x, y)
+  if (cdo) {
+    let n = estates.length
+    for (const f of cdo.features) {
+      const ring = f.geometry.coordinates[0]
+      const xs = ring.map((q) => q[0]), ys = ring.map((q) => q[1])
+      const box = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+      const have = estates.filter((e) => inRing(ring, e.lng, e.lat)).length
+      const want = Math.max(0, 5 + Math.floor(crng() * 7) - have)
+      let made = 0
+      for (let t = 0; made < want && t < 400; t++) {
+        const x = box[0] + crng() * (box[2] - box[0])
+        const y = box[1] + crng() * (box[3] - box[1])
+        if (!inRing(ring, x, y)) continue
+        const acres = Math.max(1.5, Math.round(Math.exp(1.2 + crng() * 2.4) * 2) / 2)
+        const when = new Date(startMs + Math.pow(crng(), 0.65) * spanMs)
+        n += 1
+        made += 1
+        estates.push({
+          id: `E-${String(n).padStart(3, '0')}`,
+          name: `${NAME_A[Math.floor(crng() * NAME_A.length)]} ${NAME_B[Math.floor(crng() * NAME_B.length)]}`,
+          owner: OWNERS[Math.floor(crng() * OWNERS.length)],
+          district: 'Kurunegala',
+          province: 'North Western',
+          lat: y,
+          lng: x,
+          acres,
+          palms: Math.round(acres * (60 + crng() * 25)),
+          plan: acres > 25 ? 'Corporate plantation' : acres > 5 ? 'Systematic plantation' : 'Non-systematic plantation',
+          registeredOn: when.toISOString().slice(0, 10),
+          ownerAge: wpick(crng, [0, 1, 2, 3, 4], (i) => [0.04, 0.17, 0.3, 0.29, 0.2][i]),
+          ownerGender: crng() < 0.7 ? 0 : 1,
+        })
+      }
+    }
+  }
+  for (const e of estates) {
+    const r = crng()
+    e.crop = r < 0.68 ? 'Coconut' : r < 0.86 ? 'Pepper' : 'Pineapple'
+    if (e.crop !== 'Coconut') e.palms = 0 // palms are only counted on coconut land
+    e.region = null
+    if (cdo && e.district === 'Kurunegala') {
+      const hit = cdo.features.find((f) => inRing(f.geometry.coordinates[0], e.lng, e.lat))
+      if (hit) e.region = hit.properties.region
+    }
+  }
+
+  // Coconut prices (Rs per nut) at each marketplace step: what was asked in the order,
+  // what was agreed in the deal, and what was finally paid. A separate generator again.
+  const prng = rngOf(8112026)
+  const hash = (t) => [...t].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 997, 7)
+  for (const e of estates) {
+    if (e.crop !== 'Coconut') continue
+    const base = 98 + (hash(e.district) % 19) + (prng() - 0.5) * 8
+    const order = Math.round(base * 100) / 100
+    const deal = Math.round(order * (0.955 + prng() * 0.02) * 100) / 100
+    const txn = Math.round(deal * (0.975 + prng() * 0.02) * 100) / 100
+    e.price = { orders: order, deal, transactions: txn }
   }
 
   // Day workers ----------------------------------------------------------
@@ -334,9 +397,10 @@ export function buildDataset(geo) {
 let cache
 export function loadDataset() {
   if (!cache) {
-    cache = fetch('/geo/lk-districts.json')
-      .then((r) => r.json())
-      .then((geo) => ({ geo, ...buildDataset(geo) }))
+    cache = Promise.all([
+      fetch('/geo/lk-districts.json').then((r) => r.json()),
+      fetch('/geo/kurunegala-cdo.json').then((r) => r.json()).catch(() => null),
+    ]).then(([geo, cdo]) => ({ geo, cdo, ...buildDataset(geo, cdo) }))
   }
   return cache
 }

@@ -1,25 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from './api'
 import './AdminApp.css'
-import Analysis from './analysis/AnalysisPages'
+import Analysis, { MarketPrices, SalesSummary, SubscriptionGrowth } from './analysis/AnalysisPages'
+import DisputeFlow from './DisputeFlow'
 import './analysis/analysis.css'
+import SideNav from './SideNav'
+import { MENU, menuOf, itemLabel } from './menu'
+import './SideNav.css'
 
 const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`
 const shortDate = (value) => (value ? new Date(value).toLocaleDateString() : '—')
 const pill = (status) => <span className={`adm-pill ${String(status || '').toLowerCase()}`}>{String(status || '').replaceAll('_', ' ')}</span>
-
-const NAV = [
-  {
-    section: 'Analysis dashboard',
-    items: [
-      ['an-overview', 'Overview & estates'],
-      ['an-workers', 'Day workers'],
-      ['an-fert', 'Fertilizer'],
-      ['an-mach', 'Machinery'],
-      ['an-sales', 'Sales'],
-    ],
-  },
-]
 
 // Each of these is one sidebar entry; its pages show as tabs above the content.
 const GROUPS = [
@@ -97,12 +88,16 @@ const MAP_CITIES = [
   { name: 'Matara', left: 48, top: 90, band: 'Rs. 115 – 140' },
 ]
 
-export default function AdminApp({ user, logout }) {
+export default function AdminApp({ user: account, logout }) {
+  // The brand is spelled KapConnect everywhere, including older account names.
+  const user = { ...account, name: String(account.name || 'Admin').replace(/coco\s*connect/gi, 'KapConnect') }
   const [view, setView] = useState(() => {
     const h = window.location.hash.slice(1).split('/')[0]
     return !h || h === 'dashboard' ? 'an-overview' : h
   })
   const [search, setSearch] = useState('')
+  const [collapsed, setCollapsed] = useState(false)
+  const [drawer, setDrawer] = useState(false)
   const [userFilter, setUserFilter] = useState('all')
   const [dealFilter, setDealFilter] = useState('ALL')
   const [selectedRegion, setSelectedRegion] = useState(null)
@@ -336,7 +331,27 @@ export default function AdminApp({ user, logout }) {
 
   let content = null
   const isAnalysis = view.startsWith('an-')
-  if (isAnalysis) {
+  if (view.startsWith('soon-')) {
+    content = (
+      <div className="adm-card adm-soon">
+        <h2>{itemLabel(view) || 'Coming soon'}</h2>
+        <p>This page is part of the new menu and will show its analysis here once the data is connected.</p>
+      </div>
+    )
+  } else if (view === 'help') {
+    content = (
+      <div className="adm-card adm-help">
+        <div className="adm-card-h"><h2>Help</h2></div>
+        <ul>
+          <li><b>Menu:</b> pick one of the five groups on the left, then a page under it.</li>
+          <li><b>Maps and charts:</b> click a province or district to drill in; use the back link above the map to return.</li>
+          <li><b>Verification and disputes:</b> the numbers beside Platform and Marketplace are items waiting for you.</li>
+          <li><b>Export:</b> the Export button downloads the current admin data as JSON.</li>
+          <li><b>Support contact:</b> {data.settings?.support || 'support@cococonnect.lk'}</li>
+        </ul>
+      </div>
+    )
+  } else if (isAnalysis) {
     content = <Analysis view={view} />
   } else if (loading && !data.users.length) {
     content = <div className="adm-empty">Loading admin console…</div>
@@ -386,6 +401,8 @@ export default function AdminApp({ user, logout }) {
     )
   } else if (view === 'users') {
     content = (
+      <>
+      <SubscriptionGrowth />
       <div className="adm-card">
         <div className="adm-toolbar">
           {['all', 'buyer', 'estate', 'suspended'].map((f) => (
@@ -409,6 +426,7 @@ export default function AdminApp({ user, logout }) {
           </tbody>
         </table>
       </div>
+      </>
     )
   } else if (view === 'verify') {
     content = (
@@ -809,64 +827,52 @@ export default function AdminApp({ user, logout }) {
     )
   }
 
+  if (['orders', 'deal', 'transactions'].includes(view) && content) {
+    content = (
+      <>
+        <MarketPrices stage={view} />
+        {view === 'transactions' && <SalesSummary />}
+        {content}
+      </>
+    )
+  }
+
+  if (view === 'disputes') content = <><DisputeFlow />{content}</>
+
   const activeGroup = groupOf(view)
   const badgeFor = (id) => (id === 'verify' ? pendingUsers.length : id === 'deal' ? dealRows.length : id === 'disputes' ? openDisputes.length : 0)
 
   return (
-    <div className="adm-shell">
-      <aside className="adm-sidebar">
-        <div className="adm-brand">
-          <img className="adm-logo" src="/logo.png" alt="KapConnect" />
-          <small>Administration</small>
-        </div>
-        <nav className="adm-nav">
-          {NAV.map((group) => (
-            <div key={group.section}>
-              <div className="adm-sec">{group.section}</div>
-              {group.items.map(([id, label]) => (
-                <button key={id} className={`adm-link ${view === id ? 'active' : ''}`} onClick={() => setView(id)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          ))}
-          {GROUPS.map((g) =>
-            g.flat ? (
-              <div key={g.id}>
-                <div className="adm-sec">{g.label}</div>
-                {g.tabs.map(([id, label]) => (
-                  <button key={id} className={`adm-link ${view === id ? 'active' : ''}`} onClick={() => setView(id)}>
-                    {label}
-                    {badgeFor(id) > 0 && <span className="adm-badge">{badgeFor(id)}</span>}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div key={g.id}>
-                <div className="adm-sec">{g.heading}</div>
-              <button className={`adm-link adm-link-group ${activeGroup?.id === g.id ? 'active' : ''}`} onClick={() => setView(g.tabs[0][0])}>
-                {g.label}
-                {g.tabs.reduce((n, [id]) => n + badgeFor(id), 0) > 0 && <span className="adm-badge">{g.tabs.reduce((n, [id]) => n + badgeFor(id), 0)}</span>}
-              </button>
-              </div>
-            ),
-          )}
-        </nav>
-        <div className="adm-foot">
-          <div className="adm-avatar">{user.name.slice(0, 1)}</div>
-          <div><b>{user.name}</b><small>Administrator</small></div>
-          <button type="button" className="adm-signout" onClick={logout}>Sign out</button>
-        </div>
-      </aside>
+    <div className={`adm-shell ${collapsed ? 'sn-collapsed' : ''}`}>
+      <SideNav
+        view={view}
+        setView={setView}
+        badgeFor={badgeFor}
+        user={user}
+        logout={logout}
+        collapsed={collapsed}
+        setCollapsed={setCollapsed}
+        drawer={drawer}
+        setDrawer={setDrawer}
+      />
       <div className="adm-main">
         <header className="adm-topbar">
+          <button className="sn-burger" aria-label="Menu" onClick={() => { setCollapsed(false); setDrawer(true) }}>
+            <span /><span /><span />
+          </button>
           <div>
-            <h1>{TITLES[view]}</h1>
+            <div className="adm-crumbs">
+              Admin
+              {menuOf(view) && <> / {MENU.find((m) => m.id === menuOf(view)).label}</>}
+              {' / '}<b>{itemLabel(view) || TITLES[view]}</b>
+            </div>
+            <h1>{view.startsWith('an-') || view.startsWith('soon-') ? 'Analysis dashboard' : itemLabel(view) || TITLES[view]}</h1>
             <p className="adm-top-sub">{view.startsWith('an-') ? `${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, ${user.name.split(' ')[0]}` : `Synced ${new Date().toLocaleTimeString()}`}</p>
           </div>
-          <div className="adm-top-actions">
+          <div className="adm-top-tools">
             <input className="adm-search" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
             <button className="adm-btn outline" onClick={load}>Refresh</button>
+            <button className="adm-btn green" onClick={exportJson}>Export</button>
           </div>
         </header>
         <div className="adm-content">

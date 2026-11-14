@@ -209,16 +209,17 @@ export function PageHead({ title, sub, sel, onSel, name, sections, children }) {
     <>
       <PrintHead name={name} sel={sel} />
       <div className="an-head an-noprint-gap">
-        <div>
+        <div className="an-head-text">
           <h2>{title}</h2>
-          <p>
-            {sub} · Showing <b>{scopeName(sel)}</b>
+          <p>{sub}</p>
+          <div className="an-scope">
+            <span className="an-scope-chip">Showing <b>{scopeName(sel)}</b></span>
             {(sel.province || sel.district) && (
               <button className="an-reset" onClick={() => onSel({})}>
                 Reset to Sri Lanka
               </button>
             )}
-          </p>
+          </div>
         </div>
         <ReportBar name={name} sel={sel} sections={sections} />
       </div>

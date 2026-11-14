@@ -46,7 +46,7 @@ function Fit({ geo, focus }) {
 }
 
 // A real coconut photo that turns gently in 3D.
-function Coconut({ small }) {
+export function Coconut({ small }) {
   return (
     <div className={`pc-nut ${small ? 'small' : ''}`}>
       <div className="pc-turn">
