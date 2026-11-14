@@ -763,7 +763,7 @@ class _RegistrationState extends State<ServiceProviderRegistrationPage> {
                                     const SizedBox(width: 8),
                                     const Expanded(
                                       child: Text(
-                                        'I confirm that the personal information provided is accurate and I agree to the CocoConnect Service Terms and Agrarian Code of Conduct.',
+                                        'I confirm that the personal information provided is accurate and I agree to the KapConnect Service Terms and Agrarian Code of Conduct.',
                                         style: TextStyle(
                                           fontSize: 15,
                                           height: 1.5,

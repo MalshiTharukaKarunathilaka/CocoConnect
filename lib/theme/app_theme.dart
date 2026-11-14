@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// CocoConnect design system tokens. See DESIGN_SYSTEM.md in the repository.
+/// KapConnect design system tokens. See DESIGN_SYSTEM.md in the repository.
 /// Colours here are the same values as the owner screens' kOwner* constants,
 /// so screens built with either look the same.
 class AppColors {

@@ -14,7 +14,7 @@ class KapConnectApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CocoConnect',
+      title: 'KapConnect',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true, fontFamily: 'Arial'),
 

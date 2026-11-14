@@ -438,7 +438,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
             _Service(
               i.name,
               '',
-              'Booked through CocoConnect',
+              'Booked through KapConnect',
               // Spread any negotiated discount over the services.
               (i.rate * b.total / (b.listTotal == 0 ? 1 : b.listTotal)).round(),
               i.unit,
@@ -591,36 +591,94 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
                   _machineHeader(widget.info!),
                   const SizedBox(height: 14),
                 ],
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 10, left: 2),
-                  child: Text(
-                    'Tap an available date to select your service schedule.',
-                    style: TextStyle(fontSize: 13, color: kOwnerMuted),
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF2FC),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.touch_app_outlined,
+                        size: 18,
+                        color: Color(0xFF1F5FA8),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Tap an available date to select your service schedule.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: Color(0xFF1F4E85),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 _calendar(),
                 const SizedBox(height: 18),
-                Row(
+                Container(
                   key: _selKey,
-                  children: [
-                    const Icon(
-                      Icons.event_available_outlined,
-                      size: 20,
-                      color: kOwnerGreen,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${_weekdays[_day.weekday - 1]}, ${_day.day} ${_months[_day.month - 1]} ${_day.year}',
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: kOwnerInk,
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE3EBE5)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x10000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: kOwnerGreenSoft,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.event_available_outlined,
+                          size: 22,
+                          color: kOwnerGreen,
                         ),
                       ),
-                    ),
-                    OwnerPill(label, tone: tone),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _weekdays[_day.weekday - 1],
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: kOwnerMuted,
+                              ),
+                            ),
+                            Text(
+                              '${_day.day} ${_months[_day.month - 1]} ${_day.year}',
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: kOwnerInk,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      OwnerPill(label, tone: tone),
+                    ],
+                  ),
                 ),
                 HolidayListener(
                   years: [_day.year],
@@ -684,110 +742,192 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
     );
   }
 
-  Widget _machineHeader(MachineInfo m) => OwnerCard(
-    padding: const EdgeInsets.all(12),
-    child: Row(
-      children: [
-        MachinePhoto(m, width: 84, height: 84, radius: 12),
-        const SizedBox(width: 12),
+  Widget _machineHeader(MachineInfo m) {
+    Widget stat(IconData icon, Color color, String value, String label) =>
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE3EBE5)),
+            ),
+            child: Column(
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                    color: kOwnerInk,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 10.5, color: kOwnerMuted),
+                ),
+              ],
+            ),
+          ),
+        );
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Colors.white, Color(0xFFEFF6F1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFDCE8DF)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
             children: [
-              Text(
-                machineLabel(m.type).toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.6,
-                  color: kOwnerGreen,
-                ),
-              ),
-              Text(
-                m.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 16.5,
-                  fontWeight: FontWeight.bold,
-                  color: kOwnerInk,
-                ),
-              ),
-              Row(
+              Stack(
                 children: [
-                  Flexible(
-                    child: Text(
-                      m.provider,
+                  MachinePhoto(m, width: 96, height: 96, radius: 18),
+                  Positioned(
+                    left: 6,
+                    bottom: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        machineLabel(m.type),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: kOwnerGreen,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      m.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 12.5,
-                        color: kOwnerMuted,
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                        color: kOwnerInk,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.verified, size: 14, color: kOwnerGreen),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.star, size: 14, color: Color(0xFFF2A900)),
-                  const SizedBox(width: 3),
-                  Text(
-                    (m.databaseId != null
-                        ? 'Registered provider'
-                        : '${m.rating}'),
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: kOwnerInk,
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            m.provider,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: kOwnerMuted,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.verified,
+                          size: 15,
+                          color: kOwnerGreen,
+                        ),
+                      ],
                     ),
-                  ),
-                  Text(
-                    (m.databaseId != null ? '' : ' (${m.jobs} jobs)'),
-                    style: const TextStyle(fontSize: 12, color: kOwnerMuted),
-                  ),
-                  if (widget.km > 0) ...[
-                    const Text(
-                      '  ·  ',
-                      style: TextStyle(fontSize: 12, color: kOwnerMuted),
-                    ),
-                    Text(
-                      '${widget.km.toStringAsFixed(1)} km',
-                      style: const TextStyle(fontSize: 12, color: kOwnerMuted),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text.rich(
-                TextSpan(
-                  text: 'from ${rupees(m.rate)}',
-                  children: [
-                    TextSpan(
-                      text: ' / ${m.unit}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.normal,
-                        color: kOwnerMuted,
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFBF1E6),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'from ${rupees(m.rate)}',
+                          children: [
+                            TextSpan(
+                              text: ' / ${m.unit}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.normal,
+                                color: kOwnerMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: kOwnerBrown,
+                        ),
                       ),
                     ),
                   ],
-                ),
-                style: const TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.bold,
-                  color: kOwnerBrown,
                 ),
               ),
             ],
           ),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              stat(
+                m.databaseId != null ? Icons.verified_user : Icons.star,
+                m.databaseId != null
+                    ? kOwnerGreen
+                    : const Color(0xFFF2A900),
+                m.databaseId != null ? 'Registered' : '${m.rating}',
+                m.databaseId != null ? 'provider' : '${m.jobs} jobs',
+              ),
+              const SizedBox(width: 8),
+              stat(
+                Icons.near_me_outlined,
+                const Color(0xFF0288D1),
+                widget.km > 0 ? '${widget.km.toStringAsFixed(1)} km' : '-',
+                'from your estate',
+              ),
+              const SizedBox(width: 8),
+              stat(
+                Icons.sell_outlined,
+                kOwnerBrown,
+                'per ${m.unit}',
+                'billing',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   /// The chosen services, each with its own acres (or hours) and cost.
   Widget _selectionCard(List<_Service> selected) {
@@ -1009,7 +1149,14 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: kOwnerBorder)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 18,
+            offset: Offset(0, -4),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1026,9 +1173,9 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
               Text(
                 rupees(total),
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: kOwnerInk,
+                  color: kOwnerGreen,
                 ),
               ),
             ],
@@ -1067,8 +1214,20 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
       ),
     );
 
-    return OwnerCard(
-      padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE3EBE5)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
       child: Column(
         children: [
           Row(
@@ -1078,7 +1237,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
                 child: Text(
                   '${_months[_month.month - 1]} ${_month.year}',
                   style: const TextStyle(
-                    fontSize: 17,
+                    fontSize: 19,
                     fontWeight: FontWeight.bold,
                     color: kOwnerInk,
                   ),
@@ -1116,22 +1275,34 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
               ],
             ),
           const SizedBox(height: 10),
-          const Wrap(
-            spacing: 14,
-            runSpacing: 6,
-            alignment: WrapAlignment.center,
-            children: [
-              _Legend(color: kOwnerGreen, label: 'Available'),
-              _Legend(color: _red, label: 'Booked'),
-              _Legend(color: _amber, label: 'Pending'),
-              HolidayLegend(),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Small coloured dots: your bookings with other machines that day',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11.5, color: kOwnerMuted),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF6F8F6),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Column(
+              children: [
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _Legend(color: kOwnerGreen, label: 'Available'),
+                    _Legend(color: _red, label: 'Booked'),
+                    _Legend(color: _amber, label: 'Pending'),
+                    HolidayLegend(),
+                  ],
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Small coloured dots: your bookings with other machines that day',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11.5, color: kOwnerMuted),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1139,7 +1310,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   }
 
   Widget _dayCell(int n, int days) {
-    if (n < 1 || n > days) return const SizedBox(height: 54);
+    if (n < 1 || n > days) return const SizedBox(height: 52);
     final DateTime d = DateTime(_month.year, _month.month, n);
     final bool selected = _key(d) == _key(_day);
     final bool today = _key(d) == _key(_today);
@@ -1149,11 +1320,11 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
         st != _Day.past && st != _Day.booked && _freeSvc(d).isEmpty;
 
     final (Color strong, Color soft) = switch (st) {
-      _Day.past => (const Color(0xFF9AA0A6), const Color(0xFFF4F4F2)),
+      _Day.past => (const Color(0xFF9AA0A6), Colors.transparent),
       _Day.booked => (_red, const Color(0xFFFDECEC)),
       _Day.pending =>
         full ? (_red, const Color(0xFFFDECEC)) : (_amber, _amberSoft),
-      _Day.free => (kOwnerGreen, kOwnerGreenSoft),
+      _Day.free => (kOwnerGreen, const Color(0xFFF0F6F1)),
     };
     final bool dim = st == _Day.past;
     final bool strike = st == _Day.booked || full;
@@ -1171,13 +1342,22 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
       child: Stack(
         children: [
           Container(
-            height: 54,
-            margin: const EdgeInsets.all(2),
+            height: 52,
+            margin: const EdgeInsets.all(2.5),
             decoration: BoxDecoration(
               color: selected ? strong : soft,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: today && !selected
                   ? Border.all(color: kOwnerGreen, width: 1.6)
+                  : null,
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: strong.withValues(alpha: 0.4),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
                   : null,
             ),
             child: Column(
@@ -1194,6 +1374,8 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
                         ? Colors.white
                         : dim
                         ? const Color(0xFFB4B8BC)
+                        : st == _Day.free
+                        ? kOwnerInk
                         : strong,
                     decoration: strike ? TextDecoration.lineThrough : null,
                     decorationColor: selected ? Colors.white : strong,
@@ -1448,13 +1630,21 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
         children: [
           Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(13),
+              color: selected ? const Color(0xFFF2F9F4) : Colors.white,
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: selected ? kOwnerGreen : Colors.transparent,
-                width: 2,
+                color: selected ? kOwnerGreen : const Color(0xFFE3EBE5),
+                width: selected ? 2 : 1,
               ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x10000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
-            child: OwnerCard(
+            child: Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,

@@ -540,7 +540,7 @@ class SignupAgreement extends StatelessWidget {
                     padding: EdgeInsets.only(top: 8),
                     child: Text(
                       'I confirm my details are accurate and agree to '
-                      'the CocoConnect Service Terms and Code of Conduct.',
+                      'the KapConnect Service Terms and Code of Conduct.',
                       style: TextStyle(fontSize: 12.5, height: 1.4),
                     ),
                   ),

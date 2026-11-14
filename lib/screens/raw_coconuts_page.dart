@@ -309,7 +309,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                           ),
 
                           const Text(
-                            'CocoConnect',
+                            'KapConnect',
                             style: TextStyle(
                               color: Color(0xFF2E7D32),
                               fontSize: 15,

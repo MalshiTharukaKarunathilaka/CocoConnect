@@ -90,7 +90,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                       ),
                       const Expanded(
                         child: Text(
-                          'CocoConnect',
+                          'KapConnect',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Color(0xFF2E7D32),

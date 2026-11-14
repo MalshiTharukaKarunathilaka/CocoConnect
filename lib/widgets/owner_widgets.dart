@@ -679,7 +679,7 @@ class CategoryImageCard extends StatelessWidget {
                 fit: BoxFit.cover,
                 // Wikimedia asks apps to say who they are.
                 headers: const {
-                  'User-Agent': 'CocoConnect/1.0 (university project)',
+                  'User-Agent': 'KapConnect/1.0 (university project)',
                 },
                 loadingBuilder: (context, child, progress) => progress == null
                     ? child

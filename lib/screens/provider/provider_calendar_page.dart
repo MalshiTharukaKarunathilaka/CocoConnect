@@ -691,7 +691,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
         const SizedBox(width: 6),
         const Expanded(
           child: Text(
-            'CocoConnect',
+            'KapConnect',
             style: TextStyle(
               color: _green,
               fontWeight: FontWeight.bold,
