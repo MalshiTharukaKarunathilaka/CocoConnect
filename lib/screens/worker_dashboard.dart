@@ -1002,6 +1002,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         final jobs = snapshot.data ?? const <WorkerJob>[];
         final date = _selectedDate;
         final selectedJobs = jobs.where((job) {
+          if (_myJobsOnly) {
+            return _isAcceptedJob(job);
+          }
           final matchesDate =
               date == null ||
               (job.requiredDate.year == date.year &&
@@ -1010,9 +1013,12 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           final matchesCategory =
               _category == null ||
               job.category.toLowerCase().contains(_category!.toLowerCase());
+          final matchesRadius =
+              _radiusKm == null ||
+              (job.distanceKm != null && job.distanceKm! <= _radiusKm!);
           return matchesDate &&
               matchesCategory &&
-              (!_myJobsOnly || _isAcceptedJob(job));
+              matchesRadius;
         }).toList();
         final estateJobs = <String, List<WorkerJob>>{};
         for (final job in selectedJobs) {
@@ -1067,23 +1073,25 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 ),
                 const SizedBox(height: 22),
                 _nearbyFilters(selectedJobs, allJobs: jobs),
-                const SizedBox(height: 22),
-                _distanceFilter(),
-                const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => EstateJobsMapPage(
-                        jobs: jobs,
-                        radiusKm: _radiusKm ?? 20,
-                        nearbyOnly: _radiusKm != null,
+                if (!_myJobsOnly) ...[
+                  const SizedBox(height: 22),
+                  _distanceFilter(),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EstateJobsMapPage(
+                          jobs: jobs,
+                          radiusKm: _radiusKm ?? 20,
+                          nearbyOnly: _radiusKm != null,
+                        ),
                       ),
                     ),
+                    child: _nearbyMap(),
                   ),
-                  child: _nearbyMap(),
-                ),
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
+                ],
               ],
               if (selectedJobs.isEmpty)
                 _emptyJobsMessage()
@@ -1149,10 +1157,12 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         children: [
           Row(
             children: [
-              _filterButton('All', selected: _category == null),
-              _filterIcon(Icons.eco, 'Nut Gatherer'),
-              _filterIcon(Icons.agriculture, 'Machine'),
-              _filterIcon(Icons.build, 'Manual'),
+              if (!_myJobsOnly) ...[
+                _filterButton('All', selected: _category == null),
+                _filterIcon(Icons.eco, 'Nut Gatherer'),
+                _filterIcon(Icons.agriculture, 'Machine'),
+                _filterIcon(Icons.build, 'Manual'),
+              ],
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => setState(() {
@@ -1175,39 +1185,42 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              const Icon(Icons.circle, size: 12, color: _workerGreen),
-              const SizedBox(width: 8),
-              Text(
-                _selectedDate == null
-                    ? 'View all estates across Sri Lanka'
-                    : 'Jobs for ${_selectedDate!.day} '
-                          '${_months[_selectedDate!.month - 1]}',
-                style: const TextStyle(color: _workerMuted, fontSize: 14),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => EstateJobsMapPage(
-                      jobs: allJobs ?? jobs,
-                      nearbyOnly: false,
+          if (!_myJobsOnly) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const Icon(Icons.circle, size: 12, color: _workerGreen),
+                const SizedBox(width: 8),
+                Text(
+                  _selectedDate == null
+                      ? 'View all estates across Sri Lanka'
+                      : 'Jobs for ${_selectedDate!.day} '
+                            '${_months[_selectedDate!.month - 1]}',
+                  style: const TextStyle(color: _workerMuted, fontSize: 14),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EstateJobsMapPage(
+                        jobs: allJobs ?? jobs,
+                        radiusKm: _radiusKm ?? 20,
+                        nearbyOnly: _radiusKm != null,
+                      ),
+                    ),
+                  ),
+                  child: const Text(
+                    'Open map',
+                    style: TextStyle(
+                      color: _workerGreen,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                child: const Text(
-                  'Open map',
-                  style: TextStyle(
-                    color: _workerGreen,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -1272,7 +1285,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    '${jobs.length} job${jobs.length == 1 ? '' : 's'} available',
+                    _myJobsOnly
+                        ? '${jobs.length} accepted job${jobs.length == 1 ? '' : 's'}'
+                        : '${jobs.length} job${jobs.length == 1 ? '' : 's'} available',
                     style: const TextStyle(
                       color: _workerGreen,
                       fontWeight: FontWeight.bold,
@@ -1325,7 +1340,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   }
 
   Widget _distanceFilter() {
-    const options = <int?>[2, 5, 10, 20, 30, null];
+    const options = <int?>[null, 2, 5, 10, 20, 30];
     return SizedBox(
       height: 42,
       child: ListView.separated(
@@ -1873,10 +1888,12 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: _cardDecoration(),
-      child: const Text(
-        'No jobs found for this date.',
+      child: Text(
+        _myJobsOnly
+            ? 'You have no accepted jobs yet.'
+            : 'No jobs found for this date.',
         textAlign: TextAlign.center,
-        style: TextStyle(color: _workerMuted, fontSize: 16),
+        style: const TextStyle(color: _workerMuted, fontSize: 16),
       ),
     );
   }
