@@ -133,8 +133,18 @@ const applyForJob = async (req, res) => {
     client = await pool.connect();
     await client.query("BEGIN");
 
+    // Serialize accept attempts for this worker so two simultaneous requests
+    // cannot both reserve jobs scheduled for the same day.
+    await client.query(
+      `SELECT id
+       FROM worker
+       WHERE id = $1
+       FOR UPDATE`,
+      [worker.id]
+    );
+
     const job = await client.query(
-      `SELECT id, workers_needed, confirmed_workers
+      `SELECT id, workers_needed, confirmed_workers, required_date
        FROM day_jobs
        WHERE id = $1 AND UPPER(COALESCE(status, 'OPEN')) = 'OPEN'
        FOR UPDATE`,
@@ -163,6 +173,25 @@ const applyForJob = async (req, res) => {
     ) {
       await client.query("ROLLBACK");
       return res.status(409).json({ message: "You already accepted this job" });
+    }
+
+    const sameDayJob = await client.query(
+      `SELECT dj.id, dj.category
+       FROM day_job_applications dja
+       JOIN day_jobs dj ON dj.id = dja.day_job_id
+       WHERE dja.worker_id = $1
+         AND UPPER(COALESCE(dja.status, 'PENDING')) = 'ACCEPTED'
+         AND dj.required_date = $2
+         AND dj.id <> $3
+       LIMIT 1`,
+      [worker.id, job.rows[0].required_date, jobId]
+    );
+    if (sameDayJob.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        message:
+          "You already accepted another job on this day. Decline that job before accepting this one.",
+      });
     }
 
     const result = existing.rows.length > 0
@@ -210,4 +239,90 @@ const applyForJob = async (req, res) => {
   }
 };
 
-module.exports = { getAvailableJobs, getEstates, getNearbyEstates, applyForJob };
+const declineJob = async (req, res) => {
+  let client;
+  try {
+    const worker = await workerForUser(req.user.id);
+    const jobId = Number(req.params.id);
+    if (!worker || !Number.isInteger(jobId)) {
+      return res.status(400).json({ message: "Invalid worker or job" });
+    }
+
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const job = await client.query(
+      `SELECT id, status, confirmed_workers
+       FROM day_jobs
+       WHERE id = $1
+       FOR UPDATE`,
+      [jobId]
+    );
+    if (job.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Job not found" });
+    }
+    if (String(job.rows[0].status).toUpperCase() === "COMPLETED") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "A completed job cannot be declined" });
+    }
+
+    const application = await client.query(
+      `SELECT id, status
+       FROM day_job_applications
+       WHERE day_job_id = $1 AND worker_id = $2
+       FOR UPDATE`,
+      [jobId, worker.id]
+    );
+    if (
+      application.rows.length === 0 ||
+      String(application.rows[0].status).toUpperCase() !== "ACCEPTED"
+    ) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "You have not accepted this job" });
+    }
+
+    const result = await client.query(
+      `UPDATE day_job_applications
+       SET status = 'DECLINED'
+       WHERE id = $1
+       RETURNING *`,
+      [application.rows[0].id]
+    );
+    await client.query(
+      `UPDATE day_jobs
+       SET confirmed_workers = GREATEST(confirmed_workers - 1, 0),
+           status = CASE
+             WHEN UPPER(COALESCE(status, 'OPEN')) = 'FULL' THEN 'OPEN'
+             ELSE status
+           END
+       WHERE id = $1`,
+      [jobId]
+    );
+    await client.query("COMMIT");
+
+    return res.status(200).json(result.rows[0]);
+  } catch (error) {
+    if (client) {
+      await client.query("ROLLBACK").catch(() => {});
+    }
+    console.error("Decline worker job error:", error);
+    if (error.code === "42703" || error.code === "42P01") {
+      return res.status(500).json({
+        message:
+          "Worker database is not configured. Run backend/sql/009_worker_accounts_and_applications.sql in Supabase.",
+      });
+    }
+    return res.status(500).json({ message: "Server error" });
+  } finally {
+    client?.release();
+  }
+};
+
+module.exports = {
+  getAvailableJobs,
+  getEstates,
+  getNearbyEstates,
+  applyForJob,
+  declineJob,
+};

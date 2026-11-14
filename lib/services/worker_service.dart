@@ -81,6 +81,11 @@ class WorkerService {
   static Future<void> applyForJob(int jobId) async {
     await ApiClient.post('/api/worker/jobs/$jobId/apply');
   }
+
+  static Future<void> declineJob(int jobId) async {
+    await ApiClient.post('/api/worker/jobs/$jobId/decline');
+  }
+
   static Future<List<WorkerEstate>> getEstates() async {
     final data = await ApiClient.get('/api/worker/estates');
     return (data as List).map((j) => WorkerEstate.fromJson(j as Map<String, dynamic>)).toList();
