@@ -62,6 +62,14 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
       );
       return;
     }
+    // A government supplier: go on to the request form (estate, NIC, land title).
+    if (widget.place.isGov) {
+      Navigator.pop(
+        context,
+        GovOrderDraft(lines: lines, date: _date, slot: _slot),
+      );
+      return;
+    }
     final store = FertilizerStore.instance;
     final order = FertOrder(
       id: store.nextId(),
@@ -79,8 +87,9 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
       message: 'Cart order · awaiting provider acknowledgement',
     );
     store.placeOrder(order);
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.pop(context, order);
+    messenger.showSnackBar(
       SnackBar(content: Text('${order.id} sent as Pending Ack')),
     );
   }
@@ -305,8 +314,10 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'After you place the order it stays in Pending Ack until the provider accepts. Payment is after they accept.',
+                Text(
+                  widget.place.isGov
+                      ? 'Next you fill in your estate details and attach your NIC and land title. The order then goes to the CDO for approval.'
+                      : 'After you place the order it stays in Pending Ack until the provider accepts. Payment is after they accept.',
                   style: TextStyle(fontSize: 11.5, color: kOwnerMuted),
                 ),
                 const SizedBox(height: 12),

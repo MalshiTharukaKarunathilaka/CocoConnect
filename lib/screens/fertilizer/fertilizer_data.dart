@@ -7,6 +7,9 @@ import '../../services/auth_service.dart';
 /// Which home calendar to show after login.
 enum FertHomeMode { supplier, cdo }
 
+/// The standard fertilizer types people search by.
+const List<String> kFertKinds = ['APM', 'YPM', 'MOP', 'ERP', 'TSP', 'Urea', 'Dolomite'];
+
 class FertItem {
   FertItem({
     required this.name,
@@ -23,6 +26,18 @@ class FertItem {
   final int price; // pack price
   final String unit; // e.g. "50 kg bag"
   final int stock; // packs on hand
+
+  /// Which of the standard types (APM, YPM, MOP, ERP, TSP, Urea, Dolomite) this product is.
+  Set<String> get kinds {
+    final text = '$name $type';
+    final out = <String>{
+      for (final k in kFertKinds)
+        if (RegExp('\\b$k\\b', caseSensitive: false).hasMatch(text)) k,
+    };
+    // a coconut mix is made of urea, MOP and ERP
+    if (type == 'Coconut mix') out.addAll(const ['Urea', 'MOP', 'ERP']);
+    return out;
+  }
 
   int get bagKg {
     final m = RegExp(r'(\d+)\s*kg', caseSensitive: false).firstMatch(unit);
@@ -123,6 +138,19 @@ class FertDayAvail {
   int? qty;
 }
 
+/// What the owner picked in the order sheet for a government supplier, before the request form.
+class GovOrderDraft {
+  GovOrderDraft({required this.lines, required this.date, required this.slot});
+  final List<CartLine> lines;
+  final DateTime date;
+  final String slot;
+
+  int get bags => lines.fold(0, (s, l) => s + l.qty50);
+  int get total => lines.fold(0, (s, l) => s + l.lineTotal);
+  String get summary =>
+      lines.map((l) => '${l.item.name} \u00d7 ${l.qty50}').join(', ');
+}
+
 class FertGovRequest {
   FertGovRequest({
     required this.id,
@@ -135,6 +163,12 @@ class FertGovRequest {
     this.district = 'Kurunegala',
     this.approved = 0,
     this.distributed = 0,
+    this.estateName = '',
+    this.acres = 0,
+    this.nicCopy = '',
+    this.landTitleCopy = '',
+    this.outlet = '',
+    this.preferred = '',
   });
 
   final String id;
@@ -147,6 +181,14 @@ class FertGovRequest {
   final String district;
   int approved;
   int distributed;
+
+  // From the request form
+  final String estateName;
+  final double acres;
+  final String nicCopy; // file name of the attached NIC copy
+  final String landTitleCopy; // file name of the attached land title copy
+  final String outlet; // the government outlet it was ordered from
+  final String preferred; // preferred date and time slot
 }
 
 class FertComplaint {
@@ -216,6 +258,225 @@ class FertilizerStore {
   }
 
   final List<FertPlace> places = [
+    // three suppliers right next to the estate, so the 1 km view is never empty
+    FertPlace(
+      id: 'PL0a',
+      company: 'Estate Gate Agro',
+      who: 'Saman Kumara',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['CIC', 'Hayleys'],
+      distanceKm: 0.5,
+      dLat: 0.004,
+      dLng: 0.003,
+      phone: '077 301 4455',
+      items: [
+        FertItem(
+          name: 'CIC Urea',
+          brand: 'CIC',
+          type: 'Urea',
+          price: 5950,
+          unit: '50 kg bag',
+          stock: 25,
+        ),
+        FertItem(
+          name: 'Hayleys Dolomite',
+          brand: 'Hayleys',
+          type: 'Dolomite',
+          price: 2450,
+          unit: '50 kg bag',
+          stock: 40,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL0b',
+      company: 'Lanka Agro Mart',
+      who: 'Priyantha Jayalath',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['CIC', 'Baurs'],
+      distanceKm: 0.8,
+      dLat: 0.001,
+      dLng: -0.007,
+      phone: '077 302 6677',
+      items: [
+        FertItem(
+          name: 'CIC MOP',
+          brand: 'CIC',
+          type: 'MOP',
+          price: 6650,
+          unit: '50 kg bag',
+          stock: 16,
+        ),
+        FertItem(
+          name: 'Baurs YPM',
+          brand: 'Baurs',
+          type: 'YPM',
+          price: 6950,
+          unit: '50 kg bag',
+          stock: 10,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL0c',
+      company: 'Agrarian Service Centre',
+      who: 'Government outlet',
+      kind: 'cdo',
+      physical: true,
+      willingFar: false,
+      brands: const ['CCB'],
+      distanceKm: 0.9,
+      dLat: -0.006,
+      dLng: 0.005,
+      phone: '037 222 1100',
+      items: [
+        FertItem(
+          name: 'ERP Coconut Fertilizer',
+          brand: 'CCB',
+          type: 'Government',
+          price: 6000,
+          unit: '50 kg bag',
+          stock: 90,
+        ),
+        FertItem(
+          name: 'Urea subsidy',
+          brand: 'CCB',
+          type: 'Urea',
+          price: 4200,
+          unit: '50 kg bag',
+          stock: 60,
+        ),
+      ],
+    ),
+    // more government outlets around the estate
+    FertPlace(
+      id: 'PL0d',
+      company: 'Coconut Cultivation Board Depot',
+      who: 'Government outlet',
+      kind: 'cdo',
+      physical: true,
+      willingFar: false,
+      brands: const ['CCB'],
+      distanceKm: 1.2,
+      dLat: 0.008,
+      dLng: -0.011,
+      phone: '037 222 2301',
+      items: [
+        FertItem(
+          name: 'ERP Coconut Fertilizer',
+          brand: 'CCB',
+          type: 'Government',
+          price: 5900,
+          unit: '50 kg bag',
+          stock: 120,
+        ),
+        FertItem(
+          name: 'MOP subsidy',
+          brand: 'CCB',
+          type: 'MOP',
+          price: 5400,
+          unit: '50 kg bag',
+          stock: 70,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL0e',
+      company: 'Mawathagama Agrarian Centre',
+      who: 'Government outlet',
+      kind: 'cdo',
+      physical: true,
+      willingFar: false,
+      brands: const ['CCB'],
+      distanceKm: 2.1,
+      dLat: -0.012,
+      dLng: -0.014,
+      phone: '037 222 3345',
+      items: [
+        FertItem(
+          name: 'TSP subsidy',
+          brand: 'CCB',
+          type: 'TSP',
+          price: 5600,
+          unit: '50 kg bag',
+          stock: 55,
+        ),
+        FertItem(
+          name: 'Dolomite subsidy',
+          brand: 'CCB',
+          type: 'Dolomite',
+          price: 1900,
+          unit: '50 kg bag',
+          stock: 100,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL0f',
+      company: 'Kurunegala Fertilizer Secretariat',
+      who: 'Government outlet',
+      kind: 'cdo',
+      physical: true,
+      willingFar: false,
+      brands: const ['CCB'],
+      distanceKm: 3.4,
+      dLat: 0.02,
+      dLng: 0.016,
+      phone: '037 222 4410',
+      items: [
+        FertItem(
+          name: 'Urea subsidy',
+          brand: 'CCB',
+          type: 'Urea',
+          price: 4300,
+          unit: '50 kg bag',
+          stock: 80,
+        ),
+        FertItem(
+          name: 'ERP Coconut Fertilizer',
+          brand: 'CCB',
+          type: 'Government',
+          price: 6100,
+          unit: '50 kg bag',
+          stock: 60,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL0g',
+      company: 'Pannala Government Store',
+      who: 'Government outlet',
+      kind: 'cdo',
+      physical: true,
+      willingFar: false,
+      brands: const ['CCB'],
+      distanceKm: 7.5,
+      dLat: -0.04,
+      dLng: 0.03,
+      phone: '037 222 5522',
+      items: [
+        FertItem(
+          name: 'YPM subsidy',
+          brand: 'CCB',
+          type: 'YPM',
+          price: 5800,
+          unit: '50 kg bag',
+          stock: 45,
+        ),
+        FertItem(
+          name: 'APM subsidy',
+          brand: 'CCB',
+          type: 'APM',
+          price: 5700,
+          unit: '50 kg bag',
+          stock: 45,
+        ),
+      ],
+    ),
     FertPlace(
       id: 'PL4',
       company: 'Nadeesha Stores',
@@ -245,6 +506,22 @@ class FertilizerStore {
           unit: '50 kg bag',
           stock: 14,
         ),
+        FertItem(
+          name: 'CIC MOP',
+          brand: 'CIC',
+          type: 'MOP',
+          price: 6600,
+          unit: '50 kg bag',
+          stock: 12,
+        ),
+        FertItem(
+          name: 'Baurs YPM',
+          brand: 'Baurs',
+          type: 'YPM',
+          price: 6900,
+          unit: '50 kg bag',
+          stock: 9,
+        ),
       ],
     ),
     FertPlace(
@@ -267,6 +544,14 @@ class FertilizerStore {
           price: 5200,
           unit: '25 kg bag',
           stock: 18,
+        ),
+        FertItem(
+          name: 'Hayleys Dolomite',
+          brand: 'Hayleys',
+          type: 'Dolomite',
+          price: 2400,
+          unit: '50 kg bag',
+          stock: 30,
         ),
       ],
     ),
@@ -298,6 +583,22 @@ class FertilizerStore {
           price: 6100,
           unit: '50 kg bag',
           stock: 8,
+        ),
+        FertItem(
+          name: 'CIC TSP',
+          brand: 'CIC',
+          type: 'TSP',
+          price: 8800,
+          unit: '50 kg bag',
+          stock: 11,
+        ),
+        FertItem(
+          name: 'CIC APM',
+          brand: 'CIC',
+          type: 'APM',
+          price: 7600,
+          unit: '50 kg bag',
+          stock: 7,
         ),
       ],
     ),
