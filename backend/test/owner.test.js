@@ -1,4 +1,4 @@
-// End-to-end checks of the estate owner routes and how they connect with
+// End-to-end checks of the land owner routes and how they connect with
 // the buyer side, against the in-memory database. Run with: npm test
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -47,8 +47,8 @@ let otherOwner;
 let buyer;
 let listingId;
 
-test("owner routes need an estate owner login", async () => {
-  owner = await signup("Nimal Owner", "0711111111", "Estate Owner", "Kurunegala");
+test("owner routes need a land owner login", async () => {
+  owner = await signup("Nimal Owner", "0711111111", "Land Owner", "Kurunegala");
   otherOwner = await signup("Kamal Owner", "0712222222", "ESTATE_OWNER", "Puttalam");
   buyer = await signup("Senuji Test", "0771234567", "BUYER", "Colombo");
 
@@ -417,7 +417,7 @@ test("deals: owner accepts buyer's offer, completes with actual figures", async 
   assert.equal(acceptedOffer.order_status, "ACCEPTED");
 });
 
-test("worker acceptance appears in the estate owner's job details", async () => {
+test("worker acceptance appears in the land owner's job details", async () => {
   const worker = await signup(
     "Day Worker",
     "0719999999",

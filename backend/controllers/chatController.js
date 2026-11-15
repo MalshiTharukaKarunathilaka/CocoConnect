@@ -6,7 +6,7 @@ const { dayOf } = require("../utils/geo");
 | CHATS - one API for both sides of a negotiation
 |--------------------------------------------------------------------------
 | A chat is a negotiation on a listing, between the buyer who opened it and
-| the estate owner who listed it. Either side can send messages and price
+| the land owner who listed it. Either side can send messages and price
 | offers. Only the side that did NOT send an offer can accept or reject it;
 | accepting creates the order. Each new offer replaces any still-pending one.
 */
@@ -23,7 +23,7 @@ const time = (value) => (value ? new Date(value).getTime() : 0);
 
 /**
  * The negotiation with listing details and the caller's side, or null when
- * the caller is neither its buyer nor the listing's estate owner.
+ * the caller is neither its buyer nor the listing's land owner.
  */
 const loadChat = async (db, negotiationId, userId) => {
   const result = await db.query(

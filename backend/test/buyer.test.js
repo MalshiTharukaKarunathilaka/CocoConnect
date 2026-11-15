@@ -113,7 +113,7 @@ test("buyer routes need a buyer login", async () => {
   assert.equal((await call("GET", "/api/buyer/requests")).status, 401);
 
   const owner = await call("POST", "/api/auth/signup", {
-    body: { name: "Owner", phone: "0712222222", password: "secret123", role: "Estate Owner", location: "Kurunegala" },
+    body: { name: "Owner", phone: "0712222222", password: "secret123", role: "Land Owner", location: "Kurunegala" },
   });
   const asOwner = await call("GET", "/api/buyer/requests", { token: owner.data.token });
   assert.equal(asOwner.status, 403);
@@ -184,7 +184,7 @@ test("buyer requests: create, read, update, delete", async () => {
   assert.equal((await call("GET", "/api/buyer/requests", { token })).data.length, 0);
 });
 
-test("a request an estate owner answered can't be deleted", async () => {
+test("a request a land owner answered can't be deleted", async () => {
   const token = buyer.token;
   const created = await call("POST", "/api/buyer/requests", {
     token,
@@ -242,7 +242,7 @@ test("negotiation: start, message, counter-offer, accept, complete", async () =>
     body: { offerPricePerUnit: 118 },
   });
 
-  // The estate owner replies with a counter-offer from their side.
+  // The land owner replies with a counter-offer from their side.
   const ownerUser = await call("POST", "/api/auth/signup", {
     body: { name: "Nimal", phone: "0713333333", password: "secret123", role: "ESTATE_OWNER", location: "Gampaha" },
   });

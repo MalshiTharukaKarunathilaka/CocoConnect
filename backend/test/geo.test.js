@@ -220,7 +220,7 @@ test("listings matching a request: enough nuts, date within 7 days, cheapest fir
   assert.equal(bad.status, 400);
 });
 
-test("estate owners see buyer requests within the chosen distance", async () => {
+test("land owners see buyer requests within the chosen distance", async () => {
   const kandyBuyer = await signup("Kandy Buyer", "0770000002", "BUYER", KANDY);
   const request = async (who, price) =>
     (await call("POST", "/api/buyer/requests", {

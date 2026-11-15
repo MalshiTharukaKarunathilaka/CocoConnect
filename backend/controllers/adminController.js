@@ -4,7 +4,7 @@ const pool = require("../config/db");
 |--------------------------------------------------------------------------
 | ADMIN - price disputes
 |--------------------------------------------------------------------------
-| An estate owner who completes a deal at a different price than agreed
+| A land owner who completes a deal at a different price than agreed
 | flags it for review. The agreed price stays in force until an admin
 | approves the new one.
 */

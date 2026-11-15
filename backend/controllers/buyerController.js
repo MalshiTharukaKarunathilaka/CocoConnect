@@ -227,7 +227,7 @@ const getMyRequests = async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| ESTATE OWNERS' OFFERS ON MY REQUEST
+| LAND OWNERS' OFFERS ON MY REQUEST
 |--------------------------------------------------------------------------
 */
 const getRequestResponses = async (req, res) => {
@@ -262,7 +262,7 @@ const getRequestResponses = async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| ACCEPT AN ESTATE OWNER'S OFFER -> creates an order
+| ACCEPT AN LAND OWNER'S OFFER -> creates an order
 |--------------------------------------------------------------------------
 | Closes the request: the chosen offer is accepted, the others declined.
 */
@@ -421,7 +421,7 @@ const updateRequest = async (req, res) => {
 |--------------------------------------------------------------------------
 | DELETE MY REQUEST
 |--------------------------------------------------------------------------
-| Refused once an estate owner has responded with a sell request or an order
+| Refused once a land owner has responded with a sell request or an order
 | refers to it, so their records are never left pointing at nothing.
 */
 const deleteRequest = async (req, res) => {
@@ -443,7 +443,7 @@ const deleteRequest = async (req, res) => {
     const { sells, orders } = responses.rows[0];
     if (Number(sells) > 0 || Number(orders) > 0) {
       return res.status(409).json({
-        message: "Estate owners have already responded to this request, so it can't be deleted",
+        message: "Land owners have already responded to this request, so it can't be deleted",
       });
     }
 
@@ -638,7 +638,7 @@ const sendMessage = async (req, res) => {
 |--------------------------------------------------------------------------
 | ACCEPT DEAL -> creates an order
 |--------------------------------------------------------------------------
-| The buyer accepts the estate owner's latest counter-offer, or the listed
+| The buyer accepts the land owner's latest counter-offer, or the listed
 | price if the owner has not countered.
 */
 const acceptNegotiation = async (req, res) => {

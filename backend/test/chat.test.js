@@ -1,4 +1,4 @@
-// Chats shared by buyers and estate owners: offers answered on their own
+// Chats shared by buyers and land owners: offers answered on their own
 // card by the other side, unread counts, notifications and the day's
 // average price. Run with: npm test
 const { test, before, after } = require("node:test");

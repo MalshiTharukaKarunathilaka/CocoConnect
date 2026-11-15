@@ -42,7 +42,7 @@ const serverError = (res, label, error) => {
 |--------------------------------------------------------------------------
 | MY ESTATE
 |--------------------------------------------------------------------------
-| Every estate owner login is linked to one estate_owners row. It is created
+| Every land owner login is linked to one estate_owners row. It is created
 | on first use, named after the owner until they rename it.
 */
 const getOwnEstate = async (db, userId) => {
@@ -697,7 +697,7 @@ const getMyOrders = async (req, res) => {
 |--------------------------------------------------------------------------
 | ACCEPT THE BUYER'S OFFER -> creates an order
 |--------------------------------------------------------------------------
-| The estate owner agrees to the buyer's latest counter-offer, or the listed
+| The land owner agrees to the buyer's latest counter-offer, or the listed
 | price if the buyer hasn't made one.
 */
 const acceptNegotiation = async (req, res) => {

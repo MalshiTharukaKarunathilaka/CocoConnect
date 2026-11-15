@@ -57,7 +57,7 @@ const hash = (pw) => require("bcryptjs").hashSync(pw, 10);
 db.public.none(`
   INSERT INTO users (name, phone, password_hash, role, location, latitude, longitude) VALUES
     ('KapConnect Admin', '0700000000', '${hash("admin123")}', 'ADMIN', 'Colombo', NULL, NULL),
-    ('Demo Estate Owner', '0711000001', '${hash("demo123")}', 'ESTATE_OWNER', 'Kurunegala', 7.4863, 80.3647),
+    ('Demo Land Owner', '0711000001', '${hash("demo123")}', 'ESTATE_OWNER', 'Kurunegala', 7.4863, 80.3647),
     ('Nadeesha Perera', '0771112233', '${hash("demo123")}', 'FERTILIZER_SUPPLIER', 'Kurunegala', 7.4980, 80.3560),
     ('CDO Mawathagama', '0372223344', '${hash("demo123")}', 'CDO', 'Kurunegala', 7.5400, 80.4000),
     ('Demo Buyer', '0771000001', '${hash("demo123")}', 'BUYER', 'Colombo', 6.9271, 79.8612);

@@ -1,5 +1,5 @@
 // One journey through the whole app with every account type, against the
-// in-memory database: estate owner, buyer, service provider and admin.
+// in-memory database: land owner, buyer, service provider and admin.
 // It checks the hand-offs between the sides (what one side does, the other
 // sees), not each route on its own. Run with: npm test
 const { test, before, after } = require("node:test");

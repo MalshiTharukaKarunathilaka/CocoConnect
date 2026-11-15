@@ -4,10 +4,10 @@ const { withDueDate, DUE_DATE_COLUMNS } = require("../utils/geo");
 
 /*
 |--------------------------------------------------------------------------
-| ORDERS TAB - one overview for buyers and estate owners
+| ORDERS TAB - one overview for buyers and land owners
 |--------------------------------------------------------------------------
 |   pending       offers I put out that wait for the other side:
-|                 my price offers in chats, and (estate owners) my offers
+|                 my price offers in chats, and (land owners) my offers
 |                 on buyer requests. Buyers' own requests come from
 |                 /api/buyer/requests.
 |   negotiations  chats still open
@@ -20,7 +20,7 @@ const serverError = (res, label, error) => {
   return res.status(500).json({ message: "Server error", error: error.message });
 };
 
-/** Every order I'm the buyer or the estate owner of. */
+/** Every order I'm the buyer or the land owner of. */
 const myOrders = async (userId) => {
   const result = await pool.query(
     `SELECT

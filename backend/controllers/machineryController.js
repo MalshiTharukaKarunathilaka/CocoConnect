@@ -161,7 +161,7 @@ exports.getBooking = wrap(async(req,res)=>res.json(await details(pool,req.params
 exports.message = wrap(async(req,res)=>{
   await transaction(async db=>{
     const b=await booking(db,req.params.bookingId,req.user,true);checkVersion(b,req.body);
-    if(b.provider_user_id===req.user.id) fail(403,'Providers can only accept or decline a request. The estate owner sends the offers.');
+    if(b.provider_user_id===req.user.id) fail(403,'Providers can only accept or decline a request. The land owner sends the offers.');
     const offer=req.body.offer_total==null?null:money(req.body.offer_total);
     const message=req.body.message?text(req.body.message,'Message'):offer?'Proposed a new price.':fail(400,'Enter a message or counteroffer');
     await addMessage(db,b,req.user.id,message,offer);
@@ -172,7 +172,7 @@ exports.message = wrap(async(req,res)=>{
 exports.revise = wrap(async(req,res)=>{
   await transaction(async db=>{
     const b=await booking(db,req.params.bookingId,req.user,true);checkVersion(b,req.body);
-    if(b.owner_user_id!==req.user.id) fail(403,'Only the requesting estate owner can change this request');
+    if(b.owner_user_id!==req.user.id) fail(403,'Only the requesting land owner can change this request');
     const m=await machine(db,b.machine_id,null,true);if(!m.active) fail(409,'This machinery is not accepting requests');
     const start=req.body.starts_at==null?new Date(b.starts_at):new Date(req.body.starts_at);
     const end=req.body.ends_at==null?new Date(b.ends_at):new Date(req.body.ends_at);
@@ -228,7 +228,7 @@ exports.accept = wrap(async(req,res)=>{
   await transaction(async db=>{
     const b=await booking(db,req.params.bookingId,req.user,true);checkVersion(b,req.body);
     if(b.provider_user_id!==req.user.id) fail(403,'Only the assigned provider can confirm this booking');
-    if(b.proposed_by===req.user.id&&!b.offer_agreed) fail(409,'The estate owner must agree to your counteroffer first');
+    if(b.proposed_by===req.user.id&&!b.offer_agreed) fail(409,'The land owner must agree to your counteroffer first');
     if(new Date(b.starts_at)<=new Date()) fail(409,'This requested time has passed');
     const m=await machine(db,b.machine_id,req.user.id,true);if(!m.active) fail(409,'Machinery is inactive');
     await available(db,m,b.starts_at,b.ends_at,b.id);
@@ -256,10 +256,10 @@ exports.ownerCalendar = wrap(async(req,res)=>{
 exports.cancel = wrap(async(req,res)=>{
   await transaction(async db=>{
     const b=await booking(db,req.params.bookingId,req.user,true);
-    if(b.owner_user_id!==req.user.id) fail(403,'Only the requesting estate owner can cancel this booking');
+    if(b.owner_user_id!==req.user.id) fail(403,'Only the requesting land owner can cancel this booking');
     if(!Number.isInteger(req.body.expected_version)||req.body.expected_version!==b.version) fail(409,'This request changed. Refresh before cancelling.');
     if(!['PENDING','CONFIRMED'].includes(b.status)||new Date(b.starts_at)<=new Date()) fail(409,'This booking can no longer be cancelled.');
     await db.query("UPDATE machinery_bookings SET status='CANCELLED',version=version+1 WHERE id=$1",[b.id]);
-    await addMessage(db,b,req.user.id,'Booking cancelled by the estate owner. Time slot released.');
+    await addMessage(db,b,req.user.id,'Booking cancelled by the land owner. Time slot released.');
   });res.json(await details(pool,req.params.bookingId,req.user));
 });
