@@ -64,8 +64,10 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
     return _selectedDate.isBefore(DateTime(now.year, now.month, now.day));
   }
 
-  bool _isCompleted(DayJob job) =>
-      _isPast || job.status.toUpperCase() == 'COMPLETED';
+  bool _isFullyStaffed(DayJob job) =>
+      job.workersNeeded > 0 && job.confirmedWorkers >= job.workersNeeded;
+
+  bool _isCompleted(DayJob job) => job.status.toUpperCase() == 'COMPLETED';
 
   Future<void> _refresh() async {
     final refreshed = OwnerService.getDayJobs(widget.date);
@@ -129,7 +131,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
   Widget _content(List<DayJob> jobs) {
     final completed = jobs.where(_isCompleted).toList();
     final visible = List<DayJob>.from(
-      _filter == _JobsFilter.completed ? completed : jobs,
+      _isPast && _filter == _JobsFilter.completed ? completed : jobs,
     )..sort((a, b) => a.category.compareTo(b.category));
     return RefreshIndicator(
       color: _green,
@@ -165,7 +167,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
             children: [
               Flexible(
                 child: Text(
-                  _filter == _JobsFilter.completed
+                  _isPast && _filter == _JobsFilter.completed
                       ? 'COMPLETED JOBS'
                       : 'ALL JOBS',
                   style: const TextStyle(
@@ -177,11 +179,6 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
               ),
               const SizedBox(width: 9),
               _countBubble(visible.length),
-              const Spacer(),
-              const Text(
-                'Sorted by job name',
-                style: TextStyle(color: _muted, fontSize: 12),
-              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -245,16 +242,11 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
     final required = jobs.fold<int>(0, (sum, job) => sum + job.workersNeeded);
     final confirmed = jobs.fold<int>(
       0,
-      (sum, job) => sum + job.confirmedWorkers,
+      (sum, job) =>
+          sum + job.confirmedWorkers.clamp(0, job.workersNeeded).toInt(),
     );
-    final completed = jobs.where(_isCompleted).length;
-    final status = jobs.isEmpty
-        ? 'No Jobs'
-        : completed == jobs.length
-        ? 'Completed'
-        : confirmed >= required
-        ? 'Fulfilled'
-        : 'Open';
+    final vacancies = (required - confirmed).clamp(0, required).toInt();
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
       decoration: BoxDecoration(
@@ -325,21 +317,50 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
             ),
           ),
           const SizedBox(height: 18),
-          const Divider(height: 1, color: _line),
-          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
-                child: _summaryItem(
-                  'ASSIGNMENTS',
-                  '${jobs.length} ${jobs.length == 1 ? 'Job' : 'Jobs'}',
+                child: _summaryMetric(
+                  label: 'Total Jobs',
+                  value: jobs.length,
+                  icon: Icons.assignment_outlined,
+                  background: const Color(0xFFF5F2EC),
+                  foreground: _ink,
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(child: _summaryItem('SHIFT', 'Full Day')),
+              Expanded(
+                child: _summaryMetric(
+                  label: 'Required',
+                  value: required,
+                  icon: Icons.groups_outlined,
+                  background: const Color(0xFFF5F2EC),
+                  foreground: _ink,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _summaryMetric(
+                  label: 'Confirmed',
+                  value: confirmed,
+                  icon: Icons.how_to_reg_outlined,
+                  background: const Color(0xFFEAF8EF),
+                  foreground: _green,
+                ),
+              ),
               const SizedBox(width: 8),
               Expanded(
-                child: _summaryItem('DAY STATUS', status, highlighted: true),
+                child: _summaryMetric(
+                  label: 'Vacancies',
+                  value: vacancies,
+                  icon: Icons.person_search_outlined,
+                  background: const Color(0xFFFFF0E6),
+                  foreground: const Color(0xFFA95828),
+                ),
               ),
             ],
           ),
@@ -348,37 +369,45 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
     );
   }
 
-  Widget _summaryItem(String label, String value, {bool highlighted = false}) {
+  Widget _summaryMetric({
+    required String label,
+    required int value,
+    required IconData icon,
+    required Color background,
+    required Color foreground,
+  }) {
     return Container(
-      height: 82,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
+      height: 76,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
-        color: highlighted ? const Color(0xFFEEFBF4) : const Color(0xFFF8F5EF),
-        borderRadius: BorderRadius.circular(18),
-        border: highlighted ? Border.all(color: const Color(0xFFB5EFD1)) : null,
+        color: background,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            maxLines: 1,
             style: TextStyle(
-              color: highlighted ? _greenBright : const Color(0xFFAAA5A0),
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              color: foreground.withValues(alpha: 0.78),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 5),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: highlighted ? _green : _ink,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+          const Spacer(),
+          Row(
+            children: [
+              Text(
+                '$value',
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 21,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Icon(icon, color: foreground.withValues(alpha: 0.65), size: 19),
+            ],
           ),
         ],
       ),
@@ -389,8 +418,10 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
     return Row(
       children: [
         _filterButton(_JobsFilter.all, 'All ($allCount)'),
-        const SizedBox(width: 10),
-        _filterButton(_JobsFilter.completed, 'Completed ($completedCount)'),
+        if (_isPast) ...[
+          const SizedBox(width: 10),
+          _filterButton(_JobsFilter.completed, 'Completed ($completedCount)'),
+        ],
       ],
     );
   }
@@ -412,16 +443,14 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
 
   Widget _jobCard(DayJob job) {
     final completed = _isCompleted(job);
+    final fullyStaffed = _isFullyStaffed(job);
     final required = job.workersNeeded;
     final confirmed = job.confirmedWorkers.clamp(0, required);
     final progress = required == 0 ? 0.0 : confirmed / required;
-    final percentage = (progress * 100).round();
     final status = completed
         ? 'Completed'
-        : confirmed >= required
+        : fullyStaffed
         ? 'Fulfilled'
-        : confirmed > 0
-        ? 'Partially Filled'
         : 'Open';
     return Container(
       decoration: BoxDecoration(
@@ -518,13 +547,6 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                               color: _ink,
                               fontWeight: FontWeight.bold,
                             ),
-                          ),
-                        ),
-                        Text(
-                          '$percentage% Staffed',
-                          style: const TextStyle(
-                            color: _greenBright,
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
@@ -633,7 +655,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
           const Icon(Icons.work_outline, color: _green, size: 48),
           const SizedBox(height: 10),
           Text(
-            _filter == _JobsFilter.completed
+            _isPast && _filter == _JobsFilter.completed
                 ? 'No completed jobs for this date.'
                 : 'No jobs posted for this date.',
             textAlign: TextAlign.center,
@@ -687,11 +709,6 @@ class _JobsBottomNavigation extends StatelessWidget {
             () => openTab(context, AppTab.dashboard),
           ),
           _item(Icons.calendar_month, 'Calendar', null, active: true),
-          _item(
-            Icons.receipt_long_outlined,
-            'Orders',
-            () => openTab(context, AppTab.orders),
-          ),
           _item(
             Icons.notifications_none,
             'Alerts',
