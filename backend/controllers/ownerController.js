@@ -18,6 +18,17 @@ const localToday = () => {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 };
 
+const dayJobRatingsReady = async () => {
+  if (pool.databaseMode === "memory") return true;
+  const result = await pool.query(
+    `SELECT COUNT(*)::integer AS count
+     FROM information_schema.columns
+     WHERE table_name = 'day_job_applications'
+       AND column_name IN ('rating', 'rated_at')`
+  );
+  return Number(result.rows[0]?.count || 0) === 2;
+};
+
 const serverError = (res, label, error) => {
   console.error(`${label} error:`, error);
 
@@ -853,13 +864,16 @@ const getDayJobs = async (req, res) => {
     const jobs = result.rows;
     const acceptedWorkers = new Map();
     if (jobs.length > 0) {
+      const ratingsReady = await dayJobRatingsReady();
+      const ratingColumn = ratingsReady ? "dja.rating" : "NULL::smallint";
       const jobParams = jobs.map((job) => job.id);
       const placeholders = jobParams.map((_, index) => `$${index + 1}`).join(", ");
       const workers = await pool.query(
         `SELECT
            dja.day_job_id,
            dja.worker_id AS id,
-           COALESCE(u.name, 'Worker') AS name
+           COALESCE(u.name, 'Worker') AS name,
+           ${ratingColumn} AS rating
          FROM day_job_applications dja
          JOIN worker w ON w.id = dja.worker_id
          LEFT JOIN users u ON u.id = w.user_id
@@ -870,7 +884,11 @@ const getDayJobs = async (req, res) => {
       );
       for (const worker of workers.rows) {
         const list = acceptedWorkers.get(worker.day_job_id) || [];
-        list.push({ id: worker.id, name: worker.name });
+        list.push({
+          id: worker.id,
+          name: worker.name,
+          rating: worker.rating == null ? null : Number(worker.rating),
+        });
         acceptedWorkers.set(worker.day_job_id, list);
       }
     }
@@ -878,6 +896,11 @@ const getDayJobs = async (req, res) => {
     return res.status(200).json(
       jobs.map((job) => ({
         ...job,
+        status:
+          String(job.status).toUpperCase() === "COMPLETED" &&
+          Number(job.confirmed_workers) < Number(job.workers_needed)
+            ? "OPEN"
+            : job.status,
         accepted_workers: acceptedWorkers.get(job.id) || [],
       }))
     );
@@ -917,18 +940,22 @@ const getWorkerProfile = async (req, res) => {
       return res.status(404).json({ message: "Worker profile not found" });
     }
 
+    const ratingsReady = await dayJobRatingsReady();
+    const ratingColumn = ratingsReady ? "dja.rating" : "NULL::smallint";
     const stats = await pool.query(
       `SELECT
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) <> 'COMPLETED'
-                  AND dj.required_date >= CURRENT_DATE
              THEN 1 ELSE 0 END
          ), 0)::integer AS accepted_jobs,
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
-                  OR dj.required_date < CURRENT_DATE
              THEN 1 ELSE 0 END
-         ), 0)::integer AS completed_jobs
+         ), 0)::integer AS completed_jobs,
+         COALESCE(SUM(
+           CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
+             THEN COALESCE(${ratingColumn}, 0) ELSE 0 END
+         ), 0)::integer AS total_rating_marks
        FROM day_job_applications dja
        JOIN day_jobs dj ON dj.id = dja.day_job_id
        WHERE dja.worker_id = $1
@@ -945,10 +972,16 @@ const getWorkerProfile = async (req, res) => {
       [workerId]
     );
 
+    const completedJobs = Number(stats.rows[0]?.completed_jobs || 0);
+    const totalRatingMarks = Number(stats.rows[0]?.total_rating_marks || 0);
+
     return res.status(200).json({
       ...profile.rows[0],
       accepted_jobs: Number(stats.rows[0]?.accepted_jobs || 0),
-      completed_jobs: Number(stats.rows[0]?.completed_jobs || 0),
+      completed_jobs: completedJobs,
+      total_rating_marks: totalRatingMarks,
+      average_rating:
+        completedJobs > 0 ? totalRatingMarks / completedJobs : null,
       work_categories: categories.rows.map((row) => row.category),
     });
   } catch (error) {
@@ -1017,6 +1050,138 @@ const createDayJob = async (req, res) => {
   }
 };
 
+const completeDayJob = async (req, res) => {
+  try {
+    const jobId = Number(req.params.id);
+    if (!Number.isInteger(jobId)) {
+      return res.status(400).json({ message: "Invalid day job" });
+    }
+
+    const estate = await getOwnEstate(pool, req.user.id);
+    const found = await pool.query(
+      `SELECT * FROM day_jobs
+       WHERE id = $1 AND estate_owner_id = $2`,
+      [jobId, estate.id]
+    );
+    if (found.rows.length === 0) {
+      return res.status(404).json({ message: "Day job not found" });
+    }
+    const job = found.rows[0];
+    if (Number(job.confirmed_workers) < Number(job.workers_needed)) {
+      return res.status(409).json({
+        message: "All required workers must be accepted before completion",
+      });
+    }
+    const requiredDay = dayOf(job.required_date);
+    if (requiredDay && requiredDay > localToday()) {
+      return res.status(409).json({
+        message: "This is a future day. You cannot complete this job yet.",
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE day_jobs
+       SET status = 'COMPLETED'
+       WHERE id = $1 AND estate_owner_id = $2
+       RETURNING *`,
+      [jobId, estate.id]
+    );
+
+    return res.status(200).json(result.rows[0]);
+  } catch (error) {
+    return serverError(res, "Complete day job", error);
+  }
+};
+
+const deleteDayJob = async (req, res) => {
+  try {
+    const jobId = Number(req.params.id);
+    if (!Number.isInteger(jobId)) {
+      return res.status(400).json({ message: "Invalid day job" });
+    }
+
+    const estate = await getOwnEstate(pool, req.user.id);
+    const found = await pool.query(
+      `SELECT required_date FROM day_jobs
+       WHERE id = $1 AND estate_owner_id = $2`,
+      [jobId, estate.id]
+    );
+    if (found.rows.length === 0) {
+      return res.status(404).json({ message: "Day job not found" });
+    }
+
+    const requiredDay = dayOf(found.rows[0].required_date);
+    if (!requiredDay || requiredDay <= localToday()) {
+      return res.status(409).json({
+        message: "Only future day jobs can be deleted.",
+      });
+    }
+
+    await pool.query(
+      `DELETE FROM day_jobs
+       WHERE id = $1 AND estate_owner_id = $2`,
+      [jobId, estate.id]
+    );
+    return res.status(200).json({ message: "Day job deleted" });
+  } catch (error) {
+    return serverError(res, "Delete day job", error);
+  }
+};
+
+const rateDayJobWorker = async (req, res) => {
+  try {
+    const jobId = Number(req.params.jobId);
+    const workerId = Number(req.params.workerId);
+    const rating = Number(req.body.rating);
+    if (!Number.isInteger(jobId) || !Number.isInteger(workerId)) {
+      return res.status(400).json({ message: "Invalid job or worker" });
+    }
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: "Rating must be from 1 to 5" });
+    }
+    if (!(await dayJobRatingsReady())) {
+      return res.status(503).json({
+        message:
+          "Worker ratings are not configured. Run backend/sql/012_day_job_worker_ratings.sql.",
+      });
+    }
+
+    const estate = await getOwnEstate(pool, req.user.id);
+    const application = await pool.query(
+      `SELECT dja.id
+       FROM day_job_applications dja
+       JOIN day_jobs dj ON dj.id = dja.day_job_id
+       WHERE dj.id = $1
+         AND dja.worker_id = $2
+         AND dj.estate_owner_id = $3
+         AND UPPER(dj.status) = 'COMPLETED'
+         AND UPPER(dja.status) = 'ACCEPTED'`,
+      [jobId, workerId, estate.id]
+    );
+    if (application.rows.length === 0) {
+      return res.status(404).json({
+        message: "Completed job worker not found",
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE day_job_applications
+       SET rating = $2, rated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING rating, rated_at`,
+      [application.rows[0].id, rating]
+    );
+    return res.status(200).json({
+      worker_id: workerId,
+      job_id: jobId,
+      rating: Number(result.rows[0].rating),
+      rated_at: result.rows[0].rated_at,
+    });
+  } catch (error) {
+    return serverError(res, "Rate day job worker", error);
+  }
+};
+
 module.exports = {
   acceptNegotiation,
   completeOrder,
@@ -1037,4 +1202,7 @@ module.exports = {
   getDayJobs,
   getWorkerProfile,
   createDayJob,
+  completeDayJob,
+  deleteDayJob,
+  rateDayJobWorker,
 };

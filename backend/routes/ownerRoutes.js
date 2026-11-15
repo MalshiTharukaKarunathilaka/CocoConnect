@@ -20,6 +20,9 @@ const {
   getDayJobs,
   getWorkerProfile,
   createDayJob,
+  completeDayJob,
+  deleteDayJob,
+  rateDayJobWorker,
 } = require("../controllers/ownerController");
 const { requireAuth, requireRole } = require("../middleware/auth");
 
@@ -364,6 +367,9 @@ router.get("/market-stats", getMarketStats);
 
 router.get("/day-jobs", getDayJobs);
 router.post("/day-jobs", createDayJob);
+router.patch("/day-jobs/:id/complete", completeDayJob);
+router.delete("/day-jobs/:id", deleteDayJob);
+router.put("/day-jobs/:jobId/workers/:workerId/rating", rateDayJobWorker);
 router.get("/workers/:id", getWorkerProfile);
 
 module.exports = router;

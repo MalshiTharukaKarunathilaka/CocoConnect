@@ -6,6 +6,17 @@ const {
   byDistance,
 } = require("../utils/geo");
 
+const dayJobRatingsReady = async () => {
+  if (pool.databaseMode === "memory") return true;
+  const result = await pool.query(
+    `SELECT COUNT(*)::integer AS count
+     FROM information_schema.columns
+     WHERE table_name = 'day_job_applications'
+       AND column_name IN ('rating', 'rated_at')`
+  );
+  return Number(result.rows[0]?.count || 0) === 2;
+};
+
 const workerForUser = async (userId) => {
   const result = await pool.query(
     "SELECT * FROM worker WHERE user_id = $1",
@@ -40,6 +51,8 @@ const getAvailableJobs = async (req, res) => {
       return res.status(404).json({ message: "Worker profile not found" });
     }
 
+    const ratingsReady = await dayJobRatingsReady();
+    const ratingColumn = ratingsReady ? "dja.rating" : "NULL::smallint";
     const result = await pool.query(
       `SELECT
          dj.*,
@@ -49,7 +62,8 @@ const getAvailableJobs = async (req, res) => {
          u.latitude AS estate_latitude,
          u.longitude AS estate_longitude,
          dja.id AS application_id,
-         dja.status AS application_status
+         dja.status AS application_status,
+         ${ratingColumn} AS rating
        FROM day_jobs dj
        JOIN estate_owners eo ON eo.id = dj.estate_owner_id
        LEFT JOIN users u ON u.id = eo.user_id
@@ -57,7 +71,13 @@ const getAvailableJobs = async (req, res) => {
          ON dja.day_job_id = dj.id AND dja.worker_id = $1
        WHERE (
            (
-             UPPER(COALESCE(dj.status, 'OPEN')) = 'OPEN'
+             (
+               UPPER(COALESCE(dj.status, 'OPEN')) = 'OPEN'
+               OR (
+                 UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
+                 AND dj.confirmed_workers < dj.workers_needed
+               )
+             )
              AND dj.required_date >= CURRENT_DATE
            )
            OR dja.id IS NOT NULL
@@ -169,7 +189,14 @@ const applyForJob = async (req, res) => {
     const job = await client.query(
       `SELECT id, workers_needed, confirmed_workers, required_date
        FROM day_jobs
-       WHERE id = $1 AND UPPER(COALESCE(status, 'OPEN')) = 'OPEN'
+       WHERE id = $1
+         AND (
+           UPPER(COALESCE(status, 'OPEN')) = 'OPEN'
+           OR (
+             UPPER(COALESCE(status, 'OPEN')) = 'COMPLETED'
+             AND confirmed_workers < workers_needed
+           )
+         )
        FOR UPDATE`,
       [jobId]
     );
@@ -237,7 +264,7 @@ const applyForJob = async (req, res) => {
        SET confirmed_workers = confirmed_workers + 1,
            status = CASE
              WHEN confirmed_workers + 1 >= workers_needed THEN 'FULL'
-             ELSE status
+             ELSE 'OPEN'
            END
        WHERE id = $1`,
       [jobId]
@@ -275,7 +302,7 @@ const declineJob = async (req, res) => {
     await client.query("BEGIN");
 
     const job = await client.query(
-      `SELECT id, status, confirmed_workers
+      `SELECT id, status, confirmed_workers, workers_needed
        FROM day_jobs
        WHERE id = $1
        FOR UPDATE`,
@@ -285,7 +312,10 @@ const declineJob = async (req, res) => {
       await client.query("ROLLBACK");
       return res.status(404).json({ message: "Job not found" });
     }
-    if (String(job.rows[0].status).toUpperCase() === "COMPLETED") {
+    if (
+      String(job.rows[0].status).toUpperCase() === "COMPLETED" &&
+      Number(job.rows[0].confirmed_workers) >= Number(job.rows[0].workers_needed)
+    ) {
       await client.query("ROLLBACK");
       return res.status(409).json({ message: "A completed job cannot be declined" });
     }
@@ -315,10 +345,7 @@ const declineJob = async (req, res) => {
     await client.query(
       `UPDATE day_jobs
        SET confirmed_workers = GREATEST(confirmed_workers - 1, 0),
-           status = CASE
-             WHEN UPPER(COALESCE(status, 'OPEN')) = 'FULL' THEN 'OPEN'
-             ELSE status
-           END
+           status = 'OPEN'
        WHERE id = $1`,
       [jobId]
     );
