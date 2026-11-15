@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'fertilizer_chrome.dart';
 import 'fertilizer_complaints_page.dart';
+import 'fertilizer_data.dart';
+import 'fertilizer_gov_order_form.dart';
 import 'fertilizer_map_page.dart';
 import 'fertilizer_requests_page.dart';
 
@@ -41,7 +43,7 @@ class _FertilizerHubState extends State<FertilizerHub> {
           (Icons.home_outlined, 'Hub'),
           (Icons.grid_view_rounded, 'Suppliers'),
           (Icons.account_balance_outlined, 'Government'),
-          (Icons.schedule, 'Requests'),
+          (Icons.receipt_long_outlined, 'My orders'),
           (Icons.flag_outlined, 'Complaints'),
         ],
         current: _tab,
@@ -58,12 +60,20 @@ class _FertilizerHubState extends State<FertilizerHub> {
       case 2:
         return 'Government';
       case 3:
-        return 'Requests';
+        return 'My orders';
       case 4:
         return 'Complaints';
       default:
         return 'Fertilizer hub';
     }
+  }
+
+  /// A government order was sent: open My orders and say it is waiting for the CDO.
+  void _govSent(FertGovRequest r) {
+    setState(() => _tab = 3);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) showGovSentDialog(context, r);
+    });
   }
 
   Widget _body() {
@@ -74,6 +84,8 @@ class _FertilizerHubState extends State<FertilizerHub> {
       key: ValueKey('map-$_channel'),
       channel: _channel,
       embedded: true,
+      onGovRequestSent: _govSent,
+      onOrderPlaced: (_) => setState(() => _tab = 3),
     );
   }
 }

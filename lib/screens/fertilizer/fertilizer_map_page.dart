@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'fertilizer_chrome.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -6,6 +9,7 @@ import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
+import 'fertilizer_gov_order_form.dart';
 import 'fertilizer_order_sheet.dart';
 import 'fertilizer_orders_page.dart';
 import 'fertilizer_talk_page.dart';
@@ -16,11 +20,19 @@ class FertilizerMapPage extends StatefulWidget {
     super.key,
     this.channel = 'all',
     this.embedded = false,
+    this.onGovRequestSent,
+    this.onOrderPlaced,
   });
 
   /// all | private | gov
   final String channel;
   final bool embedded;
+
+  /// Called after a government order form is sent (the hub then opens My orders).
+  final void Function(FertGovRequest request)? onGovRequestSent;
+
+  /// Called after a private order is placed (the hub then opens My orders).
+  final void Function(FertOrder order)? onOrderPlaced;
 
   @override
   State<FertilizerMapPage> createState() => _FertilizerMapPageState();
@@ -31,8 +43,9 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   final _store = FertilizerStore.instance;
   final _search = TextEditingController();
   late String _channel;
-  double _radiusKm = 15;
-  bool _showPrices = true;
+  double _radiusKm = 10;
+  final Set<String> _kinds = {}; // fertilizer types ticked in the dropdown
+  String? _menu; // which dropdown is open: supplier, distance or kinds
   FertPlace? _selected;
   String? _clusterKey;
 
@@ -58,8 +71,6 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     return LatLng(me?.latitude ?? 7.4863, me?.longitude ?? 80.3647);
   }
 
-  static const double _homeZoom = 11.8;
-  LatLng get _home => LatLng(_estate.latitude - 0.04, _estate.longitude);
   LatLng _at(FertPlace p) =>
       LatLng(_estate.latitude + p.dLat, _estate.longitude + p.dLng);
 
@@ -71,6 +82,10 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     return _store.places.where((p) {
       if (_channel == 'private' && p.isGov) return false;
       if (_channel == 'gov' && !p.isGov) return false;
+      if (_kinds.isNotEmpty &&
+          !p.items.any((i) => i.kinds.any(_kinds.contains))) {
+        return false;
+      }
       if (q.isNotEmpty) {
         final hay =
             '${p.company} ${p.brandLine} ${p.items.map((i) => i.name).join(' ')}'
@@ -185,7 +200,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
               // Peek shows title + first rows so the list is visible; drag up for more.
               // It steps aside while a supplier card is open, so the card is not
               // hidden behind it.
-              if (_selected == null && _clusterKey == null)
+              if (_selected == null && _clusterKey == null && _menu == null)
                 DraggableScrollableSheet(
                   initialChildSize: 0.42,
                   minChildSize: 0.28,
@@ -653,8 +668,8 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
           child: FlutterMap(
             mapController: _map,
             options: MapOptions(
-              initialCenter: _home,
-              initialZoom: _homeZoom,
+              initialCenter: _centerFor(_zoomFor(_radiusKm)),
+              initialZoom: _zoomFor(_radiusKm),
               onTap: (_, __) => setState(() {
                 _selected = null;
                 _clusterKey = null;
@@ -758,47 +773,26 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
               ),
               const SizedBox(height: 8),
               SizedBox(
-                height: 36,
+                height: 38,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: [
-                    _chip('All', _channel == 'all', () {
-                      setState(() {
-                        _channel = 'all';
-                        _selected = null;
-                        _clusterKey = null;
-                      });
-                    }),
-                    _chip('Shops', _channel == 'private', () {
-                      setState(() {
-                        _channel = 'private';
-                        _selected = null;
-                        _clusterKey = null;
-                      });
-                    }),
-                    _chip('Government', _channel == 'gov', () {
-                      setState(() {
-                        _channel = 'gov';
-                        _selected = null;
-                        _clusterKey = null;
-                      });
-                    }),
-                    for (final km in [1.0, 5.0, 15.0, 30.0])
-                      _chip('${km.toInt()} km', _radiusKm == km, () {
-                        setState(() {
-                          _radiusKm = km;
-                          _selected = null;
-                          _clusterKey = null;
-                        });
-                      }),
-                    _chip(
-                      _showPrices ? 'Prices on' : 'Prices off',
-                      _showPrices,
-                      () => setState(() => _showPrices = !_showPrices),
+                    _drop(
+                      'supplier',
+                      'Supplier',
+                      _channel == 'all' ? 'All' : (_channel == 'private' ? 'Private' : 'Government'),
+                    ),
+                    _drop('distance', 'Distance', '${_radiusKm.toInt()} km'),
+                    _drop(
+                      'kinds',
+                      'Fertilizer',
+                      _kinds.isEmpty ? 'Any' : '${_kinds.length} picked',
+                      active: _kinds.isNotEmpty,
                     ),
                   ],
                 ),
               ),
+              if (_menu != null) _menuPanel() else _nearPill(),
             ],
           ),
         ),
@@ -808,7 +802,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
           child: FloatingActionButton.small(
             heroTag: 'fert-recenter',
             backgroundColor: Colors.white,
-            onPressed: () => _map.move(_home, _homeZoom),
+            onPressed: () => _map.move(_centerFor(_zoomFor(_radiusKm)), _zoomFor(_radiusKm)),
             child: const Icon(Icons.my_location, color: AppColors.green),
           ),
         ),
@@ -832,26 +826,275 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     );
   }
 
-  Widget _chip(String label, bool on, VoidCallback onTap) {
+  void _setChannel(String c) {
+    setState(() {
+      _channel = c;
+      _selected = null;
+      _clusterKey = null;
+      _menu = null;
+    });
+  }
+
+  /// Map zoom that fits a radius around the estate.
+  double _zoomFor(double km) => km <= 1 ? 14.2 : (km <= 5 ? 12.3 : 11.4);
+
+  /// Centre of the map for a zoom, a little south of the estate so the list below does not cover it.
+  LatLng _centerFor(double zoom) => LatLng(
+    _estate.latitude - 0.04 * math.pow(2, 11.8 - zoom),
+    _estate.longitude,
+  );
+
+  void _setRadius(double km) {
+    setState(() {
+      _radiusKm = km;
+      _selected = null;
+      _clusterKey = null;
+      _menu = null;
+    });
+    _map.move(_centerFor(_zoomFor(km)), _zoomFor(km));
+  }
+
+  /// Suppliers inside a radius that match the ticked fertilizer types and the search.
+  List<FertPlace> _within({String? channel, double? km}) {
+    final c = channel ?? _channel;
+    final r = km ?? _radiusKm;
+    final q = _search.text.trim().toLowerCase();
+    return _store.places.where((p) {
+      if (c == 'private' && p.isGov) return false;
+      if (c == 'gov' && !p.isGov) return false;
+      if (_kinds.isNotEmpty && !p.items.any((i) => i.kinds.any(_kinds.contains))) {
+        return false;
+      }
+      if (q.isNotEmpty) {
+        final hay =
+            '${p.company} ${p.brandLine} ${p.items.map((i) => i.name).join(' ')}'
+                .toLowerCase();
+        if (!hay.contains(q)) return false;
+      }
+      return p.distanceKm <= r;
+    }).toList();
+  }
+
+  /// One dropdown button: Supplier, Distance or Fertilizer.
+  Widget _drop(String key, String name, String value, {bool active = false}) {
+    final open = _menu == key;
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: Material(
-        color: on ? AppColors.green : Colors.white,
+        color: open || active ? AppColors.greenSoft : Colors.white,
         elevation: 2,
-        shape: const StadiumBorder(),
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: open || active ? AppColors.green : Colors.transparent,
+            width: 1.4,
+          ),
+        ),
         child: InkWell(
           customBorder: const StadiumBorder(),
-          onTap: onTap,
+          onTap: () => setState(() => _menu = open ? null : key),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: on ? Colors.white : AppColors.ink,
+            padding: const EdgeInsets.only(left: 12, right: 6, top: 7, bottom: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$name ',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.muted,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.green,
+                  ),
+                ),
+                Icon(
+                  open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  size: 20,
+                  color: AppColors.green,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _option(IconData icon, String title, String sub, bool on, VoidCallback onTap) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        child: Material(
+          color: on ? AppColors.green : const Color(0xFFF4F1E8),
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 22, color: on ? Colors.white : AppColors.green),
+                  const SizedBox(height: 4),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: on ? Colors.white : AppColors.ink,
+                    ),
+                  ),
+                  Text(
+                    sub,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: on ? Colors.white70 : AppColors.muted,
+                    ),
+                  ),
+                ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The dropdown under the filter row. One at a time.
+  Widget _menuPanel() {
+    Widget body;
+    if (_menu == 'supplier') {
+      String n(String c) => '${_within(channel: c).length} within ${_radiusKm.toInt()} km';
+      body = Row(
+        children: [
+          _option(Icons.apps, 'All', n('all'), _channel == 'all', () => _setChannel('all')),
+          _option(Icons.storefront, 'Private', n('private'), _channel == 'private', () => _setChannel('private')),
+          _option(Icons.account_balance, 'Government', n('gov'), _channel == 'gov', () => _setChannel('gov')),
+        ],
+      );
+    } else if (_menu == 'distance') {
+      body = Row(
+        children: [
+          for (final km in [1.0, 5.0, 10.0])
+            _option(
+              Icons.radar,
+              '${km.toInt()} km',
+              '${_within(km: km).length} supplier${_within(km: km).length == 1 ? '' : 's'}',
+              _radiusKm == km,
+              () => _setRadius(km),
+            ),
+        ],
+      );
+    } else {
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Tick the fertilizers you need',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+                ),
+              ),
+              TextButton(
+                onPressed: _kinds.isEmpty
+                    ? null
+                    : () => setState(() {
+                        _kinds.clear();
+                        _selected = null;
+                        _clusterKey = null;
+                      }),
+                child: const Text('Clear'),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _menu = null),
+                child: const Text('Done'),
+              ),
+            ],
+          ),
+          Wrap(
+            spacing: 6,
+            runSpacing: 2,
+            children: [
+              for (final k in kFertKinds)
+                FilterChip(
+                  label: Text(
+                    '$k \u00b7 ${_store.places.where((p) => p.items.any((i) => i.kinds.contains(k))).length}',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: _kinds.contains(k) ? Colors.white : AppColors.ink,
+                    ),
+                  ),
+                  selected: _kinds.contains(k),
+                  showCheckmark: true,
+                  checkmarkColor: Colors.white,
+                  selectedColor: AppColors.green,
+                  backgroundColor: const Color(0xFFF4F1E8),
+                  side: BorderSide.none,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (v) => setState(() {
+                    if (v) {
+                      _kinds.add(k);
+                    } else {
+                      _kinds.remove(k);
+                    }
+                    _selected = null;
+                    _clusterKey = null;
+                  }),
+                ),
+            ],
+          ),
+        ],
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Material(
+        elevation: 6,
+        borderRadius: BorderRadius.circular(18),
+        color: Colors.white,
+        child: Padding(padding: const EdgeInsets.fromLTRB(8, 8, 8, 8), child: body),
+      ),
+    );
+  }
+
+  /// A one-line answer under the filters: how many suppliers are around the estate.
+  Widget _nearPill() {
+    final n = _within().length;
+    final what = _channel == 'gov' ? 'government' : (_channel == 'private' ? 'private' : '');
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xF2FFFFFF),
+            borderRadius: BorderRadius.circular(99),
+            boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 6)],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.near_me, size: 15, color: AppColors.green),
+              const SizedBox(width: 6),
+              Text(
+                n == 0
+                    ? 'No ${what.isEmpty ? '' : '$what '}suppliers within ${_radiusKm.toInt()} km'
+                    : '$n ${what.isEmpty ? '' : '$what '}supplier${n == 1 ? '' : 's'} within ${_radiusKm.toInt()} km of your estate',
+                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
+              ),
+            ],
           ),
         ),
       ),
@@ -867,10 +1110,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
       (p) => (_store.shopTalks[p.id] ?? const []).isNotEmpty,
     );
     final brands = places.expand((p) => p.brands).toSet().join(' + ');
-    final low = places
-        .map((p) => p.minPrice50)
-        .reduce((a, b) => a < b ? a : b);
-    final label = _showPrices ? '$brands · MIN ${withCommas(low)}' : brands;
+    final label = brands;
 
     return Marker(
       point: _at(lead),
@@ -922,19 +1162,24 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircleAvatar(
-                        radius: 13,
-                        backgroundColor: _pinColor(lead),
-                        child: Text(
-                          _pinMark(lead),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _pinColor(lead),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x33000000), blurRadius: 3),
+                          ],
+                        ),
+                        child: Center(
+                          child: CustomPaint(
+                            size: const Size(17, 17),
+                            painter: _SackPainter(_pinColor(lead)),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 6),
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 118),
                         child: Text(
@@ -1066,7 +1311,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 subtitle: Text(
-                  '${p.brandLine} · MIN LKR ${withCommas(p.minPrice50)}',
+                  '${p.brandLine} · ${_priceLines(p).first.$1} LKR ${withCommas(_priceLines(p).first.$2)}',
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => setState(() {
@@ -1080,6 +1325,23 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     );
   }
 
+  /// What the card shows for a supplier: each ticked fertilizer type with the lowest
+  /// price this supplier has for it. With nothing ticked, its three cheapest products.
+  List<(String, int)> _priceLines(FertPlace p) {
+    if (_kinds.isNotEmpty) {
+      final out = <(String, int)>[];
+      for (final k in kFertKinds) {
+        if (!_kinds.contains(k)) continue;
+        final prices = p.items.where((i) => i.kinds.contains(k)).map((i) => i.price50);
+        if (prices.isEmpty) continue;
+        out.add((k, prices.reduce((a, b) => a < b ? a : b)));
+      }
+      if (out.isNotEmpty) return out;
+    }
+    final items = [...p.items]..sort((a, b) => a.price50.compareTo(b.price50));
+    return [for (final i in items.take(3)) (i.name, i.price50)];
+  }
+
   Widget _placePop(FertPlace p) {
     final far = p.distanceKm > _radiusKm;
     final where = far
@@ -1087,7 +1349,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
             ? '${p.distanceKm} km away · still delivers here'
             : 'No shop here · delivers far')
         : '${p.distanceKm.toStringAsFixed(1)} km';
-    final talks = _store.shopTalks[p.id] ?? const <FertChat>[];
+    final lines = _priceLines(p);
 
     return Material(
       elevation: 14,
@@ -1099,6 +1361,49 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: SizedBox(
+                height: 104,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      p.isGov
+                          ? 'assets/images/fert-gov.jpg'
+                          : 'assets/images/fert-shop.jpg',
+                      fit: BoxFit.cover,
+                      alignment: p.isGov
+                          ? const Alignment(0, -0.3)
+                          : Alignment.center,
+                    ),
+                    Positioned(
+                      left: 8,
+                      bottom: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xCC000000),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          p.isGov ? 'GOVERNMENT OUTLET' : 'PRIVATE SUPPLIER',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1142,31 +1447,62 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
               ],
             ),
             const SizedBox(height: 10),
-            Text.rich(
-              TextSpan(
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF4F9F5),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextSpan(
-                    text: 'MIN LKR ${withCommas(p.minPrice50)} ',
+                  Text(
+                    _kinds.isEmpty
+                        ? 'LOWEST PRICES'
+                        : 'YOUR FERTILIZERS \u00b7 LOWEST PRICE',
                     style: const TextStyle(
-                      fontSize: 20,
+                      fontSize: 10,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.green,
+                      letterSpacing: 0.6,
+                      color: AppColors.muted,
                     ),
                   ),
-                  const TextSpan(
-                    text: '/ 50 kg',
-                    style: TextStyle(fontSize: 11, color: AppColors.muted),
-                  ),
+                  const SizedBox(height: 4),
+                  for (final l in lines)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              l.$1,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            'LKR ${withCommas(l.$2)}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.green,
+                            ),
+                          ),
+                          const Text(
+                            ' / 50 kg',
+                            style: TextStyle(fontSize: 10.5, color: AppColors.muted),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
-            if (talks.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                'Negotiation: ${talks.last.text}',
-                style: const TextStyle(fontSize: 12, color: AppColors.muted),
-              ),
-            ],
             const SizedBox(height: 12),
             Row(
               children: [
@@ -1174,12 +1510,37 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                   flex: 14,
                   child: ElevatedButton(
                     onPressed: () async {
-                      await showModalBottomSheet<void>(
+                      // The order sheet first. For a government supplier, Place order
+                      // goes on to the request form (estate, NIC and land title).
+                      final res = await showModalBottomSheet<Object?>(
                         context: context,
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
                         builder: (_) => FertilizerOrderSheet(place: p),
                       );
+                      if (!mounted) return;
+                      if (res is GovOrderDraft) {
+                        final sent =
+                            await showModalBottomSheet<FertGovRequest>(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => FertilizerGovOrderForm(place: p, draft: res),
+                        );
+                        if (sent == null || !mounted) return;
+                        setState(() => _selected = null);
+                        if (widget.onGovRequestSent != null) {
+                          widget.onGovRequestSent!(sent);
+                        } else {
+                          showGovSentDialog(context, sent);
+                        }
+                        return;
+                      }
+                      if (res is FertOrder) {
+                        setState(() => _selected = null);
+                        widget.onOrderPlaced?.call(res);
+                        return;
+                      }
                       setState(() {});
                     },
                     child: const Text('Order now'),
@@ -1213,4 +1574,34 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
       ),
     );
   }
+}
+
+/// A small fertilizer bag, drawn in white on the coloured pin circle.
+class _SackPainter extends CustomPainter {
+  _SackPainter(this.cut);
+  final Color cut; // colour of the plus cut into the bag
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final k = size.width / 32;
+    final bag = ui.Path()
+      ..moveTo(11.2 * k, 3.6 * k)
+      ..lineTo(20.8 * k, 3.6 * k)
+      ..lineTo(19.4 * k, 9 * k)
+      ..cubicTo(26.2 * k, 12 * k, 28.4 * k, 19 * k, 26.4 * k, 25 * k)
+      ..cubicTo(25.4 * k, 28.4 * k, 22 * k, 29.6 * k, 16 * k, 29.6 * k)
+      ..cubicTo(10 * k, 29.6 * k, 6.6 * k, 28.4 * k, 5.6 * k, 25 * k)
+      ..cubicTo(3.6 * k, 19 * k, 5.8 * k, 12 * k, 12.6 * k, 9 * k)
+      ..close();
+    canvas.drawPath(bag, Paint()..color = Colors.white);
+    final plus = Paint()
+      ..color = cut
+      ..strokeWidth = 2.6 * k
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(16 * k, 14 * k), Offset(16 * k, 24 * k), plus);
+    canvas.drawLine(Offset(11 * k, 19 * k), Offset(21 * k, 19 * k), plus);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SackPainter old) => old.cut != cut;
 }
