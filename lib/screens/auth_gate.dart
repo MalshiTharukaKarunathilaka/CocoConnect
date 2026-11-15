@@ -9,6 +9,8 @@ import 'fertilizer/fertilizer_oversight_page.dart';
 import 'fertilizer/fertilizer_role_gate.dart';
 import 'fertilizer/provider_hub.dart';
 import 'onboarding_page.dart';
+import 'provider/provider_calendar_page.dart';
+import 'worker_dashboard.dart';
 
 /// When true, logout returns to fertilizer role picker (combo demo).
 bool fertilizerComboMode = false;
@@ -56,8 +58,11 @@ Widget? homeFor(AppUser user) {
       // In fertilizer combo, owner goes straight into fertilizer hub.
       if (fertilizerComboMode) return const FertilizerHub();
       return const EstateOwnerDashboard();
-    case 'FERTILIZER_SUPPLIER':
     case 'SERVICE_PROVIDER':
+      return const ProviderCalendarPage();
+    case 'WORKER':
+      return const WorkerDashboard();
+    case 'FERTILIZER_SUPPLIER':
       return const ProviderHub(mode: FertHomeMode.supplier);
     case 'CDO':
       return const ProviderHub(mode: FertHomeMode.cdo);
@@ -80,7 +85,7 @@ void openHomeFor(BuildContext context, AppUser user) {
     return;
   }
 
-  // Estate Manager and Service Provider screens aren't built yet.
+  // Estate Manager screens aren't built yet.
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(

@@ -40,7 +40,6 @@ dependencies:
   latlong2: ^0.10.1
   geolocator_android: ^5.1.1+1
   geolocator_platform_interface: ^4.4.0
-  google_fonts: ^9.0.0
 
 dev_dependencies:
   flutter_test:
@@ -68,6 +67,7 @@ flutter:
   assets:
     - assets/services/
     - assets/machines/
+    - assets/images/
     - assets/branding/
 
   # To add assets to your application, add an assets section, like this:

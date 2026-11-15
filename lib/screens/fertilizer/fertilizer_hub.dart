@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
-import '../account_dialogs.dart';
+import 'fertilizer_chrome.dart';
 import 'fertilizer_complaints_page.dart';
 import 'fertilizer_map_page.dart';
 import 'fertilizer_requests_page.dart';
@@ -33,90 +32,22 @@ class _FertilizerHubState extends State<FertilizerHub> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFEFEFEF),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
-          child: Material(
-            color: AppColors.cream,
-            child: SafeArea(
-              child: Column(
-                children: [
-                  _topBar(),
-                  Expanded(child: _body()),
-                  _bottomNav(),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _topBar() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppColors.line)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x10183E29),
-            blurRadius: 10,
-            offset: Offset(0, 2),
-          ),
+    return FertPage(
+      title: _tabTitle,
+      subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
+      showLogout: true,
+      bottom: FertTabBar(
+        items: const [
+          (Icons.home_outlined, 'Hub'),
+          (Icons.grid_view_rounded, 'Suppliers'),
+          (Icons.account_balance_outlined, 'Government'),
+          (Icons.schedule, 'Requests'),
+          (Icons.flag_outlined, 'Complaints'),
         ],
+        current: _tab,
+        onTap: (i) => setState(() => _tab = i),
       ),
-      child: Row(
-        children: [
-          if (Navigator.of(context).canPop())
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-            ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Image.asset(
-                      'assets/branding/kapconnect_logo.png',
-                      height: 40,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Text(
-                        'KapConnect',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.green,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _tabTitle,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'Log out',
-            onPressed: () => confirmLogOut(context),
-            icon: const Icon(Icons.logout, color: AppColors.green, size: 22),
-          ),
-        ],
-      ),
+      child: _body(),
     );
   }
 
@@ -143,74 +74,6 @@ class _FertilizerHubState extends State<FertilizerHub> {
       key: ValueKey('map-$_channel'),
       channel: _channel,
       embedded: true,
-    );
-  }
-
-  Widget _bottomNav() {
-    const items = [
-      (Icons.home_outlined, 'Hub'),
-      (Icons.grid_view_rounded, 'Suppliers'),
-      (Icons.account_balance_outlined, 'Government'),
-      (Icons.schedule, 'Requests'),
-      (Icons.flag_outlined, 'Complaints'),
-    ];
-    return Container(
-      height: 64,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.line)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x0A183E29),
-            blurRadius: 18,
-            offset: Offset(0, -5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          for (var i = 0; i < items.length; i++)
-            Expanded(
-              child: InkWell(
-                onTap: () => setState(() => _tab = i),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _tab == i
-                            ? AppColors.greenSoft
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: Icon(
-                        items[i].$1,
-                        size: 20,
-                        color: _tab == i ? AppColors.green : AppColors.muted,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      items[i].$2,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      style: TextStyle(
-                        fontSize: 10,
-                        height: 1.1,
-                        fontWeight: FontWeight.w700,
-                        color: _tab == i ? AppColors.green : AppColors.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 }

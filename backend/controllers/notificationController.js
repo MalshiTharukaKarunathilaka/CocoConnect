@@ -99,10 +99,58 @@ const sellOfferItems = async (userId) => {
     }));
 };
 
+const dayJobChatItems = async (userId) => {
+  const result = await pool.query(
+    `SELECT
+       c.id,
+       c.owner_user_id,
+       c.owner_last_read_at,
+       c.worker_last_read_at,
+      CASE WHEN c.owner_user_id = $1 THEN wu.name ELSE eo.estate_name END AS counterpart_name
+     FROM day_job_chats c
+     JOIN day_jobs dj ON dj.id = c.day_job_id
+     JOIN estate_owners eo ON eo.id = dj.estate_owner_id
+     JOIN worker w ON w.id = c.worker_id
+     JOIN users wu ON wu.id = w.user_id
+     WHERE c.owner_user_id = $1 OR w.user_id = $1`,
+    [userId]
+  );
+  if (result.rows.length === 0) return [];
+
+  const ids = result.rows.map((row) => row.id);
+  const placeholders = ids.map((_, index) => `$${index + 1}`).join(", ");
+  const messages = await pool.query(
+    `SELECT id, chat_id, message, sender_id, created_at
+     FROM day_job_chat_messages
+     WHERE chat_id IN (${placeholders})
+     ORDER BY created_at DESC, id DESC`,
+    ids
+  );
+  const chats = new Map(result.rows.map((row) => [row.id, row]));
+  return messages.rows.flatMap((message) => {
+    const row = chats.get(message.chat_id);
+    if (!row || message.sender_id === userId) return [];
+    const readAt =
+     row.owner_user_id === userId
+       ? row.owner_last_read_at
+       : row.worker_last_read_at;
+    if (readAt && new Date(message.created_at) <= new Date(readAt)) return [];
+    return [{
+     key: `day-job-chat-message-${message.id}`,
+     type: "DAY_JOB_CHAT",
+     title: `New message from ${row.counterpart_name}`,
+     body: message.message || "",
+     at: message.created_at,
+     day_job_chat_id: row.id,
+    }];
+  });
+};
+
 const getNotifications = async (req, res) => {
   try {
     const items = [
       ...(await chatItems(req.user.id)),
+      ...(await dayJobChatItems(req.user.id)),
       ...(req.user.role === "BUYER" ? await sellOfferItems(req.user.id) : []),
     ];
     items.sort((a, b) => new Date(b.at) - new Date(a.at));

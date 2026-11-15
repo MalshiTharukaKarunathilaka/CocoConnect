@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'owner_widgets.dart';
+import 'package:latlong2/latlong.dart';
 
 /// A machine shown on the map, calendar and chat. Demo data, not from the
 /// database.
 class MachineInfo {
+  final int? databaseId;
+  final LatLng? location;
+  final List<Map<String, dynamic>> liveServices;
   final String name;
   final String provider;
   final String type; // TRACTOR / BACKHOE / HAND_TRACTOR
   final String services;
-  final int rate;
+  final num rate;
   final String unit; // acre / hour
 
   /// Offset from the estate, in degrees, so the demo always sits nearby.
@@ -32,8 +36,11 @@ class MachineInfo {
     this.dLng,
     this.rating,
     this.jobs,
-    this.photo,
-  );
+    this.photo, {
+    this.databaseId,
+    this.location,
+    this.liveServices = const [],
+  });
 }
 
 IconData machineIcon(String type) => switch (type) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'fertilizer_chrome.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../services/auth_service.dart';
@@ -34,6 +35,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   bool _showPrices = true;
   FertPlace? _selected;
   String? _clusterKey;
+
 
   @override
   void initState() {
@@ -124,8 +126,8 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Map fills the screen. My orders + requests sit in a bottom sheet — drag up to read.
-    // Why: map stays highlighted; suppliers stay on the map pins, not in this list.
+    // Map fills the screen. My orders and requests sit in a draggable sheet.
+    // Keeping the list above the map avoids the nested-scroll rendering issue.
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -139,26 +141,11 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                   children: [
                     Text(
                       _channel == 'gov'
-                          ? 'GOVERNMENT'
-                          : _channel == 'private'
-                              ? 'PRIVATE SUPPLIERS'
-                              : 'ESTATE OWNER',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.green,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _channel == 'gov'
                           ? 'Government programme'
                           : 'Suppliers near you',
                       style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.4,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
                         color: AppColors.ink,
                       ),
                     ),
@@ -196,16 +183,19 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                 ),
               ),
               // Peek shows title + first rows so the list is visible; drag up for more.
-              DraggableScrollableSheet(
-                initialChildSize: 0.32,
-                minChildSize: 0.28,
-                maxChildSize: 0.68,
-                snap: true,
-                snapSizes: const [0.32, 0.5, 0.68],
-                builder: (context, scrollController) {
-                  return _ordersRequestsSheet(scrollController);
-                },
-              ),
+              // It steps aside while a supplier card is open, so the card is not
+              // hidden behind it.
+              if (_selected == null && _clusterKey == null)
+                DraggableScrollableSheet(
+                  initialChildSize: 0.42,
+                  minChildSize: 0.28,
+                  maxChildSize: 0.8,
+                  snap: true,
+                  snapSizes: const [0.42, 0.6, 0.8],
+                  builder: (context, scrollController) {
+                    return _ordersRequestsSheet(scrollController);
+                  },
+                ),
             ],
           ),
         ),
@@ -214,13 +204,42 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
     if (widget.embedded) return ColoredBox(color: AppColors.cream, child: body);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFEFEFEF),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
-          child: Material(color: AppColors.cream, child: SafeArea(child: body)),
-        ),
+    return FertPage(
+      title: 'Suppliers near you',
+      subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
+      child: Material(color: AppColors.cream, child: body),
+    );
+  }
+
+  /// The title row of the bottom sheet.
+  Widget _sheetTabs() {
+    final int mine = _store.ownerOrders('Your Estate').length;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'My orders',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.greenSoft,
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Text(
+              '$mine',
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: AppColors.green,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -230,7 +249,29 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     final requests = _store.govRequests
         .where((r) => r.owner == 'Your Estate')
         .toList();
-    final total = orders.length + requests.length;
+    final pending = orders
+        .where((o) => o.status == 'Pending Ack' || o.status == 'Negotiating')
+        .toList();
+    final accepted = orders.where((o) => o.status == 'Accepted').toList();
+    final other = orders
+        .where((o) => !pending.contains(o) && !accepted.contains(o))
+        .toList();
+
+    List<Widget> group(String title, List<FertOrder> list) => list.isEmpty
+        ? const []
+        : [
+            Padding(
+              padding: const EdgeInsets.only(top: 10, bottom: 8),
+              child: Text(
+                '$title (${list.length})',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            for (final o in list) _orderTile(o),
+          ];
 
     return Material(
       color: Colors.white,
@@ -251,63 +292,32 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'My orders & requests',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.greenSoft,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    '$total',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.green,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _sheetTabs(),
           Expanded(
             child: ListView(
               controller: scrollController,
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
               children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(2, 4, 2, 8),
-                  child: Text(
-                    'My orders',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.muted,
-                    ),
-                  ),
+                const Text(
+                  'Orders you placed from the map. View or cancel them here.',
+                  style: TextStyle(fontSize: 12.5, color: AppColors.muted),
                 ),
                 if (orders.isEmpty)
                   const Padding(
-                    padding: EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      'No orders yet',
-                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    padding: EdgeInsets.only(top: 22),
+                    child: Center(
+                      child: Text(
+                        'No orders yet. Pick a supplier on the map and tap Order now.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.muted),
+                      ),
                     ),
-                  )
-                else
-                  for (final o in orders) _orderRow(o),
+                  ),
+                ...group('Pending Ack \u00b7 waiting for the provider', pending),
+                ...group('Accepted', accepted),
+                ...group('Cancelled and closed', other),
                 const Padding(
-                  padding: EdgeInsets.fromLTRB(2, 10, 2, 8),
+                  padding: EdgeInsets.fromLTRB(2, 14, 2, 8),
                   child: Text(
                     'Requests',
                     style: TextStyle(
@@ -326,9 +336,332 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                     ),
                   )
                 else
-                  for (final r in requests) _requestRow(r),
+                  for (final request in requests) _requestRow(request),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Everything about one order: items, price, date, status and the messages about it.
+  void _showOrder(FertOrder o) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheet) {
+          final bool open =
+              o.status == 'Pending Ack' || o.status == 'Negotiating';
+          final int kg = o.items.fold<int>(0, (a, l) => a + l.qty50 * 50);
+          Widget row(String k, String v) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 104,
+                      child: Text(
+                        k,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        v,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.86,
+            ),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFCF8EF),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.line,
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Order ${o.id}',
+                            style: const TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.green,
+                            ),
+                          ),
+                        ),
+                        StatusPill.forStatus(o.status),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => Navigator.pop(sheetContext),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: AppColors.line),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'ITEMS',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.6,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          for (final l in o.items)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 5),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          l.item.name,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${l.qty50} \u00d7 50 kg \u00b7 ${rupees(l.item.price50)} per 50 kg',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.muted,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    rupees(l.lineTotal),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          const Divider(height: 20, color: AppColors.line),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Order total',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                rupees(o.price),
+                                style: const TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.green,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    row('Supplier', o.company),
+                    row('Quantity', '${o.qty50} \u00d7 50 kg ($kg kg)'),
+                    row('Preferred date', shortDate(o.preferredDate)),
+                    row('Time slot', o.slot),
+                    row('Payment', 'After the supplier accepts'),
+                    if (o.message.trim().isNotEmpty) row('Your note', o.message),
+                    if (o.negotiation.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      const Text(
+                        'MESSAGES',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.6,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      for (final m in o.negotiation)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            '${m.from}: ${m.text}',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                    ],
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              final match =
+                                  _store.places.where((p) => p.id == o.placeId);
+                              Navigator.pop(sheetContext);
+                              if (match.isNotEmpty) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        FertilizerTalkPage(place: match.first),
+                                  ),
+                                ).then((_) {
+                                  if (mounted) setState(() {});
+                                });
+                              }
+                            },
+                            child: const Text('Open chat'),
+                          ),
+                        ),
+                        if (open) ...[
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextButton(
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.dangerText,
+                                backgroundColor: AppColors.dangerSoft,
+                                minimumSize: const Size(0, 46),
+                                shape: const StadiumBorder(),
+                              ),
+                              onPressed: () {
+                                _store.cancelOrder(o.id);
+                                Navigator.pop(sheetContext);
+                                setState(() {});
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('${o.id} cancelled')),
+                                );
+                              },
+                              child: const Text('Cancel order'),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _orderTile(FertOrder o) {
+    final bool canCancel =
+        o.status == 'Pending Ack' || o.status == 'Negotiating';
+    final String what =
+        o.items.map((l) => '${l.qty50} \u00d7 ${l.item.name} (50 kg)').join(', ');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  '${o.id} \u00b7 $what',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              StatusPill.forStatus(o.status),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${o.company} \u00b7 ${o.qty50} bags \u00b7 ${rupees(o.price)} \u00b7 '
+            'preferred ${shortDate(o.preferredDate)} \u00b7 ${o.slot}',
+            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              OutlinedButton(
+                onPressed: () => _showOrder(o),
+                child: const Text('View'),
+              ),
+              if (canCancel) ...[
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () {
+                    _store.cancelOrder(o.id);
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${o.id} cancelled')),
+                    );
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.dangerText,
+                    backgroundColor: AppColors.dangerSoft,
+                  ),
+                  child: const Text('Cancel order'),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -586,14 +919,14 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
           Positioned(
             left: 24,
             right: 24,
-            bottom: 120,
+            bottom: 16,
             child: _clusterPop(groups[_clusterKey!]!),
           ),
         if (_selected != null)
           Positioned(
             left: 24,
             right: 24,
-            bottom: 120,
+            bottom: 16,
             child: _placePop(_selected!),
           ),
       ],
@@ -967,7 +1300,10 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                         );
                         setState(() {});
                       },
-                      child: const Text('Negotiation'),
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('Negotiation', maxLines: 1),
+                      ),
                     ),
                   ),
                 ],

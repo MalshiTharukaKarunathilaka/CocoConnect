@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
-import '../account_dialogs.dart';
 import '../buyer/buyer_format.dart';
+import 'fertilizer_chrome.dart';
 import 'fertilizer_data.dart';
 import 'supplier_calendar_page.dart';
 
@@ -44,120 +44,16 @@ class _ProviderHubState extends State<ProviderHub> {
             (Icons.radar_outlined, 'Coverage'),
           ];
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFEFEFEF),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
-          child: Material(
-            color: AppColors.cream,
-            child: SafeArea(
-              child: Column(
-                children: [
-                  _topBar(),
-                  Expanded(child: _body()),
-                  _bottom(tabs),
-                ],
-              ),
-            ),
-          ),
-        ),
+    return FertPage(
+      title: tabs[_tab].$2,
+      subtitle: '${_isCdo ? 'CDO' : 'SUPPLIER'} \u00b7 ${_shop.company}'.toUpperCase(),
+      showLogout: true,
+      bottom: FertTabBar(
+        items: tabs,
+        current: _tab,
+        onTap: (i) => setState(() => _tab = i),
       ),
-    );
-  }
-
-  Widget _topBar() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppColors.line)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Image.asset(
-                  'assets/branding/kapconnect_logo.png',
-                  height: 26,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Text(
-                    'KapConnect',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.green,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-                Text(
-                  '${_isCdo ? 'CDO' : 'Supplier'} · ${_shop.company}',
-                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'Log out',
-            onPressed: () => confirmLogOut(context),
-            icon: const Icon(Icons.logout, color: AppColors.green),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _bottom(List<(IconData, String)> tabs) {
-    return Container(
-      height: 68,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.line)),
-      ),
-      child: Row(
-        children: [
-          for (var i = 0; i < tabs.length; i++)
-            Expanded(
-              child: InkWell(
-                onTap: () => setState(() => _tab = i),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            _tab == i ? AppColors.greenSoft : Colors.transparent,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: Icon(
-                        tabs[i].$1,
-                        size: 20,
-                        color: _tab == i ? AppColors.green : AppColors.muted,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      tabs[i].$2,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w700,
-                        color: _tab == i ? AppColors.green : AppColors.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
+      child: _body(),
     );
   }
 
@@ -196,7 +92,7 @@ class _ProviderHubState extends State<ProviderHub> {
       children: [
         Text(
           cdo ? 'Pending requests' : 'Pending & jobs',
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
         Text(
@@ -303,7 +199,7 @@ class _ProviderHubState extends State<ProviderHub> {
       children: [
         const Text(
           'Availability',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
         const Text(
@@ -349,7 +245,7 @@ class _ProviderHubState extends State<ProviderHub> {
       children: [
         const Text(
           'Delivery coverage',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
         const Text(
@@ -402,7 +298,7 @@ class _ProviderHubState extends State<ProviderHub> {
       children: [
         const Text(
           'Availability / stock',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
         const Text(
@@ -473,7 +369,7 @@ class _ProviderHubState extends State<ProviderHub> {
       children: [
         const Text(
           'Distribution records',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
         const Text(
@@ -496,7 +392,7 @@ class _ProviderHubState extends State<ProviderHub> {
       children: [
         const Text(
           'Messages',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
         const Text(

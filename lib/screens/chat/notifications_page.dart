@@ -5,6 +5,7 @@ import '../../widgets/owner_widgets.dart';
 import '../../widgets/app_bottom_nav.dart';
 import 'chat_page.dart';
 import 'chats_page.dart';
+import '../worker_chat_page.dart';
 
 const Color _green = Color(0xFF256B45);
 const Color _muted = Color(0xFF6B7280);
@@ -46,6 +47,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
       case NotificationType.offer:
       case NotificationType.chat:
         await openChat(context, item.negotiationId!);
+        if (mounted) _reload();
+      case NotificationType.dayJobChat:
+        final chatId = item.dayJobChatId;
+        if (chatId == null) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => WorkerChatPage(chatId: chatId),
+          ),
+        );
         if (mounted) _reload();
       case NotificationType.sellOffer:
         // The buyer's request with the estate's offer: Pending Orders.
@@ -132,7 +143,8 @@ class _NotificationCard extends StatelessWidget {
     final (IconData icon, Color color, String label) = switch (item.type) {
       NotificationType.offer => (Icons.local_offer, _brown, 'Offer'),
       NotificationType.sellOffer => (Icons.storefront, _brown, 'Offer'),
-      NotificationType.chat => (Icons.chat_bubble, _green, 'Message'),
+      NotificationType.chat ||
+      NotificationType.dayJobChat => (Icons.chat_bubble, _green, 'Message'),
     };
 
     return InkWell(

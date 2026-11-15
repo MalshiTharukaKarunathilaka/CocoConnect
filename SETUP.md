@@ -1,4 +1,4 @@
-# Running CocoConnect
+# Running Kapconnect
 
 The app has two parts, both in this repository on branch `integration-senuji`:
 
@@ -23,8 +23,8 @@ The backend must be running for the app to log in or load any data.
 ## 2. Get the code
 
 ```bash
-git clone https://github.com/MalshiTharukaKarunathilaka/CocoConnect.git
-cd CocoConnect
+git clone https://github.com/MalshiTharukaKarunathilaka/Kapconnect.git
+cd Kapconnect
 git checkout integration-senuji
 ```
 
@@ -136,3 +136,12 @@ flutter run --dart-define=API_URL=http://192.168.1.25:5000
 ## Database changes (already done — for reference)
 
 The SQL scripts in `backend/sql/` have already been run on the shared Supabase database. Don't run them again unless setting up a **new** database. They only add tables and columns; they never remove anything.
+
+If the day-jobs screen says that day jobs are not configured, open the Supabase
+SQL Editor and run [`backend/sql/008_day_jobs.sql`](backend/sql/008_day_jobs.sql)
+once. This migration creates the table used by the "View Jobs" screen.
+
+If opening an accepted worker's chat says that day-job chat is not configured,
+run [`backend/sql/010_day_job_chats.sql`](backend/sql/010_day_job_chats.sql) in
+the Supabase SQL Editor once, then restart the backend. This creates the
+persistent worker-owner chat tables.

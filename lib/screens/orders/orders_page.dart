@@ -859,7 +859,7 @@ class _TransactionCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       '${rupees(order.disputePrice!)} / nut requested - waiting '
-                      'for CocoConnect Admin. The agreed '
+                      'for KapConnect Admin. The agreed '
                       '${rupees(order.pricePerUnit)} applies until approved.',
                       style: const TextStyle(
                         fontSize: 12,

@@ -4,6 +4,7 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/location_service.dart';
 import '../services/owner_service.dart';
+import '../theme/app_theme.dart';
 import 'auth_gate.dart';
 import 'location_picker_page.dart';
 
@@ -34,7 +35,7 @@ String initialsOf(String name) {
 
 /// Asks before logging out, then returns to the Login screen.
 Future<void> confirmLogOut(BuildContext context) async {
-  final bool? ok = await showDialog<bool>(
+  final bool? ok = await showThemedDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: const Text('Log out?'),
@@ -202,11 +203,24 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   }
 }
 
+/// The fields in the estate dialog, so a tapped row can open it on that field.
+enum EstateField { name, location, area, crop, year }
+
 /// Estate details buyers see on listings and offers. Pops `true` when saved.
+/// Pass [focus] to start with one field selected.
 class EditEstateDialog extends StatefulWidget {
   final Estate estate;
+  final EstateField? focus;
 
-  const EditEstateDialog({super.key, required this.estate});
+  /// Shown in the location field when the estate has none yet (the account's).
+  final String? fallbackLocation;
+
+  const EditEstateDialog({
+    super.key,
+    required this.estate,
+    this.focus,
+    this.fallbackLocation,
+  });
 
   @override
   State<EditEstateDialog> createState() => _EditEstateDialogState();
@@ -217,7 +231,7 @@ class _EditEstateDialogState extends State<EditEstateDialog> {
     text: widget.estate.estateName,
   );
   late final _locationController = TextEditingController(
-    text: widget.estate.location ?? '',
+    text: widget.estate.location ?? widget.fallbackLocation ?? '',
   );
   late final _areaController = TextEditingController(
     text: widget.estate.totalLandArea ?? '',
@@ -284,12 +298,14 @@ class _EditEstateDialogState extends State<EditEstateDialog> {
           children: [
             TextField(
               controller: _nameController,
+              autofocus: widget.focus == EstateField.name,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(labelText: 'Estate name'),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: _locationController,
+              autofocus: widget.focus == EstateField.location,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
                 labelText: 'Location',
@@ -299,6 +315,7 @@ class _EditEstateDialogState extends State<EditEstateDialog> {
             const SizedBox(height: 10),
             TextField(
               controller: _areaController,
+              autofocus: widget.focus == EstateField.area,
               decoration: const InputDecoration(
                 labelText: 'Total land area',
                 hintText: 'e.g. 25 acres',
@@ -307,6 +324,7 @@ class _EditEstateDialogState extends State<EditEstateDialog> {
             const SizedBox(height: 10),
             TextField(
               controller: _cropController,
+              autofocus: widget.focus == EstateField.crop,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
                 labelText: 'Primary crop',
@@ -316,6 +334,7 @@ class _EditEstateDialogState extends State<EditEstateDialog> {
             const SizedBox(height: 10),
             TextField(
               controller: _yearController,
+              autofocus: widget.focus == EstateField.year,
               keyboardType: TextInputType.number,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,

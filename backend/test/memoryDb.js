@@ -13,6 +13,8 @@ db.public.none(readSql("schema.sql"));
 // Every migration in sql/, in order. pg-mem has no row level security;
 // that part only matters on Supabase.
 for (const file of fs.readdirSync(path.join(__dirname, "../sql")).sort()) {
+  // PostgreSQL's GiST exclusion constraint is verified separately in real PG.
+  if (file === '010_machinery_overlap_constraint.sql') continue;
   db.public.none(
     readSql(`../sql/${file}`)
       .split(/\r?\n/)
@@ -54,7 +56,7 @@ db.public.none(`
 const hash = (pw) => require("bcryptjs").hashSync(pw, 10);
 db.public.none(`
   INSERT INTO users (name, phone, password_hash, role, location, latitude, longitude) VALUES
-    ('CocoConnect Admin', '0700000000', '${hash("admin123")}', 'ADMIN', 'Colombo', NULL, NULL),
+    ('KapConnect Admin', '0700000000', '${hash("admin123")}', 'ADMIN', 'Colombo', NULL, NULL),
     ('Demo Estate Owner', '0711000001', '${hash("demo123")}', 'ESTATE_OWNER', 'Kurunegala', 7.4863, 80.3647),
     ('Nadeesha Perera', '0771112233', '${hash("demo123")}', 'FERTILIZER_SUPPLIER', 'Kurunegala', 7.4980, 80.3560),
     ('CDO Mawathagama', '0372223344', '${hash("demo123")}', 'CDO', 'Kurunegala', 7.5400, 80.4000),

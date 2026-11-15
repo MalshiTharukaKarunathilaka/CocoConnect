@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
-require("dotenv").config();
+require("dotenv").config({path: require("path").join(__dirname, ".env")});
 
 const listingRoutes = require("./routes/listingRoutes");
 const authRoutes = require("./routes/authRoutes");
@@ -9,8 +9,11 @@ const buyerRoutes = require("./routes/buyerRoutes");
 const ownerRoutes = require("./routes/ownerRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const workerRoutes = require("./routes/workerRoutes");
+const dayJobChatRoutes = require("./routes/dayJobChatRoutes");
 const swaggerDocument = require("./config/swagger");
 
+const { getHealth } = require("./controllers/healthController");
 const app = express();
 
 app.use(cors());
@@ -26,11 +29,17 @@ app.get("/", (req, res) => {
   });
 });
 
+app.get("/api/health", getHealth);
+
+app.use("/api/machinery", require("./routes/machineryRoutes"));
+app.use("/api/holidays", require("./routes/holidayRoutes"));
 app.use("/api/listings", listingRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/buyer", buyerRoutes);
 app.use("/api/owner", ownerRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/worker", workerRoutes);
+app.use("/api", dayJobChatRoutes);
 app.use("/api", chatRoutes);
 
 const PORT = process.env.PORT || 5000;

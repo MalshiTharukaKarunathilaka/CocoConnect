@@ -403,11 +403,7 @@ class RequestInfoItem extends StatelessWidget {
   final String title;
   final String value;
 
-  const RequestInfoItem({
-    super.key,
-    required this.title,
-    required this.value,
-  });
+  const RequestInfoItem({super.key, required this.title, required this.value});
 
   @override
   Widget build(BuildContext context) {

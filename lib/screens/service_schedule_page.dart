@@ -1,11 +1,18 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/auth_service.dart';
+import '../services/machinery_api.dart';
+import '../services/api_client.dart';
+import '../models/provider_calendar.dart';
+import 'live_machinery_booking.dart';
 import '../widgets/machinery_widgets.dart';
 import '../widgets/owner_widgets.dart';
 import 'buyer/buyer_format.dart';
 import 'machinery_booking_status_page.dart';
 import 'machinery_negotiation_page.dart';
+import '../services/holiday_service.dart';
+import '../widgets/holiday_widgets.dart';
 
 const Color _red = Color(0xFFC62828);
 const Color _amber = Color(0xFFE2681F);
@@ -40,7 +47,7 @@ class _Service {
   final String name;
   final String photo;
   final String description;
-  final int rate;
+  final num rate;
   final String unit; // acre / day
   final String note;
 
@@ -72,7 +79,7 @@ const List<_Service> _services = [
     'Deep furrow penetration',
   ),
   _Service(
-    'Rotary Tiller',
+    'Rotary',
     'rotary',
     'Secondary soil pulverization & manure mixing',
     6000,
@@ -88,7 +95,7 @@ const List<_Service> _services = [
     'Safe root perimeter tilling',
   ),
   _Service(
-    'Coconut Haulage Trailer',
+    'Trailer',
     'trailer',
     'Nut transport & fertilizer distribution',
     14000,
@@ -99,55 +106,31 @@ const List<_Service> _services = [
 
 const List<_Service> _backhoeServices = [
   _Service(
-    'Ditch & Drainage',
+    'Small Backhoe',
     '',
-    'Drain and ditch digging between palm rows',
+    'Small backhoe service',
     4200,
     'hour',
-    'Keeps estate water-logging away',
+    'Hourly rate',
   ),
   _Service(
-    'Pit Digging',
+    'Large Backhoe',
     '',
-    'Planting pits for new coconut seedlings',
-    4200,
-    'hour',
-    'Uniform pit depth',
-  ),
-  _Service(
-    'Land Clearing',
-    '',
-    'Stump removal and levelling of new land',
+    'Large backhoe service',
     6500,
     'hour',
-    'Heavy-duty clearing',
+    'Hourly rate',
   ),
 ];
 
 const List<_Service> _handTractorServices = [
   _Service(
-    'Weeding',
+    'Hand Tractor',
     '',
-    'Light weed control between palms',
-    3200,
-    'acre',
-    'Good for narrow rows',
-  ),
-  _Service(
-    'Inter-row Tilling',
-    '',
-    'Shallow tilling for intercrops',
-    3000,
-    'acre',
-    'Low soil compaction',
-  ),
-  _Service(
-    'Small Trailer Haulage',
-    '',
-    'Short-distance nut and manure transport',
+    'Hand tractor service',
     9000,
     'day',
-    'Up to 1,000 nuts / trip',
+    'Daily rate',
   ),
 ];
 
@@ -189,8 +172,7 @@ class _Job {
     this.mine,
   });
 
-  int get amount =>
-      service.unit == 'day' ? service.rate : (service.rate * acres).round();
+  num get amount => service.rate * (service.unit == 'day' ? 1 : acres);
 }
 
 /// Sample bookings around today for one machine, for showing the idea to
@@ -317,12 +299,54 @@ class ServiceSchedulePage extends StatefulWidget {
 }
 
 class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
-  late final List<_Service> _svc = _servicesFor(widget.type);
-  late final Map<String, List<_Job>> _jobs = _demoJobs(
-    _svc,
-    // Stable per machine, so each one shows its own bookings.
-    (widget.machineName ?? '').codeUnits.fold(0, (a, b) => a + b) % 3,
-  );
+  bool get _live => widget.info?.databaseId != null;
+  Map<String, dynamic> _liveCalendar = const {};
+
+  /// A provider blocking a day, or another owner booking one, shows up here
+  /// without the owner doing anything: the calendar is re-read every 20 seconds.
+  Timer? _poll;
+
+  Future<void> _loadLiveCalendar({bool quiet = false}) async {
+    if (!_live) return;
+    try {
+      final data = await const MachineryApi().ownerCalendar(
+        widget.info!.databaseId!,
+        _month,
+      );
+      if (mounted) setState(() => _liveCalendar = data);
+    } on ApiException catch (error) {
+      if (mounted && !quiet) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+
+  late final List<_Service> _svc = _live
+      ? widget.info!.liveServices
+            .map(
+              (row) => _Service(
+                '${row['name']}',
+                _servicesFor(
+                      widget.type,
+                    ).where((s) => s.name == row['name']).firstOrNull?.photo ??
+                    '',
+                'Registered service',
+                double.parse('${row['rate']}'),
+                '${row['unit']}',
+                '',
+              ),
+            )
+            .toList()
+      : _servicesFor(widget.type);
+  late final Map<String, List<_Job>> _jobs = _live
+      ? {}
+      : _demoJobs(
+          _svc,
+          // Stable per machine, so each one shows its own bookings.
+          (widget.machineName ?? '').codeUnits.fold(0, (a, b) => a + b) % 3,
+        );
   late DateTime _day = _firstBookable();
   late DateTime _month = DateTime(_day.year, _day.month);
   final _selKey = GlobalKey();
@@ -336,6 +360,19 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   void initState() {
     super.initState();
     _pickDefault();
+    _loadLiveCalendar();
+    if (_live) {
+      _poll = Timer.periodic(
+        const Duration(seconds: 20),
+        (_) => _loadLiveCalendar(quiet: true),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
   }
 
   /// Start with the first free service ticked, so there is always a sensible
@@ -349,8 +386,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   double _amountOf(_Service s) =>
       s.unit == 'day' ? 1 : (_amounts[s.name] ?? (s.unit == 'hour' ? 4 : 4.5));
 
-  int _lineCost(_Service s) =>
-      s.unit == 'day' ? s.rate : (s.rate * _amountOf(s)).round();
+  num _lineCost(_Service s) => s.rate * (s.unit == 'day' ? 1 : _amountOf(s));
 
   List<_Service> _selectedOn(List<_Service> free) =>
       free.where((s) => _picked.contains(s.name)).toList();
@@ -376,15 +412,33 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   /// Demo jobs plus the bookings made while the app has been open.
   List<_Job> _on(DateTime d) => [
     ...(_jobs[_key(d)] ?? const <_Job>[]),
+    if (_live)
+      for (final slot in (_liveCalendar['reserved'] as List? ?? []))
+        if (providerDateKey(
+                  DateTime.parse(
+                    '${slot['starts_at']}',
+                  ).toUtc().add(const Duration(minutes: 330)),
+                ) ==
+                providerDateKey(d) &&
+            _svc.isNotEmpty)
+          _Job(
+            _svc.first,
+            _Status.confirmed,
+            'Reserved time slot',
+            0,
+            '${clockTime(DateTime.parse('${slot['starts_at']}').toUtc().add(const Duration(minutes: 330)))} - ${clockTime(DateTime.parse('${slot['ends_at']}').toUtc().add(const Duration(minutes: 330)))}',
+          ),
     for (final b
-        in machineBookings[widget.machineName] ?? const <MachineBooking>[])
+        in (_live
+            ? const <MachineBooking>[]
+            : machineBookings[widget.machineName] ?? const <MachineBooking>[]))
       if (_key(b.date) == _key(d))
         for (final i in b.items)
           _Job(
             _Service(
               i.name,
               '',
-              'Booked through CocoConnect',
+              'Booked through KapConnect',
               // Spread any negotiated discount over the services.
               (i.rate * b.total / (b.listTotal == 0 ? 1 : b.listTotal)).round(),
               i.unit,
@@ -399,12 +453,22 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   ];
 
   List<_Service> _freeSvc(DateTime d) {
+    if (_live) return _svc;
     final Set<String> taken = {for (final j in _on(d)) j.service.name};
     return _svc.where((s) => !taken.contains(s.name)).toList();
   }
 
   _Day _stateOf(DateTime d) {
     if (d.isBefore(_today)) return _Day.past;
+    if (_live) {
+      final blocked = (_liveCalendar['days'] as List? ?? []).any(
+        (row) =>
+            '${row['day']}' == providerDateKey(d) &&
+            row['state'] != 'AVAILABLE',
+      );
+      if (blocked) return _Day.booked;
+      return _on(d).isEmpty ? _Day.free : _Day.pending;
+    }
     final List<_Job> jobs = _on(d);
     if (jobs.any((j) => j.status == _Status.confirmed)) return _Day.booked;
     if (jobs.isNotEmpty) return _Day.pending;
@@ -446,9 +510,28 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
 
   void _shift(int months) {
     setState(() => _month = DateTime(_month.year, _month.month + months));
+    _loadLiveCalendar();
   }
 
   Future<void> _negotiate(List<_Service> selected) async {
+    if (_live) {
+      await requestLiveMachinery(
+        context,
+        machineId: widget.info!.databaseId!,
+        date: _day,
+        items: [
+          for (final s in selected)
+            {
+              'service_id': widget.info!.liveServices.firstWhere(
+                (r) => r['name'] == s.name,
+              )['id'],
+              'quantity': _amountOf(s),
+            },
+        ],
+      );
+      if (mounted) _loadLiveCalendar();
+      return;
+    }
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -508,36 +591,98 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
                   _machineHeader(widget.info!),
                   const SizedBox(height: 14),
                 ],
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 10, left: 2),
-                  child: Text(
-                    'Tap an available date to select your service schedule.',
-                    style: TextStyle(fontSize: 13, color: kOwnerMuted),
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF2FC),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.touch_app_outlined,
+                        size: 18,
+                        color: Color(0xFF1F5FA8),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Tap an available date to select your service schedule.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: Color(0xFF1F4E85),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 _calendar(),
                 const SizedBox(height: 18),
-                Row(
+                Container(
                   key: _selKey,
-                  children: [
-                    const Icon(
-                      Icons.event_available_outlined,
-                      size: 20,
-                      color: kOwnerGreen,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${_weekdays[_day.weekday - 1]}, ${_day.day} ${_months[_day.month - 1]} ${_day.year}',
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: kOwnerInk,
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE3EBE5)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x10000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: kOwnerGreenSoft,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.event_available_outlined,
+                          size: 22,
+                          color: kOwnerGreen,
                         ),
                       ),
-                    ),
-                    OwnerPill(label, tone: tone),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _weekdays[_day.weekday - 1],
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: kOwnerMuted,
+                              ),
+                            ),
+                            Text(
+                              '${_day.day} ${_months[_day.month - 1]} ${_day.year}',
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: kOwnerInk,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      OwnerPill(label, tone: tone),
+                    ],
+                  ),
+                ),
+                HolidayListener(
+                  years: [_day.year],
+                  builder: (_) => HolidayNote(_day),
                 ),
                 const SizedBox(height: 10),
                 if (st == _Day.past)
@@ -597,108 +742,190 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
     );
   }
 
-  Widget _machineHeader(MachineInfo m) => OwnerCard(
-    padding: const EdgeInsets.all(12),
-    child: Row(
-      children: [
-        MachinePhoto(m, width: 84, height: 84, radius: 12),
-        const SizedBox(width: 12),
+  Widget _machineHeader(MachineInfo m) {
+    Widget stat(IconData icon, Color color, String value, String label) =>
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE3EBE5)),
+            ),
+            child: Column(
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                    color: kOwnerInk,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 10.5, color: kOwnerMuted),
+                ),
+              ],
+            ),
+          ),
+        );
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Colors.white, Color(0xFFEFF6F1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFDCE8DF)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
             children: [
-              Text(
-                machineLabel(m.type).toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.6,
-                  color: kOwnerGreen,
-                ),
-              ),
-              Text(
-                m.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 16.5,
-                  fontWeight: FontWeight.bold,
-                  color: kOwnerInk,
-                ),
-              ),
-              Row(
+              Stack(
                 children: [
-                  Flexible(
-                    child: Text(
-                      m.provider,
+                  MachinePhoto(m, width: 96, height: 96, radius: 18),
+                  Positioned(
+                    left: 6,
+                    bottom: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        machineLabel(m.type),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: kOwnerGreen,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      m.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 12.5,
-                        color: kOwnerMuted,
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                        color: kOwnerInk,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.verified, size: 14, color: kOwnerGreen),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.star, size: 14, color: Color(0xFFF2A900)),
-                  const SizedBox(width: 3),
-                  Text(
-                    '${m.rating}',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: kOwnerInk,
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            m.provider,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: kOwnerMuted,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.verified,
+                          size: 15,
+                          color: kOwnerGreen,
+                        ),
+                      ],
                     ),
-                  ),
-                  Text(
-                    ' (${m.jobs} jobs)',
-                    style: const TextStyle(fontSize: 12, color: kOwnerMuted),
-                  ),
-                  if (widget.km > 0) ...[
-                    const Text(
-                      '  ·  ',
-                      style: TextStyle(fontSize: 12, color: kOwnerMuted),
-                    ),
-                    Text(
-                      '${widget.km.toStringAsFixed(1)} km',
-                      style: const TextStyle(fontSize: 12, color: kOwnerMuted),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text.rich(
-                TextSpan(
-                  text: 'from ${rupees(m.rate)}',
-                  children: [
-                    TextSpan(
-                      text: ' / ${m.unit}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.normal,
-                        color: kOwnerMuted,
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFBF1E6),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'from ${rupees(m.rate)}',
+                          children: [
+                            TextSpan(
+                              text: ' / ${m.unit}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.normal,
+                                color: kOwnerMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: kOwnerBrown,
+                        ),
                       ),
                     ),
                   ],
-                ),
-                style: const TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.bold,
-                  color: kOwnerBrown,
                 ),
               ),
             ],
           ),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              stat(
+                m.databaseId != null ? Icons.verified_user : Icons.star,
+                m.databaseId != null ? kOwnerGreen : const Color(0xFFF2A900),
+                m.databaseId != null ? 'Registered' : '${m.rating}',
+                m.databaseId != null ? 'provider' : '${m.jobs} jobs',
+              ),
+              const SizedBox(width: 8),
+              stat(
+                Icons.near_me_outlined,
+                const Color(0xFF0288D1),
+                widget.km > 0 ? '${widget.km.toStringAsFixed(1)} km' : '-',
+                'from your estate',
+              ),
+              const SizedBox(width: 8),
+              stat(
+                Icons.sell_outlined,
+                kOwnerBrown,
+                'per ${m.unit}',
+                'billing',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   /// The chosen services, each with its own acres (or hours) and cost.
   Widget _selectionCard(List<_Service> selected) {
@@ -716,7 +943,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
       ),
     );
 
-    final int total = selected.fold(0, (sum, s) => sum + _lineCost(s));
+    final num total = selected.fold<num>(0, (sum, s) => sum + _lineCost(s));
 
     return OwnerCard(
       child: Column(
@@ -905,7 +1132,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   );
 
   Widget _bookBar(List<_Service> selected) {
-    final int total = selected.fold(0, (sum, s) => sum + _lineCost(s));
+    final num total = selected.fold<num>(0, (sum, s) => sum + _lineCost(s));
     final String detail = selected.isEmpty
         ? 'No service selected'
         : selected.length == 1
@@ -920,7 +1147,14 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: kOwnerBorder)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 18,
+            offset: Offset(0, -4),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -937,9 +1171,9 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
               Text(
                 rupees(total),
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: kOwnerInk,
+                  color: kOwnerGreen,
                 ),
               ),
             ],
@@ -955,7 +1189,11 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
     );
   }
 
-  Widget _calendar() {
+  /// The month grid, redrawn when the year's holidays arrive.
+  Widget _calendar() =>
+      HolidayListener(years: [_month.year], builder: (_) => _calendarCard());
+
+  Widget _calendarCard() {
     final DateTime first = DateTime(_month.year, _month.month, 1);
     final int lead = first.weekday - 1;
     final int days = DateTime(_month.year, _month.month + 1, 0).day;
@@ -974,8 +1212,20 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
       ),
     );
 
-    return OwnerCard(
-      padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE3EBE5)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
       child: Column(
         children: [
           Row(
@@ -985,7 +1235,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
                 child: Text(
                   '${_months[_month.month - 1]} ${_month.year}',
                   style: const TextStyle(
-                    fontSize: 17,
+                    fontSize: 19,
                     fontWeight: FontWeight.bold,
                     color: kOwnerInk,
                   ),
@@ -1023,21 +1273,34 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
               ],
             ),
           const SizedBox(height: 10),
-          const Wrap(
-            spacing: 14,
-            runSpacing: 6,
-            alignment: WrapAlignment.center,
-            children: [
-              _Legend(color: kOwnerGreen, label: 'Available'),
-              _Legend(color: _red, label: 'Booked'),
-              _Legend(color: _amber, label: 'Pending'),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Small coloured dots: your bookings with other machines that day',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11.5, color: kOwnerMuted),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF6F8F6),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Column(
+              children: [
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _Legend(color: kOwnerGreen, label: 'Available'),
+                    _Legend(color: _red, label: 'Booked'),
+                    _Legend(color: _amber, label: 'Pending'),
+                    HolidayLegend(),
+                  ],
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Small coloured dots: your bookings with other machines that day',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11.5, color: kOwnerMuted),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1045,7 +1308,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   }
 
   Widget _dayCell(int n, int days) {
-    if (n < 1 || n > days) return const SizedBox(height: 54);
+    if (n < 1 || n > days) return const AspectRatio(aspectRatio: 1);
     final DateTime d = DateTime(_month.year, _month.month, n);
     final bool selected = _key(d) == _key(_day);
     final bool today = _key(d) == _key(_today);
@@ -1055,11 +1318,11 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
         st != _Day.past && st != _Day.booked && _freeSvc(d).isEmpty;
 
     final (Color strong, Color soft) = switch (st) {
-      _Day.past => (const Color(0xFF9AA0A6), const Color(0xFFF4F4F2)),
+      _Day.past => (const Color(0xFF9AA0A6), Colors.transparent),
       _Day.booked => (_red, const Color(0xFFFDECEC)),
       _Day.pending =>
         full ? (_red, const Color(0xFFFDECEC)) : (_amber, _amberSoft),
-      _Day.free => (kOwnerGreen, kOwnerGreenSoft),
+      _Day.free => (kOwnerGreen, const Color(0xFFF0F6F1)),
     };
     final bool dim = st == _Day.past;
     final bool strike = st == _Day.booked || full;
@@ -1071,60 +1334,87 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
         if (b.machineName != widget.machineName && _key(b.date) == _key(d)) b,
     ];
 
+    final Holiday? holiday = HolidayService.of(d);
     return GestureDetector(
       onTap: dim ? null : () => _pickDay(d),
-      child: Container(
-        height: 54,
-        margin: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          color: selected ? strong : soft,
-          borderRadius: BorderRadius.circular(14),
-          border: today && !selected
-              ? Border.all(color: kOwnerGreen, width: 1.6)
-              : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '$n',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: selected || today
-                    ? FontWeight.bold
-                    : FontWeight.w500,
-                color: selected
-                    ? Colors.white
-                    : dim
-                    ? const Color(0xFFB4B8BC)
-                    : strong,
-                decoration: strike ? TextDecoration.lineThrough : null,
-                decorationColor: selected ? Colors.white : strong,
+      child: Stack(
+        children: [
+          AspectRatio(
+            aspectRatio: 1,
+            child: Container(
+              margin: const EdgeInsets.all(2.5),
+              decoration: BoxDecoration(
+                color: selected ? strong : soft,
+                borderRadius: BorderRadius.circular(16),
+                border: today && !selected
+                    ? Border.all(color: kOwnerGreen, width: 1.6)
+                    : null,
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                          color: strong.withValues(alpha: 0.4),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
               ),
-            ),
-            const SizedBox(height: 4),
-            SizedBox(
-              height: 8,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (!dim) _dot(selected ? Colors.white : strong),
-                  for (final b in others.take(2))
-                    Container(
-                      width: 7,
-                      height: 7,
-                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                      decoration: BoxDecoration(
-                        color: machineColor(b.info?.type ?? 'TRACTOR'),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.2),
-                      ),
+                  Text(
+                    '$n',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: selected || today
+                          ? FontWeight.bold
+                          : FontWeight.w500,
+                      color: selected
+                          ? Colors.white
+                          : dim
+                          ? const Color(0xFFB4B8BC)
+                          : st == _Day.free
+                          ? kOwnerInk
+                          : strong,
+                      decoration: strike ? TextDecoration.lineThrough : null,
+                      decorationColor: selected ? Colors.white : strong,
                     ),
+                  ),
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    height: 8,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!dim) _dot(selected ? Colors.white : strong),
+                        for (final b in others.take(2))
+                          Container(
+                            width: 7,
+                            height: 7,
+                            margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                            decoration: BoxDecoration(
+                              color: machineColor(b.info?.type ?? 'TRACTOR'),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.2,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          if (holiday != null)
+            Positioned(
+              top: 5,
+              right: 8,
+              child: HolidayFlag(onDark: selected, size: 11),
+            ),
+        ],
       ),
     );
   }
@@ -1194,6 +1484,22 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   }
 
   Widget _jobCardBody(_Job j) {
+    if (_live && j.estate == 'Reserved time slot') {
+      return OwnerCard(
+        child: Row(
+          children: [
+            const Icon(Icons.event_busy_outlined, color: kOwnerGreen),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Reserved: ${j.time}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final bool ok = j.status == _Status.confirmed;
     final Color c = ok ? _red : _amber;
     return Container(
@@ -1327,13 +1633,21 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
         children: [
           Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(13),
+              color: selected ? const Color(0xFFF2F9F4) : Colors.white,
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: selected ? kOwnerGreen : Colors.transparent,
-                width: 2,
+                color: selected ? kOwnerGreen : const Color(0xFFE3EBE5),
+                width: selected ? 2 : 1,
               ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x10000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
-            child: OwnerCard(
+            child: Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,

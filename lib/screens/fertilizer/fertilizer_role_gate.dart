@@ -22,7 +22,7 @@ class FertilizerRoleGate extends StatelessWidget {
                 children: [
                   Center(
                     child: Image.asset(
-                      'assets/branding/kapconnect_logo.png',
+                      'assets/images/kapconnect_logo.png',
                       height: 88,
                       fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) => const Text(

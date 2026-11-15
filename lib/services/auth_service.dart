@@ -1,5 +1,26 @@
 import 'api_client.dart';
 
+class RegistrationStorage {
+  final bool persistent;
+  final bool ready;
+  const RegistrationStorage({required this.persistent, required this.ready});
+
+  factory RegistrationStorage.fromJson(Map<String, dynamic> json) {
+    final storage = json['storage'];
+    if (storage is! Map ||
+        storage['persistent'] is! bool ||
+        json['provider_registration_ready'] is! bool) {
+      throw const ApiException(
+        'Restart the backend to check registration storage.',
+      );
+    }
+    return RegistrationStorage(
+      persistent: storage['persistent'] as bool,
+      ready: json['provider_registration_ready'] as bool,
+    );
+  }
+}
+
 class AppUser {
   final int id;
   final String name;
@@ -41,6 +62,11 @@ class AuthService {
 
   static AppUser? currentUser;
 
+  static Future<RegistrationStorage> registrationStorage() async {
+    final data = await ApiClient.get('/api/health');
+    return RegistrationStorage.fromJson(data as Map<String, dynamic>);
+  }
+
   /// "77 123 4567", "0771234567" or "+94 77..." -> "0771234567", so the
   /// same person always maps to the same account.
   static String normalisePhone(String input) {
@@ -70,6 +96,7 @@ class AuthService {
     required String location,
     required double latitude,
     required double longitude,
+    Map<String, dynamic>? serviceProvider,
   }) async {
     final data = await ApiClient.post('/api/auth/signup', {
       'name': name,
@@ -79,6 +106,7 @@ class AuthService {
       'location': location,
       'latitude': latitude,
       'longitude': longitude,
+      'service_provider': ?serviceProvider,
     });
     return _startSession(data as Map<String, dynamic>);
   }

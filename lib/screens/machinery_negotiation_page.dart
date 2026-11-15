@@ -49,12 +49,12 @@ class BookingItem {
   final String name;
   final String unit; // acre / hour / day
   final double qty;
-  final int rate; // list rate per unit (per day for 'day')
+  final num rate; // list rate per unit (per day for 'day')
 
   const BookingItem(this.name, this.unit, this.qty, this.rate);
 
   /// The list price for this service.
-  int get lineTotal => unit == 'day' ? rate : (rate * qty).round();
+  num get lineTotal => unit == 'day' ? rate : rate * qty;
 
   String get qtyLabel => qtyText(unit, qty);
 }
@@ -76,7 +76,7 @@ class MachineBooking {
   final String provider;
   final String category; // Tractor / Backhoe / Hand Tractor
   final List<BookingItem> items;
-  final int agreedTotal;
+  final num agreedTotal;
   final DateTime date;
   final String time; // start time, e.g. 06:00 AM
   final String estate;
@@ -106,10 +106,10 @@ class MachineBooking {
   });
 
   /// The agreed price for the whole booking.
-  int get total => agreedTotal;
+  num get total => agreedTotal;
 
   /// What the same work costs at the provider's list rates.
-  int get listTotal => items.fold(0, (sum, i) => sum + i.lineTotal);
+  num get listTotal => items.fold<num>(0, (sum, i) => sum + i.lineTotal);
 
   /// "Slasher + Disc Ploughing".
   String get service => items.map((i) => i.name).join(' + ');
@@ -305,7 +305,8 @@ class _MachineryNegotiationPageState extends State<MachineryNegotiationPage> {
 
   bool get _typing => _pending > 0;
 
-  int get _listTotal => widget.items.fold(0, (sum, i) => sum + i.lineTotal);
+  int get _listTotal =>
+      widget.items.fold<num>(0, (sum, i) => sum + i.lineTotal).round();
 
   String get _scope => widget.items.length == 1
       ? widget.items.first.qtyLabel

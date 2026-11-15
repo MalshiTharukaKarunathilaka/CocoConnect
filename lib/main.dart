@@ -4,6 +4,7 @@ import 'screens/estate_owner_profile_page.dart';
 import 'screens/orders/orders_page.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const KapConnectApp());
 }
 
@@ -13,7 +14,7 @@ class KapConnectApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CocoConnect',
+      title: 'KapConnect',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true, fontFamily: 'Arial'),
 

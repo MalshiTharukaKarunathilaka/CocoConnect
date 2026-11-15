@@ -744,7 +744,7 @@ class _DisputePanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Submitted price will be reviewed by CocoConnect Admin. The '
+            'Submitted price will be reviewed by KapConnect Admin. The '
             'original rate of ${rupees(agreed)}/nut remains protected until '
             'Admin approves the revised price.',
             style: const TextStyle(

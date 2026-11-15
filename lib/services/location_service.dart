@@ -35,7 +35,7 @@ class LocationService {
 
   static const String _nominatim = 'https://nominatim.openstreetmap.org';
   static const Map<String, String> _headers = {
-    'User-Agent': 'CocoConnect/1.0 (university project; kapconnect_mobile)',
+    'User-Agent': 'KapConnect/1.0 (university project; kapconnect_mobile)',
     'Accept-Language': 'en',
   };
 
