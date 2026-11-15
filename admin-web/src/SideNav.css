@@ -450,8 +450,8 @@
 .sb-fig { order: -1; position: relative; padding-bottom: 14px; }
 .sb-fig::after { content: ''; position: absolute; left: 8%; right: 8%; bottom: 6px; height: 14px; border-radius: 50%; background: radial-gradient(closest-side, rgba(20, 40, 30, 0.28), rgba(20, 40, 30, 0)); z-index: 0; }
 .sb-fig > * { position: relative; z-index: 1; }
-.sb-fig .ch-img, .sb-fig svg { max-height: 168px; filter: drop-shadow(0 8px 8px rgba(20, 40, 30, 0.22)); }
-.sb-fig .an-own-land { height: 150px; border-radius: 18px; -webkit-mask-image: none; mask-image: none; filter: drop-shadow(0 8px 8px rgba(20, 40, 30, 0.22)); }
+.sb-fig .ch-img, .sb-fig svg { max-height: 215px; filter: drop-shadow(0 8px 8px rgba(20, 40, 30, 0.22)); }
+.sb-fig .an-own-land { height: 190px; border-radius: 18px; -webkit-mask-image: none; mask-image: none; filter: drop-shadow(0 8px 8px rgba(20, 40, 30, 0.22)); }
 .sb-fig .an-own-glyphs { padding-bottom: 0; }
 .sb-text b { white-space: nowrap; font-size: 2rem; }
 .sb-fig .an-own-glyphs { gap: 6px; align-items: flex-end; } .sb-fig .an-own-glyphs svg, .sb-fig .an-own-glyphs img { max-height: none; }
@@ -471,3 +471,9 @@
 .mv-graph { border: 1.5px solid #d4e0d8; border-radius: 14px; padding: 12px 14px 6px; background: #fff; min-width: 0; }
 .mv-graph > b { display: block; font-size: 0.9rem; }
 .mv-graph > small { display: block; font-size: 0.74rem; color: #6b7a71; margin: 2px 0 6px; }
+
+/* machine pictures in chart legends */
+.an-leg-icons { display: flex; justify-content: center; gap: 34px; padding-top: 6px; }
+.an-leg-icons span { display: inline-flex; align-items: center; gap: 8px; }
+.an-leg-icons i { display: inline-flex; }
+.an-leg-icons b { font-size: 0.8rem; font-weight: 600; color: #3d4a42; }

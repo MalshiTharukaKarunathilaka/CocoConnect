@@ -40,7 +40,33 @@ function PhotoTick({ x, y, payload, photos, nameWidth, thumb }) {
   )
 }
 
-function Bars({ data, keys = ['value'], colors = PALETTE, horizontal, height = 240, fmt = compact, axisFmt, stacked, single, nameWidth = 112, onPick, photos, thumb = 30 }) {
+/** A machine picture in front of each category name. icons maps the name to a picture kind. */
+function IconTick({ x, y, payload, icons, nameWidth }) {
+  const kind = icons[payload.value]
+  const left = -nameWidth
+  return (
+    <g transform={`translate(${x},${y})`}>
+      {kind && <foreignObject x={left + 10} y={-24} width="64" height="48" style={{ overflow: 'visible' }}><div style={{ display: 'flex', alignItems: 'center', height: 48 }} dangerouslySetInnerHTML={{ __html: glyphHtml(kind.kind, kind.color, 52) }} /></foreignObject>}
+      <text x={left + (kind ? 82 : 0)} y={0} dy="0.32em" textAnchor="start" fontSize="11" fill="#55625a">{payload.value}</text>
+    </g>
+  )
+}
+
+/** A legend that shows each series as its machine picture. */
+function IconLegend({ keys, icons }) {
+  return (
+    <div className="an-leg-icons">
+      {keys.map((k) => (
+        <span key={k}>
+          {icons[k] && <i dangerouslySetInnerHTML={{ __html: glyphHtml(icons[k].kind, icons[k].color, 54) }} />}
+          <b>{k}</b>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function Bars({ data, keys = ['value'], colors = PALETTE, horizontal, height = 240, fmt = compact, axisFmt, stacked, single, nameWidth = 112, onPick, photos, thumb = 30, tickIcons, legendIcons }) {
   return (
     <Chart height={height}>
       <BarChart data={data} layout={horizontal ? 'vertical' : 'horizontal'} margin={{ left: horizontal ? 4 : -8, right: horizontal ? 34 : 14, top: 6 }}>
@@ -49,7 +75,7 @@ function Bars({ data, keys = ['value'], colors = PALETTE, horizontal, height = 2
         {horizontal ? (
           <>
             <XAxis type="number" {...ax} tickFormatter={axisFmt || fmt} />
-            <YAxis type="category" dataKey="name" width={nameWidth} {...ax} tick={photos ? <PhotoTick photos={photos} nameWidth={nameWidth} thumb={thumb} /> : ax.tick} />
+            <YAxis type="category" dataKey="name" width={nameWidth} {...ax} tick={photos ? <PhotoTick photos={photos} nameWidth={nameWidth} thumb={thumb} /> : tickIcons ? <IconTick icons={tickIcons} nameWidth={nameWidth} /> : ax.tick} />
           </>
         ) : (
           <>
@@ -63,7 +89,7 @@ function Bars({ data, keys = ['value'], colors = PALETTE, horizontal, height = 2
             {single && data.map((d, j) => <Cell key={j} fill={`url(#${gid(d.color || colors[0])})`} />)}
           </Bar>
         ))}
-        {keys.length > 1 && <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />}
+        {keys.length > 1 && (legendIcons ? <Legend content={() => <IconLegend keys={keys} icons={legendIcons} />} /> : <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />)}
       </BarChart>
     </Chart>
   )
@@ -741,9 +767,9 @@ function Owners({ d, sel, setSel }) {
       />
       <FigTiles
         items={[
-          ['Women', pct(women, estates.length), `${num(women)} owners`, <Character gender="F" stage={2} height={150} />],
-          ['Men', pct(estates.length - women, estates.length), `${num(estates.length - women)} owners`, <Character gender="M" stage={2} height={150} />],
-          ['Most common age', topAge && topAge.value ? topAge.name : '-', topAge && topAge.value ? `${num(topAge.value)} owners` : '', <Pair stage={Math.max(0, ownerAge.indexOf(topAge))} height={150} />],
+          ['Women', pct(women, estates.length), `${num(women)} owners`, <Character gender="F" stage={2} height={190} />],
+          ['Men', pct(estates.length - women, estates.length), `${num(estates.length - women)} owners`, <Character gender="M" stage={2} height={190} />],
+          ['Most common age', topAge && topAge.value ? topAge.name : '-', topAge && topAge.value ? `${num(topAge.value)} owners` : '', <Pair stage={Math.max(0, ownerAge.indexOf(topAge))} height={190} />],
         ]}
       />
       <ProvinceStrip startOpen byD={perD} fmt={num} unit="owners" sel={sel} setSel={setSel} {...landStrip(d, sel, setSel, perD, 'Land owners')} />
@@ -825,7 +851,7 @@ function Clients({ d, sel, setSel }) {
       />
       <FigTiles
         items={[
-          ['Buyers', num(buyers), `${pct(mix.gender[1].value, buyers)} women \u00b7 ${pct(mix.gender[0].value, buyers)} men`, <Pair stage={Math.max(0, mix.age.indexOf([...mix.age].sort((a, b) => b.value - a.value)[0]))} height={96} />],
+          ['Buyers', num(buyers), `${pct(mix.gender[1].value, buyers)} women \u00b7 ${pct(mix.gender[0].value, buyers)} men`, <Pair stage={Math.max(0, mix.age.indexOf([...mix.age].sort((a, b) => b.value - a.value)[0]))} height={190} />],
           [sel.region ? 'CDO area' : sel.province ? 'Top district' : 'Top province', topArea ? topArea.name : '-', `${num(topArea?.value)} orders`, glyphRow(['sack'], ['#d9a441'], 62)],
         ]}
       />
@@ -914,7 +940,7 @@ function MachinerySuppliers({ d, sel, setSel, bar }) {
       />
       <FigTiles
         items={[
-          ['Average rating', avgRating ? `${avgRating.toFixed(1)} / 5` : '-', 'from the owners who booked', <Pair stage={2} height={150} />],
+          ['Average rating', avgRating ? `${avgRating.toFixed(1)} / 5` : '-', 'from the owners who booked', <Pair stage={2} height={190} />],
           ['Biggest supplier', top ? top.name : '-', top ? `${top.machines} machines` : '', glyphRow(['backhoe'], ['#8e44ad'], 60)],
           ['Machine kinds', '3', 'tractor, backhoe, hand tractor', glyphRow(['tractor'], ['#0288d1'], 52)],
         ]}
@@ -1077,9 +1103,9 @@ function Workers({ d, sel, setSel, extra }) {
       />
       <FigTiles
         items={[
-          ['Women / Men', `${pct(women, total)} / ${pct(gender[0].value, total)}`, `${num(women)} women · ${num(gender[0].value)} men`, <Pair stage={1} height={150} />],
-          ['Biggest age group', topAge?.name, `${pct(topAge?.value, total)} of workers`, <Pair stage={Math.max(0, age.indexOf(topAge))} height={150} />],
-          [topLabel, topDistrict?.name || '-', `${num(topDistrict?.value)} workers`, topProvince && PROVINCE_NAMES.includes(topProvince) ? <img className="an-own-land" src={`/provinces/${slugOf(topProvince)}.png`} alt="" /> : <Character gender="M" stage={3} height={150} />],
+          ['Women / Men', `${pct(women, total)} / ${pct(gender[0].value, total)}`, `${num(women)} women · ${num(gender[0].value)} men`, <Pair stage={1} height={190} />],
+          ['Biggest age group', topAge?.name, `${pct(topAge?.value, total)} of workers`, <Pair stage={Math.max(0, age.indexOf(topAge))} height={190} />],
+          [topLabel, topDistrict?.name || '-', `${num(topDistrict?.value)} workers`, topProvince && PROVINCE_NAMES.includes(topProvince) ? <img className="an-own-land" src={`/provinces/${slugOf(topProvince)}.png`} alt="" /> : <Character gender="M" stage={3} height={190} />],
         ]}
       />
       <ProvinceStrip startOpen byD={perD} fmt={num} unit="workers" sel={sel} setSel={setSel} {...landStrip(d, sel, setSel, perD, 'Day workers', (n) => cdoVals[n] || 0)} />
@@ -1301,13 +1327,38 @@ function Donations({ d, sel, setSel, tabs }) {
   const maxKg = Math.max(...rows.map((r) => r.kg), 1)
   const byArea = areaBars(sel, perD)
 
-  const markers = inArea.map((r) => {
-    const [lat, lng] = d.shapes[r.district].c
-    return {
-      lat, lng, icon: 'sack', color: SACK, size: Math.round(24 + (r.kg / maxKg) * 14),
-      tip: <div><b>{label(r.district)}</b><br />{kgText(r.kg)} delivered<br />{num(r.farmers)} farmers</div>,
-    }
-  })
+  // what each estate got of this donation: its district's share, split by area of land
+  // (inside the CDO areas for Kurunegala)
+  const estates = useMemo(() => {
+    const out = []
+    rows.forEach((r) => {
+      const here = d.estates.filter((e) => e.district === r.district)
+      const group = (e) => sumBy(here.filter((x) => x.region === e.region), (x) => x.acres) || 1
+      here.forEach((e) => {
+        const kg = r.kg * (e.region ? areaShare(d, r.district, e.region) : 1) * (e.acres / group(e))
+        out.push({ e, kg, farmers: Math.max(1, Math.round((r.farmers * kg) / (r.kg || 1))) })
+      })
+    })
+    return out
+  }, [d, rows])
+  const estHere = estates.filter((x) => inScope(sel, x.e.district) && (!sel.region || x.e.region === sel.region))
+  const estMax = Math.max(1, ...estHere.map((x) => x.kg))
+  const cdoVal = Object.fromEntries((d.cdo ? d.cdo.features.map((f) => f.properties.region) : []).map((n) => [n, (perD.Kurunegala || 0) * areaShare(d, 'Kurunegala', n)]))
+
+  // districts on the island view; the estates themselves once a province is open
+  const markers = sel.province
+    ? estHere.map((x) => ({
+        lat: x.e.lat, lng: x.e.lng, icon: 'sack', color: SACK, size: Math.round(20 + (x.kg / estMax) * 10),
+        label: sel.region || estHere.length <= 14 ? kgText(x.kg) : undefined,
+        tip: <div className="an-tip"><b>{x.e.name}</b><br />{kgText(x.kg)} received<br />{num(x.farmers)} farmers<br />{label(x.e.district)}{x.e.region ? ` \u00b7 ${x.e.region}` : ''} \u00b7 {x.e.acres} acres</div>,
+      }))
+    : inArea.map((r) => {
+        const [lat, lng] = d.shapes[r.district].c
+        return {
+          lat, lng, icon: 'sack', color: SACK, size: Math.round(24 + (r.kg / maxKg) * 14),
+          tip: <div><b>{label(r.district)}</b><br />{kgText(r.kg)} delivered<br />{num(r.farmers)} farmers</div>,
+        }
+      })
 
   const sections = () => don && [
     { title: `${don.donor} · ${don.type} · ${don.date}`, columns: ['Donated (kg)', 'Distributed (kg)', 'Yet to distribute (kg)', 'Districts reached'], rows: [[don.kg, don.delivered, left, rows.length]] },
@@ -1345,10 +1396,10 @@ function Donations({ d, sel, setSel, tabs }) {
           </div>
           <Split
             map={
-              <Card title={`Where ${don.donor}'s ${don.type.toLowerCase()} went`} sub="Each sack marks a district that received it. Bigger sack, more fertilizer" className="an-card-map">
+              <Card title={`Where ${don.donor}'s ${don.type.toLowerCase()} went`} sub={sel.province ? 'Each sack is an estate that received it, with the amount. Open a CDO area for the amounts there' : 'Each sack marks a district that received it. Click a province to see the estates'} className="an-card-map">
                 <DrillMap
-                  geo={d.geo} values={perD} fmt={kgText} unit="delivered" sel={sel} onSel={setSel} markers={markers} markerKey={`don-${don.id}`} height={540}
-                  legend={[{ icon: 'sack', color: SACK, text: 'Received this donation' }]}
+                  geo={d.geo} values={perD} cdoValues={cdoVal} fmt={kgText} unit="delivered" sel={sel} onSel={setSel} markers={markers} markerKey={`don-${don.id}-${sel.province || ''}`} height={540}
+                  legend={[{ icon: 'sack', color: SACK, text: sel.province ? 'Estate that received this donation' : 'District that received this donation' }]}
                 />
               </Card>
             }
@@ -1363,6 +1414,13 @@ function Donations({ d, sel, setSel, tabs }) {
               </>
             }
           />
+          <Card title="Estates that received it" sub={`${don.donor} · ${don.date} · ${scopeName(sel)}`}>
+            <DataTable
+              columns={['Estate', 'Owner', 'District', 'CDO area', 'Received', 'Farmers']}
+              rows={[...estHere].sort((a, b) => b.kg - a.kg).map((x) => [x.e.name, x.e.owner, label(x.e.district), x.e.region || '-', kgText(x.kg), num(x.farmers)])}
+              limit={10}
+            />
+          </Card>
           <Card title="Districts that received it" sub={`${don.donor} · ${don.date}`}>
             <DataTable columns={['District', 'Province', 'Distributed', 'Farmers', 'Share']} rows={[...inArea].sort((a, b) => b.kg - a.kg).map((r) => [label(r.district), r.province, kgText(r.kg), num(r.farmers), pct(r.kg, don.delivered)])} />
           </Card>
@@ -1401,7 +1459,12 @@ function Machinery({ d, sel, setSel, extra }) {
   }
   const svc = {}
   bookings.forEach((b) => (svc[b.service] = (svc[b.service] || 0) + 1))
-  const services = Object.entries(svc).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 7)
+  const MK = { TRACTOR: 'tractor', BACKHOE: 'backhoe', HAND_TRACTOR: 'hand' }
+  const svcType = {}
+  Object.entries(MACHINE_TYPES).forEach(([k, t]) => t.services.forEach((n) => (svcType[n] = k)))
+  const svcIcons = Object.fromEntries(Object.entries(svcType).map(([n, k]) => [n, { kind: MK[k], color: MACHINE_TYPES[k].color }]))
+  const typeIcons = Object.fromEntries(Object.entries(MACHINE_TYPES).map(([k, t]) => [t.label, { kind: MK[k], color: t.color }]))
+  const services = Object.entries(svc).map(([name, value]) => ({ name, value, color: svcType[name] ? MACHINE_TYPES[svcType[name]].color : '#8b4a1c' })).sort((a, b) => b.value - a.value).slice(0, 7)
   const byArea = areaBars(sel, perD, '#8b4a1c')
   const markers = machines.map((m) => ({
     lat: m.lat, lng: m.lng, icon: m.type === 'BACKHOE' ? 'backhoe' : m.type === 'HAND_TRACTOR' ? 'hand' : 'tractor', size: 36,
@@ -1451,14 +1514,14 @@ function Machinery({ d, sel, setSel, extra }) {
         }
       />
       <Card title="Bookings made through the app" sub="Each month, by machine type. Includes upcoming jobs">
-        <Bars data={months} keys={Object.values(MACHINE_TYPES).map((t) => t.label)} colors={Object.values(MACHINE_TYPES).map((t) => t.color)} stacked height={250} fmt={num} />
+        <Bars data={months} keys={Object.values(MACHINE_TYPES).map((t) => t.label)} colors={Object.values(MACHINE_TYPES).map((t) => t.color)} stacked height={290} fmt={num} legendIcons={typeIcons} />
       </Card>
       <div className="an-grid2">
         <Card title="Booking status" sub="From negotiation to completed job">
           <Donut data={status} height={180} />
         </Card>
         <Card title="What owners book" sub="Most requested services">
-          <Bars data={services} horizontal height={230} nameWidth={140} fmt={num} colors={['#8b4a1c']} />
+          <Bars data={services} horizontal single height={300} nameWidth={200} fmt={num} colors={['#8b4a1c']} tickIcons={svcIcons} />
         </Card>
       </div>
       <Card title="Machine list" sub={`${scoped.length} machines`}>

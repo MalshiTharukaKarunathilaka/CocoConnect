@@ -115,7 +115,7 @@ export const AGE_GROUPS = ['18–25', '26–35', '36–45', '46–55', '56+']
 export const GENDERS = ['Male', 'Female', 'Other']
 export const ESTATE_TYPES = ['Non-systematic plantation (< 5 ac)', 'Systematic plantation (5–25 ac)', 'Corporate plantation (25+ ac)']
 
-export const FERT_TYPES = ['Urea', 'TSP', 'MOP', 'Dolomite', 'Organic compost', 'Coconut special mix']
+export const FERT_TYPES = ['CIC', 'Baurs', 'Hayleys', 'CCB']
 export const FERT_YEARS = [2022, 2023, 2024, 2025, 2026]
 
 export const MACHINE_TYPES = {
@@ -279,23 +279,26 @@ export function buildDataset(geo, cdo) {
 
   // Fertilizer -----------------------------------------------------------
   const yearBase = { 2022: 190000, 2023: 245000, 2024: 318000, 2025: 436000, 2026: 402000 }
-  const typeShare = [0.26, 0.14, 0.17, 0.12, 0.19, 0.12]
+  // four brands; the two spare slots only keep the random sequence (and so every other figure) unchanged
+  const typeShare = [0.3, 0.22, 0.27, 0.21, 0.1, 0.1]
   const season = [0.6, 0.7, 0.9, 1.3, 1.5, 1.1, 0.8, 0.8, 1.0, 1.3, 1.1, 0.7]
   const fert = [] // distributed to a district
   const donated = [] // received from donors, island-wide
   for (const y of FERT_YEARS) {
     const lastMonth = y === 2026 ? 10 : 12
     for (let m = 1; m <= lastMonth; m++) {
-      FERT_TYPES.forEach((t, ti) => {
+      ;[...FERT_TYPES, null, null].forEach((t, ti) => {
         const don = Math.round((yearBase[y] / 12) * season[m - 1] * typeShare[ti] * 6 * (0.9 + rng() * 0.2)) / 1
-        donated.push({ year: y, month: m, type: t, kg: don })
+        if (t) donated.push({ year: y, month: m, type: t, kg: don })
         const rate = y === 2026 && m > 8 ? 0.55 + rng() * 0.2 : 0.9 + rng() * 0.08
         const dist = Math.round(don * rate)
         const allocParts = split(rng, don, DISTRICTS.map((d) => d.w + 0.05))
         const parts = allocParts.map((a) => Math.round(a * rate))
         DISTRICTS.forEach((d, di) => {
-          if (parts[di] > 0)
-            fert.push({ year: y, month: m, type: t, district: d.name, province: d.province, kg: parts[di], alloc: allocParts[di], farmers: Math.max(1, Math.round(parts[di] / (45 + rng() * 25))) })
+          if (parts[di] > 0) {
+            const farmers = Math.max(1, Math.round(parts[di] / (45 + rng() * 25)))
+            if (t) fert.push({ year: y, month: m, type: t, district: d.name, province: d.province, kg: parts[di], alloc: allocParts[di], farmers })
+          }
         })
       })
     }
