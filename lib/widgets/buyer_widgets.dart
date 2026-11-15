@@ -617,6 +617,7 @@ class BuyerCategoryCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final Color iconColor;
+  final Widget? iconWidget;
   final VoidCallback? onTap;
 
   const BuyerCategoryCard({
@@ -625,6 +626,7 @@ class BuyerCategoryCard extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.iconColor,
+    this.iconWidget,
     this.onTap,
   });
 
@@ -632,34 +634,40 @@ class BuyerCategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return BuyerCard(
       onTap: onTap,
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      child: Column(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F1EC),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 22, color: iconColor),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF1F1EC),
+                  shape: BoxShape.circle,
+                ),
+                child: iconWidget ?? Icon(icon, size: 22, color: iconColor),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(fontSize: 11, color: kBuyerGrey),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1A1A1A),
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            style: const TextStyle(fontSize: 11, color: kBuyerGrey),
-          ),
-        ],
+        ),
       ),
     );
   }
