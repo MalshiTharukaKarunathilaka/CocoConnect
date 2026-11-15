@@ -69,7 +69,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Land owner dashboard',
+                          'Land Owner dashboard',
                           style: TextStyle(
                             fontSize: 12,
                             color: Color(0xFF4A4A4A),
@@ -96,7 +96,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                               child: DashboardHeading(
                                 title: 'Selling\nCategories',
                                 centered: true,
-                                subtitle: 'List products',
+                                subtitle: 'List of products',
                                 color: Color(0xFFB26A2C),
                               ),
                             ),
