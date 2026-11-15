@@ -278,7 +278,7 @@ test("interested buyers can be matched to the estate's harvest", async () => {
     await call("POST", "/api/buyer/requests", {
       token: buyer.token,
       body: {
-        productType: "HUSKED_COCONUT",
+        productType: "COCONUT_HUSK",
         requestedQuantity: quantity,
         requiredDate: date,
         biddingPricePerUnit: 140,
@@ -288,7 +288,7 @@ test("interested buyers can be matched to the estate's harvest", async () => {
   // Harvest of 1,000 nuts available 15 Dec: buyers needing 8-15 Dec, up to 1,000.
   const matched = (await call(
     "GET",
-    "/api/owner/buyer-requests?type=HUSKED_COCONUT&availableDate=2026-12-15&maxQuantity=1000",
+    "/api/owner/buyer-requests?type=COCONUT_HUSK&availableDate=2026-12-15&maxQuantity=1000",
     { token: owner.token }
   )).data;
   assert.deepEqual(

@@ -149,6 +149,15 @@ const createRequest = async (req, res) => {
       });
     }
 
+    const nutQuantity = Number(requestedQuantity);
+    const pricePerNut = Number(biddingPricePerUnit);
+    if (!Number.isInteger(nutQuantity) || nutQuantity <= 0) {
+      return res.status(400).json({ message: "Quantity required must be a positive number of nuts" });
+    }
+    if (!(pricePerNut > 0)) {
+      return res.status(400).json({ message: "Bidding price per nut must be above 0" });
+    }
+
     const buyer = await pool.query(
       "SELECT name, location FROM users WHERE id = $1",
       [req.user.id]
@@ -175,9 +184,9 @@ const createRequest = async (req, res) => {
         buyer.rows[0].name,
         req.body.location || buyer.rows[0].location,
         String(productType).toUpperCase(),
-        requestedQuantity,
+        nutQuantity,
         requiredDate,
-        biddingPricePerUnit,
+        pricePerNut,
       ]
     );
 

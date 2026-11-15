@@ -194,6 +194,15 @@ const createListing = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
+    const nutQuantity = Number(quantity);
+    const pricePerNut = Number(offerPricePerUnit);
+    if (!Number.isInteger(nutQuantity) || nutQuantity <= 0) {
+      return res.status(400).json({ message: "Number of nuts must be a positive integer" });
+    }
+    if (!(pricePerNut > 0)) {
+      return res.status(400).json({ message: "Offer price per nut must be above 0" });
+    }
+
     const estate = await getOwnEstate(pool, req.user.id);
     const result = await pool.query(
       `INSERT INTO product_listings
@@ -203,9 +212,9 @@ const createListing = async (req, res) => {
       [
         estate.id,
         String(productType).toUpperCase(),
-        quantity,
+        nutQuantity,
         availableDate,
-        offerPricePerUnit,
+        pricePerNut,
       ]
     );
 
@@ -315,6 +324,15 @@ const createSellRequest = async (req, res) => {
       });
     }
 
+    const nutQuantity = Number(quantity);
+    const pricePerNut = Number(sellerPricePerUnit);
+    if (!Number.isInteger(nutQuantity) || nutQuantity <= 0) {
+      return res.status(400).json({ message: "Number of nuts must be a positive integer" });
+    }
+    if (!(pricePerNut > 0)) {
+      return res.status(400).json({ message: "Offer price per nut must be above 0" });
+    }
+
     const request = await pool.query(
       "SELECT * FROM buyer_requests WHERE id = $1",
       [buyerRequestId]
@@ -351,8 +369,8 @@ const createSellRequest = async (req, res) => {
         estate.id,
         buyerRequestId,
         buyerRequest.product_type,
-        quantity,
-        sellerPricePerUnit,
+        nutQuantity,
+        pricePerNut,
         availableDate || null,
       ]
     );

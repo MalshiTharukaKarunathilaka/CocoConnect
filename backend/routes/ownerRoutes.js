@@ -129,7 +129,7 @@ router.post("/listings", createListing);
  *         name: type
  *         schema:
  *           type: string
- *           enum: [RAW_COCONUT, HUSKED_COCONUT, DEHUSKED_COCONUT]
+ *           enum: [RAW_COCONUT, DEHUSKED_COCONUT, COCONUT_HUSK]
  *       - in: query
  *         name: radiusKm
  *         description: Only buyers within this distance of my location

@@ -134,11 +134,11 @@ test("OWNER -> BUYER: a harvest is listed, found, negotiated and bought", async 
 test("BUYER -> OWNER -> BUYER: a request is answered, bought, and a price dispute is settled by the admin", async () => {
   const request = (await ok("POST", "/api/buyer/requests", {
     token: buyer.token,
-    body: { productType: "HUSKED_COCONUT", requestedQuantity: 500, requiredDate: "2026-12-20", biddingPricePerUnit: 140 },
+    body: { productType: "COCONUT_HUSK", requestedQuantity: 500, requiredDate: "2026-12-20", biddingPricePerUnit: 140 },
   }, 201)).buyerRequest;
 
   // The owner sees the nearby request and answers it.
-  const open = await ok("GET", "/api/owner/buyer-requests?type=HUSKED_COCONUT&lat=7.4863&lng=80.3647", { token: owner.token });
+  const open = await ok("GET", "/api/owner/buyer-requests?type=COCONUT_HUSK&lat=7.4863&lng=80.3647", { token: owner.token });
   const seen = open.find((r) => r.id === request.id);
   assert.ok(seen, "the owner sees the buyer's request");
   assert.equal(seen.distance_km, 0);

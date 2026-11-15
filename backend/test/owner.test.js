@@ -184,7 +184,7 @@ test("buyer request -> owner offers -> buyer accepts one", async () => {
   const request = (await call("POST", "/api/buyer/requests", {
     token: buyer.token,
     body: {
-      productType: "HUSKED_COCONUT",
+      productType: "COCONUT_HUSK",
       requestedQuantity: 500,
       requiredDate: "2026-12-20",
       biddingPricePerUnit: 140,
@@ -196,13 +196,13 @@ test("buyer request -> owner offers -> buyer accepts one", async () => {
   });
   assert.ok(
     rawOnly.data.every((r) => r.product_type === "RAW_COCONUT"),
-    "type filter keeps husked requests off the raw page"
+    "type filter keeps coconut husk requests off the raw page"
   );
 
-  const husked = await call("GET", "/api/owner/buyer-requests?type=HUSKED_COCONUT", {
+  const husks = await call("GET", "/api/owner/buyer-requests?type=COCONUT_HUSK", {
     token: owner.token,
   });
-  const seen = husked.data.find((r) => r.id === request.id);
+  const seen = husks.data.find((r) => r.id === request.id);
   assert.equal(seen.my_offer_id, null);
 
   const offer = await call("POST", "/api/owner/sell-requests", {
@@ -210,7 +210,7 @@ test("buyer request -> owner offers -> buyer accepts one", async () => {
     body: { buyerRequestId: request.id, quantity: 500, sellerPricePerUnit: 145 },
   });
   assert.equal(offer.status, 201);
-  assert.equal(offer.data.sellRequest.product_type, "HUSKED_COCONUT");
+  assert.equal(offer.data.sellRequest.product_type, "COCONUT_HUSK");
 
   const duplicate = await call("POST", "/api/owner/sell-requests", {
     token: owner.token,
@@ -224,7 +224,7 @@ test("buyer request -> owner offers -> buyer accepts one", async () => {
   });
   assert.equal(cheaper.status, 201);
 
-  const marked = await call("GET", "/api/owner/buyer-requests?type=HUSKED_COCONUT", {
+  const marked = await call("GET", "/api/owner/buyer-requests?type=COCONUT_HUSK", {
     token: owner.token,
   });
   assert.equal(
@@ -272,14 +272,14 @@ test("buyer request -> owner offers -> buyer accepts one", async () => {
   });
   assert.equal(otherSent.data[0].status, "declined");
 
-  const open = await call("GET", "/api/owner/buyer-requests?type=HUSKED_COCONUT", {
+  const open = await call("GET", "/api/owner/buyer-requests?type=COCONUT_HUSK", {
     token: owner.token,
   });
   assert.ok(!open.data.some((r) => r.id === request.id), "closed request hidden");
 
   const ownerOrders = await call("GET", "/api/owner/orders", { token: owner.token });
   const fromOffer = ownerOrders.data.find((o) => o.buyer_request_id === request.id);
-  assert.equal(fromOffer.product_type, "HUSKED_COCONUT");
+  assert.equal(fromOffer.product_type, "COCONUT_HUSK");
   assert.equal(fromOffer.buyer_name, "Senuji Test");
 
   const buyerOrders = await call("GET", "/api/buyer/orders", { token: buyer.token });
