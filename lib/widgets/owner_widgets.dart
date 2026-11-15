@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../screens/buyer/buyer_format.dart';
 import '../services/owner_service.dart';
 
-// Estate owner palette, taken from the Figma designs.
+// Land owner palette, taken from the Figma designs.
 const Color kOwnerGreen = Color(0xFF256B45);
 const Color kOwnerGreenSoft = Color(0xFFE3F0E6);
 const Color kOwnerCream = Color(0xFFFCF8EF);
@@ -14,10 +14,10 @@ const Color kOwnerPanel = Color(0xFFF1EFEA);
 const Color kOwnerRed = Color(0xFFC62828);
 const Color kOwnerBrown = Color(0xFF8B4A1C);
 
-/// Shared phone canvas for estate owner and service provider machinery screens.
+/// Shared phone canvas for land owner and service provider machinery screens.
 const double kMachineryPageWidth = 390;
 
-/// The phone-width cream page every estate owner screen sits in.
+/// The phone-width cream page every land owner screen sits in.
 class OwnerPage extends StatelessWidget {
   final Widget child;
   final Widget? bottom;
@@ -647,6 +647,7 @@ class DashedDivider extends StatelessWidget {
 class CategoryImageCard extends StatelessWidget {
   final String title;
   final String imageUrl;
+  final String? imageAsset;
   final String? trailing;
   final VoidCallback? onTap;
 
@@ -654,6 +655,7 @@ class CategoryImageCard extends StatelessWidget {
     super.key,
     required this.title,
     required this.imageUrl,
+    this.imageAsset,
     this.trailing,
     this.onTap,
   });
@@ -674,13 +676,18 @@ class CategoryImageCard extends StatelessWidget {
             SizedBox(
               height: 130,
               width: double.infinity,
-              child: Image.network(
-                imageUrl,
+              child: Image(
+                image: imageAsset != null
+                    ? AssetImage(imageAsset!)
+                    : NetworkImage(
+                            imageUrl,
+                            headers: const {
+                              'User-Agent':
+                                  'KapConnect/1.0 (university project)',
+                            },
+                          )
+                          as ImageProvider,
                 fit: BoxFit.cover,
-                // Wikimedia asks apps to say who they are.
-                headers: const {
-                  'User-Agent': 'KapConnect/1.0 (university project)',
-                },
                 loadingBuilder: (context, child, progress) => progress == null
                     ? child
                     : const ColoredBox(color: Color(0xFFF1F1EC)),

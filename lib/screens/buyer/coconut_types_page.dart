@@ -7,15 +7,12 @@ import 'buyer_format.dart';
 import 'coconut_type.dart';
 import 'marketplace_page.dart';
 
-/// Photos for each coconut form, shared look with the estate owner's
+/// Photos for each coconut form, shared look with the land owner's
 /// Coconuts screen.
 const Map<String, String> _photos = {
-  'RAW_COCONUT':
-      'https://commons.wikimedia.org/wiki/Special:FilePath/Coconut_green.JPG?width=800',
-  'DEHUSKED_COCONUT':
-      'https://images.pexels.com/photos/7543134/pexels-photo-7543134.jpeg?auto=compress&cs=tinysrgb&w=800',
-  'COCONUT_HUSK':
-      'https://images.pexels.com/photos/27596374/pexels-photo-27596374.jpeg?auto=compress&cs=tinysrgb&w=800',
+  'RAW_COCONUT': 'assets/images/raw_coconuts_green.jpg',
+  'DEHUSKED_COCONUT': 'assets/images/dehusked_coconuts.jpg',
+  'COCONUT_HUSK': 'assets/images/only_husks.jpg',
 };
 
 /// Sits between Buying Categories and the marketplace - the buyer picks
@@ -83,7 +80,8 @@ class CoconutTypesPage extends StatelessWidget {
                 for (final CoconutType type in CoconutType.all) ...[
                   CategoryImageCard(
                     title: type.label,
-                    imageUrl: _photos[type.code] ?? '',
+                    imageUrl: '',
+                    imageAsset: _photos[type.code],
                     trailing: rupees(type.pricePerNut),
                     onTap: () => Navigator.push(
                       context,
