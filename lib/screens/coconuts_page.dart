@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'raw_coconuts_page.dart';
+import 'coconut_husks_page.dart';
 
 class CoconutsPage extends StatelessWidget {
   const CoconutsPage({super.key});
@@ -111,10 +112,18 @@ class CoconutsPage extends StatelessWidget {
 
                       const SizedBox(height: 18),
 
-                      const CoconutProductCard(
+                      CoconutProductCard(
                         title: 'Coconut Husks',
                         imageUrl:
                             'https://images.pexels.com/photos/27596374/pexels-photo-27596374.jpeg?auto=compress&cs=tinysrgb&w=800',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CoconutHusksPage(),
+                            ),
+                          );
+                        },
                       ),
 
                       const SizedBox(height: 20),

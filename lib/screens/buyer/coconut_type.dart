@@ -47,17 +47,6 @@ class CoconutType {
     pricePerNut: 130,
   );
 
-  static const CoconutType husked = CoconutType(
-    code: 'HUSKED_COCONUT',
-    label: 'Husked Coconuts',
-    singular: 'Husked coconut',
-    subtitle: 'Husk partially removed',
-    husk: 'Partially husked',
-    icon: Icons.spa,
-    iconColor: Color(0xFFB26A2C),
-    pricePerNut: 145,
-  );
-
   static const CoconutType dehusked = CoconutType(
     code: 'DEHUSKED_COCONUT',
     label: 'Dehusked Coconuts',
@@ -69,7 +58,18 @@ class CoconutType {
     pricePerNut: 160,
   );
 
-  static const List<CoconutType> all = [raw, husked, dehusked];
+  static const CoconutType husks = CoconutType(
+    code: 'COCONUT_HUSK',
+    label: 'Coconut Husks',
+    singular: 'Coconut husk',
+    subtitle: 'Loose husks, counted by source nut',
+    husk: 'Loose coconut husks',
+    icon: Icons.grass,
+    iconColor: Color(0xFF8D6E4A),
+    pricePerNut: 25,
+  );
+
+  static const List<CoconutType> all = [raw, dehusked, husks];
 
   /// Falls back to raw for product types this app doesn't know about.
   static CoconutType fromCode(String? code) => all.firstWhere(

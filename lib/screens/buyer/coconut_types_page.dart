@@ -11,10 +11,10 @@ import 'marketplace_page.dart';
 const Map<String, String> _photos = {
   'RAW_COCONUT':
       'https://commons.wikimedia.org/wiki/Special:FilePath/Coconut_green.JPG?width=800',
-  'HUSKED_COCONUT':
-      'https://images.pexels.com/photos/21273623/pexels-photo-21273623.jpeg?auto=compress&cs=tinysrgb&w=800',
   'DEHUSKED_COCONUT':
       'https://images.pexels.com/photos/7543134/pexels-photo-7543134.jpeg?auto=compress&cs=tinysrgb&w=800',
+  'COCONUT_HUSK':
+      'https://images.pexels.com/photos/27596374/pexels-photo-27596374.jpeg?auto=compress&cs=tinysrgb&w=800',
 };
 
 /// Sits between Buying Categories and the marketplace - the buyer picks
