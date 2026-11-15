@@ -29,8 +29,8 @@ class CompleteDealPage extends StatefulWidget {
 }
 
 class _CompleteDealPageState extends State<CompleteDealPage> {
-  final _quantityController = TextEditingController();
-  final _priceController = TextEditingController();
+  final _quantityController = TextEditingController(text: '0');
+  final _priceController = TextEditingController(text: '0.00');
   final _noteController = TextEditingController();
 
   late Future<OrderItem> _deal = _find();
@@ -199,7 +199,7 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
               const SizedBox(height: 8),
               _Field(
                 controller: _quantityController,
-                hint: 'e.g. ${deal.quantity}',
+                hint: '0',
                 error: _quantityError,
                 enabled: !_saving,
                 keyboard: TextInputType.number,
@@ -218,7 +218,7 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
               const SizedBox(height: 8),
               _Field(
                 controller: _priceController,
-                hint: deal.pricePerUnit.toStringAsFixed(0),
+                hint: '0.00',
                 prefix: 'Rs. ',
                 error: _priceError,
                 enabled: !_saving,
@@ -521,6 +521,14 @@ class _Field extends StatelessWidget {
       enabled: enabled,
       keyboardType: keyboard,
       inputFormatters: formatters,
+      onTap: () {
+        if ((double.tryParse(controller.text.trim()) ?? 1) == 0) {
+          controller.selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: controller.text.length,
+          );
+        }
+      },
       onChanged: onChanged,
       style: TextStyle(
         fontSize: 16,

@@ -107,6 +107,7 @@ class BuyerInputField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
+  final bool selectZeroOnTap;
 
   const BuyerInputField({
     super.key,
@@ -121,6 +122,7 @@ class BuyerInputField extends StatelessWidget {
     this.inputFormatters,
     this.textInputAction,
     this.onSubmitted,
+    this.selectZeroOnTap = false,
   });
 
   @override
@@ -130,7 +132,16 @@ class BuyerInputField extends StatelessWidget {
       keyboardType: keyboardType,
       readOnly: readOnly,
       enabled: enabled,
-      onTap: onTap,
+      onTap: () {
+        if (selectZeroOnTap &&
+            (double.tryParse(controller.text.trim()) ?? 1) == 0) {
+          controller.selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: controller.text.length,
+          );
+        }
+        onTap?.call();
+      },
       inputFormatters: inputFormatters,
       textInputAction: textInputAction,
       onSubmitted: onSubmitted,
