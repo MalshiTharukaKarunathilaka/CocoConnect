@@ -15,9 +15,12 @@ const ROLES = [
   "CDO",
 ];
 
-// "Estate Owner" (as shown in the app) -> "ESTATE_OWNER"
-const normaliseRole = (role) =>
-  String(role || "").trim().toUpperCase().replace(/\s+/g, "_");
+// "Land Owner" (as shown in the app) -> "ESTATE_OWNER"
+const normaliseRole = (role) => {
+  const value = String(role || "").trim().toUpperCase().replace(/\s+/g, "_");
+  // Keep existing account records and permissions compatible with the new label.
+  return value === "LAND_OWNER" ? "ESTATE_OWNER" : value;
+};
 
 const normalisePhone = (phone) => {
   const cleaned = String(phone || "").replace(/[\s()-]/g, "");
