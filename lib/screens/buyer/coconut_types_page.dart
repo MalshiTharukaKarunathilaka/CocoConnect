@@ -26,7 +26,10 @@ class CoconutTypesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BuyerScaffold(
-      bottomNavigation: const AppBottomNav(current: AppTab.dashboard),
+      bottomNavigation: const AppBottomNav(
+        current: AppTab.dashboard,
+        chatScope: ChatScope.coconut,
+      ),
       body: Column(
         children: [
           const SizedBox(height: 10),

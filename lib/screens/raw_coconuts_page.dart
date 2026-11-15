@@ -1,6 +1,7 @@
 import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
+import '../widgets/app_bottom_nav.dart';
 import 'sell_request_page.dart';
 import '../services/api_client.dart';
 import '../services/owner_service.dart';
@@ -601,7 +602,10 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                   ),
                 ),
 
-                const CustomBottomNavigation(currentIndex: 0),
+                const CustomBottomNavigation(
+                  currentIndex: 0,
+                  chatScope: ChatScope.coconut,
+                ),
               ],
             ),
           ),

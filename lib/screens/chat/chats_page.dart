@@ -2,10 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
 import '../../services/chat_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/day_job_chat_service.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/owner_widgets.dart';
 import '../buyer/buyer_format.dart';
 import '../buyer/coconut_type.dart';
+import '../day_job_chats_list.dart';
+import '../worker_chat_page.dart';
 import 'chat_page.dart';
 
 const Color _green = Color(0xFF256B45);
@@ -33,7 +37,9 @@ String chatTime(DateTime? time) {
 /// All my negotiations, WhatsApp style: newest first, unread counts, and a
 /// marker when an offer is waiting for my answer.
 class ChatsPage extends StatefulWidget {
-  const ChatsPage({super.key});
+  final ChatScope scope;
+
+  const ChatsPage({super.key, this.scope = ChatScope.all});
 
   @override
   State<ChatsPage> createState() => _ChatsPageState();
@@ -41,6 +47,7 @@ class ChatsPage extends StatefulWidget {
 
 class _ChatsPageState extends State<ChatsPage> {
   List<ChatSummary>? _chats;
+  List<DayJobChatSummary>? _dayJobChats;
   String? _error;
   Timer? _poll;
 
@@ -62,10 +69,24 @@ class _ChatsPageState extends State<ChatsPage> {
 
   Future<void> _load({bool quiet = false}) async {
     try {
-      final List<ChatSummary> chats = await ChatService.getChats();
+      final role = AuthService.currentUser?.role;
+      final results = await Future.wait<Object>([
+        if (widget.scope != ChatScope.dayJobs)
+          ChatService.getChats()
+        else
+          Future.value(const <ChatSummary>[]),
+        if (widget.scope != ChatScope.coconut &&
+            (role == 'ESTATE_OWNER' || role == 'WORKER'))
+          DayJobChatService.getChats()
+        else
+          Future.value(const <DayJobChatSummary>[]),
+      ]);
+      final chats = results[0] as List<ChatSummary>;
+      final dayJobChats = results[1] as List<DayJobChatSummary>;
       if (mounted) {
         setState(() {
           _chats = chats;
+          _dayJobChats = dayJobChats;
           _error = null;
         });
       }
@@ -80,13 +101,29 @@ class _ChatsPageState extends State<ChatsPage> {
     Unread.refresh();
   }
 
+  Future<void> _openDayJobChat(DayJobChatSummary chat) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => WorkerChatPage(chatId: chat.id)),
+    );
+    _load();
+    Unread.refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     return OwnerPage(
-      bottom: const AppBottomNav(current: AppTab.chats),
+      bottom: AppBottomNav(current: AppTab.chats, chatScope: widget.scope),
       child: Column(
         children: [
-          const OwnerHeader(title: 'Chats', subtitle: 'NEGOTIATIONS'),
+          OwnerHeader(
+            title: 'Chats',
+            subtitle: switch (widget.scope) {
+              ChatScope.coconut => 'COCONUT CONVERSATIONS',
+              ChatScope.dayJobs => 'DAY JOB CONVERSATIONS',
+              ChatScope.all => 'ALL CONVERSATIONS',
+            },
+          ),
           Expanded(child: _buildList()),
         ],
       ),
@@ -95,6 +132,7 @@ class _ChatsPageState extends State<ChatsPage> {
 
   Widget _buildList() {
     final List<ChatSummary>? chats = _chats;
+    final List<DayJobChatSummary>? dayJobChats = _dayJobChats;
     if (chats == null) {
       if (_error == null) {
         return const Center(child: CircularProgressIndicator(color: _green));
@@ -109,32 +147,81 @@ class _ChatsPageState extends State<ChatsPage> {
     return RefreshIndicator(
       color: _green,
       onRefresh: _load,
-      child: chats.isEmpty
+      child: chats.isEmpty && (dayJobChats?.isEmpty ?? true)
           ? ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              children: const [
+              children: [
                 OwnerMessage(
                   icon: Icons.chat_bubble_outline,
-                  text:
-                      'No chats yet. A chat starts when a buyer taps Negotiate '
-                      'on a listing.',
+                  text: switch (widget.scope) {
+                    ChatScope.coconut =>
+                      'No coconut chats yet. A conversation appears when a buyer starts a negotiation.',
+                    ChatScope.dayJobs =>
+                      'No day-job chats yet. A conversation appears after a worker applies for a job.',
+                    ChatScope.all =>
+                      'No chats yet. Coconut negotiations and day-job conversations will appear here.',
+                  },
                 ),
               ],
             )
-          : ListView.separated(
-              // The green header already handled the status bar.
-              padding: EdgeInsets.zero,
+          : ListView(
+              padding: const EdgeInsets.only(bottom: 12),
               physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: chats.length,
-              separatorBuilder: (context, index) =>
-                  const Divider(height: 1, indent: 80),
-              itemBuilder: (context, index) => _ChatTile(
-                chat: chats[index],
-                onTap: () => _open(chats[index]),
-              ),
+              children: [
+                if (dayJobChats?.isNotEmpty ?? false) ...[
+                  const _ChatSectionHeader(
+                    icon: Icons.work_outline,
+                    label: 'Day jobs',
+                  ),
+                  for (final chat in dayJobChats!) ...[
+                    DayJobChatTile(
+                      chat: chat,
+                      onTap: () => _openDayJobChat(chat),
+                    ),
+                    const Divider(height: 1, indent: 80),
+                  ],
+                ],
+                if (chats.isNotEmpty) ...[
+                  const _ChatSectionHeader(
+                    icon: Icons.eco_outlined,
+                    label: 'Coconut sales',
+                  ),
+                  for (final chat in chats) ...[
+                    _ChatTile(chat: chat, onTap: () => _open(chat)),
+                    const Divider(height: 1, indent: 80),
+                  ],
+                ],
+              ],
             ),
     );
   }
+}
+
+class _ChatSectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _ChatSectionHeader({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+    child: Row(
+      children: [
+        Icon(icon, size: 18, color: _green),
+        const SizedBox(width: 7),
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            color: _green,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _ChatTile extends StatelessWidget {

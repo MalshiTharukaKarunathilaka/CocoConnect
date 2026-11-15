@@ -339,7 +339,10 @@ class _MarketplacePageState extends State<MarketplacePage> {
   @override
   Widget build(BuildContext context) {
     return BuyerScaffold(
-      bottomNavigation: const AppBottomNav(current: AppTab.dashboard),
+      bottomNavigation: const AppBottomNav(
+        current: AppTab.dashboard,
+        chatScope: ChatScope.coconut,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
         child: Column(

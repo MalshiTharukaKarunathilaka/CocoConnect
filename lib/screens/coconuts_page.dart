@@ -1,6 +1,7 @@
 import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
+import '../widgets/app_bottom_nav.dart';
 import 'raw_coconuts_page.dart';
 import 'coconut_husks_page.dart';
 
@@ -142,7 +143,10 @@ class CoconutsPage extends StatelessWidget {
                   ),
                 ),
 
-                const CustomBottomNavigation(currentIndex: 0),
+                const CustomBottomNavigation(
+                  currentIndex: 0,
+                  chatScope: ChatScope.coconut,
+                ),
               ],
             ),
           ),
