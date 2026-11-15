@@ -138,15 +138,15 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
       onRefresh: _refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
         children: [
           _header(jobs),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           _summary(jobs),
           if (!_isPast) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 8),
             SizedBox(
-              height: 50,
+              height: 42,
               child: FilledButton.icon(
                 onPressed: _openPostJob,
                 icon: const Icon(Icons.add_circle_outline),
@@ -160,9 +160,9 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
               ),
             ),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           _filters(jobs.length, completed.length),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           Row(
             children: [
               Flexible(
@@ -172,22 +172,22 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                       : 'ALL JOBS',
                   style: const TextStyle(
                     color: _ink,
-                    fontSize: 19,
+                    fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-              const SizedBox(width: 9),
+              const SizedBox(width: 7),
               _countBubble(visible.length),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           if (visible.isEmpty)
             _emptyState()
           else
             for (final job in visible) ...[
               _jobCard(job),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
             ],
         ],
       ),
@@ -201,18 +201,18 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
         Material(
           color: Colors.white,
           elevation: 1,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(15),
           child: InkWell(
             onTap: () => Navigator.pop(context),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(15),
             child: const SizedBox(
-              width: 52,
-              height: 52,
-              child: Icon(Icons.arrow_back, color: _ink, size: 28),
+              width: 44,
+              height: 44,
+              child: Icon(Icons.arrow_back, color: _ink, size: 25),
             ),
           ),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 11),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,7 +221,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                 'Job Details',
                 style: TextStyle(
                   color: _ink,
-                  fontSize: 27,
+                  fontSize: 23,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -229,7 +229,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                 location,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: _muted, fontSize: 15),
+                style: const TextStyle(color: _muted, fontSize: 13),
               ),
             ],
           ),
@@ -248,10 +248,10 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
     final vacancies = (required - confirmed).clamp(0, required).toInt();
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: _line),
         boxShadow: const [
           BoxShadow(
@@ -268,8 +268,8 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 13,
-                  vertical: 9,
+                  horizontal: 10,
+                  vertical: 6,
                 ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEAF6EF),
@@ -282,14 +282,14 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                     Icon(
                       Icons.event_available_outlined,
                       color: _green,
-                      size: 20,
+                      size: 17,
                     ),
-                    SizedBox(width: 8),
+                    SizedBox(width: 6),
                     Text(
                       'SCHEDULED DAY JOBS',
                       style: TextStyle(
                         color: _green,
-                        fontSize: 13,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -301,22 +301,22 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                 'ID: #DJ-${widget.date.year}'
                 '${widget.date.month.toString().padLeft(2, '0')}'
                 '${widget.date.day.toString().padLeft(2, '0')}',
-                style: const TextStyle(color: _muted, fontSize: 11),
+                style: const TextStyle(color: _muted, fontSize: 10),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           Text(
             '${_weekdays[widget.date.weekday - 1]}, '
             '${widget.date.day.toString().padLeft(2, '0')} '
             '${_months[widget.date.month - 1]} ${widget.date.year}',
             style: const TextStyle(
               color: _ink,
-              fontSize: 24,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -340,7 +340,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
@@ -377,8 +377,8 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
     required Color foreground,
   }) {
     return Container(
-      height: 76,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      height: 58,
+      padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(14),
@@ -390,7 +390,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
             label,
             style: TextStyle(
               color: foreground.withValues(alpha: 0.78),
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -401,12 +401,12 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                 '$value',
                 style: TextStyle(
                   color: foreground,
-                  fontSize: 21,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
-              Icon(icon, color: foreground.withValues(alpha: 0.65), size: 19),
+              Icon(icon, color: foreground.withValues(alpha: 0.65), size: 17),
             ],
           ),
         ],
@@ -434,7 +434,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
         backgroundColor: selected ? _green : Colors.white,
         foregroundColor: selected ? Colors.white : _muted,
         side: BorderSide(color: selected ? _green : _line),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
       child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -455,7 +455,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: _line),
         boxShadow: const [
           BoxShadow(
@@ -474,13 +474,13 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
               decoration: const BoxDecoration(
                 color: Color(0xFF19BE88),
                 borderRadius: BorderRadius.horizontal(
-                  left: Radius.circular(26),
+                  left: Radius.circular(22),
                 ),
               ),
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+                padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -491,7 +491,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                             job.category,
                             style: const TextStyle(
                               color: _ink,
-                              fontSize: 23,
+                              fontSize: 19,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -499,12 +499,15 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                         _statusPill(status),
                       ],
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 9),
                     Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 9,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8F5EF),
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(15),
                       ),
                       child: Row(
                         children: [
@@ -531,15 +534,15 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 9),
                     Row(
                       children: [
                         const Icon(
                           Icons.groups,
                           color: Color(0xFFAAA5A0),
-                          size: 22,
+                          size: 19,
                         ),
-                        const SizedBox(width: 7),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             '$confirmed / $required Workers Confirmed',
@@ -551,20 +554,20 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 9),
+                    const SizedBox(height: 6),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: LinearProgressIndicator(
                         value: progress,
-                        minHeight: 8,
+                        minHeight: 6,
                         color: _green,
                         backgroundColor: const Color(0xFFE9E5DD),
                       ),
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 11),
                     SizedBox(
                       width: double.infinity,
-                      height: 50,
+                      height: 42,
                       child: OutlinedButton.icon(
                         onPressed: () => _openDetails(job),
                         iconAlignment: IconAlignment.end,
@@ -575,11 +578,11 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                           foregroundColor: _green,
                           side: const BorderSide(color: Color(0xFF9BE9C5)),
                           textStyle: const TextStyle(
-                            fontSize: 17,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(17),
                           ),
                         ),
                       ),
@@ -597,7 +600,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
   Widget _statusPill(String status) {
     final positive = status == 'Completed' || status == 'Fulfilled';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: positive ? const Color(0xFFD4F8E5) : const Color(0xFFFFE7D5),
         borderRadius: BorderRadius.circular(22),
@@ -611,7 +614,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
           Icon(
             positive ? Icons.check_circle : Icons.schedule,
             color: positive ? _greenBright : const Color(0xFF9A5725),
-            size: 17,
+            size: 15,
           ),
           const SizedBox(width: 6),
           Text(
@@ -709,6 +712,11 @@ class _JobsBottomNavigation extends StatelessWidget {
             () => openTab(context, AppTab.dashboard),
           ),
           _item(Icons.calendar_month, 'Calendar', null, active: true),
+          _item(
+            Icons.chat_bubble_outline,
+            'Chats',
+            () => openTab(context, AppTab.chats, chatScope: ChatScope.dayJobs),
+          ),
           _item(
             Icons.notifications_none,
             'Alerts',

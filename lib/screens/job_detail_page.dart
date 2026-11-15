@@ -79,32 +79,32 @@ class _JobDetailPageState extends State<JobDetailPage> {
         _header(context),
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 16),
             children: [
               _status(),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
               _jobSummary(),
               if (!_isCompleted) ...[
-                const SizedBox(height: 18),
+                const SizedBox(height: 10),
                 _completionButton(),
               ],
               if (_isFuture) ...[const SizedBox(height: 10), _deleteButton()],
               if (_isCompleted) ...[
-                const SizedBox(height: 42),
+                const SizedBox(height: 14),
                 Row(
                   children: [
                     const Text(
                       'All Workers',
                       style: TextStyle(
                         color: _detailInk,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Container(
-                      width: 40,
-                      height: 40,
+                      width: 34,
+                      height: 34,
                       alignment: Alignment.center,
                       decoration: const BoxDecoration(
                         color: Color(0xFFA8EDC5),
@@ -114,17 +114,17 @@ class _JobDetailPageState extends State<JobDetailPage> {
                         '${job.acceptedWorkers.length}',
                         style: TextStyle(
                           color: _detailGreen,
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 10),
                 for (final worker in job.acceptedWorkers) ...[
                   _workerCard(context, worker),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
                 ],
               ],
             ],
@@ -384,7 +384,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
 
   Widget _header(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(22, 18, 18, 18),
+      padding: const EdgeInsets.fromLTRB(18, 8, 14, 8),
       decoration: const BoxDecoration(
         color: _detailBackground,
         border: Border(bottom: BorderSide(color: Color(0xFFE9E2D9))),
@@ -400,7 +400,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
             'Job Detail',
             style: TextStyle(
               color: _detailInk,
-              fontSize: 26,
+              fontSize: 23,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -420,7 +420,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: const Color(0xFFD8F1DF),
           borderRadius: BorderRadius.circular(22),
@@ -429,7 +429,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
           '●  NG-${job.id.toString().padLeft(3, '0')} · $status',
           style: const TextStyle(
             color: _detailGreen,
-            fontSize: 16,
+            fontSize: 13,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -439,10 +439,10 @@ class _JobDetailPageState extends State<JobDetailPage> {
 
   Widget _jobSummary() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFD5E3DB), width: 1.5),
       ),
       child: Column(
@@ -452,18 +452,18 @@ class _JobDetailPageState extends State<JobDetailPage> {
             job.category,
             style: TextStyle(
               color: _detailInk,
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 3),
           const Text(
             'Estate job',
-            style: TextStyle(color: Color(0xFF65766C), fontSize: 18),
+            style: TextStyle(color: Color(0xFF65766C), fontSize: 14),
           ),
-          const SizedBox(height: 8),
-          _infoTile(Icons.location_on_outlined, 'Location', job.location),
           const SizedBox(height: 6),
+          _infoTile(Icons.location_on_outlined, 'Location', job.location),
+          const SizedBox(height: 5),
           _infoTile(
             Icons.calendar_today_outlined,
             'Date & Hours',
@@ -472,13 +472,13 @@ class _JobDetailPageState extends State<JobDetailPage> {
                 '${job.requiredDate.year} '
                 '(7:30 AM - 4:30 PM)',
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             decoration: BoxDecoration(
               color: const Color(0xFFFCFAF5),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(15),
               border: Border.all(color: const Color(0xFFE7E0D4)),
             ),
             child: Row(
@@ -487,7 +487,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                 const Expanded(
                   child: Text(
                     'Daily Rate',
-                    style: TextStyle(color: Color(0xFF65766C), fontSize: 17),
+                    style: TextStyle(color: Color(0xFF65766C), fontSize: 14),
                   ),
                 ),
                 Flexible(
@@ -497,7 +497,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: _detailGreen,
-                      fontSize: 23,
+                      fontSize: 19,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -512,24 +512,24 @@ class _JobDetailPageState extends State<JobDetailPage> {
 
   Widget _infoTile(IconData icon, String label, String value) {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: const Color(0xFFFCFAF5),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(15),
         border: Border.all(color: const Color(0xFFE7E0D4)),
       ),
       child: Row(
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: 32,
+            height: 32,
             decoration: const BoxDecoration(
               color: Color(0xFFECE8DF),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: _detailGreen, size: 22),
+            child: Icon(icon, color: _detailGreen, size: 19),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -538,15 +538,15 @@ class _JobDetailPageState extends State<JobDetailPage> {
                   label,
                   style: const TextStyle(
                     color: Color(0xFF65766C),
-                    fontSize: 15,
+                    fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   value,
                   style: const TextStyle(
                     color: _detailInk,
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -561,10 +561,10 @@ class _JobDetailPageState extends State<JobDetailPage> {
   Widget _workerCard(BuildContext context, AcceptedWorker worker) {
     final rating = _workerRatings[worker.id];
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: _detailGreen, width: 1.5),
       ),
       child: Column(
@@ -572,28 +572,28 @@ class _JobDetailPageState extends State<JobDetailPage> {
           Row(
             children: [
               Container(
-                width: 70,
-                height: 70,
+                width: 52,
+                height: 52,
                 decoration: const BoxDecoration(
                   color: Color(0xFFD8EBDD),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.person, color: _detailGreen, size: 44),
+                child: const Icon(Icons.person, color: _detailGreen, size: 32),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   worker.name,
                   style: const TextStyle(
                     color: _detailInk,
-                    fontSize: 20,
+                    fontSize: 17,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -622,7 +622,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                   },
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: _workerRatingButton(
                   rating: rating,
@@ -644,14 +644,14 @@ class _JobDetailPageState extends State<JobDetailPage> {
     required VoidCallback onPressed,
   }) {
     return SizedBox(
-      height: 58,
+      height: 46,
       child: FilledButton.icon(
         onPressed: onPressed,
         icon: Icon(icon, size: 20),
         label: Text(
           label,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
         ),
         style: FilledButton.styleFrom(
           backgroundColor: background,
@@ -670,7 +670,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
     required VoidCallback onPressed,
   }) {
     return SizedBox(
-      height: 58,
+      height: 46,
       child: FilledButton(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
@@ -686,10 +686,10 @@ class _JobDetailPageState extends State<JobDetailPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.star, size: 20),
-                  SizedBox(width: 7),
+                  SizedBox(width: 5),
                   Text(
                     'Give Rating',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ],
               )
@@ -701,7 +701,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                       padding: const EdgeInsets.symmetric(horizontal: 1),
                       child: Icon(
                         value <= rating ? Icons.star : Icons.star_border,
-                        size: 20,
+                        size: 17,
                         color: value <= rating
                             ? const Color(0xFFFFC247)
                             : const Color(0xFFB7D8C6),
@@ -766,6 +766,12 @@ class _JobDetailPageState extends State<JobDetailPage> {
             onTap: () => openTab(context, AppTab.dashboard),
           ),
           const _NavItem(Icons.calendar_month, 'Calendar', active: true),
+          _NavItem(
+            Icons.chat_bubble_outline,
+            'Chats',
+            onTap: () =>
+                openTab(context, AppTab.chats, chatScope: ChatScope.dayJobs),
+          ),
           _NavItem(
             Icons.notifications_none,
             'Alerts',
@@ -843,16 +849,12 @@ class _RatingSheet extends StatefulWidget {
 }
 
 class _RatingSheetState extends State<_RatingSheet> {
-  late int _rating;
-
-  @override
-  void initState() {
-    super.initState();
-    _rating = widget.initialRating ?? 5;
-  }
+  int _rating = 0;
 
   String get _ratingLabel {
     switch (_rating) {
+      case 0:
+        return 'Tap a star to rate';
       case 1:
         return 'Needs Improvement';
       case 2:
@@ -982,7 +984,7 @@ class _RatingSheetState extends State<_RatingSheet> {
                     padding: const EdgeInsets.symmetric(horizontal: 3),
                     constraints: const BoxConstraints(),
                     icon: Icon(
-                      Icons.star,
+                      index <= _rating ? Icons.star : Icons.star_border,
                       size: 46,
                       color: index <= _rating
                           ? const Color(0xFF9B5727)
@@ -1008,7 +1010,7 @@ class _RatingSheetState extends State<_RatingSheet> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '$_rating.0 · $_ratingLabel',
+                    _rating == 0 ? _ratingLabel : '$_rating.0 · $_ratingLabel',
                     style: const TextStyle(
                       color: Color(0xFF5C2D12),
                       fontSize: 16,
@@ -1022,7 +1024,9 @@ class _RatingSheetState extends State<_RatingSheet> {
               width: double.infinity,
               height: 68,
               child: FilledButton.icon(
-                onPressed: () => Navigator.pop(context, _rating),
+                onPressed: _rating == 0
+                    ? null
+                    : () => Navigator.pop(context, _rating),
                 icon: const Icon(Icons.star, size: 28),
                 label: Text(
                   widget.initialRating == null
@@ -1035,7 +1039,9 @@ class _RatingSheetState extends State<_RatingSheet> {
                 ),
                 style: FilledButton.styleFrom(
                   backgroundColor: _detailGreen,
+                  disabledBackgroundColor: const Color(0xFFBCC8C1),
                   foregroundColor: Colors.white,
+                  disabledForegroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(34),
                   ),
