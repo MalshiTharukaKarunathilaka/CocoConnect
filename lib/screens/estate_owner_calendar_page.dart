@@ -84,7 +84,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   }
 
   void _changeMonth(int amount) {
-    setState(() { 
+    setState(() {
       _month = DateTime(_month.year, _month.month + amount);
       _selectedDay = null;
     });
