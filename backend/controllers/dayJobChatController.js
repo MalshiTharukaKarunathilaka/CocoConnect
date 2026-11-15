@@ -116,25 +116,63 @@ const getChats = async (req, res) => {
          c.day_job_id,
          dj.category,
          CASE WHEN c.owner_user_id = $1 THEN wu.name ELSE eo.estate_name END AS counterpart_name,
-         last.message AS last_message,
-         last.created_at AS last_activity_at
+         CASE WHEN c.owner_user_id = $1 THEN 'WORKER' ELSE 'ESTATE_OWNER' END AS counterpart_role,
+         c.created_at,
+         CASE WHEN c.owner_user_id = $1
+           THEN c.owner_last_read_at
+           ELSE c.worker_last_read_at
+         END AS last_read_at
        FROM day_job_chats c
        JOIN day_jobs dj ON dj.id = c.day_job_id
        JOIN estate_owners eo ON eo.id = dj.estate_owner_id
        JOIN worker w ON w.id = c.worker_id
        JOIN users wu ON wu.id = w.user_id
-       LEFT JOIN LATERAL (
-         SELECT message, created_at
-         FROM day_job_chat_messages
-         WHERE chat_id = c.id
-         ORDER BY created_at DESC, id DESC
-         LIMIT 1
-       ) last ON true
-       WHERE c.owner_user_id = $1 OR w.user_id = $1
-       ORDER BY last.created_at DESC NULLS LAST, c.id DESC`,
+       WHERE c.owner_user_id = $1 OR w.user_id = $1`,
       [req.user.id]
     );
-    return res.status(200).json(result.rows);
+    const messages = await pool.query(
+      `SELECT messages.chat_id, messages.sender_id, messages.message, messages.created_at
+       FROM day_job_chat_messages messages
+       JOIN day_job_chats c ON c.id = messages.chat_id
+       JOIN worker w ON w.id = c.worker_id
+       WHERE (c.owner_user_id = $1 OR w.user_id = $1)
+       ORDER BY messages.created_at DESC, messages.id DESC`,
+      [req.user.id]
+    );
+    const messageByChat = new Map();
+    const unreadByChat = new Map();
+    const lastReadByChat = new Map(
+      result.rows.map((chat) => [chat.id, chat.last_read_at])
+    );
+    for (const message of messages.rows) {
+      if (!messageByChat.has(message.chat_id)) {
+        messageByChat.set(message.chat_id, message);
+      }
+      const lastRead = lastReadByChat.get(message.chat_id);
+      if (
+        message.sender_id !== req.user.id &&
+        (!lastRead || new Date(message.created_at) > new Date(lastRead))
+      ) {
+        unreadByChat.set(
+          message.chat_id,
+          (unreadByChat.get(message.chat_id) || 0) + 1
+        );
+      }
+    }
+    const chats = result.rows.map(({ last_read_at, ...chat }) => {
+      const last = messageByChat.get(chat.id);
+      return {
+        ...chat,
+        last_message: last?.message ?? null,
+        last_activity_at: last?.created_at ?? chat.created_at,
+        unread_count: unreadByChat.get(chat.id) || 0,
+      };
+    });
+    chats.sort(
+      (a, b) =>
+        new Date(b.last_activity_at) - new Date(a.last_activity_at) || b.id - a.id
+    );
+    return res.status(200).json(chats);
   } catch (error) {
     return serverError(res, "Get day job chats", error);
   }

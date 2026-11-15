@@ -44,6 +44,74 @@ const workerForUser = async (userId) => {
   return created.rows[0] || null;
 };
 
+const getProfile = async (req, res) => {
+  try {
+    const worker = await workerForUser(req.user.id);
+    if (!worker) {
+      return res.status(404).json({ message: "Worker profile not found" });
+    }
+
+    const ratingsReady = await dayJobRatingsReady();
+    const ratingColumn = ratingsReady ? "dja.rating" : "NULL::smallint";
+    const profile = await pool.query(
+      `SELECT w.id, u.name, u.phone, u.location
+       FROM worker w
+       JOIN users u ON u.id = w.user_id
+       WHERE w.id = $1`,
+      [worker.id]
+    );
+    const stats = await pool.query(
+      `SELECT
+         COUNT(*)::integer AS accepted_jobs,
+         COALESCE(SUM(
+           CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
+             THEN 1 ELSE 0 END
+         ), 0)::integer AS completed_jobs,
+         COALESCE(SUM(
+           CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
+             THEN COALESCE(${ratingColumn}, 0) ELSE 0 END
+         ), 0)::integer AS total_rating_marks
+       FROM day_job_applications dja
+       JOIN day_jobs dj ON dj.id = dja.day_job_id
+       WHERE dja.worker_id = $1
+         AND UPPER(dja.status) = 'ACCEPTED'`,
+      [worker.id]
+    );
+    const categories = await pool.query(
+      `SELECT DISTINCT dj.category
+       FROM day_job_applications dja
+       JOIN day_jobs dj ON dj.id = dja.day_job_id
+       WHERE dja.worker_id = $1
+         AND UPPER(dja.status) = 'ACCEPTED'
+       ORDER BY dj.category`,
+      [worker.id]
+    );
+
+    const acceptedJobs = Number(stats.rows[0]?.accepted_jobs || 0);
+    const completedJobs = Number(stats.rows[0]?.completed_jobs || 0);
+    const totalRatingMarks = Number(stats.rows[0]?.total_rating_marks || 0);
+    return res.status(200).json({
+      ...profile.rows[0],
+      accepted_jobs: acceptedJobs,
+      active_jobs: Math.max(acceptedJobs - completedJobs, 0),
+      completed_jobs: completedJobs,
+      total_rating_marks: totalRatingMarks,
+      average_rating:
+        completedJobs > 0 ? totalRatingMarks / completedJobs : null,
+      work_categories: categories.rows.map((row) => row.category),
+    });
+  } catch (error) {
+    console.error("Get worker profile error:", error);
+    if (error.code === "42703" || error.code === "42P01") {
+      return res.status(500).json({
+        message:
+          "Worker database is not configured. Run worker and day-job migrations.",
+      });
+    }
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 const getAvailableJobs = async (req, res) => {
   try {
     const worker = await workerForUser(req.user.id);
@@ -370,6 +438,7 @@ const declineJob = async (req, res) => {
 };
 
 module.exports = {
+  getProfile,
   getAvailableJobs,
   getEstates,
   getNearbyEstates,

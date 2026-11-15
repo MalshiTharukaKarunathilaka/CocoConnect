@@ -529,6 +529,28 @@ test("worker acceptance appears in the estate owner's job details", async () => 
   assert.equal(profileWithHistory.data.total_rating_marks, 4);
   assert.equal(profileWithHistory.data.average_rating, 4);
 
+  const workerOwnProfile = await call("GET", "/api/worker/profile", {
+    token: worker.token,
+  });
+  assert.equal(workerOwnProfile.status, 200);
+  assert.equal(workerOwnProfile.data.name, "Day Worker");
+  assert.equal(workerOwnProfile.data.accepted_jobs, 2);
+  assert.equal(workerOwnProfile.data.active_jobs, 1);
+  assert.equal(workerOwnProfile.data.completed_jobs, 1);
+  assert.equal(workerOwnProfile.data.total_rating_marks, 4);
+  assert.equal(workerOwnProfile.data.average_rating, 4);
+  assert.deepEqual(workerOwnProfile.data.work_categories, [
+    "Historical Manual Work",
+    "Nut Gatherer",
+  ]);
+
+  const ownerCannotReadWorkerSelfProfile = await call(
+    "GET",
+    "/api/worker/profile",
+    { token: owner.token }
+  );
+  assert.equal(ownerCannotReadWorkerSelfProfile.status, 403);
+
   const ownerChat = await call("POST", "/api/day-job-chats", {
     token: owner.token,
     body: { jobId: created.data.id, workerId: 1 },
@@ -556,12 +578,32 @@ test("worker acceptance appears in the estate owner's job details", async () => 
     { token: worker.token, body: { message: "I will be there." } }
   );
   assert.equal(workerSent.status, 201);
+
+  const ownerInbox = await call("GET", "/api/day-job-chats", {
+    token: owner.token,
+  });
+  assert.equal(ownerInbox.status, 200);
+  assert.equal(ownerInbox.data.length, 1);
+  assert.equal(ownerInbox.data[0].counterpart_name, "Day Worker");
+  assert.equal(ownerInbox.data[0].counterpart_role, "WORKER");
+  assert.equal(ownerInbox.data[0].last_message, "I will be there.");
+  assert.equal(ownerInbox.data[0].unread_count, 1);
+
+  const unrelatedInbox = await call("GET", "/api/day-job-chats", {
+    token: otherOwner.token,
+  });
+  assert.deepEqual(unrelatedInbox.data, []);
+
   const ownerView = await call(
     "GET",
     `/api/day-job-chats/${ownerChat.data.id}`,
     { token: owner.token }
   );
   assert.equal(ownerView.data.messages[1].message, "I will be there.");
+  const readOwnerInbox = await call("GET", "/api/day-job-chats", {
+    token: owner.token,
+  });
+  assert.equal(readOwnerInbox.data[0].unread_count, 0);
 
   const sameDayJob = await call("POST", "/api/owner/day-jobs", {
     token: owner.token,

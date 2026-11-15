@@ -1,5 +1,48 @@
 import 'api_client.dart';
 
+class WorkerProfileSummary {
+  final int id;
+  final String name;
+  final String phone;
+  final String location;
+  final List<String> workCategories;
+  final int acceptedJobs;
+  final int activeJobs;
+  final int completedJobs;
+  final int totalRatingMarks;
+  final double? averageRating;
+
+  const WorkerProfileSummary({
+    required this.id,
+    required this.name,
+    required this.phone,
+    required this.location,
+    required this.workCategories,
+    required this.acceptedJobs,
+    required this.activeJobs,
+    required this.completedJobs,
+    required this.totalRatingMarks,
+    required this.averageRating,
+  });
+
+  factory WorkerProfileSummary.fromJson(Map<String, dynamic> json) =>
+      WorkerProfileSummary(
+        id: (json['id'] as num).toInt(),
+        name: json['name'] as String? ?? 'Worker',
+        phone: json['phone'] as String? ?? '',
+        location: json['location'] as String? ?? '',
+        workCategories:
+            ((json['work_categories'] as List<dynamic>?) ?? const [])
+                .map((category) => '$category')
+                .toList(),
+        acceptedJobs: (json['accepted_jobs'] as num?)?.toInt() ?? 0,
+        activeJobs: (json['active_jobs'] as num?)?.toInt() ?? 0,
+        completedJobs: (json['completed_jobs'] as num?)?.toInt() ?? 0,
+        totalRatingMarks: (json['total_rating_marks'] as num?)?.toInt() ?? 0,
+        averageRating: (json['average_rating'] as num?)?.toDouble(),
+      );
+}
+
 class WorkerJob {
   final int id;
   final String category;
@@ -93,6 +136,11 @@ double _number(dynamic value) =>
 
 class WorkerService {
   WorkerService._();
+
+  static Future<WorkerProfileSummary> getProfile() async {
+    final data = await ApiClient.get('/api/worker/profile');
+    return WorkerProfileSummary.fromJson(data as Map<String, dynamic>);
+  }
 
   static Future<List<WorkerJob>> getAvailableJobs() async {
     final data = await ApiClient.get('/api/worker/jobs');
