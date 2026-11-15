@@ -4,7 +4,7 @@ import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
 
-/// My requests & messages — same idea as the HTML demo list.
+/// My orders — private supplier + government submissions.
 class FertilizerRequestsPage extends StatelessWidget {
   const FertilizerRequestsPage({super.key, this.embedded = false});
 
@@ -37,7 +37,7 @@ class FertilizerRequestsPage extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         if (gov.isEmpty)
-          _empty('No government requests yet')
+          _empty('No government orders yet')
         else
           for (final r in gov) _govCard(r),
       ],
@@ -45,7 +45,7 @@ class FertilizerRequestsPage extends StatelessWidget {
 
     if (embedded) return ColoredBox(color: AppColors.cream, child: body);
     return FertPage(
-      title: 'My requests',
+      title: 'My orders',
       subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
       child: body,
     );

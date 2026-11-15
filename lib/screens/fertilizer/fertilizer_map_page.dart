@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
+import 'fertilizer_gov_request_sheet.dart';
 import 'fertilizer_order_sheet.dart';
 import 'fertilizer_orders_page.dart';
 import 'fertilizer_talk_page.dart';
@@ -32,7 +33,8 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   final _search = TextEditingController();
   late String _channel;
   double _radiusKm = 15;
-  bool _showPrices = true;
+  /// Multi-select fertilizer types (APM, UREA…). Min price only when this is set.
+  final Set<String> _selectedTypes = {};
   FertPlace? _selected;
   String? _clusterKey;
 
@@ -71,9 +73,11 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     return _store.places.where((p) {
       if (_channel == 'private' && p.isGov) return false;
       if (_channel == 'gov' && !p.isGov) return false;
+      // Why: only keep shops that sell at least one of the picked fertilizers.
+      if (!p.sellsAny(_selectedTypes)) return false;
       if (q.isNotEmpty) {
         final hay =
-            '${p.company} ${p.brandLine} ${p.items.map((i) => i.name).join(' ')}'
+            '${p.company} ${p.brandLine} ${p.fertilizerLine} ${p.items.map((i) => i.name).join(' ')}'
                 .toLowerCase();
         if (!hay.contains(q)) return false;
       }
@@ -81,6 +85,21 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
       return p.willingFar;
     }).toList()
       ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+  }
+
+  void _toggleType(String code) {
+    setState(() {
+      if (_selectedTypes.contains(code)) {
+        _selectedTypes.remove(code);
+      } else {
+        _selectedTypes.add(code);
+      }
+      // Clear open card if that shop no longer matches the filter.
+      if (_selected != null && !_selected!.sellsAny(_selectedTypes)) {
+        _selected = null;
+      }
+      _clusterKey = null;
+    });
   }
 
   /// Group shops that sit on the same pin (like the HTML cluster).
@@ -126,8 +145,8 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Map fills the screen. My orders and requests sit in a draggable sheet.
-    // Keeping the list above the map avoids the nested-scroll rendering issue.
+    // Map fills the screen. My orders sit in a bottom sheet — drag up to read.
+    // Why: map stays highlighted; supplier card sits above the sheet so Order now is visible.
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -182,19 +201,41 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                   ),
                 ),
               ),
-              // Peek shows title + first rows so the list is visible; drag up for more.
-              // It steps aside while a supplier card is open, so the card is not
-              // hidden behind it.
+              // Why: when a supplier card is open, tuck My orders away so Order now is visible.
               if (_selected == null && _clusterKey == null)
                 DraggableScrollableSheet(
-                  initialChildSize: 0.42,
+                  initialChildSize: 0.32,
                   minChildSize: 0.28,
-                  maxChildSize: 0.8,
+                  maxChildSize: 0.68,
                   snap: true,
-                  snapSizes: const [0.42, 0.6, 0.8],
+                  snapSizes: const [0.32, 0.5, 0.68],
                   builder: (context, scrollController) {
                     return _ordersRequestsSheet(scrollController);
                   },
+                ),
+              // Supplier / cluster cards sit ABOVE the sheet (not under it).
+              if (_clusterKey != null &&
+                  _selected == null &&
+                  (_groups[_clusterKey!]?.length ?? 0) > 1)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 16,
+                  child: _clusterPop(_groups[_clusterKey!]!),
+                ),
+              if (_selected != null)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 16,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.55,
+                    ),
+                    child: SingleChildScrollView(
+                      child: _placePop(_selected!),
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -319,7 +360,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                 const Padding(
                   padding: EdgeInsets.fromLTRB(2, 14, 2, 8),
                   child: Text(
-                    'Requests',
+                    'Government orders',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -331,7 +372,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                   const Padding(
                     padding: EdgeInsets.only(bottom: 8),
                     child: Text(
-                      'No requests yet',
+                      'No government orders yet',
                       style: TextStyle(color: AppColors.muted, fontSize: 12),
                     ),
                   )
@@ -845,7 +886,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                   controller: _search,
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
-                    hintText: 'Search brand, shop or fertilizer',
+                    hintText: 'Search brand, supplier or fertilizer',
                     prefixIcon: const Icon(Icons.search, size: 20),
                     filled: true,
                     fillColor: Colors.white,
@@ -870,7 +911,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                         _clusterKey = null;
                       });
                     }),
-                    _chip('Shops', _channel == 'private', () {
+                    _chip('Suppliers', _channel == 'private', () {
                       setState(() {
                         _channel = 'private';
                         _selected = null;
@@ -892,11 +933,29 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                           _clusterKey = null;
                         });
                       }),
-                    _chip(
-                      _showPrices ? 'Prices on' : 'Prices off',
-                      _showPrices,
-                      () => setState(() => _showPrices = !_showPrices),
-                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Why: pick fertilizer types on the map; multi-select filters who appears.
+              SizedBox(
+                height: 36,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    if (_selectedTypes.isNotEmpty)
+                      _chip('Clear types', false, () {
+                        setState(() {
+                          _selectedTypes.clear();
+                          _clusterKey = null;
+                        });
+                      }),
+                    for (final code in kFertilizerTypeFilters)
+                      _chip(
+                        code,
+                        _selectedTypes.contains(code),
+                        () => _toggleType(code),
+                      ),
                   ],
                 ),
               ),
@@ -905,7 +964,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
         ),
         Positioned(
           right: 12,
-          bottom: 180,
+          bottom: 24,
           child: FloatingActionButton.small(
             heroTag: 'fert-recenter',
             backgroundColor: Colors.white,
@@ -913,24 +972,41 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
             child: const Icon(Icons.my_location, color: AppColors.green),
           ),
         ),
-        if (_clusterKey != null &&
-            _selected == null &&
-            (groups[_clusterKey!]?.length ?? 0) > 1)
-          Positioned(
-            left: 24,
-            right: 24,
-            bottom: 16,
-            child: _clusterPop(groups[_clusterKey!]!),
-          ),
-        if (_selected != null)
-          Positioned(
-            left: 24,
-            right: 24,
-            bottom: 16,
-            child: _placePop(_selected!),
-          ),
       ],
     );
+  }
+
+  String _clusterSubtitle(FertPlace p) {
+    final line = '${p.brandLine} · ${p.fertilizerLine}';
+    if (_selectedTypes.length != 1) return line;
+    final min = p.minPriceFor(_selectedTypes);
+    if (min == null) return line;
+    return '$line · MIN LKR ${withCommas(min)}';
+  }
+
+  Future<void> _openOrder(FertPlace p) async {
+    if (p.isGov) {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => FertilizerGovRequestSheet(
+          place: p,
+          preselectedTypes: Set<String>.from(_selectedTypes),
+        ),
+      );
+    } else {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => FertilizerOrderSheet(
+          place: p,
+          preselectedTypes: Set<String>.from(_selectedTypes),
+        ),
+      );
+    }
+    if (mounted) setState(() {});
   }
 
   Widget _chip(String label, bool on, VoidCallback onTap) {
@@ -967,15 +1043,31 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     final talking = places.any(
       (p) => (_store.shopTalks[p.id] ?? const []).isNotEmpty,
     );
+    // Pin: brand + types. Min price only when exactly ONE fertilizer type is filtered.
     final brands = places.expand((p) => p.brands).toSet().join(' + ');
-    final low = places
-        .map((p) => p.minPrice50)
-        .reduce((a, b) => a < b ? a : b);
-    final label = _showPrices ? '$brands · MIN ${withCommas(low)}' : brands;
+    final types = places.expand((p) => p.fertilizerCodes).toSet().toList()
+      ..sort();
+    final typeLabel = types.join(' · ');
+    String label;
+    if (_selectedTypes.length == 1) {
+      final code = _selectedTypes.first;
+      final lows = places
+          .map((p) => p.minPriceFor({code}))
+          .whereType<int>();
+      final low = lows.isEmpty ? null : lows.reduce((a, b) => a < b ? a : b);
+      label = low == null
+          ? '$brands · $code'
+          : '$brands · $code · MIN ${withCommas(low)}';
+    } else if (_selectedTypes.length > 1) {
+      // Several types filtered → show who matches, but no single MIN (would be confusing).
+      label = '$brands · $typeLabel';
+    } else {
+      label = '$brands · $typeLabel';
+    }
 
     return Marker(
       point: _at(lead),
-      width: 168,
+      width: 200,
       height: 78,
       alignment: Alignment.center,
       child: GestureDetector(
@@ -1037,7 +1129,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                       ),
                       const SizedBox(width: 5),
                       ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 118),
+                        constraints: const BoxConstraints(maxWidth: 150),
                         child: Text(
                           label,
                           maxLines: 1,
@@ -1144,7 +1236,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
               ],
             ),
             const Text(
-              'Pick one. Each has its own brands and prices.',
+              'Pick one. Each lists the fertilizers they sell.',
               style: TextStyle(fontSize: 12, color: AppColors.muted),
             ),
             const SizedBox(height: 8),
@@ -1166,9 +1258,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                   p.company,
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-                subtitle: Text(
-                  '${p.brandLine} · MIN LKR ${withCommas(p.minPrice50)}',
-                ),
+                subtitle: Text(_clusterSubtitle(p)),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => setState(() {
                   _selected = p;
@@ -1189,10 +1279,21 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
             : 'No shop here · delivers far')
         : '${p.distanceKm.toStringAsFixed(1)} km';
     final talks = _store.shopTalks[p.id] ?? const <FertChat>[];
+    // Min only when exactly one type is filtered.
+    final selectedMin = _selectedTypes.length == 1
+        ? p.minPriceFor(_selectedTypes)
+        : null;
+    // Show each fertilizer they provide so the type is clear on the map card.
+    final listed = _selectedTypes.isEmpty
+        ? p.items
+        : p.items
+            .where((i) => _selectedTypes.contains(i.type.toUpperCase()))
+            .toList();
 
     return Material(
-      elevation: 14,
-      borderRadius: BorderRadius.circular(22),
+      elevation: 12,
+      shadowColor: const Color(0x33183E29),
+      borderRadius: BorderRadius.circular(AppRadius.callout),
       color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -1224,6 +1325,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
                         ),
                       ),
                       Text(
@@ -1238,29 +1340,97 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                 ),
                 IconButton(
                   onPressed: () => setState(() => _selected = null),
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(Icons.close, color: AppColors.ink),
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'MIN LKR ${withCommas(p.minPrice50)} ',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.green,
-                    ),
-                  ),
-                  const TextSpan(
-                    text: '/ 50 kg',
-                    style: TextStyle(fontSize: 11, color: AppColors.muted),
-                  ),
-                ],
+            const Text(
+              'Fertilizers they provide',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: AppColors.muted,
               ),
             ),
+            const SizedBox(height: 6),
+            for (final item in listed)
+              Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.cream,
+                  borderRadius: BorderRadius.circular(AppRadius.field),
+                  border: Border.all(color: AppColors.line),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.greenSoft,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        item.type.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.green,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        item.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'LKR ${withCommas(item.price50)}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (selectedMin != null) ...[
+              const SizedBox(height: 4),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'MIN LKR ${withCommas(selectedMin)} ',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.green,
+                      ),
+                    ),
+                    TextSpan(
+                      text: '/ 50 kg · ${_selectedTypes.join(' + ')}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (talks.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
@@ -1274,16 +1444,8 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                 Expanded(
                   flex: 14,
                   child: ElevatedButton(
-                    onPressed: () async {
-                      await showModalBottomSheet<void>(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (_) => FertilizerOrderSheet(place: p),
-                      );
-                      setState(() {});
-                    },
-                    child: const Text('Order now'),
+                    onPressed: () => _openOrder(p),
+                    child: Text(p.isGov ? 'Place order' : 'Order now'),
                   ),
                 ),
                 if (!p.isGov) ...[

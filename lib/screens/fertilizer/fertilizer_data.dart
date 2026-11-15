@@ -67,7 +67,58 @@ class FertPlace {
   int get minPrice50 =>
       items.map((i) => i.price50).reduce((a, b) => a < b ? a : b);
   String get brandLine => brands.join(' + ');
+
+  /// Filter codes this shop sells (APM, UREA, …).
+  List<String> get fertilizerCodes =>
+      items.map((i) => i.type.toUpperCase()).toSet().toList()..sort();
+
+  String get fertilizerLine => fertilizerCodes.join(' · ');
+
+  bool sellsAny(Set<String> codes) {
+    if (codes.isEmpty) return true;
+    final mine = fertilizerCodes.toSet();
+    return codes.any(mine.contains);
+  }
+
+  /// Lowest 50 kg price among the selected fertilizer types only.
+  int? minPriceFor(Set<String> codes) {
+    final match = codes.isEmpty
+        ? items
+        : items.where((i) => codes.contains(i.type.toUpperCase()));
+    if (match.isEmpty) return null;
+    return match.map((i) => i.price50).reduce((a, b) => a < b ? a : b);
+  }
+
+  FertItem? itemForType(String code) {
+    final c = code.toUpperCase();
+    for (final i in items) {
+      if (i.type.toUpperCase() == c) return i;
+    }
+    return null;
+  }
 }
+
+/// Locked demo profile fields for government orders (edit in Profile, not here).
+class FertOwnerProfile {
+  static const ownerName = 'Demo Estate Owner';
+  static const estateName = 'Your Estate';
+  static const acres = '8';
+  static const district = 'Kurunegala';
+  static const nicOnFile = '199012345678V';
+  static const landTitleOnFile = 'Land title deed (profile copy)';
+}
+
+/// Client fertilizer types shown as map filter chips (multi-select).
+const kFertilizerTypeFilters = <String>[
+  'APM',
+  'YPM',
+  'MOP',
+  'EPP',
+  'ERP',
+  'UREA',
+  'DOLAMITE',
+  'TSP',
+];
 
 class CartLine {
   CartLine({required this.item, required this.qty50});
@@ -215,6 +266,8 @@ class FertilizerStore {
         : places.firstWhere((p) => p.kind == 'shop').id;
   }
 
+  // Each shop has its own nearby pin (never share coordinates).
+  // Brand stock is specific: Hayleys = APM/YPM, CIC = UREA/MOP/…, CCB = ERP/UREA.
   final List<FertPlace> places = [
     FertPlace(
       id: 'PL4',
@@ -223,7 +276,7 @@ class FertilizerStore {
       kind: 'shop',
       physical: true,
       willingFar: false,
-      brands: const ['CIC', 'Baurs'],
+      brands: const ['CIC'],
       distanceKm: 1.6,
       dLat: 0.012,
       dLng: -0.008,
@@ -232,18 +285,26 @@ class FertilizerStore {
         FertItem(
           name: 'CIC Urea',
           brand: 'CIC',
-          type: 'Urea',
+          type: 'UREA',
           price: 5900,
           unit: '50 kg bag',
           stock: 20,
         ),
         FertItem(
-          name: 'Baurs Coconut Blend',
-          brand: 'Baurs',
-          type: 'Coconut mix',
-          price: 7000,
+          name: 'CIC MOP',
+          brand: 'CIC',
+          type: 'MOP',
+          price: 6800,
           unit: '50 kg bag',
           stock: 14,
+        ),
+        FertItem(
+          name: 'CIC TSP',
+          brand: 'CIC',
+          type: 'TSP',
+          price: 7050,
+          unit: '50 kg bag',
+          stock: 12,
         ),
       ],
     ),
@@ -255,18 +316,26 @@ class FertilizerStore {
       physical: true,
       willingFar: false,
       brands: const ['Hayleys'],
-      distanceKm: 1.6,
-      dLat: 0.012,
-      dLng: -0.008,
+      distanceKm: 2.2,
+      dLat: 0.018,
+      dLng: 0.010,
       phone: '077 555 0101',
       items: [
         FertItem(
-          name: 'Hayleys Organic',
+          name: 'Hayleys APM',
           brand: 'Hayleys',
-          type: 'Organic',
-          price: 5200,
-          unit: '25 kg bag',
+          type: 'APM',
+          price: 6300,
+          unit: '50 kg bag',
           stock: 18,
+        ),
+        FertItem(
+          name: 'Hayleys YPM',
+          brand: 'Hayleys',
+          type: 'YPM',
+          price: 5600,
+          unit: '50 kg bag',
+          stock: 10,
         ),
       ],
     ),
@@ -278,26 +347,34 @@ class FertilizerStore {
       physical: true,
       willingFar: false,
       brands: const ['CIC'],
-      distanceKm: 4.2,
-      dLat: -0.028,
-      dLng: 0.018,
+      distanceKm: 2.8,
+      dLat: -0.015,
+      dLng: 0.012,
       phone: '077 200 3344',
       items: [
         FertItem(
-          name: 'Coconut Fertilizer Mix',
+          name: 'CIC Urea',
           brand: 'CIC',
-          type: 'Coconut mix',
-          price: 6850,
-          unit: '50 kg bag',
-          stock: 42,
-        ),
-        FertItem(
-          name: 'Urea',
-          brand: 'CIC',
-          type: 'Urea',
+          type: 'UREA',
           price: 6100,
           unit: '50 kg bag',
           stock: 8,
+        ),
+        FertItem(
+          name: 'CIC EPP',
+          brand: 'CIC',
+          type: 'EPP',
+          price: 6550,
+          unit: '50 kg bag',
+          stock: 15,
+        ),
+        FertItem(
+          name: 'CIC MOP',
+          brand: 'CIC',
+          type: 'MOP',
+          price: 6850,
+          unit: '50 kg bag',
+          stock: 42,
         ),
       ],
     ),
@@ -309,37 +386,54 @@ class FertilizerStore {
       physical: true,
       willingFar: false,
       brands: const ['Hayleys'],
-      distanceKm: 6.8,
-      dLat: -0.04,
-      dLng: -0.035,
+      distanceKm: 3.5,
+      dLat: -0.022,
+      dLng: -0.018,
       items: [
         FertItem(
-          name: 'Organic Soil Enricher',
+          name: 'Hayleys APM',
           brand: 'Hayleys',
-          type: 'Organic',
-          price: 4900,
-          unit: '25 kg bag',
+          type: 'APM',
+          price: 6200,
+          unit: '50 kg bag',
+          stock: 9,
+        ),
+        FertItem(
+          name: 'Hayleys YPM',
+          brand: 'Hayleys',
+          type: 'YPM',
+          price: 5450,
+          unit: '50 kg bag',
+          stock: 11,
+        ),
+        FertItem(
+          name: 'Hayleys Dolamite',
+          brand: 'Hayleys',
+          type: 'DOLAMITE',
+          price: 3900,
+          unit: '50 kg bag',
           stock: 16,
         ),
       ],
     ),
     FertPlace(
       id: 'PL5',
-      company: 'CDO Area 01',
+      company: 'CDO Area 01 · CCB',
       who: 'CDO - Mawathagama',
       kind: 'cdo',
       physical: true,
       willingFar: true,
       brands: const ['CCB'],
-      distanceKm: 10,
-      dLat: 0.055,
-      dLng: 0.04,
+      // Why: government CCB must sit almost on top of the estate for the demo.
+      distanceKm: 0.4,
+      dLat: 0.0035,
+      dLng: 0.0025,
       phone: '037 222 3344',
       items: [
         FertItem(
           name: 'ERP Coconut Fertilizer',
           brand: 'CCB',
-          type: 'Government',
+          type: 'ERP',
           price: 6000,
           unit: '50 kg bag',
           stock: 120,
@@ -347,7 +441,7 @@ class FertilizerStore {
         FertItem(
           name: 'Urea subsidy',
           brand: 'CCB',
-          type: 'Urea',
+          type: 'UREA',
           price: 4200,
           unit: '50 kg bag',
           stock: 80,
@@ -356,23 +450,40 @@ class FertilizerStore {
     ),
     FertPlace(
       id: 'PL6',
-      company: 'CIC Depot Colombo',
-      who: 'CIC warehouse',
+      company: 'Baurs Agro Shop',
+      who: 'Sajith Fernando',
       kind: 'shop',
-      physical: false,
-      willingFar: true,
-      brands: const ['CIC'],
-      distanceKm: 86,
-      dLat: 0.09,
-      dLng: 0.06,
+      physical: true,
+      willingFar: false,
+      brands: const ['Baurs'],
+      distanceKm: 2.5,
+      dLat: 0.008,
+      dLng: 0.022,
+      phone: '077 400 7788',
       items: [
         FertItem(
-          name: 'Coconut Fertilizer Mix',
-          brand: 'CIC',
-          type: 'Coconut mix',
-          price: 7100,
+          name: 'Baurs TSP',
+          brand: 'Baurs',
+          type: 'TSP',
+          price: 7200,
           unit: '50 kg bag',
-          stock: 200,
+          stock: 28,
+        ),
+        FertItem(
+          name: 'Baurs Dolamite',
+          brand: 'Baurs',
+          type: 'DOLAMITE',
+          price: 4100,
+          unit: '50 kg bag',
+          stock: 22,
+        ),
+        FertItem(
+          name: 'Baurs MOP',
+          brand: 'Baurs',
+          type: 'MOP',
+          price: 6950,
+          unit: '50 kg bag',
+          stock: 16,
         ),
       ],
     ),
@@ -405,7 +516,7 @@ class FertilizerStore {
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
       owner: 'Green Palm Estate',
-      product: 'Baurs Coconut Blend (50 kg)',
+      product: 'CIC MOP (50 kg)',
       items: [
         CartLine(
           item: places.firstWhere((p) => p.id == 'PL4').items[1],
@@ -413,7 +524,7 @@ class FertilizerStore {
         ),
       ],
       qty50: 6,
-      price: 42000,
+      price: 40800,
       preferredDate: DateTime(2026, 11, 8),
       slot: 'Afternoon 12–3',
       status: 'Pending Ack',
@@ -421,12 +532,12 @@ class FertilizerStore {
       negotiation: const [
         FertChat(
           'Green Palm Estate',
-          'Can you do Friday afternoon and confirm Baurs bag size?',
+          'Can you do Friday afternoon and confirm MOP bag size?',
           '10:05',
         ),
         FertChat(
           'Nadeesha Stores',
-          'Yes, Friday 12–3 works. Baurs blend is 50 kg bags.',
+          'Yes, Friday 12–3 works. CIC MOP is 50 kg bags.',
           '10:22',
         ),
       ],
@@ -437,7 +548,7 @@ class FertilizerStore {
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
       owner: 'Estate A',
-      product: 'CIC Urea (50 kg), Baurs Coconut Blend (50 kg)',
+      product: 'CIC Urea (50 kg), CIC MOP (50 kg)',
       items: [
         CartLine(
           item: places.firstWhere((p) => p.id == 'PL4').items.first,
@@ -449,7 +560,7 @@ class FertilizerStore {
         ),
       ],
       qty50: 8,
-      price: 51600,
+      price: 50800,
       preferredDate: DateTime(2026, 11, 9),
       slot: 'Morning 8–11',
       status: 'Pending Ack',

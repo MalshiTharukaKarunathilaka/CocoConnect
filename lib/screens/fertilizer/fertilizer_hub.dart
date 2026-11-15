@@ -41,7 +41,7 @@ class _FertilizerHubState extends State<FertilizerHub> {
           (Icons.home_outlined, 'Hub'),
           (Icons.grid_view_rounded, 'Suppliers'),
           (Icons.account_balance_outlined, 'Government'),
-          (Icons.schedule, 'Requests'),
+          (Icons.schedule, 'My orders'),
           (Icons.flag_outlined, 'Complaints'),
         ],
         current: _tab,
@@ -58,7 +58,7 @@ class _FertilizerHubState extends State<FertilizerHub> {
       case 2:
         return 'Government';
       case 3:
-        return 'Requests';
+        return 'My orders';
       case 4:
         return 'Complaints';
       default:
