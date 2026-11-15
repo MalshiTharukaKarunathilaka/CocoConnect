@@ -187,15 +187,21 @@ const login = async (req, res) => {
     }
 
     const result = await pool.query(
-      "SELECT * FROM users WHERE phone = $1",
-      [phone]
+      "SELECT * FROM users WHERE phone IN ($1, $2, $3, $4)",
+      /^07\d{8}$/.test(phone)
+        ? [phone, `+94${phone.slice(1)}`, `94${phone.slice(1)}`, phone.slice(1)]
+        : [phone, phone, phone, phone]
     );
-    const user = result.rows[0];
-
     // Same message for unknown phone and wrong password, so the response
     // does not reveal which phone numbers are registered.
-    const ok = user && (await bcrypt.compare(String(password), user.password_hash));
-    if (!ok) {
+    let user;
+    for (const candidate of result.rows) {
+      if (await bcrypt.compare(String(password), candidate.password_hash)) {
+        user = candidate;
+        break;
+      }
+    }
+    if (!user) {
       return res.status(401).json({
         message: "Incorrect phone number or password",
       });

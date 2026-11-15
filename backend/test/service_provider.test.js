@@ -76,6 +76,13 @@ test('provider international phone format is normalized for registration and log
   assert.equal((await call(login, {phone: '0771234599', password: body.password})).code, 200);
 });
 
+test('login accepts legacy international phone storage and rejects wrong passwords', async () => {
+  await call(signup, {...body, phone: '0771234587'});
+  await pool.query('UPDATE users SET phone = $1 WHERE phone = $2', ['+94771234587', '0771234587']);
+  assert.equal((await call(login, {phone: '0771234587', password: body.password})).code, 200);
+  assert.equal((await call(login, {phone: '0771234587', password: 'wrong-password'})).code, 401);
+});
+
 test('providers can register without machinery and start with an empty fleet', async () => {
   const {machinery_type, ...details} = body.service_provider;
   const result = await call(signup, {...body, phone: '0771234588', service_provider: details});

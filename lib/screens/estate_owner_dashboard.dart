@@ -1,3 +1,5 @@
+import '../widgets/dashboard_category_icon.dart';
+import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'coconuts_page.dart';
@@ -28,32 +30,32 @@ class EstateOwnerDashboard extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: const [
-                          Icon(
-                            Icons.arrow_back,
-                            size: 20,
-                            color: Color(0xFF2E7D32),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.arrow_back,
+                                size: 20,
+                                color: Color(0xFF2E7D32),
+                              ),
+                              SizedBox(width: 5),
+                              Text(
+                                'KapConnect',
+                                style: TextStyle(
+                                  color: Color(0xFF2E7D32),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
-                          SizedBox(width: 5),
-                          Text(
-                            'KapConnect',
-                            style: TextStyle(
-                              color: Color(0xFF2E7D32),
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Text(
-                        'EN | සි | த',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF2E7D32),
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      const LanguageSelector(),
                     ],
                   ),
                 ),
@@ -93,14 +95,16 @@ class EstateOwnerDashboard extends StatelessWidget {
                             Expanded(
                               child: DashboardHeading(
                                 title: 'Selling\nCategories',
+                                centered: true,
                                 subtitle: 'List products',
                                 color: Color(0xFFB26A2C),
                               ),
                             ),
-                            SizedBox(width: 20),
+                            SizedBox(width: 10),
                             Expanded(
                               child: DashboardHeading(
                                 title: 'Provider\nServices',
+                                centered: true,
                                 subtitle: 'Essential resources',
                                 color: Color(0xFF3B8F65),
                               ),
@@ -110,107 +114,7 @@ class EstateOwnerDashboard extends StatelessWidget {
 
                         const SizedBox(height: 12),
 
-                        Expanded(
-                          child: GridView.count(
-                            padding: EdgeInsets.zero,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                            childAspectRatio: 1.45,
-                            children: [
-                              DashboardCategoryCard(
-                                title: 'Coconuts',
-                                subtitle: 'List harvest',
-                                icon: Icons.park,
-                                iconColor: const Color(0xFF3B8F65),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const CoconutsPage(),
-                                    ),
-                                  );
-                                },
-                              ),
-
-                              DashboardCategoryCard(
-                                title: 'Fertilizer',
-                                subtitle: 'Quality nutrients',
-                                icon: Icons.eco,
-                                iconColor: const Color(0xFF3B8F65),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const FertilizerHub(),
-                                    ),
-                                  );
-                                },
-                              ),
-
-                              const DashboardCategoryCard(
-                                title: 'Vegetables',
-                                subtitle: 'Fresh produce',
-                                icon: Icons.spa,
-                                iconColor: Color(0xFFB26A2C),
-                              ),
-
-                              DashboardCategoryCard(
-                                title: 'Machinery',
-                                subtitle: 'Rent or buy',
-                                icon: Icons.agriculture,
-                                iconColor: const Color(0xFFB26A2C),
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const MachineryMapPage(),
-                                  ),
-                                ),
-                              ),
-
-                              const DashboardCategoryCard(
-                                title: 'Livestock',
-                                subtitle: 'Animal products',
-                                icon: Icons.pets,
-                                iconColor: Color(0xFF777777),
-                              ),
-
-                              DashboardCategoryCard(
-                                title: 'Day Jobs',
-                                subtitle: 'Hire workers',
-                                icon: Icons.groups,
-                                iconColor: const Color(0xFF777777),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const EstateOwnerCalendarPage(),
-                                    ),
-                                  );
-                                },
-                              ),
-
-                              const DashboardCategoryCard(
-                                title: 'Other Goods',
-                                subtitle: 'Farm goods',
-                                icon: Icons.inventory_2,
-                                iconColor: Color(0xFF777777),
-                              ),
-
-                              const DashboardCategoryCard(
-                                title: 'Miscellaneous',
-                                subtitle: 'Other services',
-                                icon: Icons.category,
-                                iconColor: Color(0xFF777777),
-                              ),
-                            ],
-                          ),
-                        ),
+                        Expanded(child: _categoryGrid(context)),
                       ],
                     ),
                   ),
@@ -222,6 +126,127 @@ class EstateOwnerDashboard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _categoryGrid(BuildContext context) {
+    void open(Widget page) =>
+        Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+
+    final selling = <Widget>[
+      DashboardCategoryCard(
+        title: 'Coconuts',
+        subtitle: 'List harvest',
+        iconWidget: const DashboardCategoryIcon('\u{1F334}'),
+        icon: Icons.park,
+        iconColor: const Color(0xFF3B8F65),
+        onTap: () => open(const CoconutsPage()),
+      ),
+      const DashboardCategoryCard(
+        title: 'Spices',
+        subtitle: 'Aromatic crops',
+        icon: Icons.grass,
+        iconColor: Color(0xFFB26A2C),
+      ),
+      const DashboardCategoryCard(
+        title: 'Livestock',
+        subtitle: 'Animal products',
+        iconWidget: DashboardCategoryIcon('\u{1F36F}'),
+        icon: Icons.pets,
+        iconColor: Color(0xFF777777),
+      ),
+      const DashboardCategoryCard(
+        title: 'Vegetables',
+        subtitle: 'Fresh produce',
+        iconWidget: DashboardCategoryIcon('\u{1F33D}'),
+        icon: Icons.spa,
+        iconColor: Color(0xFFB26A2C),
+      ),
+      const DashboardCategoryCard(
+        title: 'Fruits',
+        subtitle: 'Seasonal harvest',
+        iconWidget: DashboardCategoryIcon('\u{1F34D}'),
+        icon: Icons.apple,
+        iconColor: Color(0xFF3B8F65),
+      ),
+      const DashboardCategoryCard(
+        title: 'Other Goods',
+        subtitle: 'Farm goods',
+        icon: Icons.inventory_2,
+        iconColor: Color(0xFF777777),
+      ),
+    ];
+    final services = <Widget>[
+      DashboardCategoryCard(
+        title: 'Fertilizer',
+        subtitle: 'Quality nutrients',
+        iconWidget: const FertilizerBagIcon(),
+        icon: Icons.eco,
+        iconColor: const Color(0xFF3B8F65),
+        onTap: () => open(const FertilizerHub()),
+      ),
+      DashboardCategoryCard(
+        title: 'Machinery',
+        subtitle: 'Rent or buy',
+        icon: Icons.agriculture,
+        iconColor: const Color(0xFFB26A2C),
+        onTap: () => open(const MachineryMapPage()),
+      ),
+      DashboardCategoryCard(
+        title: 'Day Jobs',
+        subtitle: 'Hire workers',
+        icon: Icons.groups,
+        iconColor: const Color(0xFF777777),
+        onTap: () => open(const EstateOwnerCalendarPage()),
+      ),
+      const DashboardCategoryCard(
+        title: 'Skilled Jobs',
+        subtitle: 'Expert assistance',
+        icon: Icons.engineering,
+        iconColor: Color(0xFFB26A2C),
+      ),
+      const DashboardCategoryCard(
+        title: 'Equipment',
+        subtitle: 'Tools and supplies',
+        icon: Icons.handyman,
+        iconColor: Color(0xFF777777),
+      ),
+      const DashboardCategoryCard(
+        title: 'Irrigation',
+        subtitle: 'Water solutions',
+        icon: Icons.water_drop,
+        iconColor: Color(0xFF3B8F65),
+      ),
+      const DashboardCategoryCard(
+        title: 'Miscellaneous',
+        subtitle: 'Other services',
+        icon: Icons.category,
+        iconColor: Color(0xFF777777),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Reserve three row gaps and a little room for the bottom shadows.
+        // Card contents scale down when the available viewport is short.
+        final cardHeight = ((constraints.maxHeight - 30 - 8) / 4)
+            .floorToDouble();
+        return GridView.builder(
+          padding: const EdgeInsets.only(bottom: 12),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            mainAxisExtent: cardHeight,
+          ),
+          itemCount: services.length * 2,
+          itemBuilder: (context, index) {
+            final column = index.isEven ? selling : services;
+            final row = index ~/ 2;
+            return row < column.length ? column[row] : const SizedBox.shrink();
+          },
+        );
+      },
     );
   }
 }

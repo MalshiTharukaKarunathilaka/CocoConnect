@@ -19,9 +19,10 @@ const serverError = (res, label, error) => {
 };
 
 const NAMES = {
-  RAW_COCONUT: "raw coconuts",
-  DEHUSKED_COCONUT: "dehusked coconuts",
-  COCONUT_HUSK: "coconut husks",
+  RAW_COCONUT: "Raw Coconuts(with husks)",
+  HUSKED_COCONUT: "husked coconuts",
+  DEHUSKED_COCONUT: "Dehusked Coconuts",
+  COCONUT_HUSK: "Coconut Husks",
 };
 const productName = (type) => NAMES[String(type || "").toUpperCase()] || "coconuts";
 

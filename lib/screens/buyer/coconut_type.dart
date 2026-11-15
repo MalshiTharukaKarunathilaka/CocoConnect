@@ -7,10 +7,10 @@ class CoconutType {
   /// Value stored in the database's product_type column - "RAW_COCONUT".
   final String code;
 
-  /// Plural label used in headings - "Raw Coconuts".
+  /// Plural label used in headings - "Raw Coconuts(with husks)".
   final String label;
 
-  /// Singular form used in body copy - "Raw coconut".
+  /// Singular form used in body copy - "Raw Coconuts(with husks)".
   final String singular;
 
   /// Short description shown on the selection card.
@@ -38,8 +38,8 @@ class CoconutType {
 
   static const CoconutType raw = CoconutType(
     code: 'RAW_COCONUT',
-    label: 'Raw Coconuts',
-    singular: 'Raw coconut',
+    label: 'Raw Coconuts(with husks)',
+    singular: 'Raw Coconuts(with husks)',
     subtitle: 'Whole nuts, husk intact',
     husk: 'Unhusked',
     icon: Icons.park,
@@ -50,7 +50,7 @@ class CoconutType {
   static const CoconutType dehusked = CoconutType(
     code: 'DEHUSKED_COCONUT',
     label: 'Dehusked Coconuts',
-    singular: 'Dehusked coconut',
+    singular: 'Dehusked Coconuts',
     subtitle: 'Husk fully removed',
     husk: 'Fully dehusked',
     icon: Icons.egg_outlined,

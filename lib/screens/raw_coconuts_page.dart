@@ -1,3 +1,4 @@
+import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'sell_request_page.dart';
@@ -344,26 +345,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                             ),
                           ),
 
-                          const Row(
-                            children: [
-                              Text(
-                                'EN',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Color(0xFF2E7D32),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                ' | සි | த',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Color(0xFF5F6F5E),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
+                          const LanguageSelector(),
                         ],
                       ),
                     ],
@@ -396,6 +378,15 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                         ),
                       ),
 
+                      const SizedBox(height: 6),
+                      const Text(
+                        '1 unit = 1 nut',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF256B45),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 20),
 
                       // Latest deal and today's average price

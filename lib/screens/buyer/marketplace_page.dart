@@ -1,3 +1,4 @@
+import '../../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_client.dart';
@@ -368,14 +369,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                     ),
                   ],
                 ),
-                const Text(
-                  'EN | සි | த',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: kBuyerGrey,
-                  ),
-                ),
+                const LanguageSelector(),
               ],
             ),
 

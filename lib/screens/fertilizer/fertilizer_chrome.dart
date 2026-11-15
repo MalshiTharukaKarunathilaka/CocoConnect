@@ -28,7 +28,7 @@ class FertPage extends StatelessWidget {
     // Buttons and links are green like everywhere else in the app (the
     // default Material buttons would be purple).
     final ThemeData base = Theme.of(context);
-    final ShapeBorder pill = const StadiumBorder();
+    const OutlinedBorder pill = StadiumBorder();
     return Theme(
       data: base.copyWith(
         colorScheme: base.colorScheme.copyWith(primary: kOwnerGreen),
@@ -37,21 +37,21 @@ class FertPage extends StatelessWidget {
             backgroundColor: kOwnerGreen,
             foregroundColor: Colors.white,
             elevation: 0,
-            shape: pill as OutlinedBorder,
+            shape: pill,
           ),
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
             backgroundColor: kOwnerGreen,
             foregroundColor: Colors.white,
-            shape: pill as OutlinedBorder,
+            shape: pill,
           ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
             foregroundColor: kOwnerGreen,
             side: const BorderSide(color: kOwnerGreen),
-            shape: pill as OutlinedBorder,
+            shape: pill,
           ),
         ),
         textButtonTheme: TextButtonThemeData(

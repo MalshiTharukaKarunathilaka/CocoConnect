@@ -1,3 +1,4 @@
+import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../services/owner_service.dart';
@@ -220,40 +221,9 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             ],
           ),
           const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE9E3D8),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Row(
-              children: [
-                _language('EN', active: true),
-                _language('සි'),
-                _language('த'),
-              ],
-            ),
-          ),
+          const LanguageSelector(),
           const SizedBox(width: 10),
         ],
-      ),
-    );
-  }
-
-  Widget _language(String value, {bool active = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: active ? _calendarGreen : Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        value,
-        style: TextStyle(
-          color: active ? Colors.white : const Color(0xFF555555),
-          fontSize: 13,
-          fontWeight: FontWeight.bold,
-        ),
       ),
     );
   }

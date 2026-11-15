@@ -112,7 +112,7 @@ class _SellRequestPageState extends State<SellRequestPage> {
 
   String get productName {
     return switch (widget.productType.toUpperCase()) {
-      'RAW_COCONUT' => 'Raw Coconut',
+      'RAW_COCONUT' => 'Raw Coconuts(with husks)',
       'DEHUSKED_COCONUT' => 'Dehusked Coconut',
       'COCONUT_HUSK' => 'Coconut Husks',
       _ => widget.productType,

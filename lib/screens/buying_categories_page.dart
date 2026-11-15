@@ -1,3 +1,4 @@
+import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 
@@ -32,14 +33,7 @@ class BuyingCategoriesPage extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        'EN | සි | த',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF2E7D32),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      LanguageSelector(),
                     ],
                   ),
                 ),
