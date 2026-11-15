@@ -5,21 +5,26 @@ class DashboardHeading extends StatelessWidget {
   final String title;
   final String subtitle;
   final Color color;
+  final bool centered;
 
   const DashboardHeading({
     super.key,
     required this.title,
     required this.subtitle,
     required this.color,
+    this.centered = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: centered
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
       children: [
         Text(
           title,
+          textAlign: centered ? TextAlign.center : TextAlign.start,
           style: TextStyle(
             color: color,
             fontSize: 18,
@@ -30,6 +35,7 @@ class DashboardHeading extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           subtitle,
+          textAlign: centered ? TextAlign.center : TextAlign.start,
           style: const TextStyle(color: Color(0xFF777777), fontSize: 10),
         ),
       ],
@@ -42,6 +48,7 @@ class DashboardCategoryCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final Color iconColor;
+  final Widget? iconWidget;
   final VoidCallback? onTap;
 
   const DashboardCategoryCard({
@@ -50,6 +57,7 @@ class DashboardCategoryCard extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.iconColor,
+    this.iconWidget,
     this.onTap,
   });
 
@@ -71,35 +79,40 @@ class DashboardCategoryCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: const Color(0xFFF3F3F3),
-              child: Icon(icon, color: iconColor, size: 22),
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: const Color(0xFFF3F3F3),
+                  child: iconWidget ?? Icon(icon, color: iconColor, size: 22),
+                ),
+
+                const SizedBox(height: 8),
+
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF333333),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 3),
+
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFF8A8A8A), fontSize: 9),
+                ),
+              ],
             ),
-
-            const SizedBox(height: 8),
-
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF333333),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 3),
-
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF8A8A8A), fontSize: 9),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -109,12 +122,16 @@ class DashboardCategoryCard extends StatelessWidget {
 class CoconutProductCard extends StatelessWidget {
   final String title;
   final String imageUrl;
+  final String? imageAsset;
+  final String? unitLabel;
   final VoidCallback? onTap;
 
   const CoconutProductCard({
     super.key,
     required this.title,
     required this.imageUrl,
+    this.imageAsset,
+    this.unitLabel,
     this.onTap,
   });
 
@@ -132,87 +149,69 @@ class CoconutProductCard extends StatelessWidget {
         child: Column(
           children: [
             Expanded(
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(3),
-                      topRight: Radius.circular(3),
-                    ),
-                    child: Image.network(
-                      imageUrl,
-                      width: double.infinity,
-                      height: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: const Color(0xFFE8F5E9),
-                          child: const Center(
-                            child: Icon(
-                              Icons.image,
-                              size: 45,
-                              color: Color(0xFF2E7D32),
-                            ),
-                          ),
-                        );
-                      },
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(3),
+                ),
+                child: Image(
+                  image: imageAsset != null
+                      ? AssetImage(imageAsset!)
+                      : NetworkImage(imageUrl) as ImageProvider,
+                  width: double.infinity,
+                  height: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: const Color(0xFFE8F5E9),
+                    child: const Center(
+                      child: Icon(
+                        Icons.image,
+                        size: 32,
+                        color: Color(0xFF2E7D32),
+                      ),
                     ),
                   ),
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(3),
-                            topRight: Radius.circular(3),
-                          ),
-                          child: Image.network(
-                            imageUrl,
-                            width: double.infinity,
-                            height: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: const Color(0xFFE8F5E9),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.image,
-                                    size: 45,
-                                    color: Color(0xFF2E7D32),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-
-            Container(
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              alignment: Alignment.centerLeft,
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.arrow_forward,
-                    size: 15,
-                    color: Color(0xFF2E7D32),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Color(0xFF1B5E20),
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+            SizedBox(
+              height: 40,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.arrow_forward,
+                      size: 15,
+                      color: Color(0xFF2E7D32),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            color: Color(0xFF1B5E20),
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (unitLabel != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        unitLabel!,
+                        style: const TextStyle(
+                          color: Color(0xFF64705F),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ],
