@@ -55,6 +55,7 @@ create table public.sell_requests (
   quantity integer not null,
   seller_price_per_unit numeric not null,
   available_date date,
+  payment_method varchar not null default 'Any',
   status varchar default 'pending',
   created_at timestamp default current_timestamp
 );

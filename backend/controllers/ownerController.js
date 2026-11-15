@@ -316,7 +316,13 @@ const getBuyerRequests = async (req, res) => {
 
 const createSellRequest = async (req, res) => {
   try {
-    const { buyerRequestId, quantity, sellerPricePerUnit, availableDate } = req.body;
+    const {
+      buyerRequestId,
+      quantity,
+      sellerPricePerUnit,
+      availableDate,
+      paymentMethod,
+    } = req.body;
 
     if (!buyerRequestId || !quantity || !sellerPricePerUnit) {
       return res.status(400).json({
@@ -326,11 +332,15 @@ const createSellRequest = async (req, res) => {
 
     const nutQuantity = Number(quantity);
     const pricePerNut = Number(sellerPricePerUnit);
+    const selectedPaymentMethod = String(paymentMethod || "Any").trim();
     if (!Number.isInteger(nutQuantity) || nutQuantity <= 0) {
       return res.status(400).json({ message: "Number of nuts must be a positive integer" });
     }
     if (!(pricePerNut > 0)) {
       return res.status(400).json({ message: "Offer price per nut must be above 0" });
+    }
+    if (!["Cash", "Direct Bank Transfer", "Any"].includes(selectedPaymentMethod)) {
+      return res.status(400).json({ message: "Choose a valid payment method" });
     }
 
     const request = await pool.query(
@@ -359,21 +369,69 @@ const createSellRequest = async (req, res) => {
       });
     }
 
-    const result = await pool.query(
-      `INSERT INTO sell_requests
-        (estate_owner_id, buyer_request_id, product_type, quantity,
-         seller_price_per_unit, available_date, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending')
-       RETURNING *`,
-      [
-        estate.id,
-        buyerRequestId,
-        buyerRequest.product_type,
-        nutQuantity,
-        pricePerNut,
-        availableDate || null,
-      ]
-    );
+    const insertWithPaymentMethod = () =>
+      pool.query(
+        `INSERT INTO sell_requests
+          (estate_owner_id, buyer_request_id, product_type, quantity,
+           seller_price_per_unit, available_date, payment_method, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+         RETURNING *`,
+        [
+          estate.id,
+          buyerRequestId,
+          buyerRequest.product_type,
+          nutQuantity,
+          pricePerNut,
+          availableDate || null,
+          selectedPaymentMethod,
+        ]
+      );
+
+    let result;
+    try {
+      result = await insertWithPaymentMethod();
+    } catch (error) {
+      // Keep offers working while an older deployed database is waiting for
+      // migration 013. Once the column exists, the normal insert above stores
+      // the selected payment method permanently.
+      const errorMessage = String(error.message || "");
+      const missingPaymentMethodColumn =
+        errorMessage.includes("payment_method") &&
+        (error.code === "42703" || /does not exist|not found/i.test(errorMessage));
+      if (!missingPaymentMethodColumn) {
+        throw error;
+      }
+
+      try {
+        await pool.query(
+          `ALTER TABLE public.sell_requests
+           ADD COLUMN IF NOT EXISTS payment_method varchar NOT NULL DEFAULT 'Any'`
+        );
+        result = await insertWithPaymentMethod();
+      } catch (migrationError) {
+        console.warn(
+          "Could not add sell_requests.payment_method; using the legacy insert. " +
+            "Run backend/sql/013_sell_request_payment_method.sql.",
+          migrationError.message
+        );
+        result = await pool.query(
+          `INSERT INTO sell_requests
+            (estate_owner_id, buyer_request_id, product_type, quantity,
+             seller_price_per_unit, available_date, status)
+           VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+           RETURNING *`,
+          [
+            estate.id,
+            buyerRequestId,
+            buyerRequest.product_type,
+            nutQuantity,
+            pricePerNut,
+            availableDate || null,
+          ]
+        );
+        result.rows[0].payment_method = selectedPaymentMethod;
+      }
+    }
 
     // Start a chat with the buyer from this offer (buyers with an account).
     const chatId = buyerRequest.buyer_id

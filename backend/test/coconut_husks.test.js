@@ -132,10 +132,44 @@ test("coconut husks flow from estate listing through buyer marketplace", async (
       quantity: 500,
       sellerPricePerUnit: 24,
       availableDate: "2026-12-05",
+      paymentMethod: "Direct Bank Transfer",
     },
   });
   assert.equal(offer.status, 201);
   assert.equal(offer.data.sellRequest.product_type, "COCONUT_HUSK");
   assert.equal(offer.data.sellRequest.quantity, 500);
   assert.equal(Number(offer.data.sellRequest.seller_price_per_unit), 24);
+  assert.equal(offer.data.sellRequest.payment_method, "Direct Bank Transfer");
+
+  // A rolling deployment must not break sending offers when the API is
+  // updated before migration 013 reaches the database.
+  const pool = require("../config/db");
+  await pool.query("ALTER TABLE sell_requests DROP COLUMN payment_method");
+  const legacyRequest = await call("POST", "/api/buyer/requests", {
+    token: buyer.token,
+    body: {
+      productType: "COCONUT_HUSK",
+      requestedQuantity: 250,
+      requiredDate: "2026-12-15",
+      biddingPricePerUnit: 20,
+    },
+  });
+  assert.equal(legacyRequest.status, 201);
+
+  const legacyOffer = await call("POST", "/api/owner/sell-requests", {
+    token: owner.token,
+    body: {
+      buyerRequestId: legacyRequest.data.buyerRequest.id,
+      quantity: 250,
+      sellerPricePerUnit: 21,
+      paymentMethod: "Cash",
+    },
+  });
+  assert.equal(legacyOffer.status, 201);
+  assert.equal(legacyOffer.data.sellRequest.payment_method, "Cash");
+  const migratedOffer = await pool.query(
+    "SELECT payment_method FROM sell_requests WHERE id = $1",
+    [legacyOffer.data.sellRequest.id]
+  );
+  assert.equal(migratedOffer.rows[0].payment_method, "Cash");
 });
