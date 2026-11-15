@@ -1,3 +1,4 @@
+import '../widgets/language_selector.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
@@ -328,9 +329,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             ),
           ),
           const Spacer(),
-          _languageChip('EN', active: true),
-          _languageChip('SI'),
-          _languageChip('TA'),
+          const LanguageSelector(),
         ],
       ),
     );
@@ -353,24 +352,6 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       return;
     }
     Navigator.maybePop(context);
-  }
-
-  Widget _languageChip(String text, {bool active = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: active ? _workerGreen : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: active ? Colors.white : _workerMuted,
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-        ),
-      ),
-    );
   }
 
   Widget _content() {

@@ -1,3 +1,4 @@
+import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
@@ -99,14 +100,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                           ),
                         ),
                       ),
-                      const Text(
-                        'EN | SI | TA',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF333333),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      const LanguageSelector(),
                     ],
                   ),
                 ),

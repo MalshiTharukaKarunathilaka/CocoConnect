@@ -1,3 +1,4 @@
+import '../../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/buyer_widgets.dart';
 import '../../widgets/app_bottom_nav.dart';
@@ -34,14 +35,7 @@ class BuyerCategoriesPage extends StatelessWidget {
                   ),
                 ),
                 Spacer(),
-                Text(
-                  'EN | SI | TA',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: kBuyerGrey,
-                  ),
-                ),
+                LanguageSelector(),
               ],
             ),
 

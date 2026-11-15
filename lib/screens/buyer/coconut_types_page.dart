@@ -1,3 +1,4 @@
+import '../../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/buyer_widgets.dart';
@@ -51,14 +52,7 @@ class CoconutTypesPage extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                const Text(
-                  'EN | SI | TA',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF2E7D32),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                const LanguageSelector(),
               ],
             ),
           ),
