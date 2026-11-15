@@ -21,7 +21,7 @@ router.use(requireAuth);
  * @swagger
  * /api/chats:
  *   get:
- *     summary: My negotiation chats (buyer or estate owner), newest activity first
+ *     summary: My negotiation chats (buyer or land owner), newest activity first
  *     tags: [Chats]
  *     security:
  *       - bearerAuth: []
@@ -172,7 +172,7 @@ router.post("/chats/:id/close", closeChat);
  * @swagger
  * /api/notifications:
  *   get:
- *     summary: Offers waiting for me and upcoming deliveries (buyer or estate owner)
+ *     summary: Offers waiting for me and upcoming deliveries (buyer or land owner)
  *     tags: [Chats]
  *     security:
  *       - bearerAuth: []

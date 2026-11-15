@@ -28,7 +28,7 @@ const { requireAuth, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
-// Every route here needs a logged-in estate owner.
+// Every route here needs a logged-in land owner.
 router.use(requireAuth, requireRole("ESTATE_OWNER"));
 
 /**
@@ -36,7 +36,7 @@ router.use(requireAuth, requireRole("ESTATE_OWNER"));
  * /api/owner/estate:
  *   get:
  *     summary: My estate (created on first use)
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -44,7 +44,7 @@ router.use(requireAuth, requireRole("ESTATE_OWNER"));
  *         description: The estate linked to this login
  *   patch:
  *     summary: Rename my estate or change its location
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -72,7 +72,7 @@ router.patch("/estate", updateEstate);
  * /api/owner/summary:
  *   get:
  *     summary: Estate details and profile counts
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -86,7 +86,7 @@ router.get("/summary", getSummary);
  * /api/owner/listings:
  *   get:
  *     summary: My listings
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -94,7 +94,7 @@ router.get("/summary", getSummary);
  *         description: Listings for my estate
  *   post:
  *     summary: List a harvest for sale
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -121,7 +121,7 @@ router.post("/listings", createListing);
  * /api/owner/buyer-requests:
  *   get:
  *     summary: Open buyer requests, with my offer on each if I sent one
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -158,7 +158,7 @@ router.get("/buyer-requests", getBuyerRequests);
  * /api/owner/sell-requests:
  *   get:
  *     summary: Offers I have sent to buyers
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -166,7 +166,7 @@ router.get("/buyer-requests", getBuyerRequests);
  *         description: My offers with the buyer request they answer
  *   post:
  *     summary: Send an offer for a buyer request
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -195,7 +195,7 @@ router.post("/sell-requests", createSellRequest);
  * /api/owner/negotiations:
  *   get:
  *     summary: Buyer chats on my listings
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -209,7 +209,7 @@ router.get("/negotiations", getMyNegotiations);
  * /api/owner/negotiations/{id}:
  *   get:
  *     summary: One chat with its listing, buyer and messages
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -229,7 +229,7 @@ router.get("/negotiations/:id", getNegotiation);
  * /api/owner/negotiations/{id}/messages:
  *   post:
  *     summary: Reply to a buyer and/or send a counter-offer
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -258,7 +258,7 @@ router.post("/negotiations/:id/messages", sendMessage);
  * /api/owner/negotiations/{id}/decline:
  *   post:
  *     summary: Decline and close a negotiation
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -278,7 +278,7 @@ router.post("/negotiations/:id/decline", declineNegotiation);
  * /api/owner/negotiations/{id}/accept:
  *   post:
  *     summary: Accept the buyer's latest offer - creates an order
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -300,7 +300,7 @@ router.post("/negotiations/:id/accept", acceptNegotiation);
  * /api/owner/orders:
  *   get:
  *     summary: Orders for my estate
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -314,7 +314,7 @@ router.get("/orders", getMyOrders);
  * /api/owner/orders/{id}/complete:
  *   post:
  *     summary: Complete a deal with the quantity and price actually delivered
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -350,7 +350,7 @@ router.post("/orders/:id/complete", completeOrder);
  * /api/owner/market-stats:
  *   get:
  *     summary: Last deal closed and average price per nut
- *     tags: [Estate Owner]
+ *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []
  *     parameters:
