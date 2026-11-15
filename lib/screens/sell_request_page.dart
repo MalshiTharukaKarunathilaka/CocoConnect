@@ -112,7 +112,7 @@ class _SellRequestPageState extends State<SellRequestPage> {
 
   String get productName {
     if (widget.productType == 'RAW_COCONUT') {
-      return 'Raw Coconut';
+      return 'Raw Coconuts(with husks)';
     }
     return widget.productType;
   }

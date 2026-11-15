@@ -1,3 +1,4 @@
+import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'sell_request_page.dart';
@@ -317,26 +318,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                             ),
                           ),
 
-                          const Row(
-                            children: [
-                              Text(
-                                'EN',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Color(0xFF2E7D32),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                ' | SI | TA',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Color(0xFF5F6F5E),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
+                          const LanguageSelector(),
                         ],
                       ),
                     ],
@@ -350,7 +332,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 18),
                     children: [
                       const Text(
-                        'Raw Coconuts',
+                        'Raw Coconuts(with husks)',
                         style: TextStyle(
                           fontSize: 24,
                           color: Color(0xFFD8D8D8),
@@ -361,7 +343,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                       const SizedBox(height: 8),
 
                       const Text(
-                        'Manage your raw coconuts. Sell and View interested buyers.',
+                        'Manage your Raw Coconuts(with husks). Sell and view interested buyers.',
                         style: TextStyle(
                           fontSize: 11,
                           color: Color(0xFF777777),
@@ -369,6 +351,15 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                         ),
                       ),
 
+                      const SizedBox(height: 6),
+                      const Text(
+                        '1 unit = 1 nut',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF256B45),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 20),
 
                       // Latest deal and today's average price
@@ -493,7 +484,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                                   ? 'No buyer requests fit this harvest yet. Tap Show all to see '
                                         'every request.'
                                   : buyerRadiusKm == null
-                                  ? 'No buyers are requesting raw coconuts right now'
+                                  ? 'No buyers are requesting Raw Coconuts(with husks) right now'
                                   : 'No buyers within $buyerRadiusKm km right now. Try a wider '
                                         'distance.',
                             );
@@ -618,7 +609,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
               ),
               SizedBox(width: 8),
               Text(
-                'Sell Raw Coconuts',
+                'Sell Raw Coconuts(with husks)',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
@@ -745,7 +736,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
           const SizedBox(height: 16),
 
           const Text(
-            'Raw Coconut Sell Offer',
+            'Raw Coconuts(with husks) Sell Offer',
             style: TextStyle(fontSize: 14, color: Color(0xFF777777)),
           ),
 
