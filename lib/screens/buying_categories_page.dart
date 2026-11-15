@@ -33,7 +33,7 @@ class BuyingCategoriesPage extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'EN   |   SI   |   TA',
+                        'EN | සි | த',
                         style: TextStyle(
                           fontSize: 10,
                           color: Color(0xFF2E7D32),

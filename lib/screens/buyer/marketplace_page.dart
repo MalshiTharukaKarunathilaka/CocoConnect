@@ -369,7 +369,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                   ],
                 ),
                 const Text(
-                  'EN | SI | TA',
+                  'EN | සි | த',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,

@@ -52,7 +52,7 @@ class CoconutTypesPage extends StatelessWidget {
                 ),
                 const Spacer(),
                 const Text(
-                  'EN | SI | TA',
+                  'EN | සි | த',
                   style: TextStyle(
                     fontSize: 11,
                     color: Color(0xFF2E7D32),

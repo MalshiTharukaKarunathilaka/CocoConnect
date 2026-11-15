@@ -47,7 +47,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                         ],
                       ),
                       const Text(
-                        'EN | SI | TA',
+                        'EN | සි | த',
                         style: TextStyle(
                           fontSize: 11,
                           color: Color(0xFF2E7D32),
@@ -67,7 +67,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Estate owner dashboard',
+                          'Land owner dashboard',
                           style: TextStyle(
                             fontSize: 12,
                             color: Color(0xFF4A4A4A),

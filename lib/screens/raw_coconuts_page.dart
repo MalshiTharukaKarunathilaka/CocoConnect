@@ -328,7 +328,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                                 ),
                               ),
                               Text(
-                                ' | SI | TA',
+                                ' | සි | த',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: Color(0xFF5F6F5E),

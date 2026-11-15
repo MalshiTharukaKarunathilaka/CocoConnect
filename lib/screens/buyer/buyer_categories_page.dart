@@ -35,7 +35,7 @@ class BuyerCategoriesPage extends StatelessWidget {
                 ),
                 Spacer(),
                 Text(
-                  'EN | SI | TA',
+                  'EN | සි | த',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
