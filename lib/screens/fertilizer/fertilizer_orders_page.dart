@@ -48,7 +48,7 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
                 children: [
                   const OwnerHeader(
                     title: 'My fertilizer orders',
-                    subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
+                    subtitle: 'FERTILIZER \u00b7 LAND OWNER',
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),

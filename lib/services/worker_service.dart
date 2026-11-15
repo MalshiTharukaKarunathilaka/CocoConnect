@@ -52,7 +52,7 @@ class WorkerJob {
     paymentMethod: json['payment_method'] as String? ?? '',
     status: json['status'] as String? ?? 'OPEN',
     estateName: json['estate_name'] as String? ?? 'Estate',
-    estateOwnerName: json['estate_owner_name'] as String? ?? 'Estate owner',
+    estateOwnerName: json['estate_owner_name'] as String? ?? 'Land owner',
     estateLocation:
         json['estate_location'] as String? ?? json['location'] as String? ?? '',
     latitude: (json['estate_latitude'] as num?)?.toDouble(),
@@ -77,7 +77,7 @@ class WorkerEstate {
   });
   factory WorkerEstate.fromJson(Map<String, dynamic> j) => WorkerEstate(
     estateName: j['estate_name'] as String? ?? 'Estate',
-    ownerName: j['estate_owner_name'] as String? ?? 'Estate owner',
+    ownerName: j['estate_owner_name'] as String? ?? 'Land owner',
     location: j['location'] as String? ?? '',
     latitude: _optionalNumber(j['estate_latitude'] ?? j['latitude']),
     longitude: _optionalNumber(j['estate_longitude'] ?? j['longitude']),

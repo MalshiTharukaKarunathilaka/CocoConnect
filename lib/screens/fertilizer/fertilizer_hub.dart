@@ -36,7 +36,7 @@ class _FertilizerHubState extends State<FertilizerHub> {
   Widget build(BuildContext context) {
     return FertPage(
       title: _tabTitle,
-      subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
+      subtitle: 'FERTILIZER \u00b7 LAND OWNER',
       showLogout: true,
       bottom: FertTabBar(
         items: const [

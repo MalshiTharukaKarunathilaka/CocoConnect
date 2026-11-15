@@ -131,7 +131,7 @@ class MachineryApi {
     ),
   );
 
-  /// The estate owner changes the price and the request. `body` has
+  /// The land owner changes the price and the request. `body` has
   /// offer_total, items (service_id and quantity), starts_at and ends_at.
   Future<ProviderBookingRequest> revise(
     ProviderBookingRequest request,

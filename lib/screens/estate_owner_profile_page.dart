@@ -197,7 +197,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                 const SizedBox(height: 4),
                 Text(
                   estate.location == null || estate.location!.isEmpty
-                      ? 'Estate Owner  ·  ${estate.ownerName}'
+                      ? 'Land Owner  ·  ${estate.ownerName}'
                       : '${estate.ownerName}  ·  ${estate.location}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: _muted, fontSize: 13),
@@ -474,7 +474,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                           ),
                         ),
                         subtitle: Text(
-                          '${user?.phone ?? ''}  ·  Estate Owner',
+                          '${user?.phone ?? ''}  ·  Land Owner',
                           style: const TextStyle(fontSize: 12, color: _muted),
                         ),
                         trailing: TextButton(

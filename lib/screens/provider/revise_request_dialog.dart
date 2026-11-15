@@ -5,7 +5,7 @@ import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'provider_request_widgets.dart';
 
-/// The estate owner changes the price and the request (the work, the date and
+/// The land owner changes the price and the request (the work, the date and
 /// the time). Returns the body for `POST /api/machinery/bookings/:id/revise`,
 /// or null when cancelled. The provider can then only accept or decline it.
 Future<Map<String, dynamic>?> showReviseRequestDialog(

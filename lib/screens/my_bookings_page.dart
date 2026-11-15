@@ -29,7 +29,7 @@ const List<String> _monthNames = [
 
 String _key(DateTime d) => '${d.year}-${d.month}-${d.day}';
 
-/// All of the estate owner's machinery bookings: Upcoming and Completed.
+/// All of the land owner's machinery bookings: Upcoming and Completed.
 /// The calendar marks each booked day with one dot per booking, coloured by
 /// machine type, so a day with a tractor and a backhoe shows two dots.
 class MyBookingsPage extends StatefulWidget {

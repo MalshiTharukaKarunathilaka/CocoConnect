@@ -56,7 +56,7 @@ class FertilizerRequestsPage extends StatelessWidget {
     if (embedded) return ColoredBox(color: AppColors.cream, child: body);
     return FertPage(
       title: 'My orders',
-      subtitle: 'FERTILIZER · ESTATE OWNER',
+      subtitle: 'FERTILIZER · LAND OWNER',
       child: body,
     );
   }

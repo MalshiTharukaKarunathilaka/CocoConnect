@@ -138,7 +138,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
       );
       if (!mounted) return;
       _showSnack(
-        'Request sent to estate owners. Matching listings are shown below.',
+        'Request sent to land owners. Matching listings are shown below.',
         color: kBuyerGreen,
       );
       _match = _RequestMatch(nuts, _requiredDate!, price);
@@ -233,13 +233,13 @@ class _MarketplacePageState extends State<MarketplacePage> {
           return _ListingsMessage(
             icon: Icons.inventory_2_outlined,
             text: match != null
-                ? 'No listings$where match your request yet. Estate owners '
+                ? 'No listings$where match your request yet. Land owners '
                       'can still send you offers - check Orders.'
                 : _radiusKm != null
                 ? 'No ${widget.type.label.toLowerCase()} listed$where. '
                       'Try a wider distance.'
                 : 'No ${widget.type.label.toLowerCase()} listed yet. '
-                      'Submit a request above and estate owners can respond.',
+                      'Submit a request above and land owners can respond.',
             onRetry: _reloadListings,
           );
         }
@@ -387,7 +387,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
             const SizedBox(height: 6),
 
             Text(
-              'Connect with local estate owners and secure your '
+              'Connect with local land owners and secure your '
               '${widget.type.singular.toLowerCase()} supply with '
               'transparent pricing.',
               style: const TextStyle(
@@ -518,7 +518,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                   const SizedBox(height: 14),
 
                   const Text(
-                    'Your request will be visible to estate owners within '
+                    'Your request will be visible to land owners within '
                     'your region.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -534,7 +534,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
             const SizedBox(height: 26),
 
             Text(
-              _match == null ? 'Estate Owner Listings' : 'Matching Listings',
+              _match == null ? 'Land Owner Listings' : 'Matching Listings',
               style: const TextStyle(
                 fontSize: 19,
                 fontWeight: FontWeight.bold,
@@ -570,7 +570,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                       SizedBox(width: 5),
                       Flexible(
                         child: Text(
-                          'Open listings from estate owners',
+                          'Open listings from land owners',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontSize: 12, color: kBuyerGrey),

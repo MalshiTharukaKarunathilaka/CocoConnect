@@ -15,7 +15,7 @@ import 'buyer_request_card.dart';
 
 const Color _amber = Color(0xFFB26A2C);
 
-/// The Orders tab, the same for buyers and estate owners:
+/// The Orders tab, the same for buyers and land owners:
 ///   Pending Orders  offers I put out that wait for the other side
 ///   Deals           open negotiations and accepted deals (Deal Window)
 ///   Transactions    completed deals
@@ -185,7 +185,7 @@ class _OrdersPageState extends State<OrdersPage> {
           icon: Icons.hourglass_empty,
           text: _buyer
               ? 'Nothing pending. Requests you submit and price offers you '
-                    'send in chats wait here for the estate owners.'
+                    'send in chats wait here for the land owners.'
               : 'Nothing pending. Offers you send to buyers and prices you '
                     'offer in chats wait here for an answer.',
         ),
@@ -328,7 +328,7 @@ class _OrdersPageState extends State<OrdersPage> {
           icon: Icons.receipt_long_outlined,
           text:
               'No completed transactions yet. Deals appear here once the '
-              'estate owner completes them.',
+              'land owner completes them.',
         ),
       ];
     }

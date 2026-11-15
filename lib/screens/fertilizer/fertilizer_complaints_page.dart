@@ -101,7 +101,7 @@ class _FertilizerComplaintsPageState extends State<FertilizerComplaintsPage> {
     }
     return FertPage(
       title: 'Quality complaints',
-      subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
+      subtitle: 'FERTILIZER \u00b7 LAND OWNER',
       child: body,
     );
   }

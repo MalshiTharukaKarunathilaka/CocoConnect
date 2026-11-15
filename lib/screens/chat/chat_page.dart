@@ -21,7 +21,7 @@ Future<void> openChat(BuildContext context, int chatId) => Navigator.push(
   MaterialPageRoute(builder: (context) => ChatPage(chatId: chatId)),
 );
 
-/// One negotiation, WhatsApp style, the same for buyers and estate owners.
+/// One negotiation, WhatsApp style, the same for buyers and land owners.
 /// It starts with the Current Offer card; either side sends messages and
 /// price offers, and only the other side can accept or reject an offer.
 class ChatPage extends StatefulWidget {
@@ -314,7 +314,7 @@ class _ChatPageState extends State<ChatPage> {
               chat.isCompleted
                   ? 'Deal completed.'
                   : 'Deal accepted at ${rupees(chat.orderPrice ?? 0)} per nut. '
-                        '${chat.iAmBuyer ? 'The estate owner completes the order.' : 'Complete the order once it is fulfilled.'}',
+                        '${chat.iAmBuyer ? 'The land owner completes the order.' : 'Complete the order once it is fulfilled.'}',
               good: true,
             ),
           if (chat.status == 'REJECTED')

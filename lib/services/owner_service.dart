@@ -149,7 +149,7 @@ class Estate {
   );
 }
 
-/// Everything the estate owner profile page shows.
+/// Everything the land owner profile page shows.
 class OwnerSummary {
   final Estate estate;
   final int activeListings;
@@ -177,7 +177,7 @@ class OwnerSummary {
   );
 }
 
-/// An open buyer request, as an estate owner sees it.
+/// An open buyer request, as a land owner sees it.
 class OpenBuyerRequest {
   final int id;
   final String buyerName;
@@ -192,7 +192,7 @@ class OpenBuyerRequest {
   final double? myOfferPrice;
   final String? myOfferStatus;
 
-  /// From this estate owner's location; null when either side has none.
+  /// From this land owner's location; null when either side has none.
   final double? distanceKm;
 
   const OpenBuyerRequest({

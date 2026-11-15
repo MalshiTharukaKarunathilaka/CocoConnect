@@ -221,7 +221,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
     return FertPage(
       title: 'Suppliers near you',
-      subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
+      subtitle: 'FERTILIZER \u00b7 LAND OWNER',
       child: Material(color: AppColors.cream, child: body),
     );
   }

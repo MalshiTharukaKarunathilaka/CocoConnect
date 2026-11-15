@@ -37,11 +37,11 @@ class FertilizerDemoAuth {
   static const accounts = <FertDemoAccount>[
     FertDemoAccount(
       id: 901,
-      name: 'Demo Estate Owner',
+      name: 'Demo Land Owner',
       phone: '0711000001',
       password: passwordHint,
       role: 'ESTATE_OWNER',
-      roleLabel: 'Estate Owner',
+      roleLabel: 'Land Owner',
       blurb: 'Map & orders',
       latitude: 7.4863,
       longitude: 80.3647,

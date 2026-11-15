@@ -533,7 +533,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
           ],
           if (live.machines.isEmpty)
             const Text(
-              'Add your machinery, then set its service rates so estate owners can request bookings.',
+              'Add your machinery, then set its service rates so land owners can request bookings.',
             ),
           TextButton.icon(
             onPressed: _saving || _drafts.isNotEmpty ? null : _addMachine,

@@ -540,7 +540,7 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
       ),
       _panel(
         'Live private shop orders (shared store)',
-        'Also syncs with Estate Owner / Supplier Agent logins',
+        'Also syncs with Land Owner / Supplier Agent logins',
         _privateOrdersTable(_privateOrders.take(8).toList()),
       ),
     ]);
@@ -617,7 +617,7 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
       ),
       _panel(
         'Live private shop orders (shared store)',
-        'Same orders Estate Owner and Supplier see',
+        'Same orders Land Owner and Supplier see',
         _privateOrdersTable(_privateOrders.take(8).toList()),
       ),
     ]);

@@ -153,7 +153,7 @@ void main() {
         width: 320,
       );
       expect(
-        find.textContaining('Only the estate owner can change the price'),
+        find.textContaining('Only the land owner can change the price'),
         findsOneWidget,
       );
       await reveal(tester, find.text('Accept & Lock Booking'));

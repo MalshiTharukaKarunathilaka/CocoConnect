@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import 'fertilizer_data.dart';
 
-/// Estate owner government programme request (demo).
+/// Land owner government programme request (demo).
 class FertilizerGovRequestSheet extends StatefulWidget {
   const FertilizerGovRequestSheet({super.key});
 

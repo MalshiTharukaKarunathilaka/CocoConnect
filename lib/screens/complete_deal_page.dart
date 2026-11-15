@@ -16,7 +16,7 @@ Future<bool> openCompleteDeal(BuildContext context, int orderId) async {
   return done == true;
 }
 
-/// The estate owner records what was actually delivered. A final price
+/// The land owner records what was actually delivered. A final price
 /// different from the agreed one is flagged for admin approval; the agreed
 /// price stays protected until then.
 class CompleteDealPage extends StatefulWidget {
@@ -353,7 +353,7 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          const OwnerPill('Estate Owner'),
+          const OwnerPill('Land Owner'),
         ],
       ),
     );

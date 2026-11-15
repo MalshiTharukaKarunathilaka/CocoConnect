@@ -142,7 +142,7 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
                 Text(
                   chat?.counterpartRole == 'WORKER'
                       ? 'WORKER'
-                      : 'ESTATE OWNER',
+                      : 'LAND OWNER',
                   style: const TextStyle(color: _workerChatMuted, fontSize: 17),
                 ),
               ],
@@ -180,7 +180,7 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(
-                  'Start a conversation with the estate owner.',
+                  'Start a conversation with the land owner.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: _workerChatMuted),
                 ),

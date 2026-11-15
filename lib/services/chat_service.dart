@@ -238,7 +238,7 @@ class AppNotification {
       );
 }
 
-/// Chats and notifications, the same for buyers and estate owners.
+/// Chats and notifications, the same for buyers and land owners.
 class ChatService {
   ChatService._();
 

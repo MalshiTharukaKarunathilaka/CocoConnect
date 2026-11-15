@@ -80,7 +80,7 @@ void openTab(BuildContext context, AppTab tab, {int ordersTab = 0}) {
       SnackBar(
         content: Text(
           'There is no profile screen for ${role ?? 'this'} accounts yet. '
-          'Log in with a Buyer or Estate Owner account.',
+          'Log in with a Buyer or Land Owner account.',
         ),
       ),
     );
@@ -93,7 +93,7 @@ void openTab(BuildContext context, AppTab tab, {int ordersTab = 0}) {
 }
 
 /// Dashboard · Orders · Chats · Alerts · Profile - the same on the buyer and
-/// estate owner sides.
+/// land owner sides.
 class AppBottomNav extends StatefulWidget {
   final AppTab current;
 
