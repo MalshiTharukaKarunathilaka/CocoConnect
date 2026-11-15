@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_client.dart';
 import '../services/owner_service.dart';
 
 const _profileGreen = Color(0xFF2A704E);
@@ -9,11 +10,19 @@ const _profileMuted = Color(0xFF65766C);
 class WorkerProfilePage extends StatefulWidget {
   final int workerId;
   final String fallbackName;
+  final int? jobId;
+  final String? jobCategory;
+  final int? currentJobRating;
+  final bool canRate;
 
   const WorkerProfilePage({
     super.key,
     required this.workerId,
     required this.fallbackName,
+    this.jobId,
+    this.jobCategory,
+    this.currentJobRating,
+    this.canRate = false,
   });
 
   @override
@@ -22,11 +31,14 @@ class WorkerProfilePage extends StatefulWidget {
 
 class _WorkerProfilePageState extends State<WorkerProfilePage> {
   late Future<WorkerProfile> _profile;
+  int? _currentJobRating;
+  bool _savingRating = false;
 
   @override
   void initState() {
     super.initState();
     _profile = OwnerService.getWorkerProfile(widget.workerId);
+    _currentJobRating = widget.currentJobRating;
   }
 
   @override
@@ -37,6 +49,10 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
         backgroundColor: _profileBackground,
         foregroundColor: _profileInk,
         elevation: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context, _currentJobRating),
+          icon: const Icon(Icons.arrow_back),
+        ),
         title: const Text(
           'Worker Profile',
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -66,7 +82,11 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.person_off_outlined, size: 54, color: _profileMuted),
+            const Icon(
+              Icons.person_off_outlined,
+              size: 54,
+              color: _profileMuted,
+            ),
             const SizedBox(height: 12),
             Text(
               'Could not load ${widget.fallbackName}\'s profile.',
@@ -114,6 +134,8 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
           textAlign: TextAlign.center,
           style: TextStyle(color: _profileMuted, fontSize: 16),
         ),
+        const SizedBox(height: 12),
+        _ratingSummary(profile),
         const SizedBox(height: 22),
         _card(
           children: [
@@ -144,8 +166,168 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
             ),
           ],
         ),
+        if (widget.canRate && widget.jobId != null) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 54,
+            child: FilledButton.icon(
+              onPressed: _savingRating ? null : () => _rateWorker(profile),
+              icon: _savingRating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.star),
+              label: Text(
+                _currentJobRating == null
+                    ? 'Rate This Worker'
+                    : 'Update Rating (${_currentJobRating!}/5)',
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: _profileGreen,
+                foregroundColor: Colors.white,
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  Widget _ratingSummary(WorkerProfile profile) {
+    final rating = profile.averageRating;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4D9),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF0D38A)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.star, color: Color(0xFFE3A008), size: 28),
+          const SizedBox(width: 9),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                rating == null
+                    ? 'Not rated yet'
+                    : '${rating.toStringAsFixed(1)} / 5',
+                style: const TextStyle(
+                  color: _profileInk,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _rateWorker(WorkerProfile profile) async {
+    var selectedRating = _currentJobRating ?? 5;
+    final rating = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Rate ${profile.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.jobCategory != null)
+                Text(
+                  widget.jobCategory!,
+                  style: const TextStyle(color: _profileMuted),
+                ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var value = 1; value <= 5; value++)
+                    IconButton(
+                      onPressed: () =>
+                          setDialogState(() => selectedRating = value),
+                      icon: Icon(
+                        Icons.star,
+                        color: value <= selectedRating
+                            ? const Color(0xFFE3A008)
+                            : const Color(0xFFD9D5CC),
+                      ),
+                    ),
+                ],
+              ),
+              Text(
+                '$selectedRating / 5',
+                style: const TextStyle(
+                  color: _profileInk,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, selectedRating),
+              style: FilledButton.styleFrom(backgroundColor: _profileGreen),
+              child: Text(
+                _currentJobRating == null ? 'Save Rating' : 'Update Rating',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (rating == null || !mounted) return;
+
+    setState(() => _savingRating = true);
+    try {
+      await OwnerService.rateDayJobWorker(
+        jobId: widget.jobId!,
+        workerId: widget.workerId,
+        rating: rating,
+      );
+      if (!mounted) return;
+      setState(() {
+        _currentJobRating = rating;
+        _profile = OwnerService.getWorkerProfile(widget.workerId);
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Worker rating saved.')));
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save this rating.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingRating = false);
+    }
   }
 
   Widget _card({required List<Widget> children}) {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../services/api_client.dart';
 import '../services/owner_service.dart';
+import '../widgets/app_bottom_nav.dart';
 import 'accepted_workers_page.dart';
 import 'worker_profile_page.dart';
 
@@ -7,10 +9,43 @@ const Color _detailGreen = Color(0xFF2A704E);
 const Color _detailBackground = Color(0xFFFCF9F3);
 const Color _detailInk = Color(0xFF193126);
 
-class JobDetailPage extends StatelessWidget {
+class JobDetailPage extends StatefulWidget {
   final DayJob job;
 
   const JobDetailPage({super.key, required this.job});
+
+  @override
+  State<JobDetailPage> createState() => _JobDetailPageState();
+}
+
+class _JobDetailPageState extends State<JobDetailPage> {
+  late bool _isCompleted;
+  bool _completing = false;
+  bool _deleting = false;
+  late final Map<int, int?> _workerRatings;
+
+  DayJob get job => widget.job;
+  bool get _isFullyStaffed =>
+      job.workersNeeded > 0 && job.confirmedWorkers >= job.workersNeeded;
+  bool get _isFuture {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final requiredDate = DateTime(
+      job.requiredDate.year,
+      job.requiredDate.month,
+      job.requiredDate.day,
+    );
+    return requiredDate.isAfter(today);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _isCompleted = job.status.toUpperCase() == 'COMPLETED';
+    _workerRatings = {
+      for (final worker in job.acceptedWorkers) worker.id: worker.rating,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +56,7 @@ class JobDetailPage extends StatelessWidget {
       job.requiredDate.month,
       job.requiredDate.day,
     );
-    final isUpcoming = !selectedDate.isBefore(today);
+    final showCompletedLayout = _isCompleted || selectedDate.isBefore(today);
 
     return Scaffold(
       backgroundColor: _detailBackground,
@@ -29,9 +64,9 @@ class JobDetailPage extends StatelessWidget {
         child: Container(
           color: _detailBackground,
           child: SafeArea(
-            child: isUpcoming
-                ? _upcomingJobLayout(context)
-                : _pastJobLayout(context),
+            child: showCompletedLayout
+                ? _pastJobLayout(context)
+                : _upcomingJobLayout(context),
           ),
         ),
       ),
@@ -49,41 +84,48 @@ class JobDetailPage extends StatelessWidget {
               _status(),
               const SizedBox(height: 24),
               _jobSummary(),
-              const SizedBox(height: 42),
-              Row(
-                children: [
-                  const Text(
-                    'All Workers',
-                    style: TextStyle(
-                      color: _detailInk,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFA8EDC5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '${job.acceptedWorkers.length}',
+              if (!_isCompleted) ...[
+                const SizedBox(height: 18),
+                _completionButton(),
+              ],
+              if (_isFuture) ...[const SizedBox(height: 10), _deleteButton()],
+              if (_isCompleted) ...[
+                const SizedBox(height: 42),
+                Row(
+                  children: [
+                    const Text(
+                      'All Workers',
                       style: TextStyle(
-                        color: _detailGreen,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        color: _detailInk,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFA8EDC5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${job.acceptedWorkers.length}',
+                        style: TextStyle(
+                          color: _detailGreen,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                for (final worker in job.acceptedWorkers) ...[
+                  _workerCard(context, worker),
+                  const SizedBox(height: 20),
                 ],
-              ),
-              const SizedBox(height: 22),
-              for (final worker in job.acceptedWorkers) ...[
-                _workerCard(context, worker),
-                const SizedBox(height: 20),
               ],
             ],
           ),
@@ -98,35 +140,16 @@ class JobDetailPage extends StatelessWidget {
       children: [
         _header(context),
         Expanded(
-          child: Padding(
+          child: ListView(
             padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+            children: [
               _status(),
               const SizedBox(height: 6),
               _jobSummary(),
               const SizedBox(height: 6),
               _workerProgress(),
               const SizedBox(height: 6),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: FilledButton(
-                  onPressed: () => _showMessage(context, 'Job completed'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _detailGreen,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(34),
-                    ),
-                  ),
-                  child: const Text(
-                    'Complete Job',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
+              _completionButton(),
               const SizedBox(height: 6),
               SizedBox(
                 width: double.infinity,
@@ -152,8 +175,8 @@ class JobDetailPage extends StatelessWidget {
                   ),
                 ),
               ),
-              ],
-            ),
+              if (_isFuture) ...[const SizedBox(height: 8), _deleteButton()],
+            ],
           ),
         ),
         _bottomNavigation(),
@@ -177,45 +200,186 @@ class JobDetailPage extends StatelessWidget {
               value: job.workersNeeded == 0
                   ? 0
                   : job.confirmedWorkers / job.workersNeeded,
-            minHeight: 6,
+              minHeight: 6,
               backgroundColor: Color(0xFFEDE7DC),
               color: _detailGreen,
             ),
           ),
           const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${job.confirmedWorkers} Accepted',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: _detailInk,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${job.confirmedWorkers} Accepted',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _detailInk,
                     fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Target: ${job.workersNeeded} Workers',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      color: _detailInk,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Target: ${job.workersNeeded} Workers',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: _detailInk,
                     fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
         ],
       ),
     );
+  }
+
+  Widget _completionButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: FilledButton(
+        onPressed: _isCompleted || _completing ? null : _completeJob,
+        style: FilledButton.styleFrom(
+          backgroundColor: _detailGreen,
+          disabledBackgroundColor: _detailGreen,
+          disabledForegroundColor: Colors.white,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(34),
+          ),
+        ),
+        child: _completing
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Text(
+                _isCompleted ? 'Completed' : 'Complete Job',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _deleteButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: OutlinedButton.icon(
+        onPressed: _deleting ? null : _deleteJob,
+        icon: _deleting
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFFC62828),
+                ),
+              )
+            : const Icon(Icons.delete_outline),
+        label: Text(_deleting ? 'Deleting...' : 'Delete Job'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFFC62828),
+          side: const BorderSide(color: Color(0xFFC62828)),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(34),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteJob() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete this job?'),
+        content: const Text(
+          'This future job and its worker applications will be removed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFC62828),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deleting = true);
+    try {
+      await OwnerService.deleteDayJob(job.id);
+      if (mounted) Navigator.pop(context, true);
+    } on ApiException catch (error) {
+      if (mounted) _showMessage(context, error.message);
+    } catch (_) {
+      if (mounted) _showMessage(context, 'Could not delete this job.');
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
+
+  Future<void> _completeJob() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final requiredDate = DateTime(
+      job.requiredDate.year,
+      job.requiredDate.month,
+      job.requiredDate.day,
+    );
+
+    if (requiredDate.isAfter(today)) {
+      _showMessage(
+        context,
+        'This is a future day. You cannot complete this job yet.',
+      );
+      return;
+    }
+    if (!_isFullyStaffed) {
+      _showMessage(
+        context,
+        'All required workers must be accepted before completion.',
+      );
+      return;
+    }
+
+    setState(() => _completing = true);
+    try {
+      await OwnerService.completeDayJob(job.id);
+      if (!mounted) return;
+      setState(() => _isCompleted = true);
+      _showMessage(context, 'Job completed successfully.');
+    } on ApiException catch (error) {
+      if (mounted) _showMessage(context, error.message);
+    } catch (_) {
+      if (mounted) _showMessage(context, 'Could not complete this job.');
+    } finally {
+      if (mounted) setState(() => _completing = false);
+    }
   }
 
   Widget _header(BuildContext context) {
@@ -248,6 +412,11 @@ class JobDetailPage extends StatelessWidget {
   }
 
   Widget _status() {
+    final status = _isCompleted
+        ? 'COMPLETED'
+        : _isFullyStaffed
+        ? 'IN PROGRESS'
+        : 'OPEN';
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -256,9 +425,9 @@ class JobDetailPage extends StatelessWidget {
           color: const Color(0xFFD8F1DF),
           borderRadius: BorderRadius.circular(22),
         ),
-        child: const Text(
-          '●  NG-001 · OPEN',
-          style: TextStyle(
+        child: Text(
+          '●  NG-${job.id.toString().padLeft(3, '0')} · $status',
+          style: const TextStyle(
             color: _detailGreen,
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -293,11 +462,7 @@ class JobDetailPage extends StatelessWidget {
             style: TextStyle(color: Color(0xFF65766C), fontSize: 18),
           ),
           const SizedBox(height: 8),
-          _infoTile(
-            Icons.location_on_outlined,
-            'Location',
-            job.location,
-          ),
+          _infoTile(Icons.location_on_outlined, 'Location', job.location),
           const SizedBox(height: 6),
           _infoTile(
             Icons.calendar_today_outlined,
@@ -394,6 +559,7 @@ class JobDetailPage extends StatelessWidget {
   }
 
   Widget _workerCard(BuildContext context, AcceptedWorker worker) {
+    final rating = _workerRatings[worker.id];
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
       decoration: BoxDecoration(
@@ -436,28 +602,31 @@ class JobDetailPage extends StatelessWidget {
                   icon: Icons.person_outline,
                   background: const Color(0xFFE8E9ED),
                   foreground: _detailInk,
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => WorkerProfilePage(
-                        workerId: worker.id,
-                        fallbackName: worker.name,
+                  onPressed: () async {
+                    final updatedRating = await Navigator.push<int?>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => WorkerProfilePage(
+                          workerId: worker.id,
+                          fallbackName: worker.name,
+                          jobId: job.id,
+                          jobCategory: job.category,
+                          currentJobRating: rating,
+                          canRate: _isCompleted,
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                    if (updatedRating != null && mounted) {
+                      setState(() => _workerRatings[worker.id] = updatedRating);
+                    }
+                  },
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _workerButton(
-                  label: 'Give Rating',
-                  icon: Icons.star,
-                  background: _detailGreen,
-                  foreground: Colors.white,
-                  onPressed: () => _showRatingSheet(
-                    context,
-                    _Worker(worker.name, Icons.person),
-                  ),
+                child: _workerRatingButton(
+                  rating: rating,
+                  onPressed: () => _showRatingSheet(worker),
                 ),
               ),
             ],
@@ -496,39 +665,117 @@ class JobDetailPage extends StatelessWidget {
     );
   }
 
+  Widget _workerRatingButton({
+    required int? rating,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      height: 58,
+      child: FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: _detailGreen,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: rating == null
+            ? const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.star, size: 20),
+                  SizedBox(width: 7),
+                  Text(
+                    'Give Rating',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var value = 1; value <= 5; value++)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 1),
+                      child: Icon(
+                        value <= rating ? Icons.star : Icons.star_border,
+                        size: 20,
+                        color: value <= rating
+                            ? const Color(0xFFFFC247)
+                            : const Color(0xFFB7D8C6),
+                      ),
+                    ),
+                ],
+              ),
+      ),
+    );
+  }
+
   void _showMessage(BuildContext context, String message) {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _showRatingSheet(BuildContext context, _Worker worker) {
-    showModalBottomSheet<void>(
+  Future<void> _showRatingSheet(AcceptedWorker worker) async {
+    final rating = await showModalBottomSheet<int>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _RatingSheet(
-        worker: worker,
-        onSubmitted: () =>
-            _showMessage(context, 'Rating submitted for ${worker.name}'),
+        worker: _Worker(
+          worker.name,
+          Icons.person,
+          '${job.category} · NG-${job.id.toString().padLeft(3, '0')}',
+        ),
+        initialRating: _workerRatings[worker.id],
       ),
     );
+    if (rating == null || !mounted) return;
+
+    try {
+      await OwnerService.rateDayJobWorker(
+        jobId: job.id,
+        workerId: worker.id,
+        rating: rating,
+      );
+      if (!mounted) return;
+      setState(() => _workerRatings[worker.id] = rating);
+      _showMessage(context, 'Rating saved for ${worker.name}.');
+    } on ApiException catch (error) {
+      if (mounted) _showMessage(context, error.message);
+    } catch (_) {
+      if (mounted) _showMessage(context, 'Could not save this rating.');
+    }
   }
 
   Widget _bottomNavigation() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
       decoration: const BoxDecoration(
         color: _detailBackground,
         border: Border(top: BorderSide(color: Color(0xFFE4DED4))),
       ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Row(
         children: [
-          _NavItem(Icons.grid_view_rounded, 'Dashboard', active: true),
-          _NavItem(Icons.receipt_long_outlined, 'Orders'),
-          _NavItem(Icons.notifications_none, 'Notifications'),
-          _NavItem(Icons.person_outline, 'Profile'),
+          _NavItem(
+            Icons.dashboard_outlined,
+            'Dashboard',
+            onTap: () => openTab(context, AppTab.dashboard),
+          ),
+          const _NavItem(Icons.calendar_month, 'Calendar', active: true),
+          _NavItem(
+            Icons.notifications_none,
+            'Alerts',
+            onTap: () => openTab(context, AppTab.alerts),
+          ),
+          _NavItem(
+            Icons.person_outline,
+            'Profile',
+            onTap: () => openTab(context, AppTab.profile),
+          ),
         ],
       ),
     );
@@ -539,26 +786,40 @@ class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool active;
+  final VoidCallback? onTap;
 
-  const _NavItem(this.icon, this.label, {this.active = false});
+  const _NavItem(this.icon, this.label, {this.active = false, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final color = active ? _detailGreen : const Color(0xFF65766C);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: color, size: 27),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: 12,
-            fontWeight: active ? FontWeight.bold : FontWeight.normal,
-          ),
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: BoxDecoration(
+                color: active ? const Color(0xFFDDEEE0) : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 10.5,
+                fontWeight: active ? FontWeight.bold : FontWeight.w600,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -566,22 +827,29 @@ class _NavItem extends StatelessWidget {
 class _Worker {
   final String name;
   final IconData icon;
+  final String subtitle;
 
-  const _Worker(this.name, this.icon);
+  const _Worker(this.name, this.icon, this.subtitle);
 }
 
 class _RatingSheet extends StatefulWidget {
   final _Worker worker;
-  final VoidCallback onSubmitted;
+  final int? initialRating;
 
-  const _RatingSheet({required this.worker, required this.onSubmitted});
+  const _RatingSheet({required this.worker, required this.initialRating});
 
   @override
   State<_RatingSheet> createState() => _RatingSheetState();
 }
 
 class _RatingSheetState extends State<_RatingSheet> {
-  int _rating = 5;
+  late int _rating;
+
+  @override
+  void initState() {
+    super.initState();
+    _rating = widget.initialRating ?? 5;
+  }
 
   String get _ratingLabel {
     switch (_rating) {
@@ -662,9 +930,9 @@ class _RatingSheetState extends State<_RatingSheet> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
-                        'Nut Gatherer · NG-001',
-                        style: TextStyle(
+                      Text(
+                        widget.worker.subtitle,
+                        style: const TextStyle(
                           color: Color(0xFF65766C),
                           fontSize: 16,
                         ),
@@ -754,14 +1022,16 @@ class _RatingSheetState extends State<_RatingSheet> {
               width: double.infinity,
               height: 68,
               child: FilledButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  widget.onSubmitted();
-                },
+                onPressed: () => Navigator.pop(context, _rating),
                 icon: const Icon(Icons.star, size: 28),
-                label: const Text(
-                  'Submit Rating',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                label: Text(
+                  widget.initialRating == null
+                      ? 'Submit Rating'
+                      : 'Update Rating',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 style: FilledButton.styleFrom(
                   backgroundColor: _detailGreen,
