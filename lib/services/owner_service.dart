@@ -389,12 +389,14 @@ class OwnerService {
     required int buyerRequestId,
     required int quantity,
     required double pricePerUnit,
+    required String paymentMethod,
     DateTime? availableDate,
   }) async {
     final data = await ApiClient.post('/api/owner/sell-requests', {
       'buyerRequestId': buyerRequestId,
       'quantity': quantity,
       'sellerPricePerUnit': pricePerUnit,
+      'paymentMethod': paymentMethod,
       if (availableDate != null) 'availableDate': _isoDate(availableDate),
     });
     return (data as Map<String, dynamic>?)?['negotiationId'] as int?;

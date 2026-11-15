@@ -32,6 +32,7 @@ class SellRequestPage extends StatefulWidget {
 class _SellRequestPageState extends State<SellRequestPage> {
   late final TextEditingController quantityController;
   late final TextEditingController offerPriceController;
+  String? paymentMethod;
 
   @override
   void initState() {
@@ -73,6 +74,12 @@ class _SellRequestPageState extends State<SellRequestPage> {
       );
       return;
     }
+    if (paymentMethod == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Select a payment method')));
+      return;
+    }
 
     setState(() => sending = true);
     try {
@@ -80,6 +87,7 @@ class _SellRequestPageState extends State<SellRequestPage> {
         buyerRequestId: widget.buyerId,
         quantity: quantity,
         pricePerUnit: price,
+        paymentMethod: paymentMethod!,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -391,6 +399,49 @@ class _SellRequestPageState extends State<SellRequestPage> {
                       borderSide: const BorderSide(color: Color(0xFFAAA69E)),
                     ),
                   ),
+                ),
+
+                const SizedBox(height: 24),
+
+                DropdownButtonFormField<String>(
+                  initialValue: paymentMethod,
+                  hint: const Text('Select Payment Method'),
+                  decoration: InputDecoration(
+                    labelText: 'Payment Method',
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                    prefixIcon: const Icon(
+                      Icons.payments_outlined,
+                      color: Color(0xFF1F6B3D),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 16,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(9),
+                      borderSide: const BorderSide(color: Color(0xFFAAA69E)),
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Cash', child: Text('Cash')),
+                    DropdownMenuItem(
+                      value: 'Direct Bank Transfer',
+                      child: Text('Direct Bank Transfer'),
+                    ),
+                    DropdownMenuItem(value: 'Any', child: Text('Any')),
+                  ],
+                  onChanged: sending
+                      ? null
+                      : (value) {
+                          if (value != null) {
+                            setState(() => paymentMethod = value);
+                          }
+                        },
                 ),
 
                 const SizedBox(height: 18),

@@ -172,6 +172,7 @@ class SellOffer {
   final String productType;
   final int quantity;
   final double pricePerUnit;
+  final String paymentMethod;
   final DateTime? availableDate;
   final String status; // pending / accepted / declined
   final String estateName;
@@ -193,6 +194,7 @@ class SellOffer {
     required this.productType,
     required this.quantity,
     required this.pricePerUnit,
+    required this.paymentMethod,
     required this.availableDate,
     required this.status,
     required this.estateName,
@@ -215,6 +217,7 @@ class SellOffer {
     productType: json['product_type'] as String? ?? '',
     quantity: (json['quantity'] as num?)?.toInt() ?? 0,
     pricePerUnit: _toDouble(json['seller_price_per_unit']),
+    paymentMethod: json['payment_method'] as String? ?? 'Any',
     availableDate: DateTime.tryParse('${json['available_date']}'),
     status: json['status'] as String? ?? 'pending',
     estateName: json['estate_name'] as String? ?? '',
