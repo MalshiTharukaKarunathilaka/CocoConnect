@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
 import '../services/owner_service.dart';
 
 const Color _jobGreen = Color(0xFF245F48);
 const Color _jobBackground = Color(0xFFFCF9F3);
 const Color _jobInk = Color(0xFF17251F);
+const Color _prefilledBackground = Color(0xFFE5E8E6);
+const Color _prefilledBorder = Color(0xFFB5BDB9);
+const Color _prefilledInk = Color(0xFF4F5954);
 
 class PostDayJobPage extends StatefulWidget {
   final DateTime requiredDate;
@@ -16,45 +18,53 @@ class PostDayJobPage extends StatefulWidget {
 }
 
 class _PostDayJobPageState extends State<PostDayJobPage> {
-  int _workers = 5;
-  String _category = 'Nut Gatherer';
+  int _workers = 0;
+  String? _category;
   String _paymentMethod = 'Direct Bank Transfer';
+  String _estateName = '';
+  String _estateLocation = '';
+  bool _loadingEstate = true;
+  bool _broadcasting = false;
   final TextEditingController _rateController = TextEditingController(
-    text: '2500',
+    text: '0',
   );
-
-  /// Where the work is: starts as the owner's own estate, and can be edited.
-  final TextEditingController _locationController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _prefillLocation();
+    _loadEstate();
   }
 
-  Future<void> _prefillLocation() async {
-    final String own = AuthService.currentUser?.location?.trim() ?? '';
-    _locationController.text = own;
+  Future<void> _loadEstate() async {
     try {
       final estate = await OwnerService.getEstate();
-      final String place = (estate.location ?? own).trim();
-      final String text = [
-        if (estate.estateName.trim().isNotEmpty) estate.estateName.trim(),
-        if (place.isNotEmpty) place,
-      ].join(', ');
-      // Do not overwrite something the owner has already started typing.
-      if (mounted && _locationController.text.trim() == own) {
-        _locationController.text = text;
-      }
+      if (!mounted) return;
+      setState(() {
+        _estateName = estate.estateName.trim();
+        _estateLocation = estate.location?.trim() ?? '';
+        _loadingEstate = false;
+      });
     } catch (_) {
-      // Keep the account's own location.
+      if (!mounted) return;
+      setState(() => _loadingEstate = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not load your estate location')),
+      );
     }
+  }
+
+  String get _displayLocation {
+    if (_estateLocation.isEmpty) return '';
+    if (_estateName.isEmpty ||
+        _estateLocation.toLowerCase().contains(_estateName.toLowerCase())) {
+      return _estateLocation;
+    }
+    return '$_estateName, $_estateLocation';
   }
 
   @override
   void dispose() {
     _rateController.dispose();
-    _locationController.dispose();
     super.dispose();
   }
 
@@ -66,6 +76,16 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
         ? 'Tomorrow, '
         : '';
     return '$prefix${date.day} ${_months[date.month - 1]}';
+  }
+
+  String get _workerLabel {
+    final singular = switch (_category) {
+      'Nut Gatherer' => 'Gatherer',
+      'Machine Weeder' => 'Machine Weeder',
+      'Manual Worker' => 'Manual Worker',
+      _ => 'Worker',
+    };
+    return _workers == 1 ? singular : '${singular}s';
   }
 
   static const _months = [
@@ -84,28 +104,41 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
   ];
 
   Future<void> _broadcast() async {
-    final rate = double.tryParse(_rateController.text.trim());
-    if (rate == null || rate < 0) {
+    if (_category == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Select a job category')));
+      return;
+    }
+    if (_workers < 1) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Add at least one worker')));
+      return;
+    }
+    if (_loadingEstate || _estateLocation.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid daily rate')),
+        const SnackBar(
+          content: Text('Add your estate location before posting this job'),
+        ),
       );
       return;
     }
-
-    final String where = _locationController.text.trim();
-    if (where.isEmpty) {
+    final rate = double.tryParse(_rateController.text.trim());
+    if (rate == null || rate <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter where the work will be')),
+        const SnackBar(content: Text('Enter a daily rate greater than Rs. 0')),
       );
       return;
     }
 
     try {
+      setState(() => _broadcasting = true);
       await OwnerService.createDayJob(
-        category: _category,
+        category: _category!,
         workersNeeded: _workers,
         requiredDate: widget.requiredDate,
-        location: where,
+        location: _estateLocation,
         dailyRate: rate,
         paymentMethod: _paymentMethod,
       );
@@ -116,9 +149,10 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
       Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not broadcast job: $error')));
+      setState(() => _broadcasting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not broadcast job: $error')),
+      );
     }
   }
 
@@ -160,22 +194,41 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
                             SizedBox(
                               height: 56,
                               width: 338,
-                              child: FilledButton.icon(
-                                onPressed: _broadcast,
-                                icon: const Icon(Icons.arrow_forward, size: 25),
-                                label: const Text(
-                                  'Broadcast Job',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                              child: FilledButton(
+                                onPressed: _broadcasting ? null : _broadcast,
                                 style: FilledButton.styleFrom(
                                   backgroundColor: _jobGreen,
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(38),
                                   ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _broadcasting
+                                          ? 'Processing...'
+                                          : 'Process',
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    if (_broadcasting)
+                                      const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    else
+                                      const Icon(Icons.arrow_forward, size: 25),
+                                  ],
                                 ),
                               ),
                             ),
@@ -218,13 +271,17 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
     );
   }
 
-  Widget _outlinedCard({required Widget child}) {
+  Widget _outlinedCard({
+    required Widget child,
+    Color backgroundColor = _jobBackground,
+    Color borderColor = const Color(0xFFA8C1B2),
+  }) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 11, 16, 11),
       decoration: BoxDecoration(
-        color: _jobBackground,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFA8C1B2), width: 1.4),
+        border: Border.all(color: borderColor, width: 1.4),
       ),
       child: child,
     );
@@ -243,6 +300,14 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
     return _outlinedCard(
       child: DropdownButtonFormField<String>(
         initialValue: _category,
+        hint: const Text(
+          'Select job category',
+          style: TextStyle(
+            color: Color(0xFF8A918D),
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         decoration: InputDecoration(
           labelText: 'Job Category',
           labelStyle: const TextStyle(color: Color(0xFF68766F), fontSize: 13),
@@ -261,7 +326,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
             child: Text('Manual Worker'),
           ),
         ],
-        onChanged: (value) => setState(() => _category = value!),
+        onChanged: (value) => setState(() => _category = value),
         style: const TextStyle(
           color: _jobInk,
           fontSize: 16,
@@ -282,7 +347,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _roundButton(Icons.remove, () {
-                if (_workers > 1) setState(() => _workers--);
+                if (_workers > 0) setState(() => _workers--);
               }),
               Column(
                 children: [
@@ -296,7 +361,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
                     ),
                   ),
                   Text(
-                    _workers == 1 ? 'Gatherer' : 'Gatherers',
+                    _workerLabel,
                     style: const TextStyle(
                       color: Color(0xFF68766F),
                       fontSize: 13,
@@ -326,6 +391,8 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
 
   Widget _dateCard() {
     return _outlinedCard(
+      backgroundColor: _prefilledBackground,
+      borderColor: _prefilledBorder,
       child: Row(
         children: [
           Expanded(
@@ -337,7 +404,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
                 Text(
                   _dateLabel,
                   style: const TextStyle(
-                    color: _jobInk,
+                    color: _prefilledInk,
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
@@ -353,29 +420,33 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
 
   Widget _locationCard() {
     return _outlinedCard(
+      backgroundColor: _prefilledBackground,
+      borderColor: _prefilledBorder,
       child: Row(
         children: [
-          const Icon(
-            Icons.location_on_outlined,
-            color: Color(0xFFB77A39),
-            size: 22,
-          ),
+          const Icon(Icons.location_on_outlined, color: _jobGreen, size: 22),
           const SizedBox(width: 10),
           Expanded(
-            child: TextField(
-              controller: _locationController,
-              maxLines: 1,
-              decoration: const InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                hintText: 'Estate name and place',
-              ),
-              style: const TextStyle(
-                color: _jobInk,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: _loadingEstate
+                ? const LinearProgressIndicator(
+                    minHeight: 3,
+                    color: _jobGreen,
+                    backgroundColor: Color(0xFFD8EEE1),
+                  )
+                : Text(
+                    _displayLocation.isEmpty
+                        ? 'Estate location not set'
+                        : _displayLocation,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: _displayLocation.isEmpty
+                          ? const Color(0xFFB42318)
+                          : _prefilledInk,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -403,7 +474,17 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
               Expanded(
                 child: TextField(
                   controller: _rateController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  onTap: () {
+                    if (_rateController.text == '0') {
+                      _rateController.selection = TextSelection(
+                        baseOffset: 0,
+                        extentOffset: _rateController.text.length,
+                      );
+                    }
+                  },
                   style: const TextStyle(
                     color: _jobInk,
                     fontSize: 30,
@@ -438,11 +519,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
             ],
           ),
           const SizedBox(height: 5),
-          for (final method in [
-            'Cash',
-            'Direct Bank Transfer',
-            'Cash or Bank Transfer',
-          ])
+          for (final method in ['Cash', 'Direct Bank Transfer'])
             _paymentOption(method),
         ],
       ),

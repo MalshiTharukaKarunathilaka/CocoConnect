@@ -32,6 +32,7 @@ class SellRequestPage extends StatefulWidget {
 class _SellRequestPageState extends State<SellRequestPage> {
   late final TextEditingController quantityController;
   late final TextEditingController offerPriceController;
+  String? paymentMethod;
 
   @override
   void initState() {
@@ -73,6 +74,12 @@ class _SellRequestPageState extends State<SellRequestPage> {
       );
       return;
     }
+    if (paymentMethod == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Select a payment method')));
+      return;
+    }
 
     setState(() => sending = true);
     try {
@@ -80,6 +87,7 @@ class _SellRequestPageState extends State<SellRequestPage> {
         buyerRequestId: widget.buyerId,
         quantity: quantity,
         pricePerUnit: price,
+        paymentMethod: paymentMethod!,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -111,10 +119,12 @@ class _SellRequestPageState extends State<SellRequestPage> {
   }
 
   String get productName {
-    if (widget.productType == 'RAW_COCONUT') {
-      return 'Raw Coconuts(with husks)';
-    }
-    return widget.productType;
+    return switch (widget.productType.toUpperCase()) {
+      'RAW_COCONUT' => 'Raw Coconuts(with husks)',
+      'DEHUSKED_COCONUT' => 'Dehusked Coconut',
+      'COCONUT_HUSK' => 'Coconut Husks',
+      _ => widget.productType,
+    };
   }
 
   double get totalValue {
@@ -303,20 +313,56 @@ class _SellRequestPageState extends State<SellRequestPage> {
                   ),
                 ),
 
-                const SizedBox(height: 22),
+                const SizedBox(height: 8),
+
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.lock_outline,
+                      size: 14,
+                      color: Color(0xFF6B6B6B),
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      'Automatically filled from the buyer request',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF6B6B6B),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 18),
 
                 TextFormField(
                   controller: quantityController,
                   readOnly: true,
+                  style: const TextStyle(
+                    color: Color(0xFF3F3F3F),
+                    fontWeight: FontWeight.w600,
+                  ),
                   decoration: InputDecoration(
                     labelText: 'Quantity Requested (Nuts)',
                     floatingLabelBehavior: FloatingLabelBehavior.always,
+                    filled: true,
+                    fillColor: const Color(0xFFE3E1DC),
+                    suffixIcon: const Icon(
+                      Icons.lock,
+                      size: 17,
+                      color: Color(0xFF77736C),
+                    ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 16,
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(9),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(9),
+                      borderSide: const BorderSide(color: Color(0xFFAAA69E)),
                     ),
                   ),
                 ),
@@ -326,10 +372,21 @@ class _SellRequestPageState extends State<SellRequestPage> {
                 TextFormField(
                   controller: offerPriceController,
                   readOnly: true,
+                  style: const TextStyle(
+                    color: Color(0xFF3F3F3F),
+                    fontWeight: FontWeight.w600,
+                  ),
                   decoration: InputDecoration(
                     labelText: 'Offer Price per Nut (LKR)',
                     floatingLabelBehavior: FloatingLabelBehavior.always,
                     prefixText: 'Rs. ',
+                    filled: true,
+                    fillColor: const Color(0xFFE3E1DC),
+                    suffixIcon: const Icon(
+                      Icons.lock,
+                      size: 17,
+                      color: Color(0xFF77736C),
+                    ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 16,
@@ -337,7 +394,54 @@ class _SellRequestPageState extends State<SellRequestPage> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(9),
                     ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(9),
+                      borderSide: const BorderSide(color: Color(0xFFAAA69E)),
+                    ),
                   ),
+                ),
+
+                const SizedBox(height: 24),
+
+                DropdownButtonFormField<String>(
+                  initialValue: paymentMethod,
+                  hint: const Text('Select Payment Method'),
+                  decoration: InputDecoration(
+                    labelText: 'Payment Method',
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                    prefixIcon: const Icon(
+                      Icons.payments_outlined,
+                      color: Color(0xFF1F6B3D),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 16,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(9),
+                      borderSide: const BorderSide(color: Color(0xFFAAA69E)),
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Cash', child: Text('Cash')),
+                    DropdownMenuItem(
+                      value: 'Direct Bank Transfer',
+                      child: Text('Direct Bank Transfer'),
+                    ),
+                    DropdownMenuItem(value: 'Any', child: Text('Any')),
+                  ],
+                  onChanged: sending
+                      ? null
+                      : (value) {
+                          if (value != null) {
+                            setState(() => paymentMethod = value);
+                          }
+                        },
                 ),
 
                 const SizedBox(height: 18),

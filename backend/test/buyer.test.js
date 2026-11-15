@@ -128,8 +128,8 @@ test("listings: filter by type, hide sold, sort", async () => {
   );
   assert.ok(raw.data.every((l) => l.estate_name));
 
-  const husked = await call("GET", "/api/buyer/listings?type=HUSKED_COCONUT");
-  assert.equal(husked.data.length, 1);
+  const husks = await call("GET", "/api/buyer/listings?type=COCONUT_HUSK");
+  assert.equal(husks.data.length, 1);
 
   const one = await call("GET", `/api/buyer/listings/${raw.data[0].id}`);
   assert.equal(one.data.estate_name, "Silva Plantations");
@@ -327,7 +327,7 @@ test("negotiation: reject closes it, and accept uses listed price with no counte
 });
 
 test("dates come back as plain YYYY-MM-DD", async () => {
-  const raw = await call("GET", "/api/buyer/listings?type=HUSKED_COCONUT");
+  const raw = await call("GET", "/api/buyer/listings?type=COCONUT_HUSK");
   assert.match(String(raw.data[0].available_date), /^2026-11-20/);
 });
 

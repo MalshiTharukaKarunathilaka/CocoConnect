@@ -18,6 +18,17 @@ const localToday = () => {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 };
 
+const dayJobRatingsReady = async () => {
+  if (pool.databaseMode === "memory") return true;
+  const result = await pool.query(
+    `SELECT COUNT(*)::integer AS count
+     FROM information_schema.columns
+     WHERE table_name = 'day_job_applications'
+       AND column_name IN ('rating', 'rated_at')`
+  );
+  return Number(result.rows[0]?.count || 0) === 2;
+};
+
 const serverError = (res, label, error) => {
   console.error(`${label} error:`, error);
 
@@ -183,6 +194,15 @@ const createListing = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
+    const nutQuantity = Number(quantity);
+    const pricePerNut = Number(offerPricePerUnit);
+    if (!Number.isInteger(nutQuantity) || nutQuantity <= 0) {
+      return res.status(400).json({ message: "Number of nuts must be a positive integer" });
+    }
+    if (!(pricePerNut > 0)) {
+      return res.status(400).json({ message: "Offer price per nut must be above 0" });
+    }
+
     const estate = await getOwnEstate(pool, req.user.id);
     const result = await pool.query(
       `INSERT INTO product_listings
@@ -192,9 +212,9 @@ const createListing = async (req, res) => {
       [
         estate.id,
         String(productType).toUpperCase(),
-        quantity,
+        nutQuantity,
         availableDate,
-        offerPricePerUnit,
+        pricePerNut,
       ]
     );
 
@@ -296,12 +316,31 @@ const getBuyerRequests = async (req, res) => {
 
 const createSellRequest = async (req, res) => {
   try {
-    const { buyerRequestId, quantity, sellerPricePerUnit, availableDate } = req.body;
+    const {
+      buyerRequestId,
+      quantity,
+      sellerPricePerUnit,
+      availableDate,
+      paymentMethod,
+    } = req.body;
 
     if (!buyerRequestId || !quantity || !sellerPricePerUnit) {
       return res.status(400).json({
         message: "Buyer request, quantity and price are required",
       });
+    }
+
+    const nutQuantity = Number(quantity);
+    const pricePerNut = Number(sellerPricePerUnit);
+    const selectedPaymentMethod = String(paymentMethod || "Any").trim();
+    if (!Number.isInteger(nutQuantity) || nutQuantity <= 0) {
+      return res.status(400).json({ message: "Number of nuts must be a positive integer" });
+    }
+    if (!(pricePerNut > 0)) {
+      return res.status(400).json({ message: "Offer price per nut must be above 0" });
+    }
+    if (!["Cash", "Direct Bank Transfer", "Any"].includes(selectedPaymentMethod)) {
+      return res.status(400).json({ message: "Choose a valid payment method" });
     }
 
     const request = await pool.query(
@@ -330,21 +369,69 @@ const createSellRequest = async (req, res) => {
       });
     }
 
-    const result = await pool.query(
-      `INSERT INTO sell_requests
-        (estate_owner_id, buyer_request_id, product_type, quantity,
-         seller_price_per_unit, available_date, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending')
-       RETURNING *`,
-      [
-        estate.id,
-        buyerRequestId,
-        buyerRequest.product_type,
-        quantity,
-        sellerPricePerUnit,
-        availableDate || null,
-      ]
-    );
+    const insertWithPaymentMethod = () =>
+      pool.query(
+        `INSERT INTO sell_requests
+          (estate_owner_id, buyer_request_id, product_type, quantity,
+           seller_price_per_unit, available_date, payment_method, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+         RETURNING *`,
+        [
+          estate.id,
+          buyerRequestId,
+          buyerRequest.product_type,
+          nutQuantity,
+          pricePerNut,
+          availableDate || null,
+          selectedPaymentMethod,
+        ]
+      );
+
+    let result;
+    try {
+      result = await insertWithPaymentMethod();
+    } catch (error) {
+      // Keep offers working while an older deployed database is waiting for
+      // migration 013. Once the column exists, the normal insert above stores
+      // the selected payment method permanently.
+      const errorMessage = String(error.message || "");
+      const missingPaymentMethodColumn =
+        errorMessage.includes("payment_method") &&
+        (error.code === "42703" || /does not exist|not found/i.test(errorMessage));
+      if (!missingPaymentMethodColumn) {
+        throw error;
+      }
+
+      try {
+        await pool.query(
+          `ALTER TABLE public.sell_requests
+           ADD COLUMN IF NOT EXISTS payment_method varchar NOT NULL DEFAULT 'Any'`
+        );
+        result = await insertWithPaymentMethod();
+      } catch (migrationError) {
+        console.warn(
+          "Could not add sell_requests.payment_method; using the legacy insert. " +
+            "Run backend/sql/013_sell_request_payment_method.sql.",
+          migrationError.message
+        );
+        result = await pool.query(
+          `INSERT INTO sell_requests
+            (estate_owner_id, buyer_request_id, product_type, quantity,
+             seller_price_per_unit, available_date, status)
+           VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+           RETURNING *`,
+          [
+            estate.id,
+            buyerRequestId,
+            buyerRequest.product_type,
+            nutQuantity,
+            pricePerNut,
+            availableDate || null,
+          ]
+        );
+        result.rows[0].payment_method = selectedPaymentMethod;
+      }
+    }
 
     // Start a chat with the buyer from this offer (buyers with an account).
     const chatId = buyerRequest.buyer_id
@@ -853,13 +940,16 @@ const getDayJobs = async (req, res) => {
     const jobs = result.rows;
     const acceptedWorkers = new Map();
     if (jobs.length > 0) {
+      const ratingsReady = await dayJobRatingsReady();
+      const ratingColumn = ratingsReady ? "dja.rating" : "NULL::smallint";
       const jobParams = jobs.map((job) => job.id);
       const placeholders = jobParams.map((_, index) => `$${index + 1}`).join(", ");
       const workers = await pool.query(
         `SELECT
            dja.day_job_id,
            dja.worker_id AS id,
-           COALESCE(u.name, 'Worker') AS name
+           COALESCE(u.name, 'Worker') AS name,
+           ${ratingColumn} AS rating
          FROM day_job_applications dja
          JOIN worker w ON w.id = dja.worker_id
          LEFT JOIN users u ON u.id = w.user_id
@@ -870,7 +960,11 @@ const getDayJobs = async (req, res) => {
       );
       for (const worker of workers.rows) {
         const list = acceptedWorkers.get(worker.day_job_id) || [];
-        list.push({ id: worker.id, name: worker.name });
+        list.push({
+          id: worker.id,
+          name: worker.name,
+          rating: worker.rating == null ? null : Number(worker.rating),
+        });
         acceptedWorkers.set(worker.day_job_id, list);
       }
     }
@@ -878,6 +972,11 @@ const getDayJobs = async (req, res) => {
     return res.status(200).json(
       jobs.map((job) => ({
         ...job,
+        status:
+          String(job.status).toUpperCase() === "COMPLETED" &&
+          Number(job.confirmed_workers) < Number(job.workers_needed)
+            ? "OPEN"
+            : job.status,
         accepted_workers: acceptedWorkers.get(job.id) || [],
       }))
     );
@@ -917,18 +1016,22 @@ const getWorkerProfile = async (req, res) => {
       return res.status(404).json({ message: "Worker profile not found" });
     }
 
+    const ratingsReady = await dayJobRatingsReady();
+    const ratingColumn = ratingsReady ? "dja.rating" : "NULL::smallint";
     const stats = await pool.query(
       `SELECT
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) <> 'COMPLETED'
-                  AND dj.required_date >= CURRENT_DATE
              THEN 1 ELSE 0 END
          ), 0)::integer AS accepted_jobs,
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
-                  OR dj.required_date < CURRENT_DATE
              THEN 1 ELSE 0 END
-         ), 0)::integer AS completed_jobs
+         ), 0)::integer AS completed_jobs,
+         COALESCE(SUM(
+           CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
+             THEN COALESCE(${ratingColumn}, 0) ELSE 0 END
+         ), 0)::integer AS total_rating_marks
        FROM day_job_applications dja
        JOIN day_jobs dj ON dj.id = dja.day_job_id
        WHERE dja.worker_id = $1
@@ -945,10 +1048,16 @@ const getWorkerProfile = async (req, res) => {
       [workerId]
     );
 
+    const completedJobs = Number(stats.rows[0]?.completed_jobs || 0);
+    const totalRatingMarks = Number(stats.rows[0]?.total_rating_marks || 0);
+
     return res.status(200).json({
       ...profile.rows[0],
       accepted_jobs: Number(stats.rows[0]?.accepted_jobs || 0),
-      completed_jobs: Number(stats.rows[0]?.completed_jobs || 0),
+      completed_jobs: completedJobs,
+      total_rating_marks: totalRatingMarks,
+      average_rating:
+        completedJobs > 0 ? totalRatingMarks / completedJobs : null,
       work_categories: categories.rows.map((row) => row.category),
     });
   } catch (error) {
@@ -962,19 +1071,25 @@ const createDayJob = async (req, res) => {
       category,
       workersNeeded,
       requiredDate,
-      location,
       dailyRate,
       paymentMethod,
     } = req.body;
     const workers = Number(workersNeeded);
     const rate = Number(dailyRate);
+    const estate = await getOwnEstate(pool, req.user.id);
+    const jobLocation = String(estate.location || "").trim();
+
+    if (!jobLocation) {
+      return res.status(400).json({
+        message: "Add your estate location before posting a day job",
+      });
+    }
 
     if (
       !String(category || "").trim() ||
       !Number.isInteger(workers) ||
       workers < 1 ||
       !String(requiredDate || "").trim() ||
-      !String(location || "").trim() ||
       !Number.isFinite(rate) ||
       rate < 0 ||
       !String(paymentMethod || "").trim()
@@ -982,7 +1097,6 @@ const createDayJob = async (req, res) => {
       return res.status(400).json({ message: "All day job fields are required" });
     }
 
-    const estate = await getOwnEstate(pool, req.user.id);
     const result = await pool.query(
       `INSERT INTO day_jobs
         (estate_owner_id, category, workers_needed, required_date, location,
@@ -994,7 +1108,7 @@ const createDayJob = async (req, res) => {
         String(category).trim(),
         workers,
         String(requiredDate).trim(),
-        String(location).trim(),
+        jobLocation,
         rate,
         String(paymentMethod).trim(),
       ]
@@ -1009,6 +1123,138 @@ const createDayJob = async (req, res) => {
       });
     }
     return serverError(res, "Create day job", error);
+  }
+};
+
+const completeDayJob = async (req, res) => {
+  try {
+    const jobId = Number(req.params.id);
+    if (!Number.isInteger(jobId)) {
+      return res.status(400).json({ message: "Invalid day job" });
+    }
+
+    const estate = await getOwnEstate(pool, req.user.id);
+    const found = await pool.query(
+      `SELECT * FROM day_jobs
+       WHERE id = $1 AND estate_owner_id = $2`,
+      [jobId, estate.id]
+    );
+    if (found.rows.length === 0) {
+      return res.status(404).json({ message: "Day job not found" });
+    }
+    const job = found.rows[0];
+    if (Number(job.confirmed_workers) < Number(job.workers_needed)) {
+      return res.status(409).json({
+        message: "All required workers must be accepted before completion",
+      });
+    }
+    const requiredDay = dayOf(job.required_date);
+    if (requiredDay && requiredDay > localToday()) {
+      return res.status(409).json({
+        message: "This is a future day. You cannot complete this job yet.",
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE day_jobs
+       SET status = 'COMPLETED'
+       WHERE id = $1 AND estate_owner_id = $2
+       RETURNING *`,
+      [jobId, estate.id]
+    );
+
+    return res.status(200).json(result.rows[0]);
+  } catch (error) {
+    return serverError(res, "Complete day job", error);
+  }
+};
+
+const deleteDayJob = async (req, res) => {
+  try {
+    const jobId = Number(req.params.id);
+    if (!Number.isInteger(jobId)) {
+      return res.status(400).json({ message: "Invalid day job" });
+    }
+
+    const estate = await getOwnEstate(pool, req.user.id);
+    const found = await pool.query(
+      `SELECT required_date FROM day_jobs
+       WHERE id = $1 AND estate_owner_id = $2`,
+      [jobId, estate.id]
+    );
+    if (found.rows.length === 0) {
+      return res.status(404).json({ message: "Day job not found" });
+    }
+
+    const requiredDay = dayOf(found.rows[0].required_date);
+    if (!requiredDay || requiredDay <= localToday()) {
+      return res.status(409).json({
+        message: "Only future day jobs can be deleted.",
+      });
+    }
+
+    await pool.query(
+      `DELETE FROM day_jobs
+       WHERE id = $1 AND estate_owner_id = $2`,
+      [jobId, estate.id]
+    );
+    return res.status(200).json({ message: "Day job deleted" });
+  } catch (error) {
+    return serverError(res, "Delete day job", error);
+  }
+};
+
+const rateDayJobWorker = async (req, res) => {
+  try {
+    const jobId = Number(req.params.jobId);
+    const workerId = Number(req.params.workerId);
+    const rating = Number(req.body.rating);
+    if (!Number.isInteger(jobId) || !Number.isInteger(workerId)) {
+      return res.status(400).json({ message: "Invalid job or worker" });
+    }
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: "Rating must be from 1 to 5" });
+    }
+    if (!(await dayJobRatingsReady())) {
+      return res.status(503).json({
+        message:
+          "Worker ratings are not configured. Run backend/sql/012_day_job_worker_ratings.sql.",
+      });
+    }
+
+    const estate = await getOwnEstate(pool, req.user.id);
+    const application = await pool.query(
+      `SELECT dja.id
+       FROM day_job_applications dja
+       JOIN day_jobs dj ON dj.id = dja.day_job_id
+       WHERE dj.id = $1
+         AND dja.worker_id = $2
+         AND dj.estate_owner_id = $3
+         AND UPPER(dj.status) = 'COMPLETED'
+         AND UPPER(dja.status) = 'ACCEPTED'`,
+      [jobId, workerId, estate.id]
+    );
+    if (application.rows.length === 0) {
+      return res.status(404).json({
+        message: "Completed job worker not found",
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE day_job_applications
+       SET rating = $2, rated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING rating, rated_at`,
+      [application.rows[0].id, rating]
+    );
+    return res.status(200).json({
+      worker_id: workerId,
+      job_id: jobId,
+      rating: Number(result.rows[0].rating),
+      rated_at: result.rows[0].rated_at,
+    });
+  } catch (error) {
+    return serverError(res, "Rate day job worker", error);
   }
 };
 
@@ -1032,4 +1278,7 @@ module.exports = {
   getDayJobs,
   getWorkerProfile,
   createDayJob,
+  completeDayJob,
+  deleteDayJob,
+  rateDayJobWorker,
 };

@@ -34,8 +34,8 @@ class EstateOwnerDashboard extends StatelessWidget {
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
-                          child: Row(
-                            children: const [
+                          child: const Row(
+                            children: [
                               Icon(
                                 Icons.arrow_back,
                                 size: 20,
@@ -69,7 +69,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Estate owner dashboard',
+                          'Land owner dashboard',
                           style: TextStyle(
                             fontSize: 12,
                             color: Color(0xFF4A4A4A),

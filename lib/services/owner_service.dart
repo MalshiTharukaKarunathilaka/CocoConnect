@@ -63,12 +63,18 @@ class DayJob {
 class AcceptedWorker {
   final int id;
   final String name;
+  final int? rating;
 
-  const AcceptedWorker({required this.id, required this.name});
+  const AcceptedWorker({
+    required this.id,
+    required this.name,
+    required this.rating,
+  });
 
   factory AcceptedWorker.fromJson(Map<String, dynamic> json) => AcceptedWorker(
     id: (json['id'] as num).toInt(),
     name: json['name'] as String? ?? 'Worker',
+    rating: (json['rating'] as num?)?.toInt(),
   );
 }
 
@@ -80,6 +86,8 @@ class WorkerProfile {
   final List<String> workCategories;
   final int acceptedJobs;
   final int completedJobs;
+  final int totalRatingMarks;
+  final double? averageRating;
 
   const WorkerProfile({
     required this.id,
@@ -89,6 +97,8 @@ class WorkerProfile {
     required this.workCategories,
     required this.acceptedJobs,
     required this.completedJobs,
+    required this.totalRatingMarks,
+    required this.averageRating,
   });
 
   factory WorkerProfile.fromJson(Map<String, dynamic> json) => WorkerProfile(
@@ -101,6 +111,8 @@ class WorkerProfile {
         .toList(),
     acceptedJobs: (json['accepted_jobs'] as num?)?.toInt() ?? 0,
     completedJobs: (json['completed_jobs'] as num?)?.toInt() ?? 0,
+    totalRatingMarks: (json['total_rating_marks'] as num?)?.toInt() ?? 0,
+    averageRating: _toDoubleOrNull(json['average_rating']),
   );
 }
 
@@ -323,6 +335,24 @@ class OwnerService {
         .toList();
   }
 
+  static Future<void> completeDayJob(int jobId) async {
+    await ApiClient.patch('/api/owner/day-jobs/$jobId/complete');
+  }
+
+  static Future<void> deleteDayJob(int jobId) async {
+    await ApiClient.delete('/api/owner/day-jobs/$jobId');
+  }
+
+  static Future<void> rateDayJobWorker({
+    required int jobId,
+    required int workerId,
+    required int rating,
+  }) async {
+    await ApiClient.put('/api/owner/day-jobs/$jobId/workers/$workerId/rating', {
+      'rating': rating,
+    });
+  }
+
   static Future<WorkerProfile> getWorkerProfile(int workerId) async {
     final data = await ApiClient.get('/api/owner/workers/$workerId');
     return WorkerProfile.fromJson(data as Map<String, dynamic>);
@@ -359,12 +389,14 @@ class OwnerService {
     required int buyerRequestId,
     required int quantity,
     required double pricePerUnit,
+    required String paymentMethod,
     DateTime? availableDate,
   }) async {
     final data = await ApiClient.post('/api/owner/sell-requests', {
       'buyerRequestId': buyerRequestId,
       'quantity': quantity,
       'sellerPricePerUnit': pricePerUnit,
+      'paymentMethod': paymentMethod,
       if (availableDate != null) 'availableDate': _isoDate(availableDate),
     });
     return (data as Map<String, dynamic>?)?['negotiationId'] as int?;

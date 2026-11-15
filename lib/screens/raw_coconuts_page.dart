@@ -10,7 +10,21 @@ import '../widgets/nearby_filter.dart';
 import '../widgets/buyer_filter_sheet.dart';
 
 class RawCoconutsPage extends StatefulWidget {
-  const RawCoconutsPage({super.key});
+  final String productType;
+  final String title;
+  final String singularTitle;
+  final String description;
+  final double initialPricePerNut;
+
+  const RawCoconutsPage({
+    super.key,
+    this.productType = 'RAW_COCONUT',
+    this.title = 'Raw Coconuts',
+    this.singularTitle = 'Raw Coconut',
+    this.description =
+        'Manage your raw coconuts. Sell and view interested buyers.',
+    this.initialPricePerNut = 0,
+  });
 
   @override
   State<RawCoconutsPage> createState() => _RawCoconutsPageState();
@@ -18,21 +32,19 @@ class RawCoconutsPage extends StatefulWidget {
 
 class _RawCoconutsPageState extends State<RawCoconutsPage> {
   final TextEditingController quantityController = TextEditingController(
-    text: '1200',
+    text: '0',
   );
 
   final TextEditingController dateController = TextEditingController(
     text: 'mm/dd/yyyy',
   );
 
-  final TextEditingController priceController = TextEditingController(
-    text: 'Rs. 130.00',
-  );
+  late final TextEditingController priceController;
 
   bool showSummary = false;
 
   // Open raw-coconut buyer requests, reloaded after sending an offer.
-  late Future<List<OpenBuyerRequest>> buyersFuture = loadBuyers();
+  late Future<List<OpenBuyerRequest>> buyersFuture;
 
   // Interested Buyers filters: distance from the estate and sort order.
   int? buyerRadiusKm;
@@ -57,7 +69,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
   bool get matching => matchHarvest && harvestDate != null;
 
   Future<List<OpenBuyerRequest>> loadBuyers() => OwnerService.getBuyerRequests(
-    productType: 'RAW_COCONUT',
+    productType: widget.productType,
     radiusKm: buyerRadiusKm,
     sort: buyerSort,
     availableDate: matching ? harvestDate : null,
@@ -135,6 +147,10 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
   @override
   void initState() {
     super.initState();
+    priceController = TextEditingController(
+      text: 'Rs. ${widget.initialPricePerNut.toStringAsFixed(2)}',
+    );
+    buyersFuture = loadBuyers();
     loadEstateName();
   }
 
@@ -237,7 +253,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
       // Saved under the logged-in owner's estate.
       await OwnerService.createListing(
-        productType: 'RAW_COCONUT',
+        productType: widget.productType,
         quantity: quantity,
         availableDate: availableDate,
         pricePerUnit: price,
@@ -255,11 +271,22 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
         //dateController.text = 'mm/dd/yyyy';
         //priceController.text = 'Rs. 130.00';
       });
-    } catch (error) {
+    } on ApiException catch (error) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sell listing saved successfully')),
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: const Color(0xFFC62828),
+        ),
+      );
+    } on FormatException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter a valid number of nuts and price per nut'),
+          backgroundColor: Color(0xFFC62828),
+        ),
       );
     }
   }
@@ -331,9 +358,9 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                   child: ListView(
                     padding: const EdgeInsets.symmetric(horizontal: 18),
                     children: [
-                      const Text(
-                        'Raw Coconuts(with husks)',
-                        style: TextStyle(
+                      Text(
+                        widget.title,
+                        style: const TextStyle(
                           fontSize: 24,
                           color: Color(0xFFD8D8D8),
                           fontWeight: FontWeight.bold,
@@ -342,9 +369,9 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
                       const SizedBox(height: 8),
 
-                      const Text(
-                        'Manage your Raw Coconuts(with husks). Sell and view interested buyers.',
-                        style: TextStyle(
+                      Text(
+                        widget.description,
+                        style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFF777777),
                           height: 1.4,
@@ -363,7 +390,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                       const SizedBox(height: 20),
 
                       // Latest deal and today's average price
-                      const MarketPulse(),
+                      MarketPulse(productType: widget.productType),
 
                       // This line changes form to summary after clicking Sell
                       showSummary
@@ -484,7 +511,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                                   ? 'No buyer requests fit this harvest yet. Tap Show all to see '
                                         'every request.'
                                   : buyerRadiusKm == null
-                                  ? 'No buyers are requesting Raw Coconuts(with husks) right now'
+                                  ? 'No buyers are requesting ${widget.title.toLowerCase()} right now'
                                   : 'No buyers within $buyerRadiusKm km right now. Try a wider '
                                         'distance.',
                             );
@@ -600,17 +627,17 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.inventory_2_outlined,
                 size: 18,
                 color: Color(0xFF2E7D32),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
-                'Sell Raw Coconuts(with husks)',
-                style: TextStyle(
+                'Sell ${widget.title}',
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF263238),
@@ -621,8 +648,12 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const SizedBox(height: 16),
 
-          const FormLabel(text: 'NUMBER OF UNITS'),
-          CustomInputField(controller: quantityController, icon: null),
+          const FormLabel(text: 'NUMBER OF NUTS'),
+          CustomInputField(
+            controller: quantityController,
+            icon: null,
+            selectZeroOnTap: true,
+          ),
 
           const SizedBox(height: 12),
 
@@ -636,8 +667,12 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const SizedBox(height: 12),
 
-          const FormLabel(text: 'OFFER PRICE PER UNIT'),
-          CustomInputField(controller: priceController, icon: null),
+          const FormLabel(text: 'OFFER PRICE PER NUT'),
+          CustomInputField(
+            controller: priceController,
+            icon: null,
+            selectZeroOnTap: true,
+          ),
 
           const SizedBox(height: 18),
 
@@ -735,9 +770,9 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const SizedBox(height: 16),
 
-          const Text(
-            'Raw Coconuts(with husks) Sell Offer',
-            style: TextStyle(fontSize: 14, color: Color(0xFF777777)),
+          Text(
+            '${widget.singularTitle} Sell Offer',
+            style: const TextStyle(fontSize: 14, color: Color(0xFF777777)),
           ),
 
           const SizedBox(height: 16),
@@ -754,7 +789,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const Divider(height: 24),
 
-          SummaryRow(title: 'Offer Price Per Unit', value: price),
+          SummaryRow(title: 'Offer Price Per Nut', value: price),
 
           const Divider(height: 24),
 
@@ -820,6 +855,7 @@ class CustomInputField extends StatelessWidget {
   final IconData? icon;
   final bool readOnly;
   final VoidCallback? onTap;
+  final bool selectZeroOnTap;
 
   const CustomInputField({
     super.key,
@@ -827,6 +863,7 @@ class CustomInputField extends StatelessWidget {
     required this.icon,
     this.readOnly = false,
     this.onTap,
+    this.selectZeroOnTap = false,
   });
 
   @override
@@ -834,7 +871,23 @@ class CustomInputField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       readOnly: readOnly,
-      onTap: onTap,
+      onTap: () {
+        final String numericText = controller.text
+            .replaceAll('Rs.', '')
+            .replaceAll('Rs', '')
+            .replaceAll(',', '')
+            .trim();
+        if (selectZeroOnTap && (double.tryParse(numericText) ?? 1) == 0) {
+          final int valueStart = controller.text.startsWith('Rs. ')
+              ? 'Rs. '.length
+              : 0;
+          controller.selection = TextSelection(
+            baseOffset: valueStart,
+            extentOffset: controller.text.length,
+          );
+        }
+        onTap?.call();
+      },
       style: const TextStyle(fontSize: 13),
       decoration: InputDecoration(
         suffixIcon: icon == null

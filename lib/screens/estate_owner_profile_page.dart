@@ -156,326 +156,353 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-        // Identity
-        Center(
-          child: Container(
-            width: 76,
-            height: 76,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: const Color(0xFF3F8B5F),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 4),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(18),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Text(
-              initialsOf(estate.estateName),
-              style: const TextStyle(
-                color: Color(0xFFD5F5D8),
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          estate.estateName,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: _ink,
-            fontSize: 21,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          estate.location == null || estate.location!.isEmpty
-              ? 'Estate Owner  ·  ${estate.ownerName}'
-              : '${estate.ownerName}  ·  ${estate.location}',
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: _muted, fontSize: 13),
-        ),
-        const SizedBox(height: 14),
-
-        Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 40,
-                child: ElevatedButton.icon(
-                  onPressed: () => _editEstate(estate),
-                  icon: const Icon(Icons.edit_outlined, size: 17),
-                  label: const Text(
-                    'Edit Estate',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _darkGreen,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: SizedBox(
-                height: 40,
-                child: OutlinedButton.icon(
-                  onPressed: () =>
-                      Navigator.pushNamed(context, '/owner-activity'),
-                  icon: const Icon(Icons.receipt_long, size: 17),
-                  label: const Text(
-                    'Orders',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _darkGreen,
-                    side: const BorderSide(color: _darkGreen),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-
-        // Stats
-        Row(
-          children: [
-            Expanded(
-              child: ProfileStatCard(
-                number: '${summary.activeListings}',
-                label: 'Active\nListings',
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ProfileStatCard(
-                number: '${summary.openChats}',
-                label: 'Open\nChats',
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ProfileStatCard(
-                number: '${summary.ordersCompleted}',
-                label: 'Completed\nOrders',
-              ),
-            ),
-          ],
-        ),
-        if (summary.offersWaiting > 0 || summary.ordersActive > 0) ...[
-          const SizedBox(height: 8),
-          _Banner(
-            text: [
-              if (summary.offersWaiting > 0)
-                '${summary.offersWaiting} offer'
-                    '${summary.offersWaiting == 1 ? '' : 's'} waiting for a '
-                    'buyer',
-              if (summary.ordersActive > 0)
-                '${summary.ordersActive} order'
-                    '${summary.ordersActive == 1 ? '' : 's'} in progress',
-            ].join('  ·  '),
-            onTap: () => Navigator.pushNamed(context, '/owner-activity'),
-          ),
-        ],
-        const SizedBox(height: 10),
-
-        // Trust score
-        _Card(
-          child: Row(
-            children: [
-              const CircleAvatar(
-                radius: 20,
-                backgroundColor: Color(0xFFFFB175),
-                child: Icon(Icons.star, color: Color(0xFF6B3B1C), size: 22),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Trust Score',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: _ink,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      estate.trustScore == null
-                          ? 'Builds up as buyers complete orders with you'
-                          : 'From buyers who completed orders',
-                      style: const TextStyle(fontSize: 11, color: _muted),
-                    ),
-                  ],
-                ),
-              ),
-              estate.trustScore == null
-                  ? const Text(
-                      'New',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Color(0xFFB26A2C),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : Column(
-                      children: [
-                        Text(
-                          estate.trustScore!.toStringAsFixed(1),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            color: Color(0xFFB26A2C),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Text(
-                          '/ 5.0',
-                          style: TextStyle(fontSize: 11, color: _muted),
+                // Identity
+                Center(
+                  child: Container(
+                    width: 76,
+                    height: 76,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3F8B5F),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(18),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
                         ),
                       ],
                     ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // Estate details
-        _Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
                     child: Text(
-                      'Estate Details',
-                      style: TextStyle(
-                        color: _ink,
-                        fontSize: 16,
+                      initialsOf(estate.estateName),
+                      style: const TextStyle(
+                        color: Color(0xFFD5F5D8),
+                        fontSize: 26,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () => _editEstate(estate),
-                    child: const Text(
-                      'Edit',
-                      style: TextStyle(
-                        color: _darkGreen,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  estate.estateName,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: _ink,
+                    fontSize: 21,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  estate.location == null || estate.location!.isEmpty
+                      ? 'Estate Owner  ·  ${estate.ownerName}'
+                      : '${estate.ownerName}  ·  ${estate.location}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: _muted, fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 40,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _editEstate(estate),
+                          icon: const Icon(Icons.edit_outlined, size: 17),
+                          label: const Text(
+                            'Edit Estate',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _darkGreen,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: SizedBox(
+                        height: 40,
+                        child: OutlinedButton.icon(
+                          onPressed: () =>
+                              Navigator.pushNamed(context, '/owner-activity'),
+                          icon: const Icon(Icons.receipt_long, size: 17),
+                          label: const Text(
+                            'Orders',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _darkGreen,
+                            side: const BorderSide(color: _darkGreen),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Stats
+                Row(
+                  children: [
+                    Expanded(
+                      child: ProfileStatCard(
+                        number: '${summary.activeListings}',
+                        label: 'Active\nListings',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ProfileStatCard(
+                        number: '${summary.openChats}',
+                        label: 'Open\nChats',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ProfileStatCard(
+                        number: '${summary.ordersCompleted}',
+                        label: 'Completed\nOrders',
+                      ),
+                    ),
+                  ],
+                ),
+                if (summary.offersWaiting > 0 || summary.ordersActive > 0) ...[
+                  const SizedBox(height: 8),
+                  _Banner(
+                    text: [
+                      if (summary.offersWaiting > 0)
+                        '${summary.offersWaiting} offer'
+                            '${summary.offersWaiting == 1 ? '' : 's'} waiting for a '
+                            'buyer',
+                      if (summary.ordersActive > 0)
+                        '${summary.ordersActive} order'
+                            '${summary.ordersActive == 1 ? '' : 's'} in progress',
+                    ].join('  ·  '),
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/owner-activity'),
                   ),
                 ],
-              ),
-              const Divider(height: 20),
-              EstateDetailItem(
-                icon: Icons.storefront_outlined,
-                title: 'Estate Name',
-                value: estate.estateName,
-                onTap: () => _editEstate(estate, focus: EstateField.name),
-              ),
-              const SizedBox(height: 12),
-              EstateDetailItem(
-                icon: Icons.location_on_outlined,
-                title: 'Location',
-                // The estate's own location, otherwise the one on the account.
-                value: (estate.location ?? '').trim().isNotEmpty
-                    ? estate.location!
-                    : (AuthService.currentUser?.location ?? ''),
-                note:
-                    (estate.location ?? '').trim().isEmpty &&
-                        (AuthService.currentUser?.location ?? '')
-                            .trim()
-                            .isNotEmpty
-                    ? 'from your account. Tap to save it on your estate'
-                    : null,
-                onTap: () => _editEstate(estate, focus: EstateField.location),
-              ),
-              const SizedBox(height: 12),
-              EstateDetailItem(
-                icon: Icons.terrain_outlined,
-                title: 'Total Land Area',
-                value: estate.totalLandArea ?? '',
-                onTap: () => _editEstate(estate, focus: EstateField.area),
-              ),
-              const SizedBox(height: 12),
-              EstateDetailItem(
-                icon: Icons.eco_outlined,
-                title: 'Primary Crop',
-                value: estate.primaryCrop ?? '',
-                onTap: () => _editEstate(estate, focus: EstateField.crop),
-              ),
-              const SizedBox(height: 12),
-              EstateDetailItem(
-                icon: Icons.calendar_month_outlined,
-                title: 'Year Established',
-                value: estate.yearEstablished?.toString() ?? '',
-                onTap: () => _editEstate(estate, focus: EstateField.year),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
+                const SizedBox(height: 10),
 
-        // Account
-        _Card(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.person_outline, color: _darkGreen),
-                title: Text(
-                  user?.name ?? estate.ownerName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: _ink,
+                // Trust score
+                _Card(
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 20,
+                        backgroundColor: Color(0xFFFFB175),
+                        child: Icon(
+                          Icons.star,
+                          color: Color(0xFF6B3B1C),
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 13),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Trust Score',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: _ink,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              estate.trustScore == null
+                                  ? 'Builds up as buyers complete orders with you'
+                                  : 'From buyers who completed orders',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: _muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      estate.trustScore == null
+                          ? const Text(
+                              'New',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: Color(0xFFB26A2C),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : Column(
+                              children: [
+                                Text(
+                                  estate.trustScore!.toStringAsFixed(1),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    color: Color(0xFFB26A2C),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const Text(
+                                  '/ 5.0',
+                                  style: TextStyle(fontSize: 11, color: _muted),
+                                ),
+                              ],
+                            ),
+                    ],
                   ),
                 ),
-                subtitle: Text(
-                  '${user?.phone ?? ''}  ·  Estate Owner',
-                  style: const TextStyle(fontSize: 12, color: _muted),
-                ),
-                trailing: TextButton(
-                  onPressed: _editAccount,
-                  style: TextButton.styleFrom(foregroundColor: _darkGreen),
-                  child: const Text('Edit'),
-                ),
-              ),
-              const Divider(height: 1, indent: 56, color: _cardBorder),
-              ListTile(
-                onTap: () => confirmLogOut(context),
-                leading: const Icon(Icons.logout, color: Color(0xFFC62828)),
-                title: const Text(
-                  'Log out',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFC62828),
+                const SizedBox(height: 10),
+
+                // Estate details
+                _Card(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Estate Details',
+                              style: TextStyle(
+                                color: _ink,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => _editEstate(estate),
+                            child: const Text(
+                              'Edit',
+                              style: TextStyle(
+                                color: _darkGreen,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 20),
+                      EstateDetailItem(
+                        icon: Icons.storefront_outlined,
+                        title: 'Estate Name',
+                        value: estate.estateName,
+                        onTap: () =>
+                            _editEstate(estate, focus: EstateField.name),
+                      ),
+                      const SizedBox(height: 12),
+                      EstateDetailItem(
+                        icon: Icons.location_on_outlined,
+                        title: 'Location',
+                        // The estate's own location, otherwise the one on the account.
+                        value: (estate.location ?? '').trim().isNotEmpty
+                            ? estate.location!
+                            : (AuthService.currentUser?.location ?? ''),
+                        note:
+                            (estate.location ?? '').trim().isEmpty &&
+                                (AuthService.currentUser?.location ?? '')
+                                    .trim()
+                                    .isNotEmpty
+                            ? 'from your account. Tap to save it on your estate'
+                            : null,
+                        onTap: () =>
+                            _editEstate(estate, focus: EstateField.location),
+                      ),
+                      const SizedBox(height: 12),
+                      EstateDetailItem(
+                        icon: Icons.terrain_outlined,
+                        title: 'Total Land Area',
+                        value: estate.totalLandArea ?? '',
+                        onTap: () =>
+                            _editEstate(estate, focus: EstateField.area),
+                      ),
+                      const SizedBox(height: 12),
+                      EstateDetailItem(
+                        icon: Icons.eco_outlined,
+                        title: 'Primary Crop',
+                        value: estate.primaryCrop ?? '',
+                        onTap: () =>
+                            _editEstate(estate, focus: EstateField.crop),
+                      ),
+                      const SizedBox(height: 12),
+                      EstateDetailItem(
+                        icon: Icons.calendar_month_outlined,
+                        title: 'Year Established',
+                        value: estate.yearEstablished?.toString() ?? '',
+                        onTap: () =>
+                            _editEstate(estate, focus: EstateField.year),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
+                const SizedBox(height: 10),
+
+                // Account
+                _Card(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: const Icon(
+                          Icons.person_outline,
+                          color: _darkGreen,
+                        ),
+                        title: Text(
+                          user?.name ?? estate.ownerName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: _ink,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${user?.phone ?? ''}  ·  Estate Owner',
+                          style: const TextStyle(fontSize: 12, color: _muted),
+                        ),
+                        trailing: TextButton(
+                          onPressed: _editAccount,
+                          style: TextButton.styleFrom(
+                            foregroundColor: _darkGreen,
+                          ),
+                          child: const Text('Edit'),
+                        ),
+                      ),
+                      const Divider(height: 1, indent: 56, color: _cardBorder),
+                      ListTile(
+                        onTap: () => confirmLogOut(context),
+                        leading: const Icon(
+                          Icons.logout,
+                          color: Color(0xFFC62828),
+                        ),
+                        title: const Text(
+                          'Log out',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFC62828),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

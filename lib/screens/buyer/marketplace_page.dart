@@ -22,7 +22,7 @@ const List<Color> _avatarColors = [
 class _RequestMatch {
   final int quantity;
   final DateTime requiredDate;
-  final int price;
+  final double price;
 
   const _RequestMatch(this.quantity, this.requiredDate, this.price);
 
@@ -42,9 +42,9 @@ class MarketplacePage extends StatefulWidget {
 }
 
 class _MarketplacePageState extends State<MarketplacePage> {
-  final _nutsController = TextEditingController();
+  final _nutsController = TextEditingController(text: '0');
   final _dateController = TextEditingController();
-  final _priceController = TextEditingController();
+  final _priceController = TextEditingController(text: '0.00');
 
   ListingSort _sort = ListingSort.newest;
   int? _radiusKm;
@@ -110,7 +110,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
     if (_submitting) return;
 
     final int? nuts = int.tryParse(_nutsController.text);
-    final int? price = int.tryParse(_priceController.text);
+    final double? price = double.tryParse(_priceController.text);
 
     String? error;
     if (nuts == null || nuts <= 0) {
@@ -134,7 +134,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
         productType: widget.type.code,
         quantity: nuts!,
         requiredDate: _requiredDate!,
-        pricePerUnit: price!.toDouble(),
+        pricePerUnit: price!,
       );
       if (!mounted) return;
       _showSnack(
@@ -143,9 +143,9 @@ class _MarketplacePageState extends State<MarketplacePage> {
       );
       _match = _RequestMatch(nuts, _requiredDate!, price);
       _reloadListings();
-      _nutsController.clear();
+      _nutsController.text = '0';
       _dateController.clear();
-      _priceController.clear();
+      _priceController.text = '0.00';
       _requiredDate = null;
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -277,7 +277,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
   /// "Within your bid" / "Rs. 5 above your bid".
   String _bidNote(Listing listing, _RequestMatch match) {
     final double over = listing.pricePerUnit - match.price;
-    if (over <= 0) return 'Within your bid of Rs. ${match.price}';
+    if (over <= 0) return 'Within your bid of ${rupees(match.price)}';
     return '${rupees(over)} above your bid';
   }
 
@@ -441,7 +441,8 @@ class _MarketplacePageState extends State<MarketplacePage> {
                   const SizedBox(height: 7),
                   BuyerInputField(
                     controller: _nutsController,
-                    hint: '1200',
+                    hint: '0',
+                    selectZeroOnTap: true,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     textInputAction: TextInputAction.next,
@@ -480,9 +481,16 @@ class _MarketplacePageState extends State<MarketplacePage> {
                   const SizedBox(height: 7),
                   BuyerInputField(
                     controller: _priceController,
-                    hint: '${widget.type.pricePerNut - 20}',
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    hint: '0.00',
+                    selectZeroOnTap: true,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'^\d*\.?\d{0,2}'),
+                      ),
+                    ],
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _submitRequest(),
                     prefix: const Padding(

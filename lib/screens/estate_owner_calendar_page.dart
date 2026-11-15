@@ -139,7 +139,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             MaterialPageRoute(
               builder: (_) => ScheduledJobsPage(date: selectedDay),
             ),
-          );
+          ).then((_) => _loadPostedJobs());
         },
       ),
     );
@@ -164,16 +164,18 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                     children: [
                       _estateSummary(),
                       const SizedBox(height: 12),
+                      _categoryCard(),
+                      const SizedBox(height: 12),
                       HolidayListener(
                         years: [_month.year],
                         builder: (_) => _calendarCard(),
                       ),
-                      const SizedBox(height: 12),
-                      _categoryCard(),
                     ],
                   ),
                 ),
-                _CalendarBottomNavigation(notificationCount: _notificationCount),
+                _CalendarBottomNavigation(
+                  notificationCount: _notificationCount,
+                ),
               ],
             ),
           ),
@@ -267,31 +269,31 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             ),
           ),
           if (place.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF4F0E9),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.location_on_outlined,
-                  size: 17,
-                  color: Color(0xFF718096),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  place,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF3D4A5D),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF4F0E9),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.location_on_outlined,
+                    size: 17,
+                    color: Color(0xFF718096),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  Text(
+                    place,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF3D4A5D),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -301,6 +303,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     final firstDay = DateTime(_month.year, _month.month, 1);
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
     final leadingDays = firstDay.weekday - 1;
+    final calendarCellCount = ((leadingDays + daysInMonth + 6) ~/ 7) * 7;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
@@ -364,7 +367,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: 42,
+            itemCount: calendarCellCount,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
               mainAxisExtent: 48,
@@ -373,7 +376,11 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             ),
             itemBuilder: (context, index) {
               final dayOffset = index - leadingDays;
-              return _dayCell(dayOffset + 1, daysInMonth);
+              final day = dayOffset + 1;
+              if (day < 1 || day > daysInMonth) {
+                return const SizedBox.shrink();
+              }
+              return _dayCell(day);
             },
           ),
           const SizedBox(height: 16),
@@ -402,27 +409,6 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'STATUS',
-            style: TextStyle(
-              color: Color(0xFF718096),
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              letterSpacing: .5,
-            ),
-          ),
-          const SizedBox(height: 14),
-          const Row(
-            children: [
-              _Legend(color: Color(0xFFF0A315), label: 'Partially Filled'),
-              SizedBox(width: 22),
-              _Legend(color: _calendarGreen, label: 'Fully Filled'),
-            ],
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(height: 1, color: Color(0xFFEDE5DA)),
-          ),
-          const Text(
             'CATEGORY / DAY TYPE',
             style: TextStyle(
               color: Color(0xFF718096),
@@ -439,7 +425,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
               _CategoryChip(Icons.eco, 'Nut Gatherer'),
               _CategoryChip(Icons.agriculture, 'Machine Weeder'),
               _CategoryChip(Icons.build, 'Manual Worker'),
-              _CategoryChip(Icons.star_border, 'Holiday'),
+              _CategoryChip(Icons.star, 'Holiday', iconColor: Colors.red),
             ],
           ),
         ],
@@ -463,20 +449,12 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     );
   }
 
-  Widget _dayCell(int day, int daysInMonth) {
-    final bool isPreviousMonth = day < 1;
-    final bool isNextMonth = day > daysInMonth;
-    final int displayDay = isPreviousMonth
-        ? DateTime(_month.year, _month.month, 0).day + day
-        : isNextMonth
-        ? day - daysInMonth
-        : day;
-    final bool isPreviewDay = isPreviousMonth || isNextMonth;
+  Widget _dayCell(int day) {
     final DateTime cellDate = DateTime(_month.year, _month.month, day);
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
-    final isPastDay = !isPreviewDay && cellDate.isBefore(todayDate);
-    final isTodayOrFuture = !isPreviewDay && !isPastDay;
+    final isPastDay = cellDate.isBefore(todayDate);
+    final isTodayOrFuture = !isPastDay;
     final jobsOnDay = _postedJobs.where((job) {
       return job.requiredDate.year == cellDate.year &&
           job.requiredDate.month == cellDate.month &&
@@ -486,36 +464,28 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
         _selectedDay?.year == cellDate.year &&
         _selectedDay?.month == cellDate.month &&
         _selectedDay?.day == cellDate.day;
-    final statusColor = isPreviewDay || jobsOnDay.isEmpty
+    final statusColor = jobsOnDay.isEmpty
         ? null
-        : jobsOnDay.every(
-            (job) => job.confirmedWorkers >= job.workersNeeded,
-          )
+        : jobsOnDay.every((job) => job.confirmedWorkers >= job.workersNeeded)
         ? _calendarGreen
         : const Color(0xFFF0A315);
-    final jobIcons = isPreviewDay
-        ? <IconData>[]
-        : jobsOnDay.map((job) => _iconForJobCategory(job.category)).toList();
-    final isPoyaDay = !isPreviewDay && HolidayService.of(cellDate) != null;
+    final jobIcons = jobsOnDay
+        .map((job) => _iconForJobCategory(job.category))
+        .toList();
+    final isPoyaDay = HolidayService.of(cellDate) != null;
 
     return GestureDetector(
       onTap: () => _selectDay(cellDate),
       child: Container(
         padding: const EdgeInsets.fromLTRB(6, 6, 6, 5),
         decoration: BoxDecoration(
-          color: isNextMonth && displayDay == 1
-              ? const Color(0xFFBFD5C7)
-              : selected
+          color: selected
               ? _calendarGreen
-              : isPreviewDay
-              ? const Color(0xFFF4F3F0)
               : isTodayOrFuture
               ? const Color(0xFFBDD3C4)
               : const Color(0xFFEBE9E3),
           borderRadius: BorderRadius.circular(16),
-          border: isNextMonth && displayDay == 1
-              ? Border.all(color: const Color(0xFF2A9F78), width: 1.5)
-              : selected
+          border: selected
               ? Border.all(color: const Color(0xFF0B9368), width: 2)
               : null,
         ),
@@ -524,19 +494,11 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             Align(
               alignment: Alignment.topLeft,
               child: Text(
-                isNextMonth && displayDay == 1
-                    ? '$displayDay ${_months[(_month.month) % 12].substring(0, 3)}'
-                    : '$displayDay',
+                '$day',
                 style: TextStyle(
-                  color: isPreviewDay
-                      ? const Color(0xFF687078)
-                      : selected
-                      ? Colors.white
-                      : _calendarInk,
+                  color: selected ? Colors.white : _calendarInk,
                   fontSize: 14,
-                  fontWeight: isPreviewDay || selected
-                      ? FontWeight.bold
-                      : FontWeight.w500,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.w500,
                 ),
               ),
             ),
@@ -548,8 +510,10 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: selected || statusColor == const Color(0xFFF0A315)
+                    color: statusColor == const Color(0xFFF0A315)
                         ? const Color(0xFFFFB318)
+                        : selected
+                        ? const Color(0xFF57D49B)
                         : const Color(0xFF07835F),
                     shape: BoxShape.circle,
                   ),
@@ -559,7 +523,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
               const Positioned(
                 bottom: 1,
                 left: 0,
-                child: Icon(Icons.star_border, size: 16, color: Colors.red),
+                child: Icon(Icons.star, size: 16, color: Colors.red),
               )
             else if (jobIcons.isNotEmpty)
               Positioned(
@@ -582,24 +546,12 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                   ],
                 ),
               ),
-            if (isNextMonth && displayDay == 1)
-              const Positioned(
-                bottom: 0,
-                left: 1,
-                child: Text(
-                  '+',
-                  style: TextStyle(
-                    color: _calendarGreen,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
           ],
         ),
       ),
     );
   }
+
   IconData _iconForJobCategory(String category) {
     final value = category.toLowerCase();
     if (value.contains('machine') || value.contains('weeder')) {
@@ -852,8 +804,9 @@ class _ActionButton extends StatelessWidget {
 class _CategoryChip extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color iconColor;
 
-  const _CategoryChip(this.icon, this.label);
+  const _CategoryChip(this.icon, this.label, {this.iconColor = _calendarGreen});
 
   @override
   Widget build(BuildContext context) {
@@ -866,7 +819,7 @@ class _CategoryChip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: _calendarGreen),
+          Icon(icon, size: 18, color: iconColor),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -908,12 +861,6 @@ class _CalendarBottomNavigation extends StatelessWidget {
             onTap: () => openTab(context, AppTab.dashboard),
           ),
           _item(context, Icons.calendar_month, 'Calendar', active: true),
-          _item(
-            context,
-            Icons.receipt_long_outlined,
-            'Orders',
-            onTap: () => openTab(context, AppTab.orders),
-          ),
           _item(
             context,
             Icons.notifications_none,

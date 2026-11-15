@@ -34,7 +34,7 @@ db.public.none(`
     (1, 'RAW_COCONUT', 1200, '2026-11-18', 130),
     (2, 'RAW_COCONUT', 600, '2026-11-25', 125.50),
     (3, 'RAW_COCONUT', 2000, '2026-12-01', 140),
-    (1, 'HUSKED_COCONUT', 800, '2026-11-20', 150),
+    (1, 'COCONUT_HUSK', 800, '2026-11-20', 150),
     (2, 'DEHUSKED_COCONUT', 500, '2026-12-05', 165);
 
   INSERT INTO product_listings

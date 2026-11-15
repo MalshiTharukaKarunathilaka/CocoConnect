@@ -2,6 +2,7 @@ import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'raw_coconuts_page.dart';
+import 'coconut_husks_page.dart';
 
 class CoconutsPage extends StatelessWidget {
   const CoconutsPage({super.key});
@@ -31,9 +32,7 @@ class CoconutsPage extends StatelessWidget {
                           child: Row(
                             children: [
                               GestureDetector(
-                                onTap: () {
-                                  Navigator.pop(context);
-                                },
+                                onTap: () => Navigator.pop(context),
                                 child: const Icon(
                                   Icons.arrow_back,
                                   size: 20,
@@ -119,13 +118,21 @@ class CoconutsPage extends StatelessWidget {
 
                         const SizedBox(height: 10),
 
-                        const Expanded(
+                        Expanded(
                           child: CoconutProductCard(
                             title: 'Only Husks',
                             unitLabel: '1 unit = 1 nut',
                             imageUrl: '',
                             imageAsset:
                                 'assets/images/coconut_husks_per_nut.png',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const CoconutHusksPage(),
+                                ),
+                              );
+                            },
                           ),
                         ),
 

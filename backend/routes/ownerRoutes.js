@@ -20,6 +20,9 @@ const {
   getDayJobs,
   getWorkerProfile,
   createDayJob,
+  completeDayJob,
+  deleteDayJob,
+  rateDayJobWorker,
 } = require("../controllers/ownerController");
 const { requireAuth, requireRole } = require("../middleware/auth");
 
@@ -126,7 +129,7 @@ router.post("/listings", createListing);
  *         name: type
  *         schema:
  *           type: string
- *           enum: [RAW_COCONUT, HUSKED_COCONUT, DEHUSKED_COCONUT]
+ *           enum: [RAW_COCONUT, DEHUSKED_COCONUT, COCONUT_HUSK]
  *       - in: query
  *         name: radiusKm
  *         description: Only buyers within this distance of my location
@@ -364,6 +367,9 @@ router.get("/market-stats", getMarketStats);
 
 router.get("/day-jobs", getDayJobs);
 router.post("/day-jobs", createDayJob);
+router.patch("/day-jobs/:id/complete", completeDayJob);
+router.delete("/day-jobs/:id", deleteDayJob);
+router.put("/day-jobs/:jobId/workers/:workerId/rating", rateDayJobWorker);
 router.get("/workers/:id", getWorkerProfile);
 
 module.exports = router;
