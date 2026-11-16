@@ -14,6 +14,10 @@ const Color _grey = Color(0xFF7A7A7A);
 
 enum AppTab { dashboard, orders, chats, alerts, profile }
 
+bool get supportsMainNavigation =>
+    AuthService.currentUser?.role == 'BUYER' ||
+    AuthService.currentUser?.role == 'ESTATE_OWNER';
+
 /// Unread chat messages and unseen notifications, shared by every bottom
 /// bar on screen and refreshed while one is showing.
 class Unread {
@@ -117,7 +121,6 @@ class _AppBottomNavState extends State<AppBottomNav> {
   }
 
   void _go(AppTab tab) {
-    if (tab == widget.current) return;
     openTab(context, tab);
   }
 
