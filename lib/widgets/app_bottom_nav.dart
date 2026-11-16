@@ -7,12 +7,15 @@ import '../screens/estate_owner_profile_page.dart';
 import '../screens/orders/orders_page.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
+import '../services/day_job_chat_service.dart';
 
 const Color _green = Color(0xFF256B45);
 const Color _greenSoft = Color(0xFFDDEEE0);
 const Color _grey = Color(0xFF7A7A7A);
 
 enum AppTab { dashboard, orders, chats, alerts, profile }
+
+enum ChatScope { all, coconut, dayJobs }
 
 bool get supportsMainNavigation =>
     AuthService.currentUser?.role == 'BUYER' ||
@@ -23,8 +26,13 @@ bool get supportsMainNavigation =>
 class Unread {
   Unread._();
 
-  static final ValueNotifier<({int chats, int alerts})> counts = ValueNotifier((
+  static final ValueNotifier<
+    ({int chats, int coconutChats, int dayJobChats, int alerts})
+  >
+  counts = ValueNotifier((
     chats: 0,
+    coconutChats: 0,
+    dayJobChats: 0,
     alerts: 0,
   ));
 
@@ -49,11 +57,25 @@ class Unread {
   static Future<void> refresh() async {
     if (AuthService.currentUser == null) return;
     try {
+      final role = AuthService.currentUser?.role;
       final chats = await ChatService.getChats();
+      final dayJobChats = role == 'ESTATE_OWNER' || role == 'WORKER'
+          ? await DayJobChatService.getChats()
+          : const <DayJobChatSummary>[];
       final notes = await ChatService.getNotifications();
       final int unseen = await ChatService.unseenCount(notes);
+      final coconutUnread = chats.fold(
+        0,
+        (sum, chat) => sum + chat.unreadCount,
+      );
+      final dayJobUnread = dayJobChats.fold(
+        0,
+        (sum, chat) => sum + chat.unreadCount,
+      );
       counts.value = (
-        chats: chats.fold(0, (sum, chat) => sum + chat.unreadCount),
+        chats: coconutUnread + dayJobUnread,
+        coconutChats: coconutUnread,
+        dayJobChats: dayJobUnread,
         alerts: unseen,
       );
     } catch (_) {
@@ -64,13 +86,18 @@ class Unread {
 
 /// Opens one of the main tabs on top of the home screen, so tabs replace
 /// each other instead of piling up.
-void openTab(BuildContext context, AppTab tab, {int ordersTab = 0}) {
+void openTab(
+  BuildContext context,
+  AppTab tab, {
+  int ordersTab = 0,
+  ChatScope chatScope = ChatScope.all,
+}) {
   final NavigatorState navigator = Navigator.of(context);
   final String? role = AuthService.currentUser?.role;
   final Widget? page = switch (tab) {
     AppTab.dashboard => null,
     AppTab.orders => OrdersPage(initialTab: ordersTab),
-    AppTab.chats => const ChatsPage(),
+    AppTab.chats => ChatsPage(scope: chatScope),
     AppTab.alerts => const NotificationsPage(),
     AppTab.profile => switch (role) {
       'BUYER' => const BuyerProfilePage(),
@@ -100,8 +127,13 @@ void openTab(BuildContext context, AppTab tab, {int ordersTab = 0}) {
 /// land owner sides.
 class AppBottomNav extends StatefulWidget {
   final AppTab current;
+  final ChatScope chatScope;
 
-  const AppBottomNav({super.key, required this.current});
+  const AppBottomNav({
+    super.key,
+    required this.current,
+    this.chatScope = ChatScope.all,
+  });
 
   @override
   State<AppBottomNav> createState() => _AppBottomNavState();
@@ -121,7 +153,7 @@ class _AppBottomNavState extends State<AppBottomNav> {
   }
 
   void _go(AppTab tab) {
-    openTab(context, tab);
+    openTab(context, tab, chatScope: widget.chatScope);
   }
 
   @override
@@ -154,7 +186,11 @@ class _AppBottomNavState extends State<AppBottomNav> {
               Icons.chat_bubble_outline,
               Icons.chat_bubble,
               'Chats',
-              badge: counts.chats,
+              badge: switch (widget.chatScope) {
+                ChatScope.coconut => counts.coconutChats,
+                ChatScope.dayJobs => counts.dayJobChats,
+                ChatScope.all => counts.chats,
+              },
             ),
             _item(
               AppTab.alerts,

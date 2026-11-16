@@ -21,14 +21,12 @@ class PostDayJobPage extends StatefulWidget {
 class _PostDayJobPageState extends State<PostDayJobPage> {
   int _workers = 0;
   String? _category;
-  String _paymentMethod = 'Direct Bank Transfer';
+  String? _paymentMethod;
   String _estateName = '';
   String _estateLocation = '';
   bool _loadingEstate = true;
   bool _broadcasting = false;
-  final TextEditingController _rateController = TextEditingController(
-    text: '0',
-  );
+  final TextEditingController _rateController = TextEditingController();
 
   @override
   void initState() {
@@ -89,6 +87,17 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
     return _workers == 1 ? singular : '${singular}s';
   }
 
+  bool get _formIsValid {
+    final rate = double.tryParse(_rateController.text.trim());
+    return _category != null &&
+        _workers > 0 &&
+        !_loadingEstate &&
+        _estateLocation.isNotEmpty &&
+        rate != null &&
+        rate > 0 &&
+        _paymentMethod != null;
+  }
+
   static const _months = [
     'January',
     'February',
@@ -132,6 +141,12 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
       );
       return;
     }
+    if (_paymentMethod == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Select a payment method')));
+      return;
+    }
 
     try {
       setState(() => _broadcasting = true);
@@ -141,7 +156,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
         requiredDate: widget.requiredDate,
         location: _estateLocation,
         dailyRate: rate,
-        paymentMethod: _paymentMethod,
+        paymentMethod: _paymentMethod!,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -160,6 +175,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
   @override
   Widget build(BuildContext context) {
     return RoleNavigationPage(
+      chatScope: ChatScope.dayJobs,
       current: AppTab.dashboard,
       child: Scaffold(
         backgroundColor: const Color(0xFFE7E5DF),
@@ -198,7 +214,9 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
                                 height: 56,
                                 width: 338,
                                 child: FilledButton(
-                                  onPressed: _broadcasting ? null : _broadcast,
+                                  onPressed: _broadcasting || !_formIsValid
+                                      ? null
+                                      : _broadcast,
                                   style: FilledButton.styleFrom(
                                     backgroundColor: _jobGreen,
                                     foregroundColor: Colors.white,
@@ -486,12 +504,10 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
                   ),
                   onTap: () {
                     if (_rateController.text == '0') {
-                      _rateController.selection = TextSelection(
-                        baseOffset: 0,
-                        extentOffset: _rateController.text.length,
-                      );
+                      _rateController.clear();
                     }
                   },
+                  onChanged: (_) => setState(() {}),
                   style: const TextStyle(
                     color: _jobInk,
                     fontSize: 30,

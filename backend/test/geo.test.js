@@ -177,6 +177,24 @@ test("workers see estates and jobs within the selected radius", async () => {
   assert.ok(within10.data[0].distance_km > 6);
   assert.ok(within10.data[0].distance_km < 9);
 
+  const allEstates = await call("GET", "/api/worker/estates", {
+    token: worker.token,
+  });
+  assert.equal(allEstates.status, 200);
+  const mappedNearEstate = allEstates.data.find(
+    (estate) => estate.id === within10.data[0].id
+  );
+  assert.equal(mappedNearEstate.has_map_location, true);
+
+  const exactEstateLocation = await call(
+    "GET",
+    `/api/worker/estates/${within10.data[0].id}/location`,
+    { token: worker.token }
+  );
+  assert.equal(exactEstateLocation.status, 200);
+  assert.equal(Number(exactEstateLocation.data.estate_latitude), KELANIYA.latitude);
+  assert.equal(Number(exactEstateLocation.data.estate_longitude), KELANIYA.longitude);
+
   const jobs = await call("GET", "/api/worker/jobs", {
     token: worker.token,
   });

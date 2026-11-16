@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'app_bottom_nav.dart';
-export 'app_bottom_nav.dart' show AppTab;
+export 'app_bottom_nav.dart' show AppTab, ChatScope;
 
 /// Adds the signed-in buyer/owner navigation to screens with their own Scaffold.
 class RoleNavigationPage extends StatelessWidget {
   final Widget child;
   final AppTab current;
+  final ChatScope chatScope;
   const RoleNavigationPage({
     super.key,
     required this.child,
     this.current = AppTab.dashboard,
+    this.chatScope = ChatScope.all,
   });
 
   @override
@@ -34,7 +36,7 @@ class RoleNavigationPage extends StatelessWidget {
                 color: Color(0xFFF8F4EB),
                 child: SafeArea(
                   top: false,
-                  child: AppBottomNav(current: current),
+                  child: AppBottomNav(current: current, chatScope: chatScope),
                 ),
               ),
             ],

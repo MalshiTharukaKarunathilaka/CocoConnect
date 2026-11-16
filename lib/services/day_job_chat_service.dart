@@ -52,13 +52,49 @@ class DayJobChat {
   );
 }
 
+class DayJobChatSummary {
+  final int id;
+  final int jobId;
+  final String category;
+  final String counterpartName;
+  final String counterpartRole;
+  final String? lastMessage;
+  final DateTime? lastActivityAt;
+  final int unreadCount;
+
+  const DayJobChatSummary({
+    required this.id,
+    required this.jobId,
+    required this.category,
+    required this.counterpartName,
+    required this.counterpartRole,
+    required this.lastMessage,
+    required this.lastActivityAt,
+    required this.unreadCount,
+  });
+
+  factory DayJobChatSummary.fromJson(Map<String, dynamic> json) =>
+      DayJobChatSummary(
+        id: (json['id'] as num).toInt(),
+        jobId: (json['day_job_id'] as num).toInt(),
+        category: json['category'] as String? ?? 'Day job',
+        counterpartName: json['counterpart_name'] as String? ?? 'User',
+        counterpartRole: json['counterpart_role'] as String? ?? 'USER',
+        lastMessage: json['last_message'] as String?,
+        lastActivityAt: DateTime.tryParse(
+          '${json['last_activity_at'] ?? ''}',
+        )?.toLocal(),
+        unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class DayJobChatService {
   DayJobChatService._();
 
   static Future<int> openChat(int jobId, {int? workerId}) async {
     final data = await ApiClient.post('/api/day-job-chats', {
       'jobId': jobId,
-      if (workerId != null) 'workerId': workerId,
+      'workerId': ?workerId,
     });
     return (data as Map<String, dynamic>)['id'] as int;
   }
@@ -66,6 +102,14 @@ class DayJobChatService {
   static Future<DayJobChat> getChat(int chatId) async {
     final data = await ApiClient.get('/api/day-job-chats/$chatId');
     return DayJobChat.fromJson(data as Map<String, dynamic>);
+  }
+
+  static Future<List<DayJobChatSummary>> getChats() async {
+    final data = await ApiClient.get('/api/day-job-chats');
+    return [
+      for (final item in data as List)
+        DayJobChatSummary.fromJson(item as Map<String, dynamic>),
+    ];
   }
 
   static Future<void> send(int chatId, String message) async {

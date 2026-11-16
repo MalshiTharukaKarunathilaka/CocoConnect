@@ -25,6 +25,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   DateTime? _selectedDay;
   List<DayJob> _postedJobs = [];
   Estate? _estate;
+  String? _categoryFilter;
 
   static const List<String> _weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   static const List<String> _months = [
@@ -134,6 +135,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   @override
   Widget build(BuildContext context) {
     return RoleNavigationPage(
+      chatScope: ChatScope.dayJobs,
       child: Scaffold(
         backgroundColor: const Color(0xFFEFEFEF),
         body: Center(
@@ -406,16 +408,66 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
           Wrap(
             spacing: 10,
             runSpacing: 10,
-            children: const [
-              _CategoryChip(Icons.eco, 'Nut Gatherer'),
-              _CategoryChip(Icons.agriculture, 'Machine Weeder'),
-              _CategoryChip(Icons.build, 'Manual Worker'),
-              _CategoryChip(Icons.star, 'Holiday', iconColor: Colors.red),
+            children: [
+              _CategoryChip(
+                Icons.eco,
+                'Nut Gatherer',
+                selected: _categoryFilter == 'Nut Gatherer',
+                onTap: () => _toggleCategoryFilter('Nut Gatherer'),
+              ),
+              _CategoryChip(
+                Icons.agriculture,
+                'Machine Weeder',
+                selected: _categoryFilter == 'Machine Weeder',
+                onTap: () => _toggleCategoryFilter('Machine Weeder'),
+              ),
+              _CategoryChip(
+                Icons.build,
+                'Manual Worker',
+                selected: _categoryFilter == 'Manual Worker',
+                onTap: () => _toggleCategoryFilter('Manual Worker'),
+              ),
+              _CategoryChip(
+                Icons.star,
+                'Holiday',
+                iconColor: Colors.red,
+                selected: _categoryFilter == 'Holiday',
+                onTap: () => _toggleCategoryFilter('Holiday'),
+              ),
             ],
           ),
+          if (_categoryFilter != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Showing $_categoryFilter dates',
+                    style: const TextStyle(
+                      color: Color(0xFF718096),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => setState(() => _categoryFilter = null),
+                  icon: const Icon(Icons.close, size: 16),
+                  label: const Text('Clear'),
+                  style: TextButton.styleFrom(foregroundColor: _calendarGreen),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  void _toggleCategoryFilter(String category) {
+    setState(() {
+      _categoryFilter = _categoryFilter == category ? null : category;
+    });
   }
 
   Widget _monthButton(IconData icon, VoidCallback onPressed) {
@@ -440,11 +492,20 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     final todayDate = DateTime(today.year, today.month, today.day);
     final isPastDay = cellDate.isBefore(todayDate);
     final isTodayOrFuture = !isPastDay;
-    final jobsOnDay = _postedJobs.where((job) {
+    final allJobsOnDay = _postedJobs.where((job) {
       return job.requiredDate.year == cellDate.year &&
           job.requiredDate.month == cellDate.month &&
           job.requiredDate.day == cellDate.day;
     }).toList();
+    final jobsOnDay = _categoryFilter == null
+        ? allJobsOnDay
+        : _categoryFilter == 'Holiday'
+        ? const <DayJob>[]
+        : allJobsOnDay
+              .where(
+                (job) => _jobMatchesCategory(job.category, _categoryFilter!),
+              )
+              .toList();
     final selected =
         _selectedDay?.year == cellDate.year &&
         _selectedDay?.month == cellDate.month &&
@@ -456,8 +517,11 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
         : const Color(0xFFF0A315);
     final jobIcons = jobsOnDay
         .map((job) => _iconForJobCategory(job.category))
+        .toSet()
         .toList();
     final isPoyaDay = HolidayService.of(cellDate) != null;
+    final showHoliday =
+        isPoyaDay && (_categoryFilter == null || _categoryFilter == 'Holiday');
 
     return GestureDetector(
       onTap: () => _selectDay(cellDate),
@@ -504,7 +568,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                   ),
                 ),
               ),
-            if (isPoyaDay)
+            if (showHoliday)
               const Positioned(
                 bottom: 1,
                 left: 0,
@@ -549,6 +613,21 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
       return Icons.star_border;
     }
     return Icons.build;
+  }
+
+  bool _jobMatchesCategory(String jobCategory, String filter) {
+    final value = jobCategory.toLowerCase();
+    return switch (filter) {
+      'Nut Gatherer' => value.contains('nut') || value.contains('gather'),
+      'Machine Weeder' => value.contains('machine') || value.contains('weeder'),
+      'Manual Worker' =>
+        value.contains('manual') ||
+            (!value.contains('machine') &&
+                !value.contains('weeder') &&
+                !value.contains('nut') &&
+                !value.contains('gather')),
+      _ => false,
+    };
   }
 }
 
@@ -790,34 +869,58 @@ class _CategoryChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color iconColor;
+  final bool selected;
+  final VoidCallback onTap;
 
-  const _CategoryChip(this.icon, this.label, {this.iconColor = _calendarGreen});
+  const _CategoryChip(
+    this.icon,
+    this.label, {
+    this.iconColor = _calendarGreen,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 155,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4EFE6),
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'Filter calendar by $label',
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(17),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: iconColor),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _calendarInk,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-              ),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: 155,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFDDEEE0) : const Color(0xFFF4EFE6),
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(
+              color: selected ? _calendarGreen : Colors.transparent,
+              width: 1.5,
             ),
           ),
-        ],
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: iconColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected ? _calendarGreen : _calendarInk,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (selected)
+                const Icon(Icons.check, size: 16, color: _calendarGreen),
+            ],
+          ),
+        ),
       ),
     );
   }

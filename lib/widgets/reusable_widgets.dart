@@ -223,13 +223,19 @@ class CoconutProductCard extends StatelessWidget {
 
 class CustomBottomNavigation extends StatelessWidget {
   final int currentIndex;
+  final ChatScope chatScope;
 
-  const CustomBottomNavigation({super.key, required this.currentIndex});
+  const CustomBottomNavigation({
+    super.key,
+    required this.currentIndex,
+    this.chatScope = ChatScope.all,
+  });
 
   @override
   Widget build(BuildContext context) {
     // Same bar as the buyer side: Dashboard, Orders, Chats, Alerts, Profile.
     return AppBottomNav(
+      chatScope: chatScope,
       current: const [
         AppTab.dashboard,
         AppTab.orders,

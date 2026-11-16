@@ -28,6 +28,7 @@ final _client = MockClient((request) async {
   }
   if ([
     '/api/chats',
+    '/api/day-job-chats',
     '/api/notifications',
     '/api/buyer/requests',
     '/api/buyer/orders',

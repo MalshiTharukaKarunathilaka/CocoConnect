@@ -426,6 +426,30 @@ test("worker acceptance appears in the land owner's job details", async () => {
     "WORKER",
     "Kandy"
   );
+  const incompleteJob = await call("POST", "/api/owner/day-jobs", {
+    token: owner.token,
+    body: {
+      category: "Nut Gatherer",
+      workersNeeded: 0,
+      requiredDate: "2026-12-22",
+      dailyRate: 0,
+      paymentMethod: "",
+    },
+  });
+  assert.equal(incompleteJob.status, 400);
+
+  const invalidPaymentJob = await call("POST", "/api/owner/day-jobs", {
+    token: owner.token,
+    body: {
+      category: "Nut Gatherer",
+      workersNeeded: 1,
+      requiredDate: "2026-12-22",
+      dailyRate: 2500,
+      paymentMethod: "Cheque",
+    },
+  });
+  assert.equal(invalidPaymentJob.status, 400);
+
   const created = await call("POST", "/api/owner/day-jobs", {
     token: owner.token,
     body: {
@@ -451,6 +475,14 @@ test("worker acceptance appears in the land owner's job details", async () => {
   );
   assert.equal(applied.status, 201);
   assert.equal(applied.data.status, "ACCEPTED");
+
+  const futureWorkerJobs = await call("GET", "/api/worker/jobs", {
+    token: worker.token,
+  });
+  const acceptedFutureJob = futureWorkerJobs.data.find(
+    (item) => item.id === created.data.id
+  );
+  assert.equal(acceptedFutureJob.can_decline, true);
 
   const jobs = await call("GET", "/api/owner/day-jobs", { token: owner.token });
   const job = jobs.data.find((item) => item.id === created.data.id);
@@ -486,6 +518,37 @@ test("worker acceptance appears in the land owner's job details", async () => {
   );
   assert.equal(historicalAcceptance.status, 201);
 
+  const workerJobsBeforeCompletion = await call("GET", "/api/worker/jobs", {
+    token: worker.token,
+  });
+  const pastWorkerJob = workerJobsBeforeCompletion.data.find(
+    (item) => item.id === historicalJob.data.id
+  );
+  assert.equal(pastWorkerJob.worker_status, "FULL");
+  assert.equal(pastWorkerJob.completion_acknowledged, false);
+  assert.equal(pastWorkerJob.can_decline, false);
+
+  const pastDecline = await call(
+    "POST",
+    `/api/worker/jobs/${historicalJob.data.id}/decline`,
+    { token: worker.token }
+  );
+  assert.equal(pastDecline.status, 409);
+  assert.match(pastDecline.data.message, /only future/i);
+
+  const effectiveWorkerProfile = await call("GET", "/api/worker/profile", {
+    token: worker.token,
+  });
+  assert.equal(effectiveWorkerProfile.data.accepted_jobs, 2);
+  assert.equal(effectiveWorkerProfile.data.active_jobs, 2);
+  assert.equal(effectiveWorkerProfile.data.completed_jobs, 0);
+
+  const effectiveOwnerWorkerProfile = await call("GET", "/api/owner/workers/1", {
+    token: owner.token,
+  });
+  assert.equal(effectiveOwnerWorkerProfile.data.accepted_jobs, 2);
+  assert.equal(effectiveOwnerWorkerProfile.data.completed_jobs, 0);
+
   const pastDeletion = await call(
     "DELETE",
     `/api/owner/day-jobs/${historicalJob.data.id}`,
@@ -500,6 +563,64 @@ test("worker acceptance appears in the land owner's job details", async () => {
     { token: owner.token }
   );
   assert.equal(historicalCompletion.status, 200);
+  assert.equal(historicalCompletion.data.status, "AWAITING_WORKER_ACK");
+
+  const ownerJobsAwaitingWorker = await call("GET", "/api/owner/day-jobs", {
+    token: owner.token,
+  });
+  const ownerAwaitingJob = ownerJobsAwaitingWorker.data.find(
+    (item) => item.id === historicalJob.data.id
+  );
+  assert.equal(ownerAwaitingJob.status, "AWAITING_WORKER_ACK");
+  assert.deepEqual(ownerAwaitingJob.accepted_workers, [
+    { id: 1, name: "Day Worker", rating: null },
+  ]);
+
+  const ratingWhileAwaitingWorker = await call(
+    "PUT",
+    `/api/owner/day-jobs/${historicalJob.data.id}/workers/1/rating`,
+    { token: owner.token, body: { rating: 4 } }
+  );
+  assert.equal(ratingWhileAwaitingWorker.status, 200);
+  assert.equal(ratingWhileAwaitingWorker.data.rating, 4);
+
+  const pendingWorkerJobs = await call("GET", "/api/worker/jobs", {
+    token: worker.token,
+  });
+  const pendingHistoricalJob = pendingWorkerJobs.data.find(
+    (item) => item.id === historicalJob.data.id
+  );
+  assert.equal(pendingHistoricalJob.worker_status, "AWAITING_WORKER_ACK");
+  assert.equal(pendingHistoricalJob.completion_acknowledged, false);
+
+  const unrelatedWorker = await signup(
+    "Other Day Worker",
+    "0719999998",
+    "WORKER",
+    "Kandy"
+  );
+  const unrelatedAcknowledgement = await call(
+    "PATCH",
+    `/api/worker/jobs/${historicalJob.data.id}/complete`,
+    { token: unrelatedWorker.token, body: { rating: 4 } }
+  );
+  assert.equal(unrelatedAcknowledgement.status, 409);
+
+  const acknowledgedCompletion = await call(
+    "PATCH",
+    `/api/worker/jobs/${historicalJob.data.id}/complete`,
+    { token: worker.token, body: { rating: 4 } }
+  );
+  assert.equal(acknowledgedCompletion.status, 200);
+  assert.equal(acknowledgedCompletion.data.status, "COMPLETED");
+  assert.equal(acknowledgedCompletion.data.rating, 4);
+
+  const duplicateAcknowledgement = await call(
+    "PATCH",
+    `/api/worker/jobs/${historicalJob.data.id}/complete`,
+    { token: worker.token, body: { rating: 4 } }
+  );
+  assert.equal(duplicateAcknowledgement.status, 409);
 
   const invalidRating = await call(
     "PUT",
@@ -518,18 +639,118 @@ test("worker acceptance appears in the land owner's job details", async () => {
   const rated = await call(
     "PUT",
     `/api/owner/day-jobs/${historicalJob.data.id}/workers/1/rating`,
-    { token: owner.token, body: { rating: 4 } }
+    { token: owner.token, body: { rating: 5 } }
   );
   assert.equal(rated.status, 200);
-  assert.equal(rated.data.rating, 4);
+  assert.equal(rated.data.rating, 5);
 
   const profileWithHistory = await call("GET", "/api/owner/workers/1", {
     token: owner.token,
   });
   assert.equal(profileWithHistory.data.accepted_jobs, 1);
   assert.equal(profileWithHistory.data.completed_jobs, 1);
-  assert.equal(profileWithHistory.data.total_rating_marks, 4);
-  assert.equal(profileWithHistory.data.average_rating, 4);
+  assert.equal(profileWithHistory.data.total_rating_marks, 5);
+  assert.equal(profileWithHistory.data.average_rating, 5);
+
+  const workerOwnProfile = await call("GET", "/api/worker/profile", {
+    token: worker.token,
+  });
+  assert.equal(workerOwnProfile.status, 200);
+  assert.equal(workerOwnProfile.data.name, "Day Worker");
+  assert.equal(workerOwnProfile.data.accepted_jobs, 2);
+  assert.equal(workerOwnProfile.data.active_jobs, 1);
+  assert.equal(workerOwnProfile.data.completed_jobs, 1);
+  assert.equal(workerOwnProfile.data.total_rating_marks, 5);
+  assert.equal(workerOwnProfile.data.average_rating, 5);
+  assert.deepEqual(workerOwnProfile.data.work_categories, [
+    "Historical Manual Work",
+    "Nut Gatherer",
+  ]);
+
+  const ownerProfileForWorker = await call(
+    "GET",
+    `/api/worker/jobs/${historicalJob.data.id}/estate-owner`,
+    { token: worker.token }
+  );
+  assert.equal(ownerProfileForWorker.status, 200);
+  assert.equal(ownerProfileForWorker.data.estate_name, "Hill Top Estate");
+  assert.equal(ownerProfileForWorker.data.owner_name, "Nimal Owner");
+  assert.equal(ownerProfileForWorker.data.current_job_rating, 4);
+  assert.equal(ownerProfileForWorker.data.completed_jobs, 1);
+  assert.equal(ownerProfileForWorker.data.average_rating, 4);
+
+  const invalidOwnerRating = await call(
+    "PUT",
+    `/api/worker/jobs/${historicalJob.data.id}/estate-owner/rating`,
+    { token: worker.token, body: { rating: 0 } }
+  );
+  assert.equal(invalidOwnerRating.status, 400);
+
+  const activeJobOwnerRating = await call(
+    "PUT",
+    `/api/worker/jobs/${created.data.id}/estate-owner/rating`,
+    { token: worker.token, body: { rating: 5 } }
+  );
+  assert.equal(activeJobOwnerRating.status, 404);
+
+  const ownerRatedByWorker = await call(
+    "PUT",
+    `/api/worker/jobs/${historicalJob.data.id}/estate-owner/rating`,
+    { token: worker.token, body: { rating: 5 } }
+  );
+  assert.equal(ownerRatedByWorker.status, 200);
+  assert.equal(ownerRatedByWorker.data.rating, 5);
+
+  const unratedHistoricalJob = await call("POST", "/api/owner/day-jobs", {
+    token: owner.token,
+    body: {
+      category: "Historical Estate Work",
+      workersNeeded: 1,
+      requiredDate: "1999-12-31",
+      location: "Hill Top Estate",
+      dailyRate: 1700,
+      paymentMethod: "Cash",
+    },
+  });
+  await call("POST", `/api/worker/jobs/${unratedHistoricalJob.data.id}/apply`, {
+    token: worker.token,
+  });
+  await call(
+    "PATCH",
+    `/api/owner/day-jobs/${unratedHistoricalJob.data.id}/complete`,
+    { token: owner.token }
+  );
+  await call(
+    "PATCH",
+    `/api/worker/jobs/${unratedHistoricalJob.data.id}/complete`,
+    { token: worker.token, body: { rating: 3 } }
+  );
+
+  const ratedOwnerProfile = await call(
+    "GET",
+    `/api/worker/jobs/${historicalJob.data.id}/estate-owner`,
+    { token: worker.token }
+  );
+  assert.equal(ratedOwnerProfile.data.current_job_rating, 5);
+  assert.equal(ratedOwnerProfile.data.completed_jobs, 2);
+  assert.equal(ratedOwnerProfile.data.rating_count, 2);
+  assert.equal(ratedOwnerProfile.data.total_rating_marks, 8);
+  assert.equal(ratedOwnerProfile.data.average_rating, 4);
+
+  const workerJobsWithOwnerRating = await call("GET", "/api/worker/jobs", {
+    token: worker.token,
+  });
+  const ratedHistoricalJob = workerJobsWithOwnerRating.data.find(
+    (item) => item.id === historicalJob.data.id
+  );
+  assert.equal(ratedHistoricalJob.estate_owner_rating, 5);
+
+  const ownerCannotReadWorkerSelfProfile = await call(
+    "GET",
+    "/api/worker/profile",
+    { token: owner.token }
+  );
+  assert.equal(ownerCannotReadWorkerSelfProfile.status, 403);
 
   const ownerChat = await call("POST", "/api/day-job-chats", {
     token: owner.token,
@@ -558,12 +779,32 @@ test("worker acceptance appears in the land owner's job details", async () => {
     { token: worker.token, body: { message: "I will be there." } }
   );
   assert.equal(workerSent.status, 201);
+
+  const ownerInbox = await call("GET", "/api/day-job-chats", {
+    token: owner.token,
+  });
+  assert.equal(ownerInbox.status, 200);
+  assert.equal(ownerInbox.data.length, 1);
+  assert.equal(ownerInbox.data[0].counterpart_name, "Day Worker");
+  assert.equal(ownerInbox.data[0].counterpart_role, "WORKER");
+  assert.equal(ownerInbox.data[0].last_message, "I will be there.");
+  assert.equal(ownerInbox.data[0].unread_count, 1);
+
+  const unrelatedInbox = await call("GET", "/api/day-job-chats", {
+    token: otherOwner.token,
+  });
+  assert.deepEqual(unrelatedInbox.data, []);
+
   const ownerView = await call(
     "GET",
     `/api/day-job-chats/${ownerChat.data.id}`,
     { token: owner.token }
   );
   assert.equal(ownerView.data.messages[1].message, "I will be there.");
+  const readOwnerInbox = await call("GET", "/api/day-job-chats", {
+    token: owner.token,
+  });
+  assert.equal(readOwnerInbox.data[0].unread_count, 0);
 
   const sameDayJob = await call("POST", "/api/owner/day-jobs", {
     token: owner.token,

@@ -9,6 +9,8 @@ import '../services/worker_service.dart';
 import 'auth_gate.dart';
 import 'worker_chat_page.dart';
 import 'estate_jobs_map_page.dart';
+import 'day_job_chats_list.dart';
+import 'estate_owner_worker_profile_page.dart';
 
 const _workerGreen = Color(0xFF2D704D);
 const _workerBackground = Color(0xFFFCF9F3);
@@ -40,28 +42,37 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   ];
 
   late Future<List<WorkerJob>> _jobs;
+  late Future<WorkerProfileSummary> _profileSummary;
+  WorkerProfileSummary? _profileCache;
   final _searchController = TextEditingController();
   int _tab = 0;
   bool _myJobsOnly = false;
   int _notificationCount = 0;
+  int _chatCount = 0;
   Timer? _notificationTimer;
   String? _category;
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _selectedDate;
   String? _selectedEstate;
-  int? _radiusKm = 20;
+  int? _radiusKm;
   int? _decliningJobId;
+  int? _acknowledgingJobId;
+  final Set<int> _shownCompletionAcknowledgements = <int>{};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _jobs = WorkerService.getAvailableJobs();
+    _profileSummary = _fetchProfile();
     _refreshNotificationCount();
-    _notificationTimer = Timer.periodic(
-      const Duration(seconds: 20),
-      (_) => _refreshNotificationCount(),
-    );
+    _refreshChatCount();
+    _notificationTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      _refreshNotificationCount();
+      _refreshChatCount();
+      if (_tab == 0 || _tab == 1) _reloadJobs();
+      if (_tab == 4) _reloadProfile();
+    });
   }
 
   @override
@@ -76,12 +87,25 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _reloadJobs();
+      _reloadProfile();
     }
   }
 
   void _reloadJobs() {
     if (!mounted) return;
     setState(() => _jobs = WorkerService.getAvailableJobs());
+  }
+
+  void _reloadProfile() {
+    if (!mounted) return;
+    setState(() => _profileSummary = _fetchProfile());
+  }
+
+  Future<WorkerProfileSummary> _fetchProfile() async {
+    final profile = await WorkerService.getProfile();
+    _profileCache = profile;
+    if (mounted) setState(() {});
+    return profile;
   }
 
   Future<void> _refreshNotificationCount() async {
@@ -91,6 +115,16 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       if (mounted) setState(() => _notificationCount = count);
     } on ApiException {
       // The jobs dashboard remains usable when notifications are unavailable.
+    }
+  }
+
+  Future<void> _refreshChatCount() async {
+    try {
+      final chats = await DayJobChatService.getChats();
+      final count = chats.fold(0, (total, chat) => total + chat.unreadCount);
+      if (mounted) setState(() => _chatCount = count);
+    } on ApiException {
+      // Keep the previous badge if chat refresh is temporarily unavailable.
     }
   }
 
@@ -363,14 +397,29 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       _reloadJobs();
       return;
     }
+    if (_tab != 0) {
+      setState(() => _tab = 0);
+      _reloadJobs();
+      return;
+    }
     Navigator.maybePop(context);
   }
 
   Widget _content() {
     if (_tab == 2) {
-      return _notifications();
+      return DayJobChatsList(
+        showTitle: true,
+        onUnreadChanged: (count) {
+          if (mounted && count != _chatCount) {
+            setState(() => _chatCount = count);
+          }
+        },
+      );
     }
     if (_tab == 3) {
+      return _notifications();
+    }
+    if (_tab == 4) {
       return _profilePage();
     }
     if (_tab == 1) {
@@ -387,6 +436,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             return const Center(child: CircularProgressIndicator());
           }
           final jobs = snapshot.data ?? const <WorkerJob>[];
+          _scheduleCompletionAcknowledgement(jobs);
           return _dashboardContent(
             jobs,
             error: snapshot.hasError ? '${snapshot.error}' : null,
@@ -401,13 +451,19 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       padding: const EdgeInsets.fromLTRB(20, 2, 20, 20),
       children: [
         if (error != null) _errorBanner(error),
+        if (jobs.any((job) => job.needsCompletionAcknowledgement)) ...[
+          _completionAcknowledgementBanner(
+            jobs.where((job) => job.needsCompletionAcknowledgement).toList(),
+          ),
+          const SizedBox(height: 14),
+        ],
         _profileCard(jobs),
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: _searchBox()),
+            Expanded(child: SizedBox(height: 48, child: _searchBox())),
             const SizedBox(width: 10),
-            Expanded(child: _myJobsButton()),
+            Expanded(child: SizedBox(height: 48, child: _myJobsButton())),
           ],
         ),
         const SizedBox(height: 16),
@@ -419,6 +475,276 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         const SizedBox(height: 22),
         _liveJobs(jobs, onlyApplied: _tab == 1),
       ],
+    );
+  }
+
+  void _scheduleCompletionAcknowledgement(List<WorkerJob> jobs) {
+    if (_tab != 0 && _tab != 1) return;
+    WorkerJob? pending;
+    for (final job in jobs) {
+      if (job.needsCompletionAcknowledgement &&
+          !_shownCompletionAcknowledgements.contains(job.id)) {
+        pending = job;
+        break;
+      }
+    }
+    if (pending == null) return;
+    _shownCompletionAcknowledgements.add(pending.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showCompletionAcknowledgement(pending!);
+    });
+  }
+
+  Widget _completionAcknowledgementBanner(List<WorkerJob> jobs) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3D8),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE7B64C)),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundColor: Color(0xFFFFE3A3),
+            foregroundColor: Color(0xFF845800),
+            child: Icon(Icons.fact_check_outlined),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${jobs.length} completion ${jobs.length == 1 ? 'acknowledgement' : 'acknowledgements'}',
+                  style: const TextStyle(
+                    color: _workerInk,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'The land owner marked work as finished. Review and confirm.',
+                  style: TextStyle(color: _workerMuted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Review acknowledgement',
+            onPressed: () => _showCompletionAcknowledgement(jobs.first),
+            icon: const Icon(Icons.arrow_forward, color: _workerGreen),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showCompletionAcknowledgement(WorkerJob job) async {
+    if (!mounted) return;
+    var ratingStep = false;
+    var selectedRating = 0;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final acknowledging = _acknowledgingJobId == job.id;
+          return AlertDialog(
+            backgroundColor: _workerBackground,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Row(
+              children: [
+                Icon(
+                  ratingStep ? Icons.star_outline : Icons.fact_check_outlined,
+                  color: _workerGreen,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    ratingStep
+                        ? 'Rate the land owner'
+                        : 'Job completion acknowledgement',
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${job.requiredDate.day.toString().padLeft(2, '0')}/'
+                  '${job.requiredDate.month.toString().padLeft(2, '0')}/'
+                  '${job.requiredDate.year}',
+                  style: const TextStyle(
+                    color: _workerGreen,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _acknowledgementDetail('Job category', job.category),
+                _acknowledgementDetail('Estate', job.estateName),
+                _acknowledgementDetail(
+                  'Location',
+                  job.estateLocation.isEmpty
+                      ? job.location
+                      : job.estateLocation,
+                ),
+                _acknowledgementDetail(
+                  'Job details',
+                  '${job.workersNeeded} ${job.workersNeeded == 1 ? 'worker' : 'workers'} · '
+                      'Rs. ${job.dailyRate.toStringAsFixed(0)} / day · ${job.paymentMethod}',
+                ),
+                const SizedBox(height: 10),
+                if (!ratingStep)
+                  const Text(
+                    'Confirm only if you completed this job. Next, rate the land owner to finish your acknowledgement.',
+                    style: TextStyle(color: _workerMuted, height: 1.35),
+                  )
+                else ...[
+                  const Text(
+                    'How was your experience with this land owner?',
+                    style: TextStyle(
+                      color: _workerInk,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      for (var value = 1; value <= 5; value++)
+                        IconButton(
+                          tooltip: '$value star${value == 1 ? '' : 's'}',
+                          onPressed: acknowledging
+                              ? null
+                              : () => setDialogState(
+                                  () => selectedRating = value,
+                                ),
+                          icon: Icon(
+                            value <= selectedRating
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: const Color(0xFFFFB300),
+                            size: 34,
+                          ),
+                        ),
+                    ],
+                  ),
+                  Center(
+                    child: Text(
+                      selectedRating == 0
+                          ? 'Select a rating to continue'
+                          : '$selectedRating out of 5',
+                      style: const TextStyle(color: _workerMuted),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed:
+                      acknowledging || (ratingStep && selectedRating == 0)
+                      ? null
+                      : () async {
+                          if (!ratingStep) {
+                            setDialogState(() => ratingStep = true);
+                            return;
+                          }
+                          setState(() => _acknowledgingJobId = job.id);
+                          setDialogState(() {});
+                          try {
+                            await WorkerService.acknowledgeJobCompletion(
+                              jobId: job.id,
+                              rating: selectedRating,
+                            );
+                            if (!mounted) return;
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+                            _reloadJobs();
+                            _reloadProfile();
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Job completed and land owner rating saved.',
+                                ),
+                              ),
+                            );
+                          } on ApiException catch (error) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                SnackBar(content: Text(error.message)),
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              setState(() => _acknowledgingJobId = null);
+                            }
+                          }
+                        },
+                  icon: acknowledging
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Icon(
+                          ratingStep ? Icons.star : Icons.check_circle_outline,
+                        ),
+                  label: Text(
+                    acknowledging
+                        ? 'Saving...'
+                        : ratingStep
+                        ? 'Give rating & finish'
+                        : 'Complete job',
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _workerGreen,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _acknowledgementDetail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              label,
+              style: const TextStyle(color: _workerMuted, fontSize: 12),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: _workerInk,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -440,6 +766,13 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   Widget _profileCard(List<WorkerJob> jobs) {
     final user = AuthService.currentUser;
+    final profileLocation = _profileCache?.location.trim() ?? '';
+    final accountLocation = user?.location?.trim() ?? '';
+    final workerLocation = profileLocation.isNotEmpty
+        ? profileLocation
+        : accountLocation.isNotEmpty
+        ? accountLocation
+        : 'Location not provided';
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
       decoration: _cardDecoration(),
@@ -466,21 +799,24 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   ),
                 ),
                 const SizedBox(height: 3),
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.verified, color: _workerGreen, size: 18),
-                    SizedBox(width: 5),
-                    Icon(
+                    const Icon(Icons.verified, color: _workerGreen, size: 18),
+                    const SizedBox(width: 5),
+                    const Icon(
                       Icons.location_on_outlined,
                       color: _workerGreen,
                       size: 18,
                     ),
-                    SizedBox(width: 4),
+                    const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        'Kurunegala District',
+                        workerLocation,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: _workerMuted, fontSize: 12),
+                        style: const TextStyle(
+                          color: _workerMuted,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -502,16 +838,16 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               job.status.toUpperCase() == 'COMPLETED',
         )
         .toList();
-    final totalRatingMarks = completedJobs.fold<int>(
-      0,
-      (total, job) => total + (job.rating ?? 0),
-    );
-    final averageRating = completedJobs.isEmpty
-        ? null
-        : totalRatingMarks / completedJobs.length;
+    final completedCount = _profileCache?.completedJobs ?? completedJobs.length;
+    final totalRatingMarks =
+        _profileCache?.totalRatingMarks ??
+        completedJobs.fold<int>(0, (total, job) => total + (job.rating ?? 0));
+    final averageRating =
+        _profileCache?.averageRating ??
+        (completedCount == 0 ? null : totalRatingMarks / completedCount);
     final ratingLabel = averageRating == null
         ? 'New'
-        : '${averageRating.toStringAsFixed(1)} (${completedJobs.length})';
+        : '${averageRating.toStringAsFixed(1)} ($completedCount)';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -980,6 +1316,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           return const Center(child: CircularProgressIndicator());
         }
         final jobs = snapshot.data ?? const <WorkerJob>[];
+        _scheduleCompletionAcknowledgement(jobs);
         final date = _selectedDate;
         final selectedJobs = jobs.where((job) {
           if (_myJobsOnly) {
@@ -1009,7 +1346,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           color: _workerGreen,
           onRefresh: _refresh,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            padding: _selectedEstate == null
+                ? const EdgeInsets.fromLTRB(16, 10, 16, 18)
+                : const EdgeInsets.fromLTRB(16, 8, 16, 18),
             children: [
               if (_selectedEstate == null) ...[
                 Row(
@@ -1017,19 +1356,19 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   children: [
                     Expanded(
                       child: Text(
-                        _myJobsOnly ? 'My jobs' : 'Jobs for the\nDay',
+                        _myJobsOnly ? 'My jobs' : 'Jobs for the Day',
                         style: TextStyle(
                           color: _workerInk,
-                          fontSize: 38,
-                          height: 1.05,
+                          fontSize: 28,
+                          height: 1.1,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 12,
+                        horizontal: 12,
+                        vertical: 8,
                       ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFD8F3DE),
@@ -1038,23 +1377,22 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                       child: Text(
                         _myJobsOnly
                             ? '${selectedJobs.length} jobs'
-                            : '${selectedJobs.length} jobs\nnear you',
+                            : '${selectedJobs.length} jobs near you',
                         style: const TextStyle(
                           color: _workerGreen,
-                          fontSize: 17,
-                          height: 1.15,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 10),
                 _nearbyFilters(selectedJobs, allJobs: jobs),
                 if (!_myJobsOnly) ...[
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 10),
                   _distanceFilter(),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 7),
                   GestureDetector(
                     onTap: () => Navigator.push(
                       context,
@@ -1068,13 +1406,13 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                     ),
                     child: _nearbyMap(),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
                 ],
               ],
               if (selectedJobs.isEmpty)
                 _emptyJobsMessage()
               else if (_selectedEstate == null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   _myJobsOnly
                       ? 'Accepted jobs'
@@ -1082,14 +1420,14 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                       ? 'Estates near you'
                       : 'Jobs for ${_selectedDate!.day} '
                             '${_months[_selectedDate!.month - 1]}',
-                  style: const TextStyle(color: _workerMuted, fontSize: 17),
+                  style: const TextStyle(color: _workerMuted, fontSize: 14),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 7),
                 for (final entry in estateJobs.entries)
                   _estateJobCard(entry.key, entry.value),
               ] else ...[
                 _jobDetailsHeader(detailsJobs),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 for (final job in detailsJobs) _nearbyJobCard(job, jobs),
                 SizedBox(
                   width: double.infinity,
@@ -1125,7 +1463,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   Widget _nearbyFilters(List<WorkerJob> jobs, {List<WorkerJob>? allJobs}) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
       decoration: _cardDecoration(),
       child: Column(
         children: [
@@ -1160,17 +1498,17 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             ],
           ),
           if (!_myJobsOnly) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 5),
             Row(
               children: [
                 const Icon(Icons.circle, size: 12, color: _workerGreen),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Text(
                   _selectedDate == null
                       ? 'View all estates across Sri Lanka'
                       : 'Jobs for ${_selectedDate!.day} '
                             '${_months[_selectedDate!.month - 1]}',
-                  style: const TextStyle(color: _workerMuted, fontSize: 14),
+                  style: const TextStyle(color: _workerMuted, fontSize: 12),
                 ),
                 const Spacer(),
                 TextButton(
@@ -1188,6 +1526,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                     'Open map',
                     style: TextStyle(
                       color: _workerGreen,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1213,14 +1552,14 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     return GestureDetector(
       onTap: () => setState(() => _selectedEstate = estateName),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(18),
+        margin: const EdgeInsets.only(bottom: 9),
+        padding: const EdgeInsets.all(12),
         decoration: _cardDecoration(),
         child: Row(
           children: [
             Container(
-              width: 64,
-              height: 64,
+              width: 50,
+              height: 50,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: const Color(0xFFF4F0E8),
@@ -1230,12 +1569,12 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 initials.isEmpty ? 'ES' : initials,
                 style: const TextStyle(
                   color: _workerGreen,
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 11),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1246,31 +1585,32 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: _workerInk,
-                      fontSize: 20,
+                      fontSize: 17,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 2),
                   Text(
                     'Owner: ${firstJob.estateOwnerName}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _workerMuted, fontSize: 15),
+                    style: const TextStyle(color: _workerMuted, fontSize: 12),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 2),
                   Text(
                     _myJobsOnly
                         ? '${jobs.length} accepted job${jobs.length == 1 ? '' : 's'}'
                         : '${jobs.length} job${jobs.length == 1 ? '' : 's'} available',
                     style: const TextStyle(
                       color: _workerGreen,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: _workerGreen, size: 30),
+            const Icon(Icons.chevron_right, color: _workerGreen, size: 25),
           ],
         ),
       ),
@@ -1281,7 +1621,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     return GestureDetector(
       onTap: () => setState(() => _category = null),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
           color: selected ? _workerGreen : Colors.white,
           borderRadius: BorderRadius.circular(28),
@@ -1304,15 +1644,17 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       icon: Icon(
         icon,
         color: _category == category ? _workerGreen : _workerMuted,
-        size: 28,
+        size: 22,
       ),
+      padding: const EdgeInsets.all(6),
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
     );
   }
 
   Widget _distanceFilter() {
     const options = <int?>[null, 2, 5, 10, 20, 30];
     return SizedBox(
-      height: 42,
+      height: 36,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: options.length,
@@ -1321,7 +1663,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           final value = options[index];
           final selected = value == _radiusKm;
           return ChoiceChip(
-            label: Text(value == null ? 'ALL' : '${value} km'),
+            label: Text(value == null ? 'ALL' : '$value km'),
             selected: selected,
             selectedColor: _workerGreen,
             labelStyle: TextStyle(
@@ -1337,7 +1679,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   Widget _nearbyMap() {
     return Container(
-      height: 190,
+      height: 126,
       decoration: BoxDecoration(
         color: const Color(0xFFD8F1E2),
         borderRadius: BorderRadius.circular(22),
@@ -1346,18 +1688,18 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       child: Stack(
         children: [
           const Center(
-            child: Icon(Icons.location_on, color: _workerGreen, size: 54),
+            child: Icon(Icons.location_on, color: _workerGreen, size: 42),
           ),
           Positioned(
-            top: 18,
-            left: 18,
+            top: 9,
+            left: 9,
             child: _mapLabel(
-              _radiusKm == null ? 'All estates' : '${_radiusKm} km radius',
+              _radiusKm == null ? 'All estates' : '$_radiusKm km radius',
             ),
           ),
           Positioned(
-            top: 18,
-            right: 16,
+            top: 9,
+            right: 9,
             child: _mapLabel(
               AuthService.currentUser?.location?.trim().isNotEmpty == true
                   ? AuthService.currentUser!.location!.trim()
@@ -1365,11 +1707,11 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             ),
           ),
           Positioned(
-            left: 22,
-            right: 22,
-            bottom: 18,
+            left: 14,
+            right: 14,
+            bottom: 9,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
@@ -1377,10 +1719,10 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               child: Text(
                 _radiusKm == null
                     ? 'Showing all estates across Sri Lanka'
-                    : 'Active Match Zone: 0 - ${_radiusKm} km',
+                    : 'Active Match Zone: 0 - $_radiusKm km',
                 style: TextStyle(
                   color: _workerInk,
-                  fontSize: 16,
+                  fontSize: 13,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -1393,14 +1735,18 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   Widget _mapLabel(String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         text,
-        style: const TextStyle(color: _workerInk, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          color: _workerInk,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -1418,19 +1764,19 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           'Job details',
           style: TextStyle(
             color: _workerInk,
-            fontSize: 28,
+            fontSize: 23,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(10),
           decoration: _cardDecoration(),
           child: Row(
             children: [
               Container(
-                width: 58,
-                height: 58,
+                width: 48,
+                height: 48,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: const Color(0xFFF4F0E8),
@@ -1440,12 +1786,12 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   initials,
                   style: const TextStyle(
                     color: _workerGreen,
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1456,45 +1802,51 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: _workerInk,
-                        fontSize: 20,
+                        fontSize: 17,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       'Owner: ${firstJob.estateOwnerName}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: _workerMuted, fontSize: 15),
+                      style: const TextStyle(color: _workerMuted, fontSize: 13),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                _calendarIconForCategory(firstJob.category),
-                color: _workerGreen,
-                size: 31,
+              IconButton(
+                tooltip: 'View estate location',
+                onPressed: () => _openEstateLocation(firstJob, jobs),
+                icon: const Icon(
+                  Icons.location_on,
+                  color: _workerGreen,
+                  size: 27,
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8),
         Text(
           firstJob.distanceKm == null
               ? firstJob.location
               : '${firstJob.location}  ·  ${firstJob.distanceKm!.toStringAsFixed(1)} km away',
-          style: const TextStyle(color: _workerMuted, fontSize: 16),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: _workerMuted, fontSize: 13),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: 3),
         Text(
           _formatJobDate(firstJob.requiredDate),
           style: const TextStyle(
             color: _workerGreen,
-            fontSize: 15,
+            fontSize: 13,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 9),
         Row(
           children: [
             const Expanded(
@@ -1502,13 +1854,13 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 'Available jobs',
                 style: TextStyle(
                   color: _workerInk,
-                  fontSize: 25,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 color: const Color(0xFFEAF4EC),
                 borderRadius: BorderRadius.circular(22),
@@ -1527,6 +1879,22 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     );
   }
 
+  Future<void> _openEstateLocation(
+    WorkerJob estateJob,
+    List<WorkerJob> jobs,
+  ) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EstateJobsMapPage(
+          jobs: jobs,
+          initialEstateId: estateJob.estateOwnerId,
+          initialEstateName: estateJob.estateName,
+        ),
+      ),
+    );
+  }
+
   Widget _nearbyJobCard(WorkerJob job, List<WorkerJob> allJobs) {
     final applicationStatus = job.applicationStatus?.toLowerCase();
     final estateLocation = job.estateLocation.trim().isNotEmpty
@@ -1539,6 +1907,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     final completed =
         job.status.toLowerCase() == 'completed' ||
         job.applicationStatus?.toLowerCase() == 'completed';
+    final canDecline = accepted && job.canDecline && !completed;
     final available = (job.workersNeeded - job.confirmedWorkers).clamp(
       0,
       job.workersNeeded,
@@ -1547,8 +1916,8 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         ? 0.0
         : (job.confirmedWorkers / job.workersNeeded).clamp(0.0, 1.0);
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
       decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1560,15 +1929,15 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   job.category,
                   style: const TextStyle(
                     color: _workerInk,
-                    fontSize: 23,
+                    fontSize: 19,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 13,
-                  vertical: 9,
+                  horizontal: 10,
+                  vertical: 6,
                 ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEAF4EC),
@@ -1584,27 +1953,27 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                       : 'Open',
                   style: const TextStyle(
                     color: _workerGreen,
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Text(
             _jobDescription(job.category),
             style: const TextStyle(
               color: _workerMuted,
-              fontSize: 16,
-              height: 1.35,
+              fontSize: 13,
+              height: 1.25,
             ),
           ),
           if (estateLocation.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 7),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
               decoration: BoxDecoration(
                 border: Border.all(color: _workerGreen),
                 borderRadius: BorderRadius.circular(24),
@@ -1633,16 +2002,16 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               ),
             ),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Text(
             'Rs.${job.dailyRate.toStringAsFixed(0)} / day',
             style: const TextStyle(
               color: _workerGreen,
-              fontSize: 28,
+              fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
@@ -1652,7 +2021,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: _workerGreen,
-                    fontSize: 15,
+                    fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -1664,12 +2033,12 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: const TextStyle(color: _workerMuted, fontSize: 14),
+                  style: const TextStyle(color: _workerMuted, fontSize: 12),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           Row(
             children: [
               const Icon(
@@ -1683,7 +2052,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   _formatJobDate(job.requiredDate),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: _workerMuted, fontSize: 14),
+                  style: const TextStyle(color: _workerMuted, fontSize: 12),
                 ),
               ),
               const Spacer(),
@@ -1693,70 +2062,128 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: const TextStyle(color: _workerMuted, fontSize: 14),
+                  style: const TextStyle(color: _workerMuted, fontSize: 12),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: progress,
-              minHeight: 8,
+              minHeight: 6,
               backgroundColor: const Color(0xFFEAF1EB),
               valueColor: const AlwaysStoppedAnimation<Color>(_workerGreen),
             ),
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: completed
-                  ? null
-                  : accepted
-                  ? declining
+          const SizedBox(height: 9),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 42,
+                  child: OutlinedButton(
+                    onPressed: completed
                         ? null
-                        : () => _declineJob(job)
-                  : () => _acceptOrShowSameDayConflict(job, allJobs),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _workerGreen,
-                side: const BorderSide(color: _workerGreen, width: 1.5),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(26),
-                ),
-              ),
-              child: Text(
-                completed
-                    ? 'Completed'
-                    : accepted
-                    ? declining
-                          ? 'Declining...'
-                          : 'Decline job'
-                    : 'Accept job',
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (!completed)
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => _openNegotiation(job),
-                icon: const Icon(Icons.arrow_forward, size: 20),
-                label: const Text('Negotiate'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _workerGreen,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(26),
+                        : accepted
+                        ? !canDecline || declining
+                              ? null
+                              : () => _declineJob(job)
+                        : () => _acceptOrShowSameDayConflict(job, allJobs),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _workerGreen,
+                      side: const BorderSide(color: _workerGreen, width: 1.5),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(21),
+                      ),
+                    ),
+                    child: Text(
+                      completed
+                          ? 'Completed'
+                          : accepted
+                          ? !canDecline
+                                ? 'Job in progress'
+                                : declining
+                                ? 'Declining...'
+                                : 'Decline job'
+                          : 'Accept job',
+                    ),
                   ),
                 ),
               ),
+              if (!completed) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 42,
+                    child: FilledButton.icon(
+                      onPressed: () => _openNegotiation(job),
+                      icon: const Icon(Icons.chat_outlined, size: 17),
+                      label: const Text('Negotiate'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _workerGreen,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(21),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (completed && accepted) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 42,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openEstateOwnerProfile(job),
+                      icon: const Icon(Icons.person_outline, size: 18),
+                      label: const Text('View Profile'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _workerGreen,
+                        side: const BorderSide(color: _workerGreen, width: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(21),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 42,
+                    child: FilledButton.icon(
+                      onPressed: () => _rateEstateOwner(job),
+                      icon: const Icon(Icons.star_outline, size: 18),
+                      label: Text(
+                        job.estateOwnerRating == null
+                            ? 'Give Rating'
+                            : 'Rating ${job.estateOwnerRating}/5',
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _workerGreen,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(21),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
+          ],
           if (!accepted && !completed) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
             const Text(
               'Apply to confirm this job.',
               style: TextStyle(color: _workerMuted, fontSize: 12),
@@ -1765,6 +2192,89 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         ],
       ),
     );
+  }
+
+  Future<void> _openEstateOwnerProfile(WorkerJob job) async {
+    final rating = await Navigator.push<int?>(
+      context,
+      MaterialPageRoute(builder: (_) => EstateOwnerWorkerProfilePage(job: job)),
+    );
+    if (rating != null && rating != job.estateOwnerRating) {
+      _reloadJobs();
+    }
+  }
+
+  Future<void> _rateEstateOwner(WorkerJob job) async {
+    var selected = job.estateOwnerRating ?? 0;
+    final rating = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Rate ${job.estateOwnerName}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                job.estateName,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: _workerMuted),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var value = 1; value <= 5; value++)
+                    IconButton(
+                      onPressed: () => setDialogState(() => selected = value),
+                      icon: Icon(
+                        value <= selected ? Icons.star : Icons.star_border,
+                        color: value <= selected
+                            ? const Color(0xFFE3A008)
+                            : const Color(0xFFD9D5CC),
+                      ),
+                    ),
+                ],
+              ),
+              Text(
+                selected == 0 ? 'Select a rating' : '$selected / 5',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: selected == 0
+                  ? null
+                  : () => Navigator.pop(dialogContext, selected),
+              style: FilledButton.styleFrom(backgroundColor: _workerGreen),
+              child: Text(
+                job.estateOwnerRating == null ? 'Save Rating' : 'Update Rating',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (rating == null || !mounted) return;
+
+    try {
+      await WorkerService.rateEstateOwner(jobId: job.id, rating: rating);
+      if (!mounted) return;
+      _reloadJobs();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Land owner rating saved.')));
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
   }
 
   Future<void> _acceptOrShowSameDayConflict(
@@ -2015,7 +2525,61 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   }
 
   Widget _profilePage() {
-    final user = AuthService.currentUser;
+    return FutureBuilder<WorkerProfileSummary>(
+      future: _profileSummary,
+      initialData: _profileCache,
+      builder: (context, snapshot) {
+        if (snapshot.data != null) {
+          return _profileContent(snapshot.data!);
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(
+            child: CircularProgressIndicator(color: _workerGreen),
+          );
+        }
+        if (snapshot.hasError || snapshot.data == null) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.cloud_off_outlined,
+                    color: _workerMuted,
+                    size: 44,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Could not load your worker profile.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _reloadProfile,
+                    child: const Text('Try again'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  Widget _profileContent(WorkerProfileSummary profile) {
+    final categories = profile.workCategories.isEmpty
+        ? 'No completed or accepted job categories yet'
+        : profile.workCategories.join(', ');
+    final average = profile.completedJobs == 0
+        ? null
+        : profile.totalRatingMarks / profile.completedJobs;
+    final ratingLabel = average == null ? 'New' : average.toStringAsFixed(1);
+    final activeLabel = profile.activeJobs == 0
+        ? 'Available for nearby jobs'
+        : '${profile.activeJobs} active ${profile.activeJobs == 1 ? 'job' : 'jobs'}';
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
       children: [
@@ -2030,7 +2594,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           child: Column(
             children: [
               Text(
-                user?.name ?? 'Worker',
+                profile.name,
                 style: const TextStyle(
                   fontSize: 21,
                   fontWeight: FontWeight.bold,
@@ -2048,7 +2612,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         const SizedBox(height: 6),
         Center(
           child: Text(
-            user?.phone ?? '',
+            profile.phone,
             style: const TextStyle(color: _workerMuted),
           ),
         ),
@@ -2057,23 +2621,31 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           padding: const EdgeInsets.all(12),
           decoration: _cardDecoration(),
           child: Column(
-            children: const [
-              _WorkerProfileDetail(
+            children: [
+              const _WorkerProfileDetail(
                 icon: Icons.badge_outlined,
                 title: 'Worker type',
                 value: 'Day Job Worker',
               ),
-              Divider(height: 16),
+              const Divider(height: 16),
               _WorkerProfileDetail(
                 icon: Icons.work_outline,
                 title: 'Work categories',
-                value: 'Nut gathering, manual and machine work',
+                value: categories,
               ),
-              Divider(height: 16),
+              const Divider(height: 16),
+              _WorkerProfileDetail(
+                icon: Icons.location_on_outlined,
+                title: 'Location',
+                value: profile.location.isEmpty
+                    ? 'Not provided'
+                    : profile.location,
+              ),
+              const Divider(height: 16),
               _WorkerProfileDetail(
                 icon: Icons.check_circle_outline,
                 title: 'Availability',
-                value: 'Available for nearby jobs',
+                value: activeLabel,
               ),
             ],
           ),
@@ -2082,13 +2654,29 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         Container(
           padding: const EdgeInsets.all(12),
           decoration: _cardDecoration(),
-          child: const Row(
+          child: Column(
             children: [
-              Expanded(
-                child: _WorkerProfileStat(value: '0', label: 'Completed jobs'),
-              ),
-              Expanded(
-                child: _WorkerProfileStat(value: 'New', label: 'Worker rating'),
+              Row(
+                children: [
+                  Expanded(
+                    child: _WorkerProfileStat(
+                      value: '${profile.completedJobs}',
+                      label: 'Completed',
+                    ),
+                  ),
+                  Expanded(
+                    child: _WorkerProfileStat(
+                      value: '${profile.acceptedJobs}',
+                      label: 'Accepted',
+                    ),
+                  ),
+                  Expanded(
+                    child: _WorkerProfileStat(
+                      value: ratingLabel,
+                      label: 'Rating',
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -2158,10 +2746,8 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     );
     nameController.dispose();
     locationController.dispose();
-    if (saved == true && mounted) setState(() {});
+    if (saved == true && mounted) _reloadProfile();
   }
-
-  void _showProfile() => setState(() => _tab = 3);
 
   Widget _bottomNavigation() {
     return Container(
@@ -2175,13 +2761,14 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         children: [
           _navItem(Icons.grid_view_rounded, 'Dashboard', 0),
           _navItem(Icons.work_outline, 'Jobs', 1),
+          _navItem(Icons.chat_bubble_outline, 'Chats', 2, badge: _chatCount),
           _navItem(
             Icons.notifications_none,
             'Alerts',
-            2,
+            3,
             badge: _notificationCount,
           ),
-          _navItem(Icons.account_circle_outlined, 'Profile', 3),
+          _navItem(Icons.account_circle_outlined, 'Profile', 4),
         ],
       ),
     );
@@ -2197,9 +2784,10 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             _myJobsOnly = false;
             _category = null;
           }
-          if (index == 2) _notificationCount = 0;
+          if (index == 3) _notificationCount = 0;
         });
         if (index == 0 || index == 1) _reloadJobs();
+        if (index == 4) _reloadProfile();
       },
       child: Column(
         mainAxisSize: MainAxisSize.min,

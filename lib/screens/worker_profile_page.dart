@@ -210,7 +210,9 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
   }
 
   Widget _ratingSummary(WorkerProfile profile) {
-    final rating = profile.averageRating;
+    final rating = profile.completedJobs == 0
+        ? null
+        : profile.totalRatingMarks / profile.completedJobs;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -244,7 +246,7 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
   }
 
   Future<void> _rateWorker(WorkerProfile profile) async {
-    var selectedRating = _currentJobRating ?? 5;
+    var selectedRating = 0;
     final rating = await showDialog<int>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -267,7 +269,9 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
                       onPressed: () =>
                           setDialogState(() => selectedRating = value),
                       icon: Icon(
-                        Icons.star,
+                        value <= selectedRating
+                            ? Icons.star
+                            : Icons.star_border,
                         color: value <= selectedRating
                             ? const Color(0xFFE3A008)
                             : const Color(0xFFD9D5CC),
@@ -276,7 +280,7 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
                 ],
               ),
               Text(
-                '$selectedRating / 5',
+                selectedRating == 0 ? 'Select a rating' : '$selectedRating / 5',
                 style: const TextStyle(
                   color: _profileInk,
                   fontWeight: FontWeight.bold,
@@ -290,7 +294,9 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, selectedRating),
+              onPressed: selectedRating == 0
+                  ? null
+                  : () => Navigator.pop(dialogContext, selectedRating),
               style: FilledButton.styleFrom(backgroundColor: _profileGreen),
               child: Text(
                 _currentJobRating == null ? 'Save Rating' : 'Update Rating',
