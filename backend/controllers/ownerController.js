@@ -954,7 +954,7 @@ const getDayJobs = async (req, res) => {
          JOIN worker w ON w.id = dja.worker_id
          LEFT JOIN users u ON u.id = w.user_id
          WHERE dja.day_job_id IN (${placeholders})
-           AND UPPER(dja.status) = 'ACCEPTED'
+           AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')
          ORDER BY dja.created_at, dja.id`,
         jobParams
       );
@@ -1009,7 +1009,7 @@ const getWorkerProfile = async (req, res) => {
          ON access_job.id = access_application.day_job_id
        WHERE w.id = $1
          AND access_job.estate_owner_id = $2
-         AND UPPER(access_application.status) = 'ACCEPTED'`,
+         AND UPPER(access_application.status) IN ('ACCEPTED', 'COMPLETED')`,
       [workerId, estate.id]
     );
     if (profile.rows.length === 0) {
@@ -1022,23 +1022,20 @@ const getWorkerProfile = async (req, res) => {
       `SELECT
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) <> 'COMPLETED'
-                  AND dj.required_date >= CURRENT_DATE
              THEN 1 ELSE 0 END
          ), 0)::integer AS accepted_jobs,
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
-                  OR dj.required_date < CURRENT_DATE
              THEN 1 ELSE 0 END
          ), 0)::integer AS completed_jobs,
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
-                  OR dj.required_date < CURRENT_DATE
              THEN COALESCE(${ratingColumn}, 0) ELSE 0 END
          ), 0)::integer AS total_rating_marks
        FROM day_job_applications dja
        JOIN day_jobs dj ON dj.id = dja.day_job_id
        WHERE dja.worker_id = $1
-         AND UPPER(dja.status) = 'ACCEPTED'`,
+         AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')`,
       [workerId]
     );
     const categories = await pool.query(
@@ -1046,7 +1043,7 @@ const getWorkerProfile = async (req, res) => {
        FROM day_job_applications dja
        JOIN day_jobs dj ON dj.id = dja.day_job_id
        WHERE dja.worker_id = $1
-         AND UPPER(dja.status) = 'ACCEPTED'
+         AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')
        ORDER BY dj.category`,
       [workerId]
     );
@@ -1153,6 +1150,14 @@ const completeDayJob = async (req, res) => {
       return res.status(404).json({ message: "Day job not found" });
     }
     const job = found.rows[0];
+    if (String(job.status).toUpperCase() === "COMPLETED") {
+      return res.status(409).json({ message: "This job is already completed" });
+    }
+    if (String(job.status).toUpperCase() === "AWAITING_WORKER_ACK") {
+      return res.status(409).json({
+        message: "Waiting for the accepted workers to acknowledge completion",
+      });
+    }
     if (Number(job.confirmed_workers) < Number(job.workers_needed)) {
       return res.status(409).json({
         message: "All required workers must be accepted before completion",
@@ -1167,13 +1172,16 @@ const completeDayJob = async (req, res) => {
 
     const result = await pool.query(
       `UPDATE day_jobs
-       SET status = 'COMPLETED'
+       SET status = 'AWAITING_WORKER_ACK'
        WHERE id = $1 AND estate_owner_id = $2
        RETURNING *`,
       [jobId, estate.id]
     );
 
-    return res.status(200).json(result.rows[0]);
+    return res.status(200).json({
+      ...result.rows[0],
+      message: "Completion sent to the accepted workers for acknowledgement",
+    });
   } catch (error) {
     return serverError(res, "Complete day job", error);
   }
@@ -1240,8 +1248,8 @@ const rateDayJobWorker = async (req, res) => {
        WHERE dj.id = $1
          AND dja.worker_id = $2
          AND dj.estate_owner_id = $3
-         AND UPPER(dj.status) = 'COMPLETED'
-         AND UPPER(dja.status) = 'ACCEPTED'`,
+         AND UPPER(dj.status) IN ('AWAITING_WORKER_ACK', 'COMPLETED')
+         AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')`,
       [jobId, workerId, estate.id]
     );
     if (application.rows.length === 0) {

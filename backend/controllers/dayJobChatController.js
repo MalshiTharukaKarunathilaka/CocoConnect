@@ -51,7 +51,7 @@ const ensureJobApplication = async (db, jobId, workerId, ownerUserId) => {
      WHERE dj.id = $1
        AND dja.worker_id = $2
        AND eo.user_id = $3
-       AND UPPER(COALESCE(dja.status, 'PENDING')) IN ('PENDING', 'ACCEPTED')`,
+       AND UPPER(COALESCE(dja.status, 'PENDING')) IN ('PENDING', 'ACCEPTED', 'COMPLETED')`,
     [jobId, workerId, ownerUserId]
   );
   return result.rows.length > 0;
