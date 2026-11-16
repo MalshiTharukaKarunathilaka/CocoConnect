@@ -70,7 +70,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     _notificationTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       _refreshNotificationCount();
       _refreshChatCount();
-      if (_tab == 0) _reloadJobs();
+      if (_tab == 0 || _tab == 1) _reloadJobs();
       if (_tab == 4) _reloadProfile();
     });
   }
@@ -479,7 +479,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   }
 
   void _scheduleCompletionAcknowledgement(List<WorkerJob> jobs) {
-    if (_tab != 0) return;
+    if (_tab != 0 && _tab != 1) return;
     WorkerJob? pending;
     for (final job in jobs) {
       if (job.needsCompletionAcknowledgement &&
@@ -1316,6 +1316,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           return const Center(child: CircularProgressIndicator());
         }
         final jobs = snapshot.data ?? const <WorkerJob>[];
+        _scheduleCompletionAcknowledgement(jobs);
         final date = _selectedDate;
         final selectedJobs = jobs.where((job) {
           if (_myJobsOnly) {
