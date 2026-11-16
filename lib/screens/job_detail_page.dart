@@ -20,6 +20,7 @@ class JobDetailPage extends StatefulWidget {
 
 class _JobDetailPageState extends State<JobDetailPage> {
   late bool _isCompleted;
+  late bool _awaitingWorkerAcknowledgement;
   bool _completing = false;
   bool _deleting = false;
   late final Map<int, int?> _workerRatings;
@@ -42,6 +43,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
   void initState() {
     super.initState();
     _isCompleted = job.status.toUpperCase() == 'COMPLETED';
+    _awaitingWorkerAcknowledgement =
+        job.status.toUpperCase() == 'AWAITING_WORKER_ACK';
     _workerRatings = {
       for (final worker in job.acceptedWorkers) worker.id: worker.rating,
     };
@@ -89,7 +92,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                 _completionButton(),
               ],
               if (_isFuture) ...[const SizedBox(height: 10), _deleteButton()],
-              if (_isCompleted) ...[
+              if (_isCompleted || _awaitingWorkerAcknowledgement) ...[
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -246,7 +249,9 @@ class _JobDetailPageState extends State<JobDetailPage> {
       width: double.infinity,
       height: 50,
       child: FilledButton(
-        onPressed: _isCompleted || _completing ? null : _completeJob,
+        onPressed: _isCompleted || _awaitingWorkerAcknowledgement || _completing
+            ? null
+            : _completeJob,
         style: FilledButton.styleFrom(
           backgroundColor: _detailGreen,
           disabledBackgroundColor: _detailGreen,
@@ -266,7 +271,11 @@ class _JobDetailPageState extends State<JobDetailPage> {
                 ),
               )
             : Text(
-                _isCompleted ? 'Completed' : 'Complete Job',
+                _isCompleted
+                    ? 'Completed'
+                    : _awaitingWorkerAcknowledgement
+                    ? 'Awaiting worker acknowledgement'
+                    : 'Complete Job',
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -371,8 +380,11 @@ class _JobDetailPageState extends State<JobDetailPage> {
     try {
       await OwnerService.completeDayJob(job.id);
       if (!mounted) return;
-      setState(() => _isCompleted = true);
-      _showMessage(context, 'Job completed successfully.');
+      setState(() => _awaitingWorkerAcknowledgement = true);
+      _showMessage(
+        context,
+        'Completion sent. The job will be completed after the accepted workers acknowledge it.',
+      );
     } on ApiException catch (error) {
       if (mounted) _showMessage(context, error.message);
     } catch (_) {
@@ -414,6 +426,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
   Widget _status() {
     final status = _isCompleted
         ? 'COMPLETED'
+        : _awaitingWorkerAcknowledgement
+        ? 'AWAITING WORKER'
         : _isFullyStaffed
         ? 'IN PROGRESS'
         : 'OPEN';
@@ -612,7 +626,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
                           jobId: job.id,
                           jobCategory: job.category,
                           currentJobRating: rating,
-                          canRate: _isCompleted,
+                          canRate:
+                              _isCompleted || _awaitingWorkerAcknowledgement,
                         ),
                       ),
                     );
@@ -626,7 +641,9 @@ class _JobDetailPageState extends State<JobDetailPage> {
               Expanded(
                 child: _workerRatingButton(
                   rating: rating,
-                  onPressed: () => _showRatingSheet(worker),
+                  onPressed: _isCompleted || _awaitingWorkerAcknowledgement
+                      ? () => _showRatingSheet(worker)
+                      : null,
                 ),
               ),
             ],
@@ -667,7 +684,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
 
   Widget _workerRatingButton({
     required int? rating,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) {
     return SizedBox(
       height: 46,

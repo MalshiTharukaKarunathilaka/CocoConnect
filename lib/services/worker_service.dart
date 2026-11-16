@@ -65,6 +65,7 @@ class WorkerJob {
   final bool canDecline;
   final int? rating;
   final int? estateOwnerRating;
+  final bool completionAcknowledged;
 
   const WorkerJob({
     required this.id,
@@ -88,6 +89,7 @@ class WorkerJob {
     required this.canDecline,
     required this.rating,
     required this.estateOwnerRating,
+    required this.completionAcknowledged,
   });
 
   factory WorkerJob.fromJson(Map<String, dynamic> json) => WorkerJob(
@@ -114,7 +116,13 @@ class WorkerJob {
     canDecline: json['can_decline'] == true,
     rating: (json['rating'] as num?)?.toInt(),
     estateOwnerRating: (json['estate_owner_rating'] as num?)?.toInt(),
+    completionAcknowledged: json['completion_acknowledged'] == true,
   );
+
+  bool get needsCompletionAcknowledgement =>
+      applicationStatus?.toUpperCase() == 'ACCEPTED' &&
+      status.toUpperCase() == 'AWAITING_WORKER_ACK' &&
+      !completionAcknowledged;
 }
 
 class EstateOwnerWorkerProfile {
@@ -223,6 +231,15 @@ class WorkerService {
 
   static Future<void> declineJob(int jobId) async {
     await ApiClient.post('/api/worker/jobs/$jobId/decline');
+  }
+
+  static Future<void> acknowledgeJobCompletion({
+    required int jobId,
+    required int rating,
+  }) async {
+    await ApiClient.patch('/api/worker/jobs/$jobId/complete', {
+      'rating': rating,
+    });
   }
 
   static Future<EstateOwnerWorkerProfile> getEstateOwnerProfile(

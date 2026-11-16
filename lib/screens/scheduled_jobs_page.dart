@@ -443,12 +443,15 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
 
   Widget _jobCard(DayJob job) {
     final completed = _isCompleted(job);
+    final awaiting = job.status.toUpperCase() == 'AWAITING_WORKER_ACK';
     final fullyStaffed = _isFullyStaffed(job);
     final required = job.workersNeeded;
     final confirmed = job.confirmedWorkers.clamp(0, required);
     final progress = required == 0 ? 0.0 : confirmed / required;
     final status = completed
         ? 'Completed'
+        : awaiting
+        ? 'Awaiting worker'
         : fullyStaffed
         ? 'Fulfilled'
         : 'Open';

@@ -56,6 +56,8 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   String? _selectedEstate;
   int? _radiusKm;
   int? _decliningJobId;
+  int? _acknowledgingJobId;
+  final Set<int> _shownCompletionAcknowledgements = <int>{};
 
   @override
   void initState() {
@@ -68,6 +70,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     _notificationTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       _refreshNotificationCount();
       _refreshChatCount();
+      if (_tab == 0) _reloadJobs();
       if (_tab == 4) _reloadProfile();
     });
   }
@@ -433,6 +436,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             return const Center(child: CircularProgressIndicator());
           }
           final jobs = snapshot.data ?? const <WorkerJob>[];
+          _scheduleCompletionAcknowledgement(jobs);
           return _dashboardContent(
             jobs,
             error: snapshot.hasError ? '${snapshot.error}' : null,
@@ -447,6 +451,12 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       padding: const EdgeInsets.fromLTRB(20, 2, 20, 20),
       children: [
         if (error != null) _errorBanner(error),
+        if (jobs.any((job) => job.needsCompletionAcknowledgement)) ...[
+          _completionAcknowledgementBanner(
+            jobs.where((job) => job.needsCompletionAcknowledgement).toList(),
+          ),
+          const SizedBox(height: 14),
+        ],
         _profileCard(jobs),
         const SizedBox(height: 16),
         Row(
@@ -465,6 +475,276 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         const SizedBox(height: 22),
         _liveJobs(jobs, onlyApplied: _tab == 1),
       ],
+    );
+  }
+
+  void _scheduleCompletionAcknowledgement(List<WorkerJob> jobs) {
+    if (_tab != 0) return;
+    WorkerJob? pending;
+    for (final job in jobs) {
+      if (job.needsCompletionAcknowledgement &&
+          !_shownCompletionAcknowledgements.contains(job.id)) {
+        pending = job;
+        break;
+      }
+    }
+    if (pending == null) return;
+    _shownCompletionAcknowledgements.add(pending.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showCompletionAcknowledgement(pending!);
+    });
+  }
+
+  Widget _completionAcknowledgementBanner(List<WorkerJob> jobs) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3D8),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE7B64C)),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundColor: Color(0xFFFFE3A3),
+            foregroundColor: Color(0xFF845800),
+            child: Icon(Icons.fact_check_outlined),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${jobs.length} completion ${jobs.length == 1 ? 'acknowledgement' : 'acknowledgements'}',
+                  style: const TextStyle(
+                    color: _workerInk,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'The land owner marked work as finished. Review and confirm.',
+                  style: TextStyle(color: _workerMuted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Review acknowledgement',
+            onPressed: () => _showCompletionAcknowledgement(jobs.first),
+            icon: const Icon(Icons.arrow_forward, color: _workerGreen),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showCompletionAcknowledgement(WorkerJob job) async {
+    if (!mounted) return;
+    var ratingStep = false;
+    var selectedRating = 0;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final acknowledging = _acknowledgingJobId == job.id;
+          return AlertDialog(
+            backgroundColor: _workerBackground,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Row(
+              children: [
+                Icon(
+                  ratingStep ? Icons.star_outline : Icons.fact_check_outlined,
+                  color: _workerGreen,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    ratingStep
+                        ? 'Rate the land owner'
+                        : 'Job completion acknowledgement',
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${job.requiredDate.day.toString().padLeft(2, '0')}/'
+                  '${job.requiredDate.month.toString().padLeft(2, '0')}/'
+                  '${job.requiredDate.year}',
+                  style: const TextStyle(
+                    color: _workerGreen,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _acknowledgementDetail('Job category', job.category),
+                _acknowledgementDetail('Estate', job.estateName),
+                _acknowledgementDetail(
+                  'Location',
+                  job.estateLocation.isEmpty
+                      ? job.location
+                      : job.estateLocation,
+                ),
+                _acknowledgementDetail(
+                  'Job details',
+                  '${job.workersNeeded} ${job.workersNeeded == 1 ? 'worker' : 'workers'} · '
+                      'Rs. ${job.dailyRate.toStringAsFixed(0)} / day · ${job.paymentMethod}',
+                ),
+                const SizedBox(height: 10),
+                if (!ratingStep)
+                  const Text(
+                    'Confirm only if you completed this job. Next, rate the land owner to finish your acknowledgement.',
+                    style: TextStyle(color: _workerMuted, height: 1.35),
+                  )
+                else ...[
+                  const Text(
+                    'How was your experience with this land owner?',
+                    style: TextStyle(
+                      color: _workerInk,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      for (var value = 1; value <= 5; value++)
+                        IconButton(
+                          tooltip: '$value star${value == 1 ? '' : 's'}',
+                          onPressed: acknowledging
+                              ? null
+                              : () => setDialogState(
+                                  () => selectedRating = value,
+                                ),
+                          icon: Icon(
+                            value <= selectedRating
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: const Color(0xFFFFB300),
+                            size: 34,
+                          ),
+                        ),
+                    ],
+                  ),
+                  Center(
+                    child: Text(
+                      selectedRating == 0
+                          ? 'Select a rating to continue'
+                          : '$selectedRating out of 5',
+                      style: const TextStyle(color: _workerMuted),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed:
+                      acknowledging || (ratingStep && selectedRating == 0)
+                      ? null
+                      : () async {
+                          if (!ratingStep) {
+                            setDialogState(() => ratingStep = true);
+                            return;
+                          }
+                          setState(() => _acknowledgingJobId = job.id);
+                          setDialogState(() {});
+                          try {
+                            await WorkerService.acknowledgeJobCompletion(
+                              jobId: job.id,
+                              rating: selectedRating,
+                            );
+                            if (!mounted) return;
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+                            _reloadJobs();
+                            _reloadProfile();
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Job completed and land owner rating saved.',
+                                ),
+                              ),
+                            );
+                          } on ApiException catch (error) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                SnackBar(content: Text(error.message)),
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              setState(() => _acknowledgingJobId = null);
+                            }
+                          }
+                        },
+                  icon: acknowledging
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Icon(
+                          ratingStep ? Icons.star : Icons.check_circle_outline,
+                        ),
+                  label: Text(
+                    acknowledging
+                        ? 'Saving...'
+                        : ratingStep
+                        ? 'Give rating & finish'
+                        : 'Complete job',
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _workerGreen,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _acknowledgementDetail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              label,
+              style: const TextStyle(color: _workerMuted, fontSize: 12),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: _workerInk,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
