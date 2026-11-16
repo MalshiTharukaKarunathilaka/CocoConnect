@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../widgets/owner_widgets.dart';
 import '../account_dialogs.dart';
+import 'fertilizer_alerts.dart';
 
 /// The page frame every fertilizer screen uses, so it looks like the rest of
 /// the app: the same cream page, the same green centred title with a small
@@ -14,6 +15,7 @@ class FertPage extends StatelessWidget {
     this.bottom,
     this.showLogout = false,
     this.showBack = true,
+    this.showAlerts = false,
   });
 
   final String title;
@@ -22,6 +24,8 @@ class FertPage extends StatelessWidget {
   final Widget? bottom;
   final bool showLogout;
   final bool showBack;
+  /// Estate-owner bell for supplier accept / cancel / negotiate alerts.
+  final bool showAlerts;
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +76,7 @@ class FertPage extends StatelessWidget {
             subtitle: subtitle,
             showBack: showBack,
             actions: [
+              if (showAlerts) const FertAlertBell(),
               if (showLogout)
                 IconButton(
                   tooltip: 'Log out',

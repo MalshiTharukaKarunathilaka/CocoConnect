@@ -38,11 +38,12 @@ class _FertilizerHubState extends State<FertilizerHub> {
       title: _tabTitle,
       subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
       showLogout: true,
+      showAlerts: true,
       bottom: FertTabBar(
         items: const [
           (Icons.home_outlined, 'Hub'),
           (Icons.grid_view_rounded, 'Suppliers'),
-          (Icons.account_balance_outlined, 'Government'),
+          (Icons.account_balance_outlined, 'CCB'),
           (Icons.receipt_long_outlined, 'My orders'),
           (Icons.flag_outlined, 'Complaints'),
         ],
@@ -58,7 +59,7 @@ class _FertilizerHubState extends State<FertilizerHub> {
       case 1:
         return 'Private suppliers';
       case 2:
-        return 'Government';
+        return 'CCB programme';
       case 3:
         return 'My orders';
       case 4:

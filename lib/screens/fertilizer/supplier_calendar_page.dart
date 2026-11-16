@@ -332,7 +332,7 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                 foregroundColor: Colors.white,
               ),
               onPressed: () => _openJob(o),
-              child: const Text('Open on map'),
+              child: const Text('View'),
             ),
           ),
         ],
@@ -536,6 +536,35 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
     );
   }
 
+  /// Simple note box for Negotiate / Cancel. Returns null if the supplier backs out.
+  Future<String?> _askNote({required String title, required String hint}) async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dCtx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: ctrl,
+          maxLines: 3,
+          decoration: InputDecoration(hintText: hint),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx),
+            child: const Text('Back'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dCtx, ctrl.text.trim()),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    return result;
+  }
+
   void _openJob(FertOrder o) {
     final loc = FertilizerStore.estateGeo[o.owner] ??
         FertilizerStore.estateGeo['Your Estate']!;
@@ -687,26 +716,90 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                         ),
                       ),
                   const SizedBox(height: 12),
-                  if (o.status == 'Pending Ack' || o.status == 'Negotiating')
+                  if (o.status == 'Pending Ack' || o.status == 'Negotiating') ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: kOwnerGreen,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: () {
+                              _store.acceptOrder(o.id);
+                              Navigator.pop(ctx);
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('${o.id} accepted')),
+                              );
+                            },
+                            child: const Text('Accept'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: kOwnerGreen,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: () async {
+                              final note = await _askNote(
+                                title: 'Negotiation',
+                                hint: 'e.g. Can do 8 bags on 18 Nov morning',
+                              );
+                              if (note == null) return;
+                              _store.startNegotiation(o.id, note: note);
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              setState(() {});
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${o.id} · negotiation started'),
+                                ),
+                              );
+                            },
+                            child: const Text('Negotiate'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: kOwnerGreen,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.dangerText,
+                          backgroundColor: AppColors.dangerSoft,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: const StadiumBorder(),
                         ),
-                        onPressed: () {
-                          _store.acceptOrder(o.id);
-                          Navigator.pop(ctx);
+                        onPressed: () async {
+                          final note = await _askNote(
+                            title: 'Cancel order',
+                            hint: 'Optional reason for the estate',
+                          );
+                          // null = closed sheet without confirm; empty string = cancel with no reason
+                          if (note == null) return;
+                          _store.cancelOrder(
+                            o.id,
+                            bySupplier: true,
+                            note: note.isEmpty ? null : note,
+                          );
+                          if (ctx.mounted) Navigator.pop(ctx);
                           setState(() {});
+                          if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('${o.id} accepted')),
+                            SnackBar(
+                              content: Text('${o.id} cancelled · estate will see this'),
+                            ),
                           );
                         },
-                        child: const Text('Accept / Ack'),
+                        child: const Text('Cancel'),
                       ),
                     ),
+                  ],
                   if (o.status == 'Accepted' || o.status == 'Stock Confirmed')
                     SizedBox(
                       width: double.infinity,

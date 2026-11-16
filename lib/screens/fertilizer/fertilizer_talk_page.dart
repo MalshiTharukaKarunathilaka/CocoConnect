@@ -70,7 +70,7 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
   }
 
   void _decline(FertOrder o) {
-    _store.cancelOrder(o.id);
+    _store.cancelOrder(o.id, bySupplier: false, note: 'Declined in chat');
     _say('Declined order ${o.id}.');
     setState(() {});
     _toEnd();

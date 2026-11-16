@@ -3,18 +3,147 @@ import 'fertilizer_chrome.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
+import 'fertilizer_order_edit_sheet.dart';
 
 /// My orders: private supplier orders and government requests, newest first.
-class FertilizerRequestsPage extends StatelessWidget {
+class FertilizerRequestsPage extends StatefulWidget {
   const FertilizerRequestsPage({super.key, this.embedded = false});
 
   final bool embedded;
 
   @override
+  State<FertilizerRequestsPage> createState() => _FertilizerRequestsPageState();
+}
+
+class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
+  final _store = FertilizerStore.instance;
+
+  Future<void> _viewPrivate(FertOrder o) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final kg = o.items.fold<int>(0, (a, l) => a + l.qty50 * 50);
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          decoration: const BoxDecoration(
+            color: Color(0xFFFCF8EF),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.line,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Order ${o.id}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.green,
+                          ),
+                        ),
+                      ),
+                      StatusPill.forStatus(o.status),
+                      IconButton(
+                        onPressed: () => Navigator.pop(sheetContext),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    o.company,
+                    style: const TextStyle(color: AppColors.muted),
+                  ),
+                  const SizedBox(height: 12),
+                  for (final l in o.items)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${l.item.name}\n${l.qty50} × 50 kg · ${rupees(l.item.perKg)}/kg',
+                              style: const TextStyle(fontSize: 13.5),
+                            ),
+                          ),
+                          Text(
+                            rupees(l.lineTotal),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const Divider(),
+                  Text(
+                    'Total ${rupees(o.price)} · $kg kg',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.green,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Date ${shortDate(o.preferredDate)} · ${o.slot}'),
+                  if (o.message.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(o.message, style: const TextStyle(color: AppColors.muted)),
+                  ],
+                  const SizedBox(height: 14),
+                  if (o.status == 'Pending Ack' || o.status == 'Negotiating')
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        _editPrivate(o);
+                      },
+                      child: const Text('Edit order'),
+                    )
+                  else
+                    OutlinedButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      child: const Text('Close'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _editPrivate(FertOrder o) async {
+    final changed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => FertilizerOrderEditSheet(order: o),
+    );
+    if (changed == true && mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final store = FertilizerStore.instance;
-    final private = store.ownerOrders('Your Estate');
-    final gov = store.govRequests
+    final private = _store.ownerOrders('Your Estate');
+    final gov = _store.govRequests
         .where((r) => r.owner == 'Your Estate')
         .toList();
     final waiting = private.where((o) => o.status == 'Pending Ack').length +
@@ -53,15 +182,13 @@ class FertilizerRequestsPage extends StatelessWidget {
       ],
     );
 
-    if (embedded) return ColoredBox(color: AppColors.cream, child: body);
+    if (widget.embedded) return ColoredBox(color: AppColors.cream, child: body);
     return FertPage(
       title: 'My orders',
       subtitle: 'FERTILIZER · ESTATE OWNER',
       child: body,
     );
   }
-
-  // ---- header summary ----------------------------------------------------
 
   Widget _summary(int total, int waiting, int accepted, int spend) {
     Widget stat(String value, String label) => Expanded(
@@ -83,7 +210,8 @@ class FertilizerRequestsPage extends StatelessWidget {
             ],
           ),
         );
-    Widget bar() => Container(width: 1, height: 30, color: const Color(0x33FFFFFF));
+    Widget bar() =>
+        Container(width: 1, height: 30, color: const Color(0x33FFFFFF));
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
@@ -95,7 +223,11 @@ class FertilizerRequestsPage extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         boxShadow: const [
-          BoxShadow(color: Color(0x331B5E3A), blurRadius: 14, offset: Offset(0, 6)),
+          BoxShadow(
+            color: Color(0x331B5E3A),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
         ],
       ),
       child: Row(
@@ -106,7 +238,10 @@ class FertilizerRequestsPage extends StatelessWidget {
           bar(),
           stat('$accepted', 'Accepted'),
           bar(),
-          stat(spend >= 1000 ? '${(spend / 1000).round()}k' : '$spend', 'Rs. spent'),
+          stat(
+            spend >= 1000 ? '${(spend / 1000).round()}k' : '$spend',
+            'Rs. spent',
+          ),
         ],
       ),
     );
@@ -138,14 +273,16 @@ class FertilizerRequestsPage extends StatelessWidget {
           ),
           child: Text(
             '$count',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: color),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
           ),
         ),
       ],
     );
   }
-
-  // ---- small pieces ------------------------------------------------------
 
   Widget _chip(IconData icon, String text) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
@@ -214,21 +351,25 @@ class FertilizerRequestsPage extends StatelessWidget {
         child: Icon(icon, color: color, size: 22),
       );
 
-  BoxDecoration _cardBox(Color accent) => BoxDecoration(
+  BoxDecoration _cardBox() => BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.line),
         boxShadow: const [
-          BoxShadow(color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
         ],
       );
 
-  // ---- cards -------------------------------------------------------------
-
   Widget _privateCard(FertOrder o) {
+    final canEdit =
+        o.status == 'Pending Ack' || o.status == 'Negotiating';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: _cardBox(AppColors.green),
+      decoration: _cardBox(),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: IntrinsicHeight(
@@ -277,9 +418,14 @@ class FertilizerRequestsPage extends StatelessWidget {
                         spacing: 6,
                         runSpacing: 6,
                         children: [
-                          _chip(Icons.shopping_bag_outlined,
-                              '${o.qty50} bag${o.qty50 == 1 ? '' : 's'}'),
-                          _chip(Icons.event_outlined, shortDate(o.preferredDate)),
+                          _chip(
+                            Icons.shopping_bag_outlined,
+                            '${o.qty50} bag${o.qty50 == 1 ? '' : 's'}',
+                          ),
+                          _chip(
+                            Icons.event_outlined,
+                            shortDate(o.preferredDate),
+                          ),
                           _chip(Icons.schedule, o.slot),
                         ],
                       ),
@@ -287,6 +433,35 @@ class FertilizerRequestsPage extends StatelessWidget {
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Divider(height: 1, color: AppColors.line),
                       ),
+                      if (o.status == 'Cancelled' ||
+                          o.status == 'Negotiating') ...[
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: o.status == 'Cancelled'
+                                ? AppColors.dangerSoft
+                                : AppColors.warning.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            o.message.trim().isEmpty
+                                ? o.status
+                                : o.message,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: o.status == 'Cancelled'
+                                  ? AppColors.dangerText
+                                  : AppColors.warning,
+                            ),
+                          ),
+                        ),
+                      ],
                       Row(
                         children: [
                           Text(
@@ -298,7 +473,15 @@ class FertilizerRequestsPage extends StatelessWidget {
                             ),
                           ),
                           const Spacer(),
-                          StatusPill.forStatus(o.status),
+                          TextButton(
+                            onPressed: () => _viewPrivate(o),
+                            child: const Text('View'),
+                          ),
+                          if (canEdit)
+                            TextButton(
+                              onPressed: () => _editPrivate(o),
+                              child: const Text('Edit'),
+                            ),
                         ],
                       ),
                     ],
@@ -325,13 +508,10 @@ class FertilizerRequestsPage extends StatelessWidget {
 
   Widget _govCard(FertGovRequest r) {
     const blue = Color(0xFF1F5E8C);
-    // 0 = sent, 1 = with the CDO, 2 = approved, 3 = distributed
-    final step = r.status == 'Pending Ack'
-        ? 1
-        : (r.distributed > 0 ? 3 : 2);
+    final step = r.status == 'Pending Ack' ? 1 : (r.distributed > 0 ? 3 : 2);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: _cardBox(blue),
+      decoration: _cardBox(),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: IntrinsicHeight(
@@ -382,24 +562,30 @@ class FertilizerRequestsPage extends StatelessWidget {
                         spacing: 6,
                         runSpacing: 6,
                         children: [
-                          _chip(Icons.shopping_bag_outlined,
-                              '${r.requested} bag${r.requested == 1 ? '' : 's'}'),
+                          _chip(
+                            Icons.shopping_bag_outlined,
+                            '${r.requested} bag${r.requested == 1 ? '' : 's'}',
+                          ),
                           if (r.estateName.isNotEmpty)
                             _chip(Icons.park_outlined, r.estateName),
                           if (r.acres > 0)
-                            _chip(Icons.crop_square,
-                                '${r.acres % 1 == 0 ? r.acres.toInt() : r.acres} acres'),
+                            _chip(
+                              Icons.crop_square,
+                              '${r.acres % 1 == 0 ? r.acres.toInt() : r.acres} acres',
+                            ),
                           _chip(Icons.place_outlined, r.district),
                         ],
                       ),
-                      if (r.nicCopy.isNotEmpty || r.landTitleCopy.isNotEmpty) ...[
+                      if (r.nicCopy.isNotEmpty ||
+                          r.landTitleCopy.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         Wrap(
                           spacing: 6,
                           runSpacing: 4,
                           children: [
                             if (r.nicCopy.isNotEmpty) _doc('NIC copy'),
-                            if (r.landTitleCopy.isNotEmpty) _doc('Land title copy'),
+                            if (r.landTitleCopy.isNotEmpty)
+                              _doc('Land title copy'),
                           ],
                         ),
                       ],
@@ -413,15 +599,20 @@ class FertilizerRequestsPage extends StatelessWidget {
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 8),
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.warning.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.hourglass_top,
-                                  size: 14, color: AppColors.warning),
+                              const Icon(
+                                Icons.hourglass_top,
+                                size: 14,
+                                color: AppColors.warning,
+                              ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
@@ -448,11 +639,9 @@ class FertilizerRequestsPage extends StatelessWidget {
     );
   }
 
-  /// Sent -> CDO approval -> Distributed, with the current step filled in.
   Widget _steps(int step) {
     const labels = ['Sent', 'CDO approval', 'Distributed'];
-    // step 1 = at CDO (Sent done), 2 = approved (approval done), 3 = distributed
-    final done = step; // number of finished steps among the three
+    final done = step;
     return Row(
       children: [
         for (var i = 0; i < 3; i++) ...[
