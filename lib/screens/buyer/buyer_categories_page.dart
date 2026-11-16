@@ -4,16 +4,22 @@ import 'package:flutter/material.dart';
 import '../../widgets/buyer_widgets.dart';
 import '../../widgets/app_bottom_nav.dart';
 import 'coconut_types_page.dart';
+import '../subcategory_page.dart';
 
 class BuyerCategoriesPage extends StatelessWidget {
   const BuyerCategoriesPage({super.key});
 
-  void _comingSoon(BuildContext context, String category) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text('$category marketplace coming soon')),
-      );
+  void _openSubcategories(
+    BuildContext context,
+    String category,
+    IconData icon,
+  ) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SubcategoryPage(category: category, icon: icon),
+      ),
+    );
   }
 
   @override
@@ -106,7 +112,8 @@ class BuyerCategoriesPage extends StatelessWidget {
                       subtitle: 'Aromatic crops',
                       icon: Icons.grass,
                       iconColor: kBuyerBrown,
-                      onTap: () => _comingSoon(context, 'Spices'),
+                      onTap: () =>
+                          _openSubcategories(context, 'Spices', Icons.grass),
                     ),
 
                     BuyerCategoryCard(
@@ -115,7 +122,8 @@ class BuyerCategoriesPage extends StatelessWidget {
                       subtitle: 'Animal products',
                       icon: Icons.pets,
                       iconColor: const Color(0xFF4A4A4A),
-                      onTap: () => _comingSoon(context, 'Livestock'),
+                      onTap: () =>
+                          _openSubcategories(context, 'Livestock', Icons.pets),
                     ),
 
                     BuyerCategoryCard(
@@ -124,7 +132,8 @@ class BuyerCategoriesPage extends StatelessWidget {
                       icon: Icons.spa,
                       iconWidget: const DashboardCategoryIcon('\u{1F33D}'),
                       iconColor: kBuyerBrown,
-                      onTap: () => _comingSoon(context, 'Vegetables'),
+                      onTap: () =>
+                          _openSubcategories(context, 'Vegetables', Icons.spa),
                     ),
 
                     BuyerCategoryCard(
@@ -133,7 +142,8 @@ class BuyerCategoriesPage extends StatelessWidget {
                       icon: Icons.apple,
                       iconWidget: const DashboardCategoryIcon('\u{1F34D}'),
                       iconColor: kBuyerGreen,
-                      onTap: () => _comingSoon(context, 'Fruits'),
+                      onTap: () =>
+                          _openSubcategories(context, 'Fruits', Icons.apple),
                     ),
 
                     BuyerCategoryCard(
@@ -141,7 +151,11 @@ class BuyerCategoriesPage extends StatelessWidget {
                       subtitle: 'Farm goods',
                       icon: Icons.inventory_2,
                       iconColor: const Color(0xFF4A4A4A),
-                      onTap: () => _comingSoon(context, 'Other Goods'),
+                      onTap: () => _openSubcategories(
+                        context,
+                        'Other Goods',
+                        Icons.inventory_2,
+                      ),
                     ),
                   ];
                   return ListView.separated(

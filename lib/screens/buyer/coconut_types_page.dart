@@ -2,7 +2,7 @@ import '../../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/buyer_widgets.dart';
-import '../../widgets/owner_widgets.dart';
+import '../../widgets/reusable_widgets.dart';
 import 'buyer_format.dart';
 import 'coconut_type.dart';
 import 'marketplace_page.dart';
@@ -55,53 +55,58 @@ class CoconutTypesPage extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
-              children: [
-                const Text(
-                  'Choose Coconut Category',
-                  style: TextStyle(
-                    fontSize: 17,
-                    color: Color(0xFF1B5E20),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Select the type of coconut product that you are looking to '
-                  'source from our verified suppliers.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF777777),
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                for (final CoconutType type in CoconutType.all) ...[
-                  CategoryImageCard(
-                    title: type.label,
-                    imageUrl: '',
-                    imageAsset: _photos[type.code],
-                    trailing: rupees(type.pricePerNut),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => MarketplacePage(type: type),
-                      ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Choose Coconut Category',
+                    style: TextStyle(
+                      fontSize: 17,
+                      color: Color(0xFF1B5E20),
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 18),
-                ],
-                const Text(
-                  'Prices shown are the typical offer per nut across nearby '
-                  'estates.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: kBuyerGrey,
-                    height: 1.4,
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Select the type of coconut product that you are looking to '
+                    'source from our verified suppliers.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF777777),
+                      height: 1.4,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  for (final CoconutType type in CoconutType.all) ...[
+                    Expanded(
+                      child: CoconutProductCard(
+                        title: type.label,
+                        imageUrl: '',
+                        imageAsset: _photos[type.code],
+                        unitLabel: rupees(type.pricePerNut),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MarketplacePage(type: type),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  const Text(
+                    'Prices shown are the typical offer per nut across nearby '
+                    'estates.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: kBuyerGrey,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
