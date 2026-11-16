@@ -1022,14 +1022,17 @@ const getWorkerProfile = async (req, res) => {
       `SELECT
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) <> 'COMPLETED'
+                  AND dj.required_date >= CURRENT_DATE
              THEN 1 ELSE 0 END
          ), 0)::integer AS accepted_jobs,
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
+                  OR dj.required_date < CURRENT_DATE
              THEN 1 ELSE 0 END
          ), 0)::integer AS completed_jobs,
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
+                  OR dj.required_date < CURRENT_DATE
              THEN COALESCE(${ratingColumn}, 0) ELSE 0 END
          ), 0)::integer AS total_rating_marks
        FROM day_job_applications dja
@@ -1076,6 +1079,13 @@ const createDayJob = async (req, res) => {
     } = req.body;
     const workers = Number(workersNeeded);
     const rate = Number(dailyRate);
+    const selectedCategory = String(category || "").trim();
+    const selectedPaymentMethod = String(paymentMethod || "").trim();
+    const requiredDay = dayOf(requiredDate);
+    const allowedPaymentMethods = new Set([
+      "Cash",
+      "Direct Bank Transfer",
+    ]);
     const estate = await getOwnEstate(pool, req.user.id);
     const jobLocation = String(estate.location || "").trim();
 
@@ -1086,13 +1096,13 @@ const createDayJob = async (req, res) => {
     }
 
     if (
-      !String(category || "").trim() ||
+      !selectedCategory ||
       !Number.isInteger(workers) ||
       workers < 1 ||
-      !String(requiredDate || "").trim() ||
+      !requiredDay ||
       !Number.isFinite(rate) ||
-      rate < 0 ||
-      !String(paymentMethod || "").trim()
+      rate <= 0 ||
+      !allowedPaymentMethods.has(selectedPaymentMethod)
     ) {
       return res.status(400).json({ message: "All day job fields are required" });
     }
@@ -1105,12 +1115,12 @@ const createDayJob = async (req, res) => {
        RETURNING *`,
       [
         estate.id,
-        String(category).trim(),
+        selectedCategory,
         workers,
-        String(requiredDate).trim(),
+        requiredDay,
         jobLocation,
         rate,
-        String(paymentMethod).trim(),
+        selectedPaymentMethod,
       ]
     );
 
