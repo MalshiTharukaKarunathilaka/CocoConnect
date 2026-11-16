@@ -25,7 +25,9 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
   String _estateLocation = '';
   bool _loadingEstate = true;
   bool _broadcasting = false;
-  final TextEditingController _rateController = TextEditingController();
+  final TextEditingController _rateController = TextEditingController(
+    text: '0',
+  );
 
   @override
   void initState() {
@@ -227,7 +229,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
                                     Text(
                                       _broadcasting
                                           ? 'Processing...'
-                                          : 'Process',
+                                          : 'Proceed',
                                       style: const TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,
@@ -283,6 +285,12 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
             fontSize: 25,
             fontWeight: FontWeight.bold,
           ),
+        ),
+        const Spacer(),
+        IconButton(
+          tooltip: 'Close',
+          onPressed: () => Navigator.maybePop(context),
+          icon: const Icon(Icons.close, color: _jobInk, size: 27),
         ),
       ],
     );
@@ -534,7 +542,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
             ],
           ),
           const SizedBox(height: 5),
-          for (final method in ['Cash', 'Direct Bank Transfer'])
+          for (final method in ['Cash', 'Direct Bank Transfer', 'Any'])
             _paymentOption(method),
         ],
       ),
