@@ -98,7 +98,7 @@ class _ProviderHubState extends State<ProviderHub> {
         Text(
           cdo
               ? 'Open a request, then acknowledge. No price negotiation for government.'
-              : 'Pending Ack means the estate is waiting for your acceptance.',
+              : 'Accept, negotiate, or cancel. The estate sees each update.',
           style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
         ),
         if (_pending.isNotEmpty) ...[
@@ -125,6 +125,34 @@ class _ProviderHubState extends State<ProviderHub> {
           for (final o in list) _orderCard(o),
       ],
     );
+  }
+
+  Future<String?> _askNote({required String title, required String hint}) async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dCtx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: ctrl,
+          maxLines: 3,
+          decoration: InputDecoration(hintText: hint),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx),
+            child: const Text('Back'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dCtx, ctrl.text.trim()),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    return result;
   }
 
   Widget _orderCard(FertOrder o) {
@@ -164,7 +192,7 @@ class _ProviderHubState extends State<ProviderHub> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              if (canAck)
+              if (canAck) ...[
                 ElevatedButton(
                   onPressed: () {
                     _store.acceptOrder(o.id);
@@ -173,8 +201,51 @@ class _ProviderHubState extends State<ProviderHub> {
                       SnackBar(content: Text('${o.id} accepted')),
                     );
                   },
-                  child: const Text('Accept / Ack'),
+                  child: const Text('Accept'),
                 ),
+                OutlinedButton(
+                  onPressed: () async {
+                    final note = await _askNote(
+                      title: 'Negotiation',
+                      hint: 'Message for the estate (price, date, bags…)',
+                    );
+                    if (note == null) return;
+                    _store.startNegotiation(o.id, note: note);
+                    setState(() {});
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${o.id} · negotiation started')),
+                    );
+                  },
+                  child: const Text('Negotiate'),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.dangerText,
+                    backgroundColor: AppColors.dangerSoft,
+                  ),
+                  onPressed: () async {
+                    final note = await _askNote(
+                      title: 'Cancel order',
+                      hint: 'Optional reason — the estate will see this',
+                    );
+                    if (note == null) return;
+                    _store.cancelOrder(
+                      o.id,
+                      bySupplier: true,
+                      note: note.isEmpty ? null : note,
+                    );
+                    setState(() {});
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${o.id} cancelled · estate will see this'),
+                      ),
+                    );
+                  },
+                  child: const Text('Cancel'),
+                ),
+              ],
               if (canDeliver)
                 ElevatedButton(
                   onPressed: () {

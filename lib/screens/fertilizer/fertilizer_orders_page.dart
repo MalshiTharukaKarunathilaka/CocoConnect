@@ -3,6 +3,7 @@ import '../../widgets/owner_widgets.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
+import 'fertilizer_order_edit_sheet.dart';
 
 class FertilizerOrdersPage extends StatefulWidget {
   const FertilizerOrdersPage({super.key});
@@ -26,6 +27,16 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
       return mine.where((o) => o.status == 'Accepted').toList();
     }
     return mine;
+  }
+
+  Future<void> _edit(FertOrder o) async {
+    final changed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => FertilizerOrderEditSheet(order: o),
+    );
+    if (changed == true && mounted) setState(() {});
   }
 
   @override
@@ -116,7 +127,7 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
   }
 
   Widget _card(FertOrder o) {
-    final canCancel =
+    final canEdit =
         o.status == 'Pending Ack' || o.status == 'Negotiating';
     return Container(
       padding: const EdgeInsets.all(14),
@@ -162,23 +173,16 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
               color: AppColors.green,
             ),
           ),
-          if (canCancel) ...[
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () {
-                  _store.cancelOrder(o.id);
-                  setState(() {});
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${o.id} cancelled')),
-                  );
-                },
-                style: TextButton.styleFrom(foregroundColor: AppColors.dangerText),
-                child: const Text('Cancel'),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => _edit(o),
+                child: Text(canEdit ? 'Edit' : 'View'),
               ),
-            ),
-          ],
+            ],
+          ),
         ],
       ),
     );

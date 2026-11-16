@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import '../../services/auth_service.dart';
 
@@ -9,6 +10,10 @@ enum FertHomeMode { supplier, cdo }
 
 /// The standard fertilizer types people search by.
 const List<String> kFertKinds = ['APM', 'YPM', 'MOP', 'ERP', 'TSP', 'Urea', 'Dolomite'];
+
+/// Brand filter chips on the map (same idea as Distance / Fertilizer).
+/// Private-brand filter only (CCB stays under Government supplier filter).
+const List<String> kFertBrands = ['CIC', 'Hayleys', 'Baurs'];
 
 class FertItem {
   FertItem({
@@ -106,23 +111,34 @@ class FertOrder {
     required this.slot,
     required this.status,
     required this.message,
-    this.negotiation = const [],
-  });
+    List<FertChat>? negotiation,
+  }) : negotiation = List<FertChat>.from(negotiation ?? const []);
 
   final String id;
   final String placeId;
   final String company;
   final String agent;
   final String owner;
-  final String product;
+  String product;
   final List<CartLine> items;
-  final int qty50;
-  final int price;
-  final DateTime preferredDate;
-  final String slot;
+  int qty50;
+  int price;
+  DateTime preferredDate;
+  String slot;
   String status; // Pending Ack | Accepted | Cancelled | Negotiating
-  final String message;
+  String message;
+  /// Chat notes between estate and supplier on this order.
   final List<FertChat> negotiation;
+
+  /// Why: after the owner changes bag counts, total bags and price must match the lines.
+  void refreshTotals() {
+    qty50 = items.fold(0, (s, l) => s + l.qty50);
+    price = items.fold(0, (s, l) => s + l.lineTotal);
+    product = items
+        .where((l) => l.qty50 > 0)
+        .map((l) => '${l.item.brand} ${l.item.name} (50 kg)')
+        .join(', ');
+  }
 }
 
 class FertChat {
@@ -130,6 +146,28 @@ class FertChat {
   final String from;
   final String text;
   final String time;
+}
+
+/// Alert for the estate owner when a supplier accepts, cancels, negotiates, etc.
+class FertOwnerAlert {
+  FertOwnerAlert({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.kind,
+    required this.at,
+    this.orderId = '',
+    this.read = false,
+  });
+
+  final String id;
+  final String title;
+  final String body;
+  /// accepted | cancelled | negotiating | delivered | info
+  final String kind;
+  final DateTime at;
+  final String orderId;
+  bool read;
 }
 
 class FertDayAvail {
@@ -151,6 +189,49 @@ class GovOrderDraft {
       lines.map((l) => '${l.item.name} \u00d7 ${l.qty50}').join(', ');
 }
 
+/// Logged-in owner's estate card used to auto-fill the CCB fertilizer form.
+/// Why: Annex 01 estate/size fields come from the account — owners cannot type them.
+class FertOwnerProfile {
+  const FertOwnerProfile({
+    required this.fullName,
+    required this.address,
+    required this.phone,
+    required this.nicNumber,
+    required this.landAddress,
+    required this.deedNumber,
+    required this.acres,
+    this.roods = 0,
+    this.perches = 0,
+    required this.coconutTrees,
+    required this.coconutSaplings,
+    required this.annualHarvestNuts,
+    this.district = 'Kurunegala',
+    this.estateName = 'Your Estate',
+  });
+
+  final String fullName;
+  final String address;
+  final String phone;
+  final String nicNumber;
+  final String landAddress;
+  final String deedNumber;
+  final int acres;
+  final int roods;
+  final int perches;
+  final int coconutTrees;
+  final int coconutSaplings;
+  final int annualHarvestNuts;
+  final String district;
+  final String estateName;
+
+  String get landSizeLabel {
+    final parts = <String>['$acres A'];
+    if (roods > 0) parts.add('$roods R');
+    if (perches > 0) parts.add('$perches P');
+    return parts.join(' · ');
+  }
+}
+
 class FertGovRequest {
   FertGovRequest({
     required this.id,
@@ -169,6 +250,17 @@ class FertGovRequest {
     this.landTitleCopy = '',
     this.outlet = '',
     this.preferred = '',
+    this.beneficiaryName = '',
+    this.address = '',
+    this.phone = '',
+    this.nicNumber = '',
+    this.landAddress = '',
+    this.deedNumber = '',
+    this.roods = 0,
+    this.perches = 0,
+    this.coconutTrees = 0,
+    this.coconutSaplings = 0,
+    this.annualHarvestNuts = 0,
   });
 
   final String id;
@@ -182,13 +274,24 @@ class FertGovRequest {
   int approved;
   int distributed;
 
-  // From the request form
+  // From the request form (Annex 01 / RH/AGRI/CCB/01)
   final String estateName;
   final double acres;
   final String nicCopy; // file name of the attached NIC copy
-  final String landTitleCopy; // file name of the attached land title copy
+  final String landTitleCopy; // file name of the attached land title / deed copy
   final String outlet; // the government outlet it was ordered from
   final String preferred; // preferred date and time slot
+  final String beneficiaryName;
+  final String address;
+  final String phone;
+  final String nicNumber;
+  final String landAddress;
+  final String deedNumber;
+  final int roods;
+  final int perches;
+  final int coconutTrees;
+  final int coconutSaplings;
+  final int annualHarvestNuts;
 }
 
 class FertComplaint {
@@ -226,6 +329,59 @@ class FertilizerStore {
 
   FertHomeMode homeMode = FertHomeMode.supplier;
 
+  /// Estate-owner alerts (supplier accept / cancel / negotiate…).
+  final List<FertOwnerAlert> ownerAlerts = [];
+
+  /// Bumps whenever a new alert arrives so the hub bell can refresh.
+  final ValueNotifier<int> ownerAlertTick = ValueNotifier<int>(0);
+
+  int get unreadOwnerAlerts => ownerAlerts.where((a) => !a.read).length;
+
+  void notifyOwner({
+    required String title,
+    required String body,
+    required String kind,
+    String orderId = '',
+  }) {
+    ownerAlerts.insert(
+      0,
+      FertOwnerAlert(
+        id: 'AL-${ownerAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
+        title: title,
+        body: body,
+        kind: kind,
+        at: DateTime.now(),
+        orderId: orderId,
+      ),
+    );
+    ownerAlertTick.value++;
+  }
+
+  void markOwnerAlertsRead() {
+    for (final a in ownerAlerts) {
+      a.read = true;
+    }
+    ownerAlertTick.value++;
+  }
+
+  /// Auto-filled CCB form details for the logged-in estate owner (demo values).
+  FertOwnerProfile ownerProfile = const FertOwnerProfile(
+    fullName: 'Demo Estate Owner',
+    address: 'No. 12, Temple Road, Mawathagama',
+    phone: '0711000001',
+    nicNumber: '198512345678',
+    landAddress: 'Your Estate, Mawathagama, Kurunegala',
+    deedNumber: 'KUR/MWT/2018/0456',
+    acres: 8,
+    roods: 0,
+    perches: 0,
+    coconutTrees: 640,
+    coconutSaplings: 80,
+    annualHarvestNuts: 42000,
+    district: 'Kurunegala',
+    estateName: 'Your Estate',
+  );
+
   static String _last9(String phone) {
     final digits = phone.replaceAll(RegExp(r'\D'), '');
     if (digits.isEmpty) return '';
@@ -236,6 +392,27 @@ class FertilizerStore {
   /// Why: one phone should only see that person's shop or CDO desk.
   void bindUser(AppUser user) {
     final key = _last9(user.phone);
+    // Keep CCB form details in sync with the logged-in person.
+    if (user.role == 'ESTATE_OWNER' || user.name.trim().isNotEmpty) {
+      ownerProfile = FertOwnerProfile(
+        fullName: user.name.trim().isEmpty ? ownerProfile.fullName : user.name,
+        address: (user.location ?? '').trim().isEmpty
+            ? ownerProfile.address
+            : user.location!.trim(),
+        phone: user.phone,
+        nicNumber: ownerProfile.nicNumber,
+        landAddress: ownerProfile.landAddress,
+        deedNumber: ownerProfile.deedNumber,
+        acres: ownerProfile.acres,
+        roods: ownerProfile.roods,
+        perches: ownerProfile.perches,
+        coconutTrees: ownerProfile.coconutTrees,
+        coconutSaplings: ownerProfile.coconutSaplings,
+        annualHarvestNuts: ownerProfile.annualHarvestNuts,
+        district: ownerProfile.district,
+        estateName: ownerProfile.estateName,
+      );
+    }
     if (user.role == 'CDO') {
       homeMode = FertHomeMode.cdo;
       final match = places.where(
@@ -532,9 +709,10 @@ class FertilizerStore {
       physical: true,
       willingFar: false,
       brands: const ['Hayleys'],
-      distanceKm: 1.6,
-      dLat: 0.012,
-      dLng: -0.008,
+      // Own pin — never share coordinates with Nadeesha Stores.
+      distanceKm: 2.3,
+      dLat: 0.018,
+      dLng: 0.010,
       phone: '077 555 0101',
       items: [
         FertItem(
@@ -630,7 +808,8 @@ class FertilizerStore {
       who: 'CDO - Mawathagama',
       kind: 'cdo',
       physical: true,
-      willingFar: true,
+      // Why: government programme only lists CCB near the estate — not far willing-to-travel offices.
+      willingFar: false,
       brands: const ['CCB'],
       distanceKm: 10,
       dLat: 0.055,
@@ -973,11 +1152,34 @@ class FertilizerStore {
 
   void placeOrder(FertOrder order) => orders.insert(0, order);
 
-  void cancelOrder(String id) {
+  void cancelOrder(String id, {bool bySupplier = false, String? note}) {
     for (final o in orders) {
       if (o.id == id &&
           (o.status == 'Pending Ack' || o.status == 'Negotiating')) {
         o.status = 'Cancelled';
+        // Why: estate My orders must show who cancelled — supplier or owner.
+        o.message = bySupplier
+            ? (note?.trim().isNotEmpty == true
+                ? 'Cancelled by supplier · ${note!.trim()}'
+                : 'Cancelled by supplier')
+            : (note?.trim().isNotEmpty == true
+                ? 'Cancelled by estate · ${note!.trim()}'
+                : 'Cancelled by estate');
+        o.negotiation.add(
+          FertChat(
+            bySupplier ? o.agent : o.owner,
+            o.message,
+            _nowStamp(),
+          ),
+        );
+        if (bySupplier) {
+          notifyOwner(
+            title: '${o.company} cancelled your order',
+            body: '${o.id} · ${o.product}. ${o.message}',
+            kind: 'cancelled',
+            orderId: o.id,
+          );
+        }
         return;
       }
     }
@@ -985,11 +1187,52 @@ class FertilizerStore {
 
   void acceptOrder(String id) {
     for (final o in orders) {
-      if (o.id == id) {
+      if (o.id == id &&
+          (o.status == 'Pending Ack' || o.status == 'Negotiating')) {
         o.status = 'Accepted';
+        o.message = 'Accepted by supplier · awaiting delivery';
+        o.negotiation.add(
+          FertChat(o.agent, 'Order accepted.', _nowStamp()),
+        );
+        notifyOwner(
+          title: '${o.company} accepted your order',
+          body: '${o.id} · ${o.product} · ${o.qty50} bags. Payment is after delivery setup.',
+          kind: 'accepted',
+          orderId: o.id,
+        );
         return;
       }
     }
+  }
+
+  /// Supplier opens a price / date talk — estate sees Negotiating.
+  void startNegotiation(String id, {String? note}) {
+    for (final o in orders) {
+      if (o.id == id &&
+          (o.status == 'Pending Ack' || o.status == 'Negotiating')) {
+        o.status = 'Negotiating';
+        final text = note?.trim().isNotEmpty == true
+            ? note!.trim()
+            : 'Supplier opened negotiation.';
+        o.message = text;
+        o.negotiation.add(FertChat(o.agent, text, _nowStamp()));
+        notifyOwner(
+          title: '${o.company} wants to negotiate',
+          body: '${o.id} · $text',
+          kind: 'negotiating',
+          orderId: o.id,
+        );
+        return;
+      }
+    }
+  }
+
+  static String _nowStamp() {
+    final n = DateTime.now();
+    final h = n.hour % 12 == 0 ? 12 : n.hour % 12;
+    final m = n.minute.toString().padLeft(2, '0');
+    final ap = n.hour >= 12 ? 'PM' : 'AM';
+    return '$h:$m $ap';
   }
 
   void markDelivered(String id) {
@@ -997,6 +1240,13 @@ class FertilizerStore {
       if (o.id == id &&
           (o.status == 'Accepted' || o.status == 'Stock Confirmed')) {
         o.status = 'Distributed';
+        o.message = 'Marked delivered by supplier';
+        notifyOwner(
+          title: '${o.company} marked delivered',
+          body: '${o.id} · ${o.product} is on the way / delivered.',
+          kind: 'delivered',
+          orderId: o.id,
+        );
         return;
       }
     }
