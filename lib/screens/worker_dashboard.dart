@@ -551,6 +551,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         builder: (context, setDialogState) {
           final acknowledging = _acknowledgingJobId == job.id;
           return AlertDialog(
+            scrollable: true,
             backgroundColor: _workerBackground,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
@@ -1012,6 +1013,8 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               .toList();
     final firstDay = DateTime(_month.year, _month.month, 1);
     final leading = firstDay.weekday - 1;
+    final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
+    final calendarCellCount = ((leading + daysInMonth + 6) ~/ 7) * 7;
     final jobDays = calendarJobs
         .where(
           (job) =>
@@ -1029,21 +1032,34 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       jobsByDay.putIfAbsent(job.requiredDate.day, () => []).add(job);
     }
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
       decoration: _cardDecoration(),
       child: Column(
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  '${_months[_month.month - 1]}\n${_month.year}',
-                  style: const TextStyle(
-                    color: _workerInk,
-                    fontSize: 21,
-                    height: 1.05,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _months[_month.month - 1],
+                      style: const TextStyle(
+                        color: _workerInk,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '${_month.year}',
+                      style: const TextStyle(
+                        color: _workerInk,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               _calendarMonthButton(Icons.chevron_left, -1),
@@ -1051,7 +1067,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               _calendarMonthButton(Icons.chevron_right, 1),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
           Row(
             children: [
               for (final day in ['M', 'T', 'W', 'T', 'F', 'S', 'S'])
@@ -1060,8 +1076,8 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                     child: Text(
                       day,
                       style: const TextStyle(
-                        color: _workerMuted,
-                        fontSize: 12,
+                        color: Color(0xFF3D4A5D),
+                        fontSize: 13,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -1069,23 +1085,26 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: 42,
+            itemCount: calendarCellCount,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              mainAxisExtent: 44,
-              mainAxisSpacing: 3,
-              crossAxisSpacing: 3,
+              mainAxisExtent: 48,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
             ),
             itemBuilder: (context, index) {
               final dayOffset = index - leading;
-              final date = DateTime(_month.year, _month.month, dayOffset + 1);
-              final isCurrentMonth = date.month == _month.month;
-              final marked = isCurrentMonth && jobDays.contains(date.day);
-              final dayJobs = isCurrentMonth ? jobsByDay[date.day] : null;
+              final day = dayOffset + 1;
+              if (day < 1 || day > daysInMonth) {
+                return const SizedBox.shrink();
+              }
+              final date = DateTime(_month.year, _month.month, day);
+              final marked = jobDays.contains(day);
+              final dayJobs = jobsByDay[day];
               final dayIcons = dayJobs == null
                   ? const <IconData>[]
                   : dayJobs
@@ -1093,33 +1112,29 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                         .toList();
               final today = DateTime.now();
               final todayDate = DateTime(today.year, today.month, today.day);
-              final isFutureOrToday =
-                  isCurrentMonth && !date.isBefore(todayDate);
+              final isFutureOrToday = !date.isBefore(todayDate);
               final isToday =
-                  isCurrentMonth &&
                   today.year == date.year &&
                   today.month == date.month &&
                   today.day == date.day;
 
               return GestureDetector(
-                onTap: isCurrentMonth
-                    ? () {
-                        setState(() {
-                          _selectedDate = date;
-                          _selectedEstate = null;
-                          _tab = 1;
-                          _myJobsOnly = false;
-                          _category = null;
-                        });
-                      }
-                    : null,
+                onTap: () {
+                  setState(() {
+                    _selectedDate = date;
+                    _selectedEstate = null;
+                    _tab = 1;
+                    _myJobsOnly = false;
+                    _category = null;
+                  });
+                },
                 child: Container(
-                  padding: const EdgeInsets.only(top: 5),
+                  padding: const EdgeInsets.fromLTRB(6, 6, 6, 5),
                   decoration: BoxDecoration(
                     color: isFutureOrToday
                         ? const Color(0xFFD8EBDD)
                         : const Color(0xFFF1EFEA),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                     border: isToday
                         ? Border.all(color: _workerGreen, width: 1.5)
                         : null,
@@ -1131,10 +1146,8 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                         child: Text(
                           '${date.day}',
                           style: TextStyle(
-                            color: isCurrentMonth
-                                ? _workerInk
-                                : const Color(0xFF9A9A94),
-                            fontSize: 13,
+                            color: _workerInk,
+                            fontSize: 14,
                             fontWeight: isToday || marked
                                 ? FontWeight.bold
                                 : FontWeight.normal,
@@ -1152,12 +1165,15 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                           bottom: 3,
                           left: 0,
                           right: 0,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              for (final icon in dayIcons)
-                                Icon(icon, color: _workerGreen, size: 11),
-                            ],
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (final icon in dayIcons)
+                                  Icon(icon, color: _workerGreen, size: 11),
+                              ],
+                            ),
                           ),
                         ),
                     ],
@@ -1165,6 +1181,21 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 ),
               );
             },
+          ),
+          const SizedBox(height: 16),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _WorkerCalendarLegend(
+                color: Color(0xFFF0A315),
+                label: 'Partially filled',
+              ),
+              SizedBox(width: 24),
+              _WorkerCalendarLegend(
+                color: _workerGreen,
+                label: 'Fully filled',
+              ),
+            ],
           ),
         ],
       ),
@@ -1188,18 +1219,18 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   Widget _calendarMonthButton(IconData icon, int change) {
     return Container(
-      width: 42,
-      height: 38,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
         color: const Color(0xFFF0EEE8),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: IconButton(
         padding: EdgeInsets.zero,
         onPressed: () => setState(
           () => _month = DateTime(_month.year, _month.month + change),
         ),
-        icon: Icon(icon, color: _workerMuted, size: 22),
+        icon: Icon(icon, color: const Color(0xFF68736B), size: 24),
       ),
     );
   }
@@ -1429,26 +1460,6 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 _jobDetailsHeader(detailsJobs),
                 const SizedBox(height: 8),
                 for (final job in detailsJobs) _nearbyJobCard(job, jobs),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _handleBack,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _workerGreen,
-                      padding: const EdgeInsets.symmetric(vertical: 17),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                    ),
-                    child: const Text(
-                      'Back to Dashboard',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ],
           ),
@@ -2210,6 +2221,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          scrollable: true,
           title: Text('Rate ${job.estateOwnerName}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2900,6 +2912,36 @@ class _WorkerProfileStat extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: const TextStyle(color: _workerMuted, fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
+class _WorkerCalendarLegend extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _WorkerCalendarLegend({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            color: _workerMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );

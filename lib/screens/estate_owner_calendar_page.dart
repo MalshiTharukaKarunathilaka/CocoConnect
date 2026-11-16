@@ -148,6 +148,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
 
   @override
   Widget build(BuildContext context) {
+    final compactMobile = MediaQuery.sizeOf(context).height <= 850;
     return Scaffold(
       backgroundColor: const Color(0xFFEFEFEF),
       body: Center(
@@ -158,18 +159,25 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
           child: SafeArea(
             child: Column(
               children: [
-                _header(),
+                _header(compact: compactMobile),
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 18),
+                    padding: EdgeInsets.fromLTRB(
+                      14,
+                      compactMobile ? 0 : 10,
+                      14,
+                      18,
+                    ),
                     children: [
-                      _estateSummary(),
-                      const SizedBox(height: 12),
-                      _categoryCard(),
-                      const SizedBox(height: 12),
+                      _estateSummary(compact: compactMobile),
+                      SizedBox(height: compactMobile ? 5 : 12),
+                      _categoryCard(compact: compactMobile),
+                      SizedBox(height: compactMobile ? 5 : 12),
                       HolidayListener(
                         years: [_month.year],
-                        builder: (_) => _calendarCard(),
+                        builder: (_) => _calendarCard(
+                          compact: compactMobile,
+                        ),
                       ),
                     ],
                   ),
@@ -185,9 +193,9 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     );
   }
 
-  Widget _header() {
+  Widget _header({required bool compact}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      padding: EdgeInsets.fromLTRB(12, compact ? 2 : 12, 12, compact ? 0 : 4),
       child: Row(
         children: [
           GestureDetector(
@@ -229,11 +237,11 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     );
   }
 
-  Widget _estateSummary() {
+  Widget _estateSummary({required bool compact}) {
     final String place =
         (_estate?.location ?? AuthService.currentUser?.location ?? '').trim();
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(compact ? 5 : 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -242,15 +250,19 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
       child: Row(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: compact ? 36 : 52,
+            height: compact ? 36 : 52,
             decoration: const BoxDecoration(
               color: Color(0xFFF0EDE6),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.park, size: 28, color: _calendarGreen),
+            child: Icon(
+              Icons.park,
+              size: compact ? 20 : 28,
+              color: _calendarGreen,
+            ),
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: compact ? 8 : 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,7 +283,10 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
           ),
           if (place.isNotEmpty)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 10 : 12,
+                vertical: compact ? 6 : 8,
+              ),
               decoration: BoxDecoration(
                 color: const Color(0xFFF4F0E9),
                 borderRadius: BorderRadius.circular(20),
@@ -300,14 +315,14 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     );
   }
 
-  Widget _calendarCard() {
+  Widget _calendarCard({required bool compact}) {
     final firstDay = DateTime(_month.year, _month.month, 1);
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
     final leadingDays = firstDay.weekday - 1;
     final calendarCellCount = ((leadingDays + daysInMonth + 6) ~/ 7) * 7;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+      padding: EdgeInsets.fromLTRB(16, compact ? 12 : 20, 16, compact ? 10 : 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
@@ -346,7 +361,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
               _monthButton(Icons.chevron_right, () => _changeMonth(1)),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: compact ? 10 : 20),
           Row(
             children: [
               for (final weekday in _weekdays)
@@ -364,7 +379,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: compact ? 6 : 8),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -384,7 +399,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
               return _dayCell(day);
             },
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: compact ? 8 : 16),
           const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -398,9 +413,45 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     );
   }
 
-  Widget _categoryCard() {
+  Widget _categoryCard({required bool compact}) {
+    final chips = <Widget>[
+      _CategoryChip(
+        Icons.eco,
+        'Nut Gatherer',
+        compact: compact,
+        selected: _categoryFilter == 'Nut Gatherer',
+        onTap: () => _toggleCategoryFilter('Nut Gatherer'),
+      ),
+      _CategoryChip(
+        Icons.agriculture,
+        'Machine Weeder',
+        compact: compact,
+        selected: _categoryFilter == 'Machine Weeder',
+        onTap: () => _toggleCategoryFilter('Machine Weeder'),
+      ),
+      _CategoryChip(
+        Icons.build,
+        'Manual Worker',
+        compact: compact,
+        selected: _categoryFilter == 'Manual Worker',
+        onTap: () => _toggleCategoryFilter('Manual Worker'),
+      ),
+      _CategoryChip(
+        Icons.star,
+        'Holiday',
+        compact: compact,
+        iconColor: Colors.red,
+        selected: _categoryFilter == 'Holiday',
+        onTap: () => _toggleCategoryFilter('Holiday'),
+      ),
+    ];
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 18, 14, 16),
+      padding: EdgeInsets.fromLTRB(
+        compact ? 10 : 14,
+        compact ? 8 : 18,
+        compact ? 10 : 14,
+        compact ? 8 : 16,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
@@ -418,37 +469,11 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
               letterSpacing: .5,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: compact ? 6 : 12),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _CategoryChip(
-                Icons.eco,
-                'Nut Gatherer',
-                selected: _categoryFilter == 'Nut Gatherer',
-                onTap: () => _toggleCategoryFilter('Nut Gatherer'),
-              ),
-              _CategoryChip(
-                Icons.agriculture,
-                'Machine Weeder',
-                selected: _categoryFilter == 'Machine Weeder',
-                onTap: () => _toggleCategoryFilter('Machine Weeder'),
-              ),
-              _CategoryChip(
-                Icons.build,
-                'Manual Worker',
-                selected: _categoryFilter == 'Manual Worker',
-                onTap: () => _toggleCategoryFilter('Manual Worker'),
-              ),
-              _CategoryChip(
-                Icons.star,
-                'Holiday',
-                iconColor: Colors.red,
-                selected: _categoryFilter == 'Holiday',
-                onTap: () => _toggleCategoryFilter('Holiday'),
-              ),
-            ],
+            spacing: compact ? 8 : 10,
+            runSpacing: compact ? 5 : 10,
+            children: chips,
           ),
           if (_categoryFilter != null) ...[
             const SizedBox(height: 8),
@@ -884,12 +909,14 @@ class _CategoryChip extends StatelessWidget {
   final String label;
   final Color iconColor;
   final bool selected;
+  final bool compact;
   final VoidCallback onTap;
 
   const _CategoryChip(
     this.icon,
     this.label, {
     this.iconColor = _calendarGreen,
+    required this.compact,
     required this.selected,
     required this.onTap,
   });
@@ -906,7 +933,10 @@ class _CategoryChip extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           width: 155,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 10 : 12,
+            vertical: compact ? 7 : 10,
+          ),
           decoration: BoxDecoration(
             color: selected ? const Color(0xFFDDEEE0) : const Color(0xFFF4EFE6),
             borderRadius: BorderRadius.circular(17),
