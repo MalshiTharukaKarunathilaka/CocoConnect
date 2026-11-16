@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../screens/buyer/buyer_format.dart';
 import '../services/owner_service.dart';
+import 'app_bottom_nav.dart';
 
 // Land owner palette, taken from the Figma designs.
 const Color kOwnerGreen = Color(0xFF256B45);
@@ -21,8 +22,14 @@ const double kMachineryPageWidth = 390;
 class OwnerPage extends StatelessWidget {
   final Widget child;
   final Widget? bottom;
+  final AppTab currentTab;
 
-  const OwnerPage({super.key, required this.child, this.bottom});
+  const OwnerPage({
+    super.key,
+    required this.child,
+    this.bottom,
+    this.currentTab = AppTab.dashboard,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +47,8 @@ class OwnerPage extends StatelessWidget {
                 children: [
                   Expanded(child: child),
                   ?bottom,
+                  if (supportsMainNavigation && bottom is! AppBottomNav)
+                    AppBottomNav(current: currentTab),
                 ],
               ),
             ),
@@ -470,9 +479,17 @@ class OwnerPrimaryButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
             if (arrow) ...[
               const SizedBox(width: 8),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'app_bottom_nav.dart';
 
 const Color kBuyerGreen = Color(0xFF2E7D32);
 const Color kBuyerGreenDark = Color(0xFF14432A);
@@ -31,7 +32,8 @@ class BuyerScaffold extends StatelessWidget {
               child: Column(
                 children: [
                   Expanded(child: body),
-                  ?bottomNavigation,
+                  bottomNavigation ??
+                      const AppBottomNav(current: AppTab.dashboard),
                 ],
               ),
             ),
@@ -72,7 +74,7 @@ class BuyerCard extends StatelessWidget {
             ),
           ],
         ),
-        child: child,
+        child: Material(type: MaterialType.transparency, child: child),
       ),
     );
   }

@@ -1,6 +1,6 @@
+import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/owner_service.dart';
-import '../widgets/app_bottom_nav.dart';
 import 'job_detail_page.dart';
 import 'post_day_job_page.dart';
 
@@ -95,32 +95,34 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: Container(
-          width: 430,
-          constraints: const BoxConstraints(maxWidth: 430),
-          color: _background,
-          child: SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: FutureBuilder<List<DayJob>>(
-                    future: _jobs,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(color: _green),
-                        );
-                      }
-                      if (snapshot.hasError) return _errorState();
-                      return _content(snapshot.data ?? const <DayJob>[]);
-                    },
+    return RoleNavigationPage(
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Container(
+            width: 430,
+            constraints: const BoxConstraints(maxWidth: 430),
+            color: _background,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: FutureBuilder<List<DayJob>>(
+                      future: _jobs,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(color: _green),
+                          );
+                        }
+                        if (snapshot.hasError) return _errorState();
+                        return _content(snapshot.data ?? const <DayJob>[]);
+                      },
+                    ),
                   ),
-                ),
-                const _JobsBottomNavigation(),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -686,78 +688,6 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
         const SizedBox(height: 14),
         FilledButton(onPressed: _refresh, child: const Text('Try again')),
       ],
-    );
-  }
-}
-
-class _JobsBottomNavigation extends StatelessWidget {
-  const _JobsBottomNavigation();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: _line)),
-      ),
-      child: Row(
-        children: [
-          _item(
-            Icons.dashboard_outlined,
-            'Dashboard',
-            () => openTab(context, AppTab.dashboard),
-          ),
-          _item(Icons.calendar_month, 'Calendar', null, active: true),
-          _item(
-            Icons.notifications_none,
-            'Alerts',
-            () => openTab(context, AppTab.alerts),
-          ),
-          _item(
-            Icons.person_outline,
-            'Profile',
-            () => openTab(context, AppTab.profile),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _item(
-    IconData icon,
-    String label,
-    VoidCallback? onTap, {
-    bool active = false,
-  }) {
-    final color = active ? _green : const Color(0xFF77716D);
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(
-                color: active ? const Color(0xFFDDEEE0) : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 10.5,
-                fontWeight: active ? FontWeight.bold : FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

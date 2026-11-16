@@ -1,3 +1,4 @@
+import '../widgets/app_bottom_nav.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
@@ -546,6 +547,7 @@ class _MachineryNegotiationPageState extends State<MachineryNegotiationPage> {
   @override
   Widget build(BuildContext context) {
     return OwnerPage(
+      currentTab: AppTab.chats,
       bottom: _inputBar(),
       child: Column(
         children: [
@@ -900,6 +902,7 @@ class BookingConfirmedPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final MachineBooking b = booking;
     return OwnerPage(
+      currentTab: AppTab.chats,
       child: Column(
         children: [
           const OwnerHeader(title: 'BOOKING CONFIRMED'),

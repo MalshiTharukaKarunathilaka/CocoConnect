@@ -1,3 +1,4 @@
+import '../widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import '../widgets/machinery_widgets.dart';
 import '../widgets/owner_widgets.dart';
@@ -139,6 +140,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     }
     if (_error != null) {
       return OwnerPage(
+        currentTab: AppTab.orders,
         child: Column(
           children: [
             const OwnerHeader(title: 'My Bookings'),
@@ -178,6 +180,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     }
 
     return OwnerPage(
+      currentTab: AppTab.orders,
       child: Column(
         children: [
           OwnerHeader(

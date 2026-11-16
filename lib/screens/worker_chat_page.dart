@@ -1,3 +1,4 @@
+import '../widgets/role_navigation_page.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
@@ -77,9 +78,9 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
       await _load();
     } on ApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -89,20 +90,23 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
   @override
   Widget build(BuildContext context) {
     final chat = _chat;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: Container(
-          width: 390,
-          constraints: const BoxConstraints(maxWidth: 430),
-          color: _workerChatBackground,
-          child: SafeArea(
-            child: Column(
-              children: [
-                _header(context, chat),
-                Expanded(child: _messages(chat)),
-                _composer(),
-              ],
+    return RoleNavigationPage(
+      current: AppTab.chats,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Container(
+            width: 390,
+            constraints: const BoxConstraints(maxWidth: 430),
+            color: _workerChatBackground,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _header(context, chat),
+                  Expanded(child: _messages(chat)),
+                  _composer(),
+                ],
+              ),
             ),
           ),
         ),
@@ -122,7 +126,11 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, size: 38, color: _workerChatMuted),
+            icon: const Icon(
+              Icons.arrow_back,
+              size: 38,
+              color: _workerChatMuted,
+            ),
           ),
           const SizedBox(width: 20),
           Expanded(
@@ -140,9 +148,7 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
                   ),
                 ),
                 Text(
-                  chat?.counterpartRole == 'WORKER'
-                      ? 'WORKER'
-                      : 'LAND OWNER',
+                  chat?.counterpartRole == 'WORKER' ? 'WORKER' : 'LAND OWNER',
                   style: const TextStyle(color: _workerChatMuted, fontSize: 17),
                 ),
               ],

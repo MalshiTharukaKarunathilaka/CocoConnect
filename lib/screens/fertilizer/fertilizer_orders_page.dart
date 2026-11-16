@@ -1,3 +1,4 @@
+import '../../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/owner_widgets.dart';
 import '../../theme/app_theme.dart';
@@ -47,49 +48,52 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
         .length;
     final accepted = mine.where((o) => o.status == 'Accepted').length;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFEFEFEF),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
-          child: Material(
-            color: AppColors.cream,
-            child: SafeArea(
-              child: Column(
-                children: [
-                  const OwnerHeader(
-                    title: 'My fertilizer orders',
-                    subtitle: 'FERTILIZER \u00b7 LAND OWNER',
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-                    child: Row(
-                      children: [
-                        _tabChip('pending', 'Pending ($pending)'),
-                        const SizedBox(width: 8),
-                        _tabChip('accepted', 'Accepted ($accepted)'),
-                        const SizedBox(width: 8),
-                        _tabChip('all', 'All (${mine.length})'),
-                      ],
+    return RoleNavigationPage(
+      current: AppTab.orders,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFEFEFEF),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 430),
+            child: Material(
+              color: AppColors.cream,
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    const OwnerHeader(
+                      title: 'My fertilizer orders',
+                      subtitle: 'FERTILIZER \u00b7 LAND OWNER',
                     ),
-                  ),
-                  Expanded(
-                    child: _list.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'No orders in this list yet.',
-                              style: TextStyle(color: AppColors.muted),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                      child: Row(
+                        children: [
+                          _tabChip('pending', 'Pending ($pending)'),
+                          const SizedBox(width: 8),
+                          _tabChip('accepted', 'Accepted ($accepted)'),
+                          const SizedBox(width: 8),
+                          _tabChip('all', 'All (${mine.length})'),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: _list.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No orders in this list yet.',
+                                style: TextStyle(color: AppColors.muted),
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: _list.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (_, i) => _card(_list[i]),
                             ),
-                          )
-                        : ListView.separated(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _list.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 10),
-                            itemBuilder: (_, i) => _card(_list[i]),
-                          ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

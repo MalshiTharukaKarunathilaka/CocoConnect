@@ -1,3 +1,4 @@
+import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/owner_service.dart';
 
@@ -158,87 +159,93 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFE7E5DF),
-      body: Center(
-        child: Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(maxWidth: 430),
-          color: _jobBackground,
-          child: SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: Center(
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      child: SizedBox(
-                        width: 338,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _title(),
-                            const SizedBox(height: 10),
-                            _categoryCard(),
-                            const SizedBox(height: 8),
-                            _workersCard(),
-                            const SizedBox(height: 8),
-                            _dateCard(),
-                            const SizedBox(height: 8),
-                            _locationCard(),
-                            const SizedBox(height: 8),
-                            _rateCard(),
-                            const SizedBox(height: 8),
-                            _paymentCard(),
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              height: 56,
-                              width: 338,
-                              child: FilledButton(
-                                onPressed: _broadcasting ? null : _broadcast,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: _jobGreen,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(38),
+    return RoleNavigationPage(
+      current: AppTab.dashboard,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFE7E5DF),
+        body: Center(
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxWidth: 430),
+            color: _jobBackground,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: SizedBox(
+                          width: 338,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _title(),
+                              const SizedBox(height: 10),
+                              _categoryCard(),
+                              const SizedBox(height: 8),
+                              _workersCard(),
+                              const SizedBox(height: 8),
+                              _dateCard(),
+                              const SizedBox(height: 8),
+                              _locationCard(),
+                              const SizedBox(height: 8),
+                              _rateCard(),
+                              const SizedBox(height: 8),
+                              _paymentCard(),
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                height: 56,
+                                width: 338,
+                                child: FilledButton(
+                                  onPressed: _broadcasting ? null : _broadcast,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: _jobGreen,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(38),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        _broadcasting
+                                            ? 'Processing...'
+                                            : 'Process',
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      if (_broadcasting)
+                                        const SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      else
+                                        const Icon(
+                                          Icons.arrow_forward,
+                                          size: 25,
+                                        ),
+                                    ],
                                   ),
                                 ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      _broadcasting
-                                          ? 'Processing...'
-                                          : 'Process',
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    if (_broadcasting)
-                                      const SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.5,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    else
-                                      const Icon(Icons.arrow_forward, size: 25),
-                                  ],
-                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

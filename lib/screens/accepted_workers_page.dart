@@ -1,3 +1,4 @@
+import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/day_job_chat_service.dart';
@@ -17,64 +18,67 @@ class AcceptedWorkersPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final workers = job.acceptedWorkers;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFE7E5DF),
-      body: Center(
-        child: Container(
-          width: 390,
-          constraints: const BoxConstraints(maxWidth: 430),
-          color: _rosterBackground,
-          child: SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        size: 32,
-                        color: _rosterInk,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        job.category,
-                        style: const TextStyle(
+    return RoleNavigationPage(
+      current: AppTab.dashboard,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFE7E5DF),
+        body: Center(
+          child: Container(
+            width: 390,
+            constraints: const BoxConstraints(maxWidth: 430),
+            color: _rosterBackground,
+            child: SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(
+                          Icons.arrow_back,
+                          size: 32,
                           color: _rosterInk,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Accepted Workers',
-                        style: TextStyle(color: _rosterInk, fontSize: 22),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          job.category,
+                          style: const TextStyle(
+                            color: _rosterInk,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    _countBadge(workers.length),
-                  ],
-                ),
-                const SizedBox(height: 28),
-                if (workers.isEmpty)
-                  _emptyState()
-                else
-                  for (final worker in workers) ...[
-                    _workerCard(context, worker),
-                    const SizedBox(height: 22),
-                  ],
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Accepted Workers',
+                          style: TextStyle(color: _rosterInk, fontSize: 22),
+                        ),
+                      ),
+                      _countBadge(workers.length),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+                  if (workers.isEmpty)
+                    _emptyState()
+                  else
+                    for (final worker in workers) ...[
+                      _workerCard(context, worker),
+                      const SizedBox(height: 22),
+                    ],
+                ],
+              ),
             ),
           ),
         ),
@@ -150,11 +154,7 @@ class AcceptedWorkersPage extends StatelessWidget {
                   color: Color(0xFFD8EBDD),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.person,
-                  color: _rosterGreen,
-                  size: 46,
-                ),
+                child: const Icon(Icons.person, color: _rosterGreen, size: 46),
               ),
               const SizedBox(width: 18),
               Expanded(
@@ -247,15 +247,13 @@ class AcceptedWorkersPage extends StatelessWidget {
       if (!context.mounted) return;
       await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => WorkerChatPage(chatId: chatId),
-        ),
+        MaterialPageRoute(builder: (_) => WorkerChatPage(chatId: chatId)),
       );
     } on ApiException catch (error) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 }

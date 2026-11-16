@@ -278,7 +278,7 @@ class _StatsGrid extends StatelessWidget {
               child: _StatTile(
                 value: summary.ordersActive,
                 label: 'Orders to collect',
-                icon: Icons.local_shipping_outlined,
+                icon: Icons.shopping_basket_outlined,
               ),
             ),
             const SizedBox(width: 12),

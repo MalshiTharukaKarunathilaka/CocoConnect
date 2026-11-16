@@ -1,3 +1,4 @@
+import '../../widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/owner_widgets.dart';
@@ -64,9 +65,9 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
     _say('Approved order ${o.id} at ${rupees(o.price)}.');
     setState(() {});
     _toEnd();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${o.id} approved')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${o.id} approved')));
   }
 
   void _decline(FertOrder o) {
@@ -74,9 +75,9 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
     _say('Declined order ${o.id}.');
     setState(() {});
     _toEnd();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${o.id} declined')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${o.id} declined')));
   }
 
   Future<void> _orderNow() async {
@@ -125,8 +126,10 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
             Row(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: kOwnerGreenSoft,
                     borderRadius: BorderRadius.circular(99),
@@ -154,7 +157,10 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
                 color: kOwnerInk,
               ),
             ),
-            Text('${p.brandLine} \u00b7 ${p.distanceKm.toStringAsFixed(1)} km', style: muted),
+            Text(
+              '${p.brandLine} \u00b7 ${p.distanceKm.toStringAsFixed(1)} km',
+              style: muted,
+            ),
             const Divider(height: 22, color: kOwnerBorder),
             if (o != null) ...[
               Text(
@@ -191,8 +197,10 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
               ),
               const SizedBox(height: 10),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: kOwnerGreenSoft,
                   borderRadius: BorderRadius.circular(12),
@@ -235,10 +243,7 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
                           ),
                         ),
                       ),
-                      Text(
-                        '${rupees(it.price)} / ${it.unit}',
-                        style: muted,
-                      ),
+                      Text('${rupees(it.price)} / ${it.unit}', style: muted),
                     ],
                   ),
                 ),
@@ -316,6 +321,7 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
   Widget build(BuildContext context) {
     final msgs = _msgs;
     return OwnerPage(
+      currentTab: AppTab.chats,
       child: Column(
         children: [
           OwnerHeader(
@@ -332,8 +338,9 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
                 final m = msgs[i - 1];
                 final mine = m.from == 'You';
                 return Align(
-                  alignment:
-                      mine ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment: mine
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.symmetric(

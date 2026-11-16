@@ -1,3 +1,4 @@
+import '../widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/buyer_service.dart';
@@ -62,6 +63,7 @@ class _OrderStatusPageState extends State<OrderStatusPage> {
   @override
   Widget build(BuildContext context) {
     return OwnerPage(
+      currentTab: AppTab.orders,
       child: Column(
         children: [
           const OwnerHeader(title: 'My Sell Requests'),
