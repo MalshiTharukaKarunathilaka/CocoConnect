@@ -9,7 +9,7 @@ const {
   withDueDate,
   DUE_DATE_COLUMNS,
 } = require("../utils/geo");
-const { postMessage, openOfferChat } = require("./chatController");
+const { postMessage, openOfferChat, postDealEvent, postOrderEvent } = require("./chatController");
 
 /** Today as "YYYY-MM-DD" in the server's local time zone. */
 const localToday = () => {
@@ -145,7 +145,7 @@ const getSummary = async (req, res) => {
        WHERE estate_owner_id = $1 AND status = 'pending'`
     );
     const ordersActive = await count(
-      `SELECT COUNT(*) AS count ${myOrders} AND o.status = 'ACCEPTED'`
+      `SELECT COUNT(*) AS count ${myOrders} AND o.status IN ('ACCEPTED', 'AWAITING_RECEIPT')`
     );
     const ordersCompleted = await count(
       `SELECT COUNT(*) AS count ${myOrders} AND o.status = 'COMPLETED'`
@@ -755,6 +755,7 @@ const acceptNegotiation = async (req, res) => {
       [negotiation.id, order.rows[0].id]
     );
 
+    await postDealEvent(client, negotiation.id, req.user.id, 'accepted', finalPrice);
     await client.query("COMMIT");
 
     return res.status(201).json({
@@ -771,10 +772,11 @@ const acceptNegotiation = async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| COMPLETE A DEAL with what was actually delivered
+| COMPLETE A DEAL with what the buyer actually collected at the estate
 |--------------------------------------------------------------------------
 */
 const completeOrder = async (req, res) => {
+  const client = await pool.connect();
   try {
     const deliveredQuantity = Number(req.body.deliveredQuantity);
     const finalPrice = Number(req.body.finalPricePerUnit);
@@ -783,7 +785,7 @@ const completeOrder = async (req, res) => {
 
     if (!Number.isInteger(deliveredQuantity) || deliveredQuantity <= 0) {
       return res.status(400).json({
-        message: "Enter the number of nuts actually delivered",
+        message: "Enter the number of nuts collected by the buyer at the estate",
       });
     }
     if (!(finalPrice > 0)) {
@@ -805,7 +807,7 @@ const completeOrder = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
     if (order.status !== "ACCEPTED") {
-      return res.status(409).json({ message: "This deal is already completed" });
+      return res.status(409).json({ message: "This deal is no longer awaiting seller completion" });
     }
 
     // A different price than agreed needs an admin's approval. Until then
@@ -821,39 +823,49 @@ const completeOrder = async (req, res) => {
       });
     }
 
+    await client.query("BEGIN");
     const result = differs
-      ? await pool.query(
+      ? await client.query(
           `UPDATE orders
-           SET status = 'COMPLETED',
+           SET status = 'AWAITING_RECEIPT',
                delivered_quantity = $2,
                delivered_price_per_unit = $3,
                dispute_price_per_unit = $4,
                dispute_status = 'PENDING',
                dispute_note = $5,
-               completed_at = $6
-           WHERE id = $1
+               seller_completed_at = $6
+           WHERE id = $1 AND status = 'ACCEPTED'
            RETURNING *`,
           [order.id, deliveredQuantity, agreed, finalPrice, note, new Date()]
         )
-      : await pool.query(
+      : await client.query(
           `UPDATE orders
-           SET status = 'COMPLETED',
+           SET status = 'AWAITING_RECEIPT',
                delivered_quantity = $2,
                delivered_price_per_unit = $3,
-               completed_at = $4
-           WHERE id = $1
+               seller_completed_at = $4
+           WHERE id = $1 AND status = 'ACCEPTED'
            RETURNING *`,
           [order.id, deliveredQuantity, finalPrice, new Date()]
         );
 
+    if (!result.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({message: 'This deal is no longer awaiting seller completion'});
+    }
+    await postOrderEvent(client, order.id, req.user.id, 'collected');
+    await client.query('COMMIT');
     return res.status(200).json({
       message: differs
-        ? "Deal completed - new price sent for admin approval"
-        : "Deal completed",
+        ? "Collection recorded at the estate - awaiting buyer collection confirmation; new price sent for admin approval"
+        : "Collection recorded at the estate - awaiting buyer collection confirmation",
       order: result.rows[0],
     });
   } catch (error) {
+    await client.query("ROLLBACK");
     return serverError(res, "Complete order", error);
+  } finally {
+    client.release();
   }
 };
 
@@ -878,7 +890,7 @@ const getMarketStats = async (req, res) => {
        LEFT JOIN sell_requests sr
          ON sr.buyer_request_id = o.buyer_request_id AND sr.status = 'accepted'
        LEFT JOIN buyer_requests br ON br.id = o.buyer_request_id
-       WHERE UPPER(COALESCE(pl.product_type, sr.product_type)) = $1
+       WHERE UPPER(COALESCE(pl.product_type, sr.product_type)) = $1 AND o.status <> 'CANCELLED'
        ORDER BY o.created_at DESC, o.id DESC
        LIMIT 500`,
       [type]

@@ -62,6 +62,8 @@ const myOrders = async (userId) => {
     } = row;
     return {
       ...order,
+      my_rating: iAmBuyer ? row.buyer_rating : row.owner_rating,
+      counterpart_rating: iAmBuyer ? row.owner_rating : row.buyer_rating,
       my_role: iAmBuyer ? "BUYER" : "ESTATE_OWNER",
       counterpart_name: iAmBuyer
         ? listing_estate || offer_estate || "Estate"
@@ -131,7 +133,7 @@ const getActivity = async (req, res) => {
       ),
       negotiations: chats.filter((chat) => chat.status === "OPEN"),
       deals: orders
-        .filter((order) => order.status === "ACCEPTED")
+        .filter((order) => ["ACCEPTED", "AWAITING_RECEIPT"].includes(order.status))
         .sort((a, b) =>
           String(a.due_date ?? "9999").localeCompare(String(b.due_date ?? "9999"))
         ),

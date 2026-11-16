@@ -120,6 +120,7 @@ class ChatDetail {
   final int? orderId;
   final String? orderStatus;
   final double? orderPrice;
+  final int? myRating;
   final String counterpartName;
   final String? counterpartLocation;
   final String productType;
@@ -139,6 +140,7 @@ class ChatDetail {
     required this.orderId,
     required this.orderStatus,
     required this.orderPrice,
+    this.myRating,
     required this.counterpartName,
     required this.counterpartLocation,
     required this.productType,
@@ -153,6 +155,10 @@ class ChatDetail {
   bool get isOpen => status == 'OPEN';
   bool get isAccepted => status == 'ACCEPTED';
   bool get isCompleted => orderStatus == 'COMPLETED';
+  bool get awaitingReceipt => orderStatus == 'AWAITING_RECEIPT';
+  bool get isCancelled => status == 'CANCELLED' || orderStatus == 'CANCELLED';
+  bool get canCancel =>
+      isAccepted && (orderStatus == 'ACCEPTED' || awaitingReceipt);
 
   /// The newest offer, if any price was sent in the chat.
   ChatMessage? get latestOffer {
@@ -172,6 +178,7 @@ class ChatDetail {
       orderId: json['order_id'] as int?,
       orderStatus: json['order_status'] as String?,
       orderPrice: _numOrNull(json['order_price']),
+      myRating: (json['my_rating'] as num?)?.toInt(),
       counterpartName: json['counterpart_name'] as String? ?? '',
       counterpartLocation: json['counterpart_location'] as String?,
       productType: listing['product_type'] as String? ?? '',
@@ -270,6 +277,9 @@ class ChatService {
 
   static Future<void> acceptListing(int chatId) =>
       ApiClient.post('/api/chats/$chatId/accept-listing');
+
+  static Future<void> cancelDeal(int chatId) =>
+      ApiClient.post('/api/chats/$chatId/cancel-deal');
 
   static Future<void> close(int chatId) =>
       ApiClient.post('/api/chats/$chatId/close');

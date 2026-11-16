@@ -125,7 +125,9 @@ test("OWNER -> BUYER: a harvest is listed, found, negotiated and bought", async 
   const done = await ok("POST", `/api/owner/orders/${orderId}/complete`, {
     token: owner.token, body: { deliveredQuantity: 1000, finalPricePerUnit: 126 },
   });
-  assert.equal(done.order.status, "COMPLETED");
+  assert.equal(done.order.status, "AWAITING_RECEIPT");
+  const receipt = await ok('PATCH', `/api/buyer/orders/${orderId}/confirm-receipt`, {token: buyer.token});
+  assert.equal(receipt.order.status, 'COMPLETED');
   const after = await ok("GET", "/api/activity", { token: buyer.token });
   assert.ok(after.transactions.some((t) => t.id === orderId), "the buyer sees it as a finished transaction");
   assert.ok(!after.deals.some((d) => d.id === orderId));

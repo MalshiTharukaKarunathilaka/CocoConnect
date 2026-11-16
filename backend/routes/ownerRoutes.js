@@ -313,7 +313,7 @@ router.get("/orders", getMyOrders);
  * @swagger
  * /api/owner/orders/{id}/complete:
  *   post:
- *     summary: Complete a deal with the quantity and price actually delivered
+ *     summary: Complete a deal with the quantity collected by the buyer at the estate and the final price
  *     tags: [Land Owner]
  *     security:
  *       - bearerAuth: []

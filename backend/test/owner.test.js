@@ -386,10 +386,11 @@ test("deals: owner accepts buyer's offer, completes with actual figures", async 
     body: { deliveredQuantity: 1950, finalPricePerUnit: 128 },
   });
   assert.equal(done.status, 200);
-  assert.equal(done.data.order.status, "COMPLETED");
+  assert.equal(done.data.order.status, "AWAITING_RECEIPT");
   assert.equal(done.data.order.delivered_quantity, 1950);
   assert.equal(Number(done.data.order.final_price_per_unit), 128, "agreed price kept");
-  assert.ok(done.data.order.completed_at);
+  assert.ok(done.data.order.seller_completed_at);
+  assert.equal(done.data.order.completed_at, null);
 
   const twice = await call("POST", `/api/owner/orders/${orderId}/complete`, {
     token: owner.token,
@@ -397,6 +398,7 @@ test("deals: owner accepts buyer's offer, completes with actual figures", async 
   });
   assert.equal(twice.status, 409);
 
+  assert.equal((await call('PATCH', `/api/buyer/orders/${orderId}/confirm-receipt`, {token: buyer.token})).status, 200);
   const buyerOrders = await call("GET", "/api/buyer/orders", { token: buyer.token });
   assert.equal(buyerOrders.data.find((o) => o.id === orderId).status, "COMPLETED");
 

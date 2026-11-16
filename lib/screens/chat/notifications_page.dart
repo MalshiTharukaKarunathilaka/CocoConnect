@@ -53,9 +53,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         if (chatId == null) return;
         await Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => WorkerChatPage(chatId: chatId),
-          ),
+          MaterialPageRoute(builder: (_) => WorkerChatPage(chatId: chatId)),
         );
         if (mounted) _reload();
       case NotificationType.sellOffer:

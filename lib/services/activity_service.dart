@@ -64,7 +64,7 @@ class PendingOffer {
 /// either side.
 class OrderItem {
   final int id;
-  final String status; // ACCEPTED / COMPLETED
+  final String status; // ACCEPTED / AWAITING_RECEIPT / COMPLETED
   final bool iAmBuyer;
   final int? negotiationId;
   final String counterpartName;
@@ -77,6 +77,8 @@ class OrderItem {
   final int? deliveredQuantity;
   final double? deliveredPrice;
   final DateTime? completedAt;
+  final int? myRating;
+  final int? counterpartRating;
 
   /// A different final price waiting for (or decided by) an admin.
   final double? disputePrice;
@@ -97,17 +99,20 @@ class OrderItem {
     required this.deliveredQuantity,
     required this.deliveredPrice,
     required this.completedAt,
+    this.myRating,
+    this.counterpartRating,
     required this.disputePrice,
     required this.disputeStatus,
   });
 
   bool get isCompleted => status == 'COMPLETED';
+  bool get awaitingReceipt => status == 'AWAITING_RECEIPT';
 
   /// "DL-2026-081": the year the deal was made and its order number.
   String get reference =>
       'DL-${(createdAt ?? DateTime.now()).year}-${id.toString().padLeft(3, '0')}';
 
-  /// Whole days until delivery; negative when overdue.
+  /// Whole days until collection; negative when overdue.
   int? get daysUntilDue {
     final DateTime? due = dueDate;
     if (due == null) return null;
@@ -124,7 +129,7 @@ class OrderItem {
     return !isCompleted && days != null && days <= 1;
   }
 
-  /// What was delivered at the price that currently counts.
+  /// What the buyer collected at the price that currently counts.
   double get settledTotal =>
       (deliveredQuantity ?? quantity) * (deliveredPrice ?? pricePerUnit);
 
@@ -143,6 +148,8 @@ class OrderItem {
     deliveredQuantity: (json['delivered_quantity'] as num?)?.toInt(),
     deliveredPrice: _numOrNull(json['delivered_price_per_unit']),
     completedAt: _timeOrNull(json['completed_at']),
+    myRating: (json['my_rating'] as num?)?.toInt(),
+    counterpartRating: (json['counterpart_rating'] as num?)?.toInt(),
     disputePrice: _numOrNull(json['dispute_price_per_unit']),
     disputeStatus: json['dispute_status'] as String?,
   );
@@ -191,6 +198,12 @@ class ActivityService {
     }
     return null;
   }
+
+  static Future<void> confirmReceipt(int orderId) =>
+      ApiClient.patch('/api/buyer/orders/$orderId/confirm-receipt', {});
+
+  static Future<void> rateOrder(int orderId, int rating) =>
+      ApiClient.put('/api/orders/$orderId/rating', {'rating': rating});
 
   /// Throws an [ApiException] with code PRICE_REVIEW_REQUIRED's message if
   /// the price differs and [requestPriceReview] is false.

@@ -59,8 +59,15 @@ const chatItems = async (userId) => {
       items.push({
         key: `chat-${last.id}`,
         type: "CHAT",
-        title:
-          chat.unread_count === 1
+        title: last.text?.startsWith('Deal accepted by ')
+          ? `${chat.counterpart_name} accepted your deal`
+          : last.text?.startsWith('Deal cancelled by ')
+          ? `${chat.counterpart_name} cancelled the deal`
+          : last.text?.startsWith('Transaction marked complete by ')
+          ? `${chat.counterpart_name} marked transaction complete - mark nuts received`
+          : last.text?.startsWith('Nuts marked as received by ')
+          ? `${chat.counterpart_name} confirmed collection - deal complete`
+          : chat.unread_count === 1
             ? `New message from ${chat.counterpart_name}`
             : `${chat.unread_count} new messages from ${chat.counterpart_name}`,
         body: last.text || "",

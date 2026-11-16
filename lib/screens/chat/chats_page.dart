@@ -163,7 +163,12 @@ class _ChatTile extends StatelessWidget {
         : chat.counterpartName;
     final String? state = switch (chat.status) {
       'ACCEPTED' =>
-        chat.orderStatus == 'COMPLETED' ? 'Completed' : 'Deal accepted',
+        chat.orderStatus == 'COMPLETED'
+            ? 'Completed'
+            : chat.orderStatus == 'AWAITING_RECEIPT'
+            ? 'Awaiting collection confirmation'
+            : 'Deal accepted',
+      'CANCELLED' => 'Cancelled',
       'REJECTED' => 'Closed',
       _ => null,
     };

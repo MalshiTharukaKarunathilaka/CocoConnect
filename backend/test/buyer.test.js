@@ -292,12 +292,16 @@ test("negotiation: start, message, counter-offer, accept, complete", async () =>
   assert.equal(orders.data[0].estate_name, "Green Valley Estate");
 
   const orderId = orders.data[0].id;
+  const premature = await call('PATCH', `/api/buyer/orders/${orderId}/complete`, {token});
+  assert.equal(premature.status, 409);
+  // Delivery setup for this buyer-route test; the owner route is covered separately.
+  await pool().query("UPDATE orders SET status = 'AWAITING_RECEIPT', seller_completed_at = $2 WHERE id = $1", [orderId, new Date()]);
   const completed = await call("PATCH", `/api/buyer/orders/${orderId}/complete`, { token });
   assert.equal(completed.status, 200);
   assert.equal(completed.data.order.status, "COMPLETED");
 
   const twice = await call("PATCH", `/api/buyer/orders/${orderId}/complete`, { token });
-  assert.equal(twice.status, 404);
+  assert.equal(twice.status, 409);
 
   const after = await call("GET", `/api/buyer/negotiations/${id}`, { token });
   assert.equal(after.data.status, "ACCEPTED");

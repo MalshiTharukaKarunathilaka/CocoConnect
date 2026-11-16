@@ -378,7 +378,7 @@ router.get("/orders", getMyOrders);
  * @swagger
  * /api/buyer/orders/{id}/complete:
  *   patch:
- *     summary: Mark an accepted order as completed
+ *     summary: Confirm collection at the estate after the seller records completion
  *     tags: [Buyer]
  *     security:
  *       - bearerAuth: []
@@ -395,5 +395,6 @@ router.get("/orders", getMyOrders);
  *         description: No accepted order with that id
  */
 router.patch("/orders/:id/complete", completeOrder);
+router.patch("/orders/:id/confirm-receipt", completeOrder);
 
 module.exports = router;
