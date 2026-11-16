@@ -155,6 +155,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('Edit Profile'),
       content: SingleChildScrollView(
         child: Column(
@@ -290,6 +291,7 @@ class _EditEstateDialogState extends State<EditEstateDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('Edit Estate'),
       content: SingleChildScrollView(
         child: Column(

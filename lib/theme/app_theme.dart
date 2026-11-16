@@ -150,6 +150,7 @@ class AppThemeScope extends StatelessWidget {
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.callout),
         ),
@@ -157,6 +158,7 @@ class AppThemeScope extends StatelessWidget {
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
+        constraints: BoxConstraints(maxWidth: 430),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppRadius.callout),
@@ -282,7 +284,16 @@ Widget themedPicker(BuildContext context, Widget? child) =>
 class AppTheme {
   AppTheme._();
 
-  static ThemeData light() => ThemeData(useMaterial3: true, fontFamily: 'Arial');
+  static ThemeData light() => ThemeData(
+    useMaterial3: true,
+    fontFamily: 'Arial',
+    dialogTheme: const DialogThemeData(
+      insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      constraints: BoxConstraints(maxWidth: 430),
+    ),
+  );
 }
 
 /// A small coloured label for a status such as "Accepted" or "Pending Ack".

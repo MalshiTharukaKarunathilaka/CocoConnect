@@ -972,6 +972,7 @@ class _OfferDialogState extends State<_OfferDialog> {
   Widget build(BuildContext context) {
     final double? value = _value;
     return AlertDialog(
+      scrollable: true,
       title: const Text('Send a Price Offer'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
