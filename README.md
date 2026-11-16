@@ -1,4 +1,4 @@
-# 🌴 CocoConnect
+# 🌴 Kapconnect
 
 > A digital ecosystem developed for the **Coconut Growers Association of Sri Lanka (CGASL)** to modernize coconut estate management, connect stakeholders, and enhance marketplace operations.
 
@@ -6,7 +6,7 @@
 
 # Overview
 
-CocoConnect is a digital platform designed to support the Sri Lankan coconut industry by providing an integrated ecosystem for estate owners, estate managers, buyers, service providers, and administrators.
+Kapconnect is a digital platform designed to support the Sri Lankan coconut industry by providing an integrated ecosystem for estate owners, estate managers, buyers, service providers, and administrators.
 
 The platform streamlines estate management, facilitates marketplace transactions, improves stakeholder communication, and enables data-driven decision-making through a centralized digital solution.
 
@@ -102,7 +102,7 @@ This project is developed as a **Third-Year Information Systems Group Project** 
 # Repository Structure
 
 ```text
-CocoConnect
+Kapconnect
 │
 ├── backend/
 │   ├── src/
@@ -170,13 +170,13 @@ CocoConnect
 ## Clone the Repository
 
 ```bash
-git clone https://github.com/<organization-or-username>/CocoConnect.git
+git clone https://github.com/<organization-or-username>/Kapconnect.git
 ```
 
 ## Navigate to the Project
 
 ```bash
-cd CocoConnect
+cd Kapconnect
 ```
 
 ## Backend Setup
@@ -216,4 +216,4 @@ Developed by the Third-Year Information Systems undergraduate team of the **Univ
 
 This project is developed for academic purposes as part of the Bachelor of Science in Information Systems degree programme at the University of Colombo School of Computing (UCSC).
 
-© 2026 CocoConnect Team. All rights reserved.
+© 2026 Kapconnect Team. All rights reserved.
