@@ -274,25 +274,37 @@ test("an offer on a buyer request starts a chat; accepting it there closes the r
 });
 
 test("interested buyers can be matched to the estate's harvest", async () => {
-  for (const [quantity, date] of [[400, "2026-12-14"], [400, "2026-12-03"], [5000, "2026-12-12"]]) {
-    await call("POST", "/api/buyer/requests", {
-      token: buyer.token,
-      body: {
-        productType: "COCONUT_HUSK",
-        requestedQuantity: quantity,
-        requiredDate: date,
-        biddingPricePerUnit: 140,
-      },
-    });
+  const requestDates = [
+    [400, "2026-12-14"],
+    [400, "2026-12-03"],
+    [5000, "2026-12-12"],
+  ];
+  for (const productType of ["COCONUT_HUSK", "DEHUSKED_COCONUT"]) {
+    for (const [quantity, date] of requestDates) {
+      await call("POST", "/api/buyer/requests", {
+        token: buyer.token,
+        body: {
+          productType,
+          requestedQuantity: quantity,
+          requiredDate: date,
+          biddingPricePerUnit: 160,
+        },
+      });
+    }
   }
+
   // Harvest of 1,000 nuts available 15 Dec: buyers needing 8-15 Dec, up to 1,000.
-  const matched = (await call(
-    "GET",
-    "/api/owner/buyer-requests?type=COCONUT_HUSK&availableDate=2026-12-15&maxQuantity=1000",
-    { token: owner.token }
-  )).data;
-  assert.deepEqual(
-    matched.map((r) => String(r.required_date).slice(0, 10)),
-    ["2026-12-14"]
-  );
+  for (const productType of ["COCONUT_HUSK", "DEHUSKED_COCONUT"]) {
+    const matched = (await call(
+      "GET",
+      `/api/owner/buyer-requests?type=${productType}&availableDate=2026-12-15&maxQuantity=1000`,
+      { token: owner.token }
+    )).data;
+    assert.deepEqual(
+      matched.map((r) => String(r.required_date).slice(0, 10)),
+      ["2026-12-14"],
+      `${productType} requests match independently`
+    );
+    assert.ok(matched.every((r) => r.product_type === productType));
+  }
 });
