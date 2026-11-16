@@ -14,6 +14,13 @@ analyzer:
     # separate projects that live in this repo; they have their own pubspec
     - kapconnect_flutter/**
     - mobile/**
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   # The lint rules applied to this project can be customized in the

@@ -31,7 +31,9 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
     _phoneController = TextEditingController(
       text: widget.account.phone.replaceFirst(RegExp(r'^0'), ''),
     );
-    _passwordController = TextEditingController(text: FertilizerDemoAuth.passwordHint);
+    _passwordController = TextEditingController(
+      text: FertilizerDemoAuth.passwordHint,
+    );
   }
 
   @override

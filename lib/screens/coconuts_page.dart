@@ -4,6 +4,7 @@ import '../widgets/reusable_widgets.dart';
 import '../widgets/app_bottom_nav.dart';
 import 'raw_coconuts_page.dart';
 import 'coconut_husks_page.dart';
+import 'dehusked_coconuts_page.dart';
 
 class CoconutsPage extends StatelessWidget {
   const CoconutsPage({super.key});
@@ -108,15 +109,22 @@ class CoconutsPage extends StatelessWidget {
 
                         const SizedBox(height: 10),
 
-                        const Expanded(
+                        Expanded(
                           child: CoconutProductCard(
                             title: 'Dehusked Coconuts',
-                            unitLabel: '1 unit = 1 kg',
+                            unitLabel: '1 unit = 1 nut',
                             imageUrl: '',
                             imageAsset: 'assets/images/dehusked_coconuts.jpg',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const DehuskedCoconutsPage(),
+                                ),
+                              );
+                            },
                           ),
                         ),
-
                         const SizedBox(height: 10),
 
                         Expanded(

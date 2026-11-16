@@ -130,6 +130,16 @@ test("listings: filter by type, hide sold, sort", async () => {
 
   const husks = await call("GET", "/api/buyer/listings?type=COCONUT_HUSK");
   assert.equal(husks.data.length, 1);
+  assert.equal(husks.data[0].product_type, "COCONUT_HUSK");
+
+  const dehusked = await call(
+    "GET",
+    "/api/buyer/listings?type=DEHUSKED_COCONUT"
+  );
+  assert.equal(dehusked.status, 200);
+  assert.equal(dehusked.data.length, 1);
+  assert.equal(dehusked.data[0].product_type, "DEHUSKED_COCONUT");
+  assert.equal(dehusked.data[0].quantity, 500);
 
   const one = await call("GET", `/api/buyer/listings/${raw.data[0].id}`);
   assert.equal(one.data.estate_name, "Silva Plantations");
@@ -331,8 +341,14 @@ test("negotiation: reject closes it, and accept uses listed price with no counte
 });
 
 test("dates come back as plain YYYY-MM-DD", async () => {
-  const raw = await call("GET", "/api/buyer/listings?type=COCONUT_HUSK");
-  assert.match(String(raw.data[0].available_date), /^2026-11-20/);
+  const husks = await call("GET", "/api/buyer/listings?type=COCONUT_HUSK");
+  assert.match(String(husks.data[0].available_date), /^2026-11-20/);
+
+  const dehusked = await call(
+    "GET",
+    "/api/buyer/listings?type=DEHUSKED_COCONUT"
+  );
+  assert.match(String(dehusked.data[0].available_date), /^2026-12-05/);
 });
 
 

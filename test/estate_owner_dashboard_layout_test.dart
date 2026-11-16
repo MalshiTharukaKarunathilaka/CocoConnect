@@ -40,8 +40,8 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: CoconutsPage()));
       await tester.pumpAndSettle();
       final bottomBar = tester.getRect(find.byType(CustomBottomNavigation));
-      expect(find.text('1 unit = 1 nut').hitTestable(), findsNWidgets(2));
-      expect(find.text('1 unit = 1 kg').hitTestable(), findsOneWidget);
+      expect(find.text('1 unit = 1 nut').hitTestable(), findsNWidgets(3));
+      expect(find.text('1 unit = 1 kg').hitTestable(), findsNothing);
       for (final title in [
         'Raw Coconuts(with husks)',
         'Dehusked Coconuts',

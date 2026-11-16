@@ -173,6 +173,74 @@ test("BUYER -> OWNER -> BUYER: a request is answered, bought, and a price disput
   assert.equal(Number(buyerAfter.find((o) => o.id === bought.order.id).delivered_price_per_unit), 150);
 });
 
+test("DEHUSKED_COCONUT: buyer request -> owner offer -> completed buyer order", async () => {
+  const request = (await ok("POST", "/api/buyer/requests", {
+    token: buyer.token,
+    body: {
+      productType: "DEHUSKED_COCONUT",
+      requestedQuantity: 350,
+      requiredDate: "2026-12-23",
+      biddingPricePerUnit: 160,
+    },
+  }, 201)).buyerRequest;
+
+  const open = await ok(
+    "GET",
+    "/api/owner/buyer-requests?type=DEHUSKED_COCONUT&lat=7.4863&lng=80.3647",
+    { token: owner.token }
+  );
+  const seen = open.find((r) => r.id === request.id);
+  assert.ok(seen, "the owner sees the dehusked coconut request");
+  assert.equal(seen.product_type, "DEHUSKED_COCONUT");
+
+  const offer = await ok("POST", "/api/owner/sell-requests", {
+    token: owner.token,
+    body: {
+      buyerRequestId: request.id,
+      quantity: 350,
+      sellerPricePerUnit: 165,
+    },
+  }, 201);
+  assert.equal(offer.sellRequest.product_type, "DEHUSKED_COCONUT");
+
+  const responses = await ok(
+    "GET",
+    `/api/buyer/requests/${request.id}/responses`,
+    { token: buyer.token }
+  );
+  const bought = await ok(
+    "POST",
+    `/api/buyer/responses/${responses[0].id}/accept`,
+    { token: buyer.token },
+    201
+  );
+  assert.equal(Number(bought.order.total_value), 165 * 350);
+
+  const completed = await ok(
+    "POST",
+    `/api/owner/orders/${bought.order.id}/complete`,
+    {
+      token: owner.token,
+      body: { deliveredQuantity: 350, finalPricePerUnit: 165 },
+    }
+  );
+  assert.equal(completed.order.status, "AWAITING_RECEIPT");
+  const confirmed = await ok(
+    "PATCH",
+    `/api/buyer/orders/${bought.order.id}/confirm-receipt`,
+    { token: buyer.token }
+  );
+  assert.equal(confirmed.order.status, "COMPLETED");
+  const ownerOrders = await ok("GET", "/api/owner/orders", {
+    token: owner.token,
+  });
+  const dehuskedOrder = ownerOrders.find(
+    (order) => order.id === bought.order.id
+  );
+  assert.ok(dehuskedOrder);
+  assert.equal(dehuskedOrder.product_type, "DEHUSKED_COCONUT");
+});
+
 test("PROVIDER <-> OWNER: a machine is registered, requested, negotiated, confirmed and cancelled", async () => {
   const machine = await ok("POST", "/api/machinery/provider/machines", {
     token: provider.token, body: { name: "Sunil Tractor", category: "Tractor" },
