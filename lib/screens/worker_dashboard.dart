@@ -10,6 +10,7 @@ import 'auth_gate.dart';
 import 'worker_chat_page.dart';
 import 'estate_jobs_map_page.dart';
 import 'day_job_chats_list.dart';
+import 'estate_owner_worker_profile_page.dart';
 
 const _workerGreen = Color(0xFF2D704D);
 const _workerBackground = Color(0xFFFCF9F3);
@@ -53,7 +54,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _selectedDate;
   String? _selectedEstate;
-  int? _radiusKm = 20;
+  int? _radiusKm;
   int? _decliningJobId;
 
   @override
@@ -100,6 +101,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   Future<WorkerProfileSummary> _fetchProfile() async {
     final profile = await WorkerService.getProfile();
     _profileCache = profile;
+    if (mounted) setState(() {});
     return profile;
   }
 
@@ -449,9 +451,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: _searchBox()),
+            Expanded(child: SizedBox(height: 48, child: _searchBox())),
             const SizedBox(width: 10),
-            Expanded(child: _myJobsButton()),
+            Expanded(child: SizedBox(height: 48, child: _myJobsButton())),
           ],
         ),
         const SizedBox(height: 16),
@@ -484,6 +486,13 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   Widget _profileCard(List<WorkerJob> jobs) {
     final user = AuthService.currentUser;
+    final profileLocation = _profileCache?.location.trim() ?? '';
+    final accountLocation = user?.location?.trim() ?? '';
+    final workerLocation = profileLocation.isNotEmpty
+        ? profileLocation
+        : accountLocation.isNotEmpty
+        ? accountLocation
+        : 'Location not provided';
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
       decoration: _cardDecoration(),
@@ -510,21 +519,24 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   ),
                 ),
                 const SizedBox(height: 3),
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.verified, color: _workerGreen, size: 18),
-                    SizedBox(width: 5),
-                    Icon(
+                    const Icon(Icons.verified, color: _workerGreen, size: 18),
+                    const SizedBox(width: 5),
+                    const Icon(
                       Icons.location_on_outlined,
                       color: _workerGreen,
                       size: 18,
                     ),
-                    SizedBox(width: 4),
+                    const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        'Kurunegala District',
+                        workerLocation,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: _workerMuted, fontSize: 12),
+                        style: const TextStyle(
+                          color: _workerMuted,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -546,16 +558,16 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               job.status.toUpperCase() == 'COMPLETED',
         )
         .toList();
-    final totalRatingMarks = completedJobs.fold<int>(
-      0,
-      (total, job) => total + (job.rating ?? 0),
-    );
-    final averageRating = completedJobs.isEmpty
-        ? null
-        : totalRatingMarks / completedJobs.length;
+    final completedCount = _profileCache?.completedJobs ?? completedJobs.length;
+    final totalRatingMarks =
+        _profileCache?.totalRatingMarks ??
+        completedJobs.fold<int>(0, (total, job) => total + (job.rating ?? 0));
+    final averageRating =
+        _profileCache?.averageRating ??
+        (completedCount == 0 ? null : totalRatingMarks / completedCount);
     final ratingLabel = averageRating == null
         ? 'New'
-        : '${averageRating.toStringAsFixed(1)} (${completedJobs.length})';
+        : '${averageRating.toStringAsFixed(1)} ($completedCount)';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -1523,10 +1535,14 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   ],
                 ),
               ),
-              Icon(
-                _calendarIconForCategory(firstJob.category),
-                color: _workerGreen,
-                size: 25,
+              IconButton(
+                tooltip: 'View estate location',
+                onPressed: () => _openEstateLocation(firstJob, jobs),
+                icon: const Icon(
+                  Icons.location_on,
+                  color: _workerGreen,
+                  size: 27,
+                ),
               ),
             ],
           ),
@@ -1582,6 +1598,22 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     );
   }
 
+  Future<void> _openEstateLocation(
+    WorkerJob estateJob,
+    List<WorkerJob> jobs,
+  ) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EstateJobsMapPage(
+          jobs: jobs,
+          initialEstateId: estateJob.estateOwnerId,
+          initialEstateName: estateJob.estateName,
+        ),
+      ),
+    );
+  }
+
   Widget _nearbyJobCard(WorkerJob job, List<WorkerJob> allJobs) {
     final applicationStatus = job.applicationStatus?.toLowerCase();
     final estateLocation = job.estateLocation.trim().isNotEmpty
@@ -1594,6 +1626,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     final completed =
         job.status.toLowerCase() == 'completed' ||
         job.applicationStatus?.toLowerCase() == 'completed';
+    final canDecline = accepted && job.canDecline && !completed;
     final available = (job.workersNeeded - job.confirmedWorkers).clamp(
       0,
       job.workersNeeded,
@@ -1773,7 +1806,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                     onPressed: completed
                         ? null
                         : accepted
-                        ? declining
+                        ? !canDecline || declining
                               ? null
                               : () => _declineJob(job)
                         : () => _acceptOrShowSameDayConflict(job, allJobs),
@@ -1789,7 +1822,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                       completed
                           ? 'Completed'
                           : accepted
-                          ? declining
+                          ? !canDecline
+                                ? 'Job in progress'
+                                : declining
                                 ? 'Declining...'
                                 : 'Decline job'
                           : 'Accept job',
@@ -1819,6 +1854,53 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               ],
             ],
           ),
+          if (completed && accepted) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 42,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openEstateOwnerProfile(job),
+                      icon: const Icon(Icons.person_outline, size: 18),
+                      label: const Text('View Profile'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _workerGreen,
+                        side: const BorderSide(color: _workerGreen, width: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(21),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 42,
+                    child: FilledButton.icon(
+                      onPressed: () => _rateEstateOwner(job),
+                      icon: const Icon(Icons.star_outline, size: 18),
+                      label: Text(
+                        job.estateOwnerRating == null
+                            ? 'Give Rating'
+                            : 'Rating ${job.estateOwnerRating}/5',
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _workerGreen,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(21),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (!accepted && !completed) ...[
             const SizedBox(height: 6),
             const Text(
@@ -1829,6 +1911,89 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         ],
       ),
     );
+  }
+
+  Future<void> _openEstateOwnerProfile(WorkerJob job) async {
+    final rating = await Navigator.push<int?>(
+      context,
+      MaterialPageRoute(builder: (_) => EstateOwnerWorkerProfilePage(job: job)),
+    );
+    if (rating != null && rating != job.estateOwnerRating) {
+      _reloadJobs();
+    }
+  }
+
+  Future<void> _rateEstateOwner(WorkerJob job) async {
+    var selected = job.estateOwnerRating ?? 0;
+    final rating = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Rate ${job.estateOwnerName}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                job.estateName,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: _workerMuted),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var value = 1; value <= 5; value++)
+                    IconButton(
+                      onPressed: () => setDialogState(() => selected = value),
+                      icon: Icon(
+                        value <= selected ? Icons.star : Icons.star_border,
+                        color: value <= selected
+                            ? const Color(0xFFE3A008)
+                            : const Color(0xFFD9D5CC),
+                      ),
+                    ),
+                ],
+              ),
+              Text(
+                selected == 0 ? 'Select a rating' : '$selected / 5',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: selected == 0
+                  ? null
+                  : () => Navigator.pop(dialogContext, selected),
+              style: FilledButton.styleFrom(backgroundColor: _workerGreen),
+              child: Text(
+                job.estateOwnerRating == null ? 'Save Rating' : 'Update Rating',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (rating == null || !mounted) return;
+
+    try {
+      await WorkerService.rateEstateOwner(jobId: job.id, rating: rating);
+      if (!mounted) return;
+      _reloadJobs();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Land owner rating saved.')));
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
   }
 
   Future<void> _acceptOrShowSameDayConflict(
