@@ -60,8 +60,8 @@ class CoconutType {
 
   static const CoconutType husks = CoconutType(
     code: 'COCONUT_HUSK',
-    label: 'Coconut Husks',
-    singular: 'Coconut husk',
+    label: 'Only Husks',
+    singular: 'Husk',
     subtitle: 'Loose husks, counted by source nut',
     husk: 'Loose coconut husks',
     icon: Icons.grass,

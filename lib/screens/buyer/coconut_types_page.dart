@@ -14,8 +14,10 @@ const Map<String, String> _photos = {
       'https://commons.wikimedia.org/wiki/Special:FilePath/Coconut_green.JPG?width=800',
   'DEHUSKED_COCONUT':
       'https://images.pexels.com/photos/7543134/pexels-photo-7543134.jpeg?auto=compress&cs=tinysrgb&w=800',
-  'COCONUT_HUSK':
-      'https://images.pexels.com/photos/27596374/pexels-photo-27596374.jpeg?auto=compress&cs=tinysrgb&w=800',
+};
+
+const Map<String, String> _assetPhotos = {
+  'COCONUT_HUSK': 'assets/images/coconut_husks_per_nut.png',
 };
 
 /// Sits between Buying Categories and the marketplace - the buyer picks
@@ -87,6 +89,7 @@ class CoconutTypesPage extends StatelessWidget {
                   CategoryImageCard(
                     title: type.label,
                     imageUrl: _photos[type.code] ?? '',
+                    imageAsset: _assetPhotos[type.code],
                     trailing: rupees(type.pricePerNut),
                     onTap: () => Navigator.push(
                       context,

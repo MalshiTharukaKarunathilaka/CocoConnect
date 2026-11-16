@@ -647,6 +647,7 @@ class DashedDivider extends StatelessWidget {
 class CategoryImageCard extends StatelessWidget {
   final String title;
   final String imageUrl;
+  final String? imageAsset;
   final String? trailing;
   final VoidCallback? onTap;
 
@@ -654,6 +655,7 @@ class CategoryImageCard extends StatelessWidget {
     super.key,
     required this.title,
     required this.imageUrl,
+    this.imageAsset,
     this.trailing,
     this.onTap,
   });
@@ -674,23 +676,31 @@ class CategoryImageCard extends StatelessWidget {
             SizedBox(
               height: 130,
               width: double.infinity,
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                // Wikimedia asks apps to say who they are.
-                headers: const {
-                  'User-Agent': 'KapConnect/1.0 (university project)',
-                },
-                loadingBuilder: (context, child, progress) => progress == null
-                    ? child
-                    : const ColoredBox(color: Color(0xFFF1F1EC)),
-                errorBuilder: (context, error, stackTrace) => const ColoredBox(
-                  color: Color(0xFFE8F5E9),
-                  child: Center(
-                    child: Icon(Icons.image, size: 40, color: kOwnerGreen),
-                  ),
-                ),
-              ),
+              child: imageAsset != null
+                  ? Image.asset(imageAsset!, fit: BoxFit.cover)
+                  : Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      // Wikimedia asks apps to say who they are.
+                      headers: const {
+                        'User-Agent': 'KapConnect/1.0 (university project)',
+                      },
+                      loadingBuilder: (context, child, progress) =>
+                          progress == null
+                          ? child
+                          : const ColoredBox(color: Color(0xFFF1F1EC)),
+                      errorBuilder: (context, error, stackTrace) =>
+                          const ColoredBox(
+                            color: Color(0xFFE8F5E9),
+                            child: Center(
+                              child: Icon(
+                                Icons.image,
+                                size: 40,
+                                color: kOwnerGreen,
+                              ),
+                            ),
+                          ),
+                    ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
