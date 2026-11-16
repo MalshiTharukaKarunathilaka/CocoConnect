@@ -7,6 +7,8 @@ process.env.DB_MODE = "memory";
 process.env.PORT = "5098";
 process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret";
 
+const pool = require("../config/db");
+
 let server;
 const base = "http://localhost:5098";
 
@@ -581,6 +583,17 @@ test("worker acceptance appears in the estate owner's job details", async () => 
   );
   assert.equal(ratingWhileAwaitingWorker.status, 200);
   assert.equal(ratingWhileAwaitingWorker.data.rating, 4);
+
+  // Recover an acknowledgement interrupted after its status changed but
+  // before its required estate-owner rating was saved.
+  await pool.query(
+    `UPDATE day_job_applications
+     SET status = 'COMPLETED',
+         estate_owner_rating = NULL,
+         estate_owner_rated_at = CURRENT_TIMESTAMP
+     WHERE day_job_id = $1 AND worker_id = 1`,
+    [historicalJob.data.id]
+  );
 
   const pendingWorkerJobs = await call("GET", "/api/worker/jobs", {
     token: worker.token,
