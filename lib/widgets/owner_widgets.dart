@@ -214,15 +214,18 @@ class OwnerPill extends StatelessWidget {
 class QuantityPriceBox extends StatelessWidget {
   final int quantity;
   final double pricePerUnit;
+  final String productType;
 
   const QuantityPriceBox({
     super.key,
     required this.quantity,
     required this.pricePerUnit,
+    this.productType = 'RAW_COCONUT',
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool usesUnits = productType.toUpperCase() == 'COCONUT_HUSK';
     TextSpan unit(String text) => TextSpan(
       text: text,
       style: const TextStyle(
@@ -267,12 +270,18 @@ class QuantityPriceBox extends StatelessWidget {
           children: [
             half(
               'Quantity',
-              TextSpan(text: withCommas(quantity), children: [unit(' nuts')]),
+              TextSpan(
+                text: withCommas(quantity),
+                children: [unit(usesUnits ? ' units' : ' nuts')],
+              ),
             ),
             const VerticalDivider(width: 24, color: Color(0xFFD6D3CC)),
             half(
               'Price',
-              TextSpan(text: rupees(pricePerUnit), children: [unit('/nut')]),
+              TextSpan(
+                text: rupees(pricePerUnit),
+                children: [unit(usesUnits ? '/unit' : '/nut')],
+              ),
               right: true,
             ),
           ],
@@ -326,6 +335,7 @@ class _MarketPulseState extends State<MarketPulse> {
 
   @override
   Widget build(BuildContext context) {
+    final bool usesUnits = widget.productType.toUpperCase() == 'COCONUT_HUSK';
     final MarketStats? stats = _stats;
     // Quietly skip while loading, on error, or before any deal exists.
     if (stats == null || stats.lastDealQuantity == null) {
@@ -387,7 +397,8 @@ class _MarketPulseState extends State<MarketPulse> {
                       text: 'Deal Closed: ',
                       children: [
                         TextSpan(
-                          text: '${withCommas(stats.lastDealQuantity!)} Nuts',
+                          text:
+                              '${withCommas(stats.lastDealQuantity!)} ${usesUnits ? 'Units' : 'Nuts'}',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         const TextSpan(text: ' at '),
@@ -399,7 +410,7 @@ class _MarketPulseState extends State<MarketPulse> {
                             color: kOwnerGreen,
                           ),
                         ),
-                        const TextSpan(text: '/nut'),
+                        TextSpan(text: usesUnits ? '/unit' : '/nut'),
                       ],
                     ),
                     style: const TextStyle(
@@ -420,7 +431,7 @@ class _MarketPulseState extends State<MarketPulse> {
                 const SizedBox(width: 5),
                 Expanded(
                   child: Text(
-                    '$averageLabel: Rs. ${average.toStringAsFixed(2)} / nut'
+                    '$averageLabel: Rs. ${average.toStringAsFixed(2)} / ${usesUnits ? 'unit' : 'nut'}'
                     '  ($orders)',
                     style: const TextStyle(
                       fontSize: 11.5,

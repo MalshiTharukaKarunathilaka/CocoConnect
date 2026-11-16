@@ -11,10 +11,10 @@ class CoconutHusksPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return const RawCoconutsPage(
       productType: 'COCONUT_HUSK',
-      title: 'Coconut Husks',
+      title: 'Only Husks',
       singularTitle: 'Coconut Husk',
       description:
-          'Manage your coconut husks. Sell and view interested buyers.',
+          'Manage only husks. Sell and view interested buyers.',
       initialPricePerNut: 0,
     );
   }

@@ -44,6 +44,10 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
   bool showSummary = false;
 
+  bool get usesUnits => widget.productType.toUpperCase() == 'COCONUT_HUSK';
+  String get quantityPlural => usesUnits ? 'units' : 'nuts';
+  String get priceUnit => usesUnits ? 'unit' : 'nut';
+
   // Open raw-coconut buyer requests, reloaded after sending an offer.
   late Future<List<OpenBuyerRequest>> buyersFuture;
 
@@ -110,7 +114,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
           Expanded(
             child: Text(
               'Matching your harvest: buyers needing '
-              '${quantity == null ? '' : 'up to ${withCommas(quantity)} nuts '}'
+              '${quantity == null ? '' : 'up to ${withCommas(quantity)} $quantityPlural '}'
               'between ${shortDate(from)} and ${shortDate(date)}',
               style: const TextStyle(fontSize: 11.5, color: Color(0xFF263238)),
             ),
@@ -284,8 +288,10 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
     } on FormatException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter a valid number of nuts and price per nut'),
+        SnackBar(
+          content: Text(
+            'Enter a valid number of $quantityPlural and price per $priceUnit',
+          ),
           backgroundColor: Color(0xFFC62828),
         ),
       );
@@ -380,9 +386,11 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                       ),
 
                       const SizedBox(height: 6),
-                      const Text(
-                        '1 unit = 1 nut',
-                        style: TextStyle(
+                      Text(
+                        usesUnits
+                            ? 'Quantity measured in units'
+                            : '1 unit = 1 nut',
+                        style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFF256B45),
                           fontWeight: FontWeight.w600,
@@ -534,7 +542,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                                       ? 'Offered ${rupees(buyer.myOfferPrice!)}'
                                       : rupees(buyer.bidPerUnit),
                                   quantity:
-                                      '${withCommas(buyer.quantity)} nuts',
+                                      '${withCommas(buyer.quantity)} $quantityPlural',
                                   pickupDate: shortDate(buyer.requiredDate),
                                   distance: distanceLabel(buyer.distanceKm),
                                   onTap: () async {
@@ -545,7 +553,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                                         SnackBar(
                                           content: Text(
                                             'You already offered ${rupees(buyer.myOfferPrice!)} '
-                                            'per nut to ${buyer.buyerName}',
+                                            'per $priceUnit to ${buyer.buyerName}',
                                           ),
                                         ),
                                       );
@@ -652,7 +660,11 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const SizedBox(height: 16),
 
-          const FormLabel(text: 'NUMBER OF NUTS'),
+          FormLabel(
+            text: widget.productType == 'COCONUT_HUSK'
+                ? 'NUMBER OF UNITS'
+                : 'NUMBER OF NUTS',
+          ),
           CustomInputField(
             controller: quantityController,
             icon: null,
@@ -671,7 +683,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const SizedBox(height: 12),
 
-          const FormLabel(text: 'OFFER PRICE PER NUT'),
+          FormLabel(text: 'OFFER PRICE PER ${priceUnit.toUpperCase()}'),
           CustomInputField(
             controller: priceController,
             icon: null,
@@ -785,7 +797,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const Divider(height: 24),
 
-          SummaryRow(title: 'Quantity', value: '$quantity nuts'),
+          SummaryRow(title: 'Quantity', value: '$quantity $quantityPlural'),
 
           const Divider(height: 24),
 
@@ -793,7 +805,10 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const Divider(height: 24),
 
-          SummaryRow(title: 'Offer Price Per Nut', value: price),
+          SummaryRow(
+            title: 'Offer Price Per ${usesUnits ? 'Unit' : 'Nut'}',
+            value: price,
+          ),
 
           const Divider(height: 24),
 

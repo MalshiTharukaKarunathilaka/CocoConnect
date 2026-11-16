@@ -53,6 +53,8 @@ class _MarketplacePageState extends State<MarketplacePage> {
   DateTime? _requiredDate;
   bool _submitting = false;
 
+  bool get _usesUnits => widget.type.code == 'COCONUT_HUSK';
+
   Future<List<Listing>> _loadListings() {
     final AppUser? me = AuthService.currentUser;
     final _RequestMatch? match = _match;
@@ -114,7 +116,9 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
     String? error;
     if (nuts == null || nuts <= 0) {
-      error = 'Enter the number of nuts you need';
+      error = _usesUnits
+          ? 'Enter the number of units you need'
+          : 'Enter the number of nuts you need';
     } else if (_requiredDate == null) {
       error = 'Pick the date you need them by';
     } else if (price == null || price <= 0) {
@@ -440,7 +444,11 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
                   const SizedBox(height: 20),
 
-                  const BuyerFieldLabel(text: 'Number of Nuts Required'),
+                  BuyerFieldLabel(
+                    text: _usesUnits
+                        ? 'Number of Units Required'
+                        : 'Number of Nuts Required',
+                  ),
                   const SizedBox(height: 7),
                   BuyerInputField(
                     controller: _nutsController,

@@ -63,7 +63,7 @@ class CoconutType {
     label: 'Only Husks',
     singular: 'Husk',
     subtitle: 'Loose husks, counted by source nut',
-    husk: 'Loose coconut husks',
+    husk: 'Only husks',
     icon: Icons.grass,
     iconColor: Color(0xFF8D6E4A),
     pricePerNut: 25,
