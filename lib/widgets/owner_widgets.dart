@@ -15,8 +15,9 @@ const Color kOwnerPanel = Color(0xFFF1EFEA);
 const Color kOwnerRed = Color(0xFFC62828);
 const Color kOwnerBrown = Color(0xFF8B4A1C);
 
-/// Shared phone canvas for land owner and service provider machinery screens.
-const double kMachineryPageWidth = 390;
+/// Shared phone canvas for estate owner and service provider machinery screens.
+/// Why: slightly wider on desktop web so taps are easier than a skinny 390 column.
+const double kMachineryPageWidth = 430;
 
 /// The phone-width cream page every land owner screen sits in.
 class OwnerPage extends StatelessWidget {
@@ -33,24 +34,23 @@ class OwnerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Why: no page-wide GestureDetector — on Flutter web it steals taps from
+    // tabs/buttons and the estate hub feels completely untouchable.
     return Scaffold(
       backgroundColor: const Color(0xFFEFEFEF),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Center(
-          child: Container(
-            width: kMachineryPageWidth,
-            height: double.infinity,
-            color: kOwnerCream,
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Expanded(child: child),
-                  ?bottom,
-                  if (supportsMainNavigation && bottom is! AppBottomNav)
-                    AppBottomNav(current: currentTab),
-                ],
-              ),
+      body: Center(
+        child: Container(
+          width: MediaQuery.sizeOf(context).width < kMachineryPageWidth + 24
+              ? MediaQuery.sizeOf(context).width
+              : kMachineryPageWidth,
+          height: double.infinity,
+          color: kOwnerCream,
+          child: SafeArea(
+            child: Column(
+              children: [
+                Expanded(child: child),
+                ?bottom,
+              ],
             ),
           ),
         ),

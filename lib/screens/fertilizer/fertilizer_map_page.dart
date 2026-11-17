@@ -10,9 +10,11 @@ import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
 import 'fertilizer_gov_order_form.dart';
+import 'fertilizer_dispute_sheet.dart';
 import 'fertilizer_order_edit_sheet.dart';
 import 'fertilizer_order_sheet.dart';
 import 'fertilizer_orders_page.dart';
+import 'fertilizer_processing_banner.dart';
 import 'fertilizer_talk_page.dart';
 
 /// PickMe-style supplier map — matches the HTML fertilizer demo.
@@ -102,7 +104,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   List<FertPlace> get _visible {
     final q = _search.text.trim().toLowerCase();
     final channel = _activeChannel;
-    return _store.places.where((p) {
+    final list = _store.places.where((p) {
       if (channel == 'private' && p.isGov) return false;
       // Why: government programme shows only CCB — no CIC / Hayleys / Baurs shops.
       if (channel == 'gov') {
@@ -126,6 +128,11 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
       return p.willingFar;
     }).toList()
       ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+    // Why: Government map shows one shop named CCB — not Kurunegala / Mawathagama labels.
+    if (channel == 'gov' && list.isNotEmpty) {
+      return [list.first];
+    }
+    return list;
   }
 
   /// Group shops that sit on the same pin (like the HTML cluster).
@@ -171,83 +178,90 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Map fills the screen. List is a bottom sheet — drag/scroll it up to open.
-    // Why: keeps the map highlighted; avoids FlutterMap-inside-page-scroll blank bug.
+    // Why: DraggableScrollableSheet overlays the map and steals taps on Flutter
+    // web (estate hub feels “dead”). Use a split layout — map + list never overlap.
+    final header = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              _activeChannel == 'gov'
+                  ? 'CCB near your estate'
+                  : 'Suppliers near you',
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: AppColors.ink,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const FertilizerOrdersPage(),
+                ),
+              );
+              if (mounted) setState(() {});
+            },
+            child: Text(
+              _pendingMine > 0 ? 'Orders · $_pendingMine' : 'Orders',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final banner = (!widget.embedded)
+        ? FertProcessingBanner(
+            onOpenOrders: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const FertilizerOrdersPage(),
+                ),
+              ).then((_) {
+                if (mounted) setState(() {});
+              });
+            },
+          )
+        : const SizedBox.shrink();
+
+    final map = Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: _mapBlock(),
+      ),
+    );
+
+    // Show order list under the map when no supplier card is open.
+    final showOrders =
+        _selected == null && _clusterKey == null && _menu == null;
+
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _activeChannel == 'gov'
-                          ? 'CCB outlets only'
-                          : 'Suppliers near you',
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const FertilizerOrdersPage(),
-                    ),
-                  );
-                  setState(() {});
-                },
-                child: Text(
-                  _pendingMine > 0 ? 'Orders · $_pendingMine' : 'Orders',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-            ],
-          ),
-        ),
+        header,
+        banner,
         Expanded(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: _mapBlock(),
-                  ),
-                ),
-              ),
-              // Peek shows title + first rows so the list is visible; drag up for more.
-              // It steps aside while a supplier card is open, so the card is not
-              // hidden behind it.
-              if (_selected == null && _clusterKey == null && _menu == null)
-                DraggableScrollableSheet(
-                  initialChildSize: 0.42,
-                  minChildSize: 0.28,
-                  maxChildSize: 0.8,
-                  snap: true,
-                  snapSizes: const [0.42, 0.6, 0.8],
-                  builder: (context, scrollController) {
-                    return _ordersSheet(scrollController);
-                  },
-                ),
-            ],
-          ),
+          flex: showOrders ? 5 : 8,
+          child: map,
         ),
+        if (showOrders)
+          Expanded(
+            flex: 5,
+            child: _ordersSheet(null),
+          ),
       ],
     );
 
-    if (widget.embedded) return ColoredBox(color: AppColors.cream, child: body);
+    if (widget.embedded) {
+      return ColoredBox(color: AppColors.cream, child: body);
+    }
 
     return FertPage(
       title: 'Suppliers near you',
@@ -290,7 +304,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   }
 
   /// The owner's own orders: what is waiting, what was accepted, with View and Cancel.
-  Widget _ordersSheet(ScrollController scrollController) {
+  Widget _ordersSheet(ScrollController? scrollController) {
     final mine = _store.ownerOrders('Your Estate');
     final pending = mine
         .where((o) => o.status == 'Pending Ack' || o.status == 'Negotiating')
@@ -318,9 +332,10 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
     return Material(
       color: Colors.white,
-      elevation: 10,
+      elevation: 4,
       shadowColor: const Color(0x33183E29),
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -339,6 +354,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
           Expanded(
             child: ListView(
               controller: scrollController,
+              primary: scrollController == null,
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
               children: [
                 const Text(
@@ -737,18 +753,39 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              CircleAvatar(
-                                radius: 18,
-                                backgroundColor: AppColors.greenSoft,
-                                child: Text(
-                                  o.company.isEmpty
-                                      ? '?'
-                                      : o.company[0].toUpperCase(),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.green,
+                              Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: AppColors.greenSoft,
+                                    child: Text(
+                                      o.company.isEmpty
+                                          ? '?'
+                                          : o.company[0].toUpperCase(),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.green,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  Positioned(
+                                    right: -4,
+                                    bottom: -4,
+                                    child: Container(
+                                      width: 14,
+                                      height: 14,
+                                      decoration: BoxDecoration(
+                                        color: fertStatusColor(o.status),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(width: 10),
                               Expanded(
@@ -773,10 +810,11 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                                         color: AppColors.muted,
                                       ),
                                     ),
+                                    const SizedBox(height: 4),
+                                    FertOrderStatusDot(status: o.status),
                                   ],
                                 ),
                               ),
-                              StatusPill.forStatus(o.status),
                             ],
                           ),
                           const SizedBox(height: 10),
@@ -832,6 +870,26 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                                   onPressed: () => _editOrder(o),
                                   child: const Text('Edit'),
                                 ),
+                              if (o.status == 'Accepted')
+                                TextButton(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.dangerText,
+                                  ),
+                                  onPressed: () async {
+                                    final ok =
+                                        await showModalBottomSheet<bool>(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (_) =>
+                                          FertilizerDisputeSheet(order: o),
+                                    );
+                                    if (ok == true && mounted) {
+                                      setState(() {});
+                                    }
+                                  },
+                                  child: const Text('Dispute'),
+                                ),
                             ],
                           ),
                         ],
@@ -857,9 +915,14 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
             options: MapOptions(
               initialCenter: _centerFor(_zoomFor(_radiusKm)),
               initialZoom: _zoomFor(_radiusKm),
+              // Why: keep pan/zoom/taps enabled on Flutter web desktop browsers.
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all,
+              ),
               onTap: (_, __) => setState(() {
                 _selected = null;
                 _clusterKey = null;
+                _menu = null;
               }),
             ),
             children: [
@@ -1077,7 +1140,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     final c = channel ?? _activeChannel;
     final r = km ?? _radiusKm;
     final q = _search.text.trim().toLowerCase();
-    return _store.places.where((p) {
+    final list = _store.places.where((p) {
       if (c == 'private' && p.isGov) return false;
       if (c == 'gov') {
         if (!_isCcbOutlet(p)) return false;
@@ -1094,7 +1157,10 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
         if (!hay.contains(q)) return false;
       }
       return p.distanceKm <= r;
-    }).toList();
+    }).toList()
+      ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+    if (c == 'gov' && list.isNotEmpty) return [list.first];
+    return list;
   }
 
   /// One dropdown button: Supplier, Distance, Brand or Fertilizer.
@@ -1439,10 +1505,12 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     final talking = places.any(
       (p) => (_store.shopTalks[p.id] ?? const []).isNotEmpty,
     );
-    // Why: pin shows the shop name so owners recognise who it is, not brand codes.
-    final label = places.length == 1
-        ? places.first.company
-        : places.map((p) => p.company).join(' · ');
+    // Why: government pins always say CCB; private pins keep the shop name.
+    final label = places.first.isGov
+        ? 'CCB'
+        : (places.length == 1
+            ? places.first.company
+            : places.map((p) => p.company).join(' · '));
 
     return Marker(
       point: _at(lead),
@@ -1625,31 +1693,34 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
             ),
             const SizedBox(height: 8),
             for (final p in places)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  backgroundColor: _pinColor(p),
-                  child: Text(
-                    _pinMark(p),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 11,
+              Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    backgroundColor: _pinColor(p),
+                    child: Text(
+                      _pinMark(p),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                      ),
                     ),
                   ),
+                  title: Text(
+                    p.isGov ? 'CCB' : p.company,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    '${p.brandLine} · ${_priceLines(p).first.$1} LKR ${withCommas(_priceLines(p).first.$2)}',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => setState(() {
+                    _selected = p;
+                    _clusterKey = null;
+                  }),
                 ),
-                title: Text(
-                  p.company,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                subtitle: Text(
-                  '${p.brandLine} · ${_priceLines(p).first.$1} LKR ${withCommas(_priceLines(p).first.$2)}',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => setState(() {
-                  _selected = p;
-                  _clusterKey = null;
-                }),
               ),
           ],
         ),
