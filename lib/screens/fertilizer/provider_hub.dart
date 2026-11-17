@@ -9,6 +9,7 @@ import 'fertilizer_cdo_stock_page.dart';
 import 'fertilizer_chrome.dart';
 import 'fertilizer_data.dart';
 import 'fertilizer_dispute_sheet.dart';
+import 'fertilizer_receipt_rating.dart';
 import 'fertilizer_supplier_chat_page.dart';
 import 'supplier_calendar_page.dart';
 
@@ -370,15 +371,11 @@ class _ProviderHubState extends State<ProviderHub> {
                 child: const Text('View'),
               ),
               if (accepted) ...[
-                ElevatedButton(
-                  onPressed: () {
-                    _store.markGovDelivered(r.id);
-                    setState(() {});
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${r.id} marked delivered')),
-                    );
-                  },
-                  child: const Text('Delivered'),
+                ...fertDeliveryActions(
+                  context: context,
+                  onChanged: () => setState(() {}),
+                  gov: r,
+                  asOwner: false,
                 ),
                 TextButton(
                   style: TextButton.styleFrom(
@@ -401,6 +398,16 @@ class _ProviderHubState extends State<ProviderHub> {
                   child: const Text('Dispute'),
                 ),
               ],
+              if (!accepted &&
+                  (r.awaitsOwnerConfirm ||
+                      r.providerCanRate ||
+                      r.isCompleted))
+                ...fertDeliveryActions(
+                  context: context,
+                  onChanged: () => setState(() {}),
+                  gov: r,
+                  asOwner: false,
+                ),
             ],
           ),
         ],
@@ -516,15 +523,11 @@ class _ProviderHubState extends State<ProviderHub> {
                 ),
               ],
               if (canDeliver) ...[
-                ElevatedButton(
-                  onPressed: () {
-                    _store.markDelivered(o.id);
-                    setState(() {});
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${o.id} marked delivered')),
-                    );
-                  },
-                  child: const Text('Mark delivered'),
+                ...fertDeliveryActions(
+                  context: context,
+                  onChanged: () => setState(() {}),
+                  order: o,
+                  asOwner: false,
                 ),
                 TextButton(
                   style: TextButton.styleFrom(
@@ -545,6 +548,16 @@ class _ProviderHubState extends State<ProviderHub> {
                   child: const Text('Dispute'),
                 ),
               ],
+              if (!canDeliver &&
+                  (o.awaitsOwnerConfirm ||
+                      o.providerCanRate ||
+                      o.isCompleted))
+                ...fertDeliveryActions(
+                  context: context,
+                  onChanged: () => setState(() {}),
+                  order: o,
+                  asOwner: false,
+                ),
             ],
           ),
         ],

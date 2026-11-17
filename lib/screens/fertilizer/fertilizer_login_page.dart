@@ -7,11 +7,12 @@ import '../../widgets/auth_widgets.dart';
 import '../auth_gate.dart';
 import 'fertilizer_signup_page.dart';
 
-/// Role-specific login — same layout as the “Welcome Back” screenshot.
+/// Direct fertilizer login — phone + password (role comes from the phone).
 class FertilizerLoginPage extends StatefulWidget {
-  const FertilizerLoginPage({super.key, required this.account});
+  const FertilizerLoginPage({super.key, this.account});
 
-  final FertDemoAccount account;
+  /// Optional: when opened from an old role card. Direct home login leaves this null.
+  final FertDemoAccount? account;
 
   @override
   State<FertilizerLoginPage> createState() => _FertilizerLoginPageState();
@@ -27,9 +28,9 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
   @override
   void initState() {
     super.initState();
-    // Prefill demo phone so you can just type the password (or tap Login).
+    final a = widget.account;
     _phoneController = TextEditingController(
-      text: widget.account.phone.replaceFirst(RegExp(r'^0'), ''),
+      text: a == null ? '' : a.phone.replaceFirst(RegExp(r'^0'), ''),
     );
     _passwordController = TextEditingController(
       text: FertilizerDemoAuth.passwordHint,
@@ -50,28 +51,27 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
 
     try {
       AppUser? user;
+      final expected = widget.account?.role;
 
-      // 1) Try live API (backend memory seed uses the same phones/passwords).
       try {
         user = await AuthService.login(
           phone: _phoneController.text,
           password: _passwordController.text,
         );
-        // If they logged into the wrong role on the API, reject.
-        if (user.role != widget.account.role &&
-            !(widget.account.role == 'FERTILIZER_SUPPLIER' &&
+        if (expected != null &&
+            user.role != expected &&
+            !(expected == 'FERTILIZER_SUPPLIER' &&
                 user.role == 'SERVICE_PROVIDER')) {
           await AuthService.logout();
           throw const ApiException(
-            'This phone is registered as a different role. Pick the matching card.',
+            'This phone is registered as a different role.',
           );
         }
       } on ApiException {
-        // 2) Offline / wrong API → local demo login (shared fertilizer store).
         user = FertilizerDemoAuth.tryLogin(
           phone: _phoneController.text,
           password: _passwordController.text,
-          expectedRole: widget.account.role,
+          expectedRole: expected,
         );
         if (user == null) {
           throw const ApiException('Incorrect phone number or password');
@@ -99,36 +99,42 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
     final a = widget.account;
     return AuthScaffold(
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-          ),
-        ),
-        const SizedBox(height: 12),
-        AuthHeading(
-          title: 'Welcome Back',
-          subtitle: 'Sign in as ${a.roleLabel} · ${a.name}',
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.greenSoft,
-            borderRadius: BorderRadius.circular(99),
-          ),
-          child: Text(
-            a.roleLabel,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppColors.green,
-              fontWeight: FontWeight.w800,
-              fontSize: 12.5,
+        if (a != null && Navigator.of(context).canPop()) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back, color: AppColors.ink),
             ),
           ),
+          const SizedBox(height: 12),
+        ],
+        AuthHeading(
+          title: 'Welcome Back',
+          subtitle: a == null
+              ? 'Sign in with your phone · KapConnect fertilizer'
+              : 'Sign in as ${a.roleLabel} · ${a.name}',
         ),
-        const SizedBox(height: 24),
+        if (a != null) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.greenSoft,
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Text(
+              a.roleLabel,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.green,
+                fontWeight: FontWeight.w800,
+                fontSize: 12.5,
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 20),
         AuthCard(
           child: Form(
             key: _formKey,
@@ -161,32 +167,19 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    'Demo password: ${FertilizerDemoAuth.passwordHint}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.green,
-                    ),
-                  ),
-                ),
                 const SizedBox(height: 18),
                 AuthPrimaryButton(
                   label: _loading ? 'Logging in...' : 'Login',
                   onPressed: _loading ? null : _submit,
                 ),
-                const SizedBox(height: 18),
-                const AuthOrDivider(),
-                const SizedBox(height: 6),
+                const SizedBox(height: 12),
                 AuthSecondaryAction(
                   icon: Icons.flash_on_outlined,
-                  label: 'Quick demo login',
+                  label: 'Quick estate demo login',
                   onTap: _loading
                       ? () {}
                       : () {
+                          _phoneController.text = '711000001';
                           _passwordController.text =
                               FertilizerDemoAuth.passwordHint;
                           _submit();
@@ -204,7 +197,9 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => FertilizerSignupPage(lockedRole: a),
+                builder: (_) => FertilizerSignupPage(
+                  lockedRole: a ?? FertilizerDemoAuth.accounts.first,
+                ),
               ),
             );
           },

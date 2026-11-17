@@ -17,8 +17,11 @@ String fertStatusLabel(String status) {
       return 'Cancelled';
     case 'Disputed':
       return 'Disputed';
+    case 'Delivered':
     case 'Distributed':
       return 'Delivered';
+    case 'Completed':
+      return 'Completed';
     default:
       return status;
   }
@@ -30,8 +33,11 @@ Color fertStatusColor(String status) {
     case 'Negotiating':
       return AppColors.dangerText;
     case 'Accepted':
-    case 'Distributed':
+    case 'Completed':
       return AppColors.green;
+    case 'Delivered':
+    case 'Distributed':
+      return AppColors.info;
     case 'Cancelled':
     case 'Disputed':
       return AppColors.dangerText;

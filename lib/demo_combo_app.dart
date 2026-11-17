@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'screens/auth_gate.dart';
-import 'screens/fertilizer/fertilizer_role_gate.dart';
+import 'screens/fertilizer/fertilizer_login_page.dart';
 import 'theme/app_theme.dart';
 
 /// Fertilizer combo: role logins → shared store (orders sync across roles).
@@ -42,7 +42,8 @@ class ComboApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: const FertilizerRoleGate(),
+      // Why: skip the role-picker screen — login with phone + password only.
+      home: const FertilizerLoginPage(),
     );
   }
 }

@@ -8,8 +8,9 @@ import 'fertilizer_cancel_reasons.dart';
 import 'fertilizer_cdo_request_sheet.dart';
 import 'fertilizer_data.dart';
 import 'fertilizer_dispute_sheet.dart';
-import 'fertilizer_supplier_chat_page.dart';
 import 'fertilizer_processing_banner.dart';
+import 'fertilizer_receipt_rating.dart';
+import 'fertilizer_supplier_chat_page.dart';
 
 /// Supplier or CDO calendar — one login = one shop / one CDO desk.
 class SupplierCalendarPage extends StatefulWidget {
@@ -575,7 +576,10 @@ Future<void> showSupplierOrderDetail(
       final canDeliver = (order.status == 'Accepted' ||
               order.status == 'Stock Confirmed') &&
           !store.isDisputed(order.id);
-      final showFooter = canAck || canDeliver;
+      final showDeliveryFollowUp = order.awaitsOwnerConfirm ||
+          order.providerCanRate ||
+          order.isCompleted;
+      final showFooter = canAck || canDeliver || showDeliveryFollowUp;
 
       return Align(
         alignment: Alignment.bottomCenter,
@@ -830,60 +834,50 @@ Future<void> showSupplierOrderDetail(
                               ),
                             ),
                           ],
-                          if (canDeliver) ...[
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.green,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                ),
-                                onPressed: () {
-                                  store.markDelivered(order.id);
-                                  Navigator.pop(ctx);
+                          if (canDeliver || showDeliveryFollowUp) ...[
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: fertDeliveryActions(
+                                context: context,
+                                onChanged: () {
+                                  if (ctx.mounted) Navigator.pop(ctx);
                                   onChanged?.call();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        '${order.id} marked delivered',
-                                      ),
-                                    ),
-                                  );
                                 },
-                                child: const Text('Mark delivered'),
+                                order: order,
+                                asOwner: false,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: TextButton(
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppColors.dangerText,
-                                  backgroundColor: AppColors.dangerSoft,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
+                            if (canDeliver) ...[
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: TextButton(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.dangerText,
+                                    backgroundColor: AppColors.dangerSoft,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    shape: const StadiumBorder(),
                                   ),
-                                  shape: const StadiumBorder(),
+                                  onPressed: () async {
+                                    Navigator.pop(ctx);
+                                    final ok = await showModalBottomSheet<bool>(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (_) => FertilizerDisputeSheet(
+                                        order: order,
+                                        bySupplier: true,
+                                      ),
+                                    );
+                                    if (ok == true) onChanged?.call();
+                                  },
+                                  child: const Text('Dispute'),
                                 ),
-                                onPressed: () async {
-                                  Navigator.pop(ctx);
-                                  final ok = await showModalBottomSheet<bool>(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    backgroundColor: Colors.transparent,
-                                    builder: (_) => FertilizerDisputeSheet(
-                                      order: order,
-                                      bySupplier: true,
-                                    ),
-                                  );
-                                  if (ok == true) onChanged?.call();
-                                },
-                                child: const Text('Dispute'),
                               ),
-                            ),
+                            ],
                           ],
                         ],
                       ),
