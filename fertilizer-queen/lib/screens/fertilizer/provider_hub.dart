@@ -892,16 +892,16 @@ class _ProviderHubState extends State<ProviderHub> {
     final v = result.$1;
     final why = result.$2;
     setState(() => item.price = v);
-    _store.notifySupplier(
-      title: 'Price updated · ${item.name}',
-      body: why.isEmpty
-          ? 'Now ${rupees(v)} per pack'
-          : '${rupees(v)} per pack · $why',
-      kind: 'info',
-    );
+    // Why: price edits are the supplier's own action — do not push to notifications.
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Price saved · ${rupees(v)}')),
+      SnackBar(
+        content: Text(
+          why.isEmpty
+              ? 'Price saved · ${rupees(v)}'
+              : 'Price saved · ${rupees(v)} · $why',
+        ),
+      ),
     );
   }
 

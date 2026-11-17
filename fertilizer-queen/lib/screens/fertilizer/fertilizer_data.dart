@@ -133,9 +133,19 @@ class FertOrder {
   /// Chat notes between estate and supplier on this order.
   final List<FertChat> negotiation;
 
-  /// Why: cancelled/disputed jobs should not keep calendar day badges.
+  /// Why: cancelled / disputed / delivered jobs leave the supplier calendar.
   bool get showsOnCalendar =>
-      status != 'Cancelled' && status != 'Disputed';
+      status != 'Cancelled' &&
+      status != 'Disputed' &&
+      status != 'Distributed';
+
+  bool get isPendingAck =>
+      status == 'Pending Ack' || status == 'Submitted';
+
+  bool get isNegotiating => status == 'Negotiating';
+
+  bool get isAcceptedOnCalendar =>
+      status == 'Accepted' || status == 'Stock Confirmed';
 
   /// Why: after the owner changes bag counts, total bags and price must match the lines.
   void refreshTotals() {
@@ -170,14 +180,23 @@ class FertOwnerAlert {
   final String id;
   final String title;
   final String body;
-  /// accepted | cancelled | negotiating | delivered | info | low_stock
+  /// new_order | cancelled | estate_dispute | low_stock | (legacy kinds ignored for supplier bell)
   final String kind;
   final DateTime at;
   final String orderId;
   bool read;
 
   /// Why: Show can open Stock when there is no order id (low-stock alerts).
-  bool get opensStock => kind == 'low_stock' || title.toLowerCase().contains('low stock');
+  bool get opensStock =>
+      kind == 'low_stock' || title.toLowerCase().contains('low stock');
+
+  /// Why: supplier bell only shows alerts that need quick attention.
+  bool get isImportantForSupplier =>
+      kind == 'low_stock' ||
+      kind == 'new_order' ||
+      kind == 'cancelled' ||
+      kind == 'estate_dispute' ||
+      opensStock;
 }
 
 class FertDayAvail {
@@ -356,8 +375,12 @@ class FertilizerStore {
   final ValueNotifier<int> supplierAlertTick = ValueNotifier<int>(0);
 
   int get unreadOwnerAlerts => ownerAlerts.where((a) => !a.read).length;
+  /// Only attention-needed alerts for the supplier bell.
+  List<FertOwnerAlert> get importantSupplierAlerts =>
+      supplierAlerts.where((a) => a.isImportantForSupplier).toList();
+
   int get unreadSupplierAlerts =>
-      supplierAlerts.where((a) => !a.read).length;
+      importantSupplierAlerts.where((a) => !a.read).length;
 
   void notifyOwner({
     required String title,
@@ -1398,7 +1421,7 @@ class FertilizerStore {
       title: 'New order ${order.id}',
       body:
           '${order.owner} · ${order.product} · ${order.qty50} bags · ${order.slot}',
-      kind: 'info',
+      kind: 'new_order',
       orderId: order.id,
     );
   }
@@ -1427,6 +1450,14 @@ class FertilizerStore {
           notifyOwner(
             title: '${o.company} cancelled your order',
             body: '${o.id} · ${o.product}. ${o.message}',
+            kind: 'cancelled',
+            orderId: o.id,
+          );
+        } else {
+          // Why: supplier must hear when the estate cancels — that needs attention.
+          notifySupplier(
+            title: 'Estate cancelled ${o.id}',
+            body: '${o.owner} · ${o.product}. ${o.message}',
             kind: 'cancelled',
             orderId: o.id,
           );

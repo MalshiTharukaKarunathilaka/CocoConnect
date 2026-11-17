@@ -34,7 +34,9 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
 
   FertPlace get _shop => _store.myShop;
 
-  List<FertOrder> get _pending => _store.pendingAck;
+  /// Why: list under the calendar is only brand-new pending (not negotiating).
+  List<FertOrder> get _strictPending =>
+      _store.myShopOrders.where((o) => o.isPendingAck).toList();
 
   List<FertGovRequest> get _cdoPending => _store.pendingCdoAck;
 
@@ -62,7 +64,8 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
 
   @override
   Widget build(BuildContext context) {
-    final pendingCount = _isCdo ? _cdoPending.length : _pending.length;
+    final pendingCount =
+        _isCdo ? _cdoPending.length : _strictPending.length;
     final daysInMonth = DateTime(_cursor.year, _cursor.month + 1, 0).day;
     final firstWeekday = DateTime(_cursor.year, _cursor.month, 1).weekday % 7;
 
@@ -196,6 +199,27 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                         ],
                       ),
                       const SizedBox(height: 6),
+                      // Why: legend so red / yellow / green dots are clear.
+                      if (!_isCdo)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _CalLegendDot(color: kOwnerRed, label: 'Pending'),
+                              SizedBox(width: 10),
+                              _CalLegendDot(
+                                color: Color(0xFFE6A817),
+                                label: 'Negotiation',
+                              ),
+                              SizedBox(width: 10),
+                              _CalLegendDot(
+                                color: kOwnerGreen,
+                                label: 'Accepted',
+                              ),
+                            ],
+                          ),
+                        ),
                       GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
@@ -214,74 +238,36 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                           final day = i - firstWeekday + 1;
                           final date = DateTime(_cursor.year, _cursor.month, day);
                           final key = _key(date);
-                          final count = _isCdo
-                              ? (_cdoByDate[key]?.length ?? 0)
-                              : (_byDate[key]?.length ?? 0);
+                          if (_isCdo) {
+                            final list =
+                                _cdoByDate[key] ?? const <FertGovRequest>[];
+                            final count = list.length;
+                            return InkWell(
+                              onTap: () => _openCdoDay(date, list),
+                              borderRadius: BorderRadius.circular(14),
+                              child: _CalendarDayCell(
+                                day: day,
+                                pending: count,
+                                negotiating: 0,
+                                accepted: 0,
+                              ),
+                            );
+                          }
+                          final list = _byDate[key] ?? const <FertOrder>[];
+                          final pending =
+                              list.where((o) => o.isPendingAck).length;
+                          final negotiating =
+                              list.where((o) => o.isNegotiating).length;
+                          final accepted =
+                              list.where((o) => o.isAcceptedOnCalendar).length;
                           return InkWell(
-                            onTap: () {
-                              if (_isCdo) {
-                                _openCdoDay(
-                                  date,
-                                  _cdoByDate[key] ?? const <FertGovRequest>[],
-                                );
-                              } else {
-                                _openDay(
-                                  date,
-                                  _byDate[key] ?? const <FertOrder>[],
-                                );
-                              }
-                            },
+                            onTap: () => _openDay(date, list),
                             borderRadius: BorderRadius.circular(14),
-                            child: Container(
-                              margin: const EdgeInsets.all(2),
-                              padding: const EdgeInsets.all(5),
-                              decoration: BoxDecoration(
-                                color: count > 0
-                                    ? const Color(0xFFFDECEC)
-                                    : const Color(0xFFF0F6F1),
-                                borderRadius: BorderRadius.circular(14),
-                                border: count > 0
-                                    ? Border.all(color: kOwnerRed, width: 1.2)
-                                    : null,
-                              ),
-                              child: Stack(
-                                children: [
-                                  Positioned(
-                                    left: 2,
-                                    top: 1,
-                                    child: Text(
-                                      '$day',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: kOwnerInk,
-                                      ),
-                                    ),
-                                  ),
-                                  if (count > 0)
-                                    Positioned(
-                                      left: 2,
-                                      bottom: 0,
-                                      child: Container(
-                                        width: 16,
-                                        height: 16,
-                                        alignment: Alignment.center,
-                                        decoration: const BoxDecoration(
-                                          color: kOwnerRed,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Text(
-                                          '$count',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 9.5,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
+                            child: _CalendarDayCell(
+                              day: day,
+                              pending: pending,
+                              negotiating: negotiating,
+                              accepted: accepted,
                             ),
                           );
                         },
@@ -293,7 +279,7 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                 Text(
                   _isCdo
                       ? 'Applications needing acknowledgement'
-                      : 'Orders needing acknowledgement',
+                      : 'Pending requests',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -311,13 +297,13 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                       _cdoPendingCard(r),
                       const SizedBox(height: 8),
                     ],
-                ] else if (_pending.isEmpty)
+                ] else if (_strictPending.isEmpty)
                   const Text(
-                    'No pending orders. Tap a calendar day to view scheduled orders.',
+                    'No pending requests. Tap a calendar day to view other orders.',
                     style: TextStyle(color: kOwnerMuted, fontSize: 13),
                   )
                 else
-                  for (final o in _pending) ...[
+                  for (final o in _strictPending) ...[
                     _pendingCard(o),
                     const SizedBox(height: 8),
                   ],
@@ -526,18 +512,28 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
             const SizedBox(height: 10),
             if (dayOrders.isEmpty)
               const Text(
-                'No orders on this day.',
+                'No active orders on this day.',
                 style: TextStyle(color: kOwnerMuted),
               )
             else
               for (final o in dayOrders)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    radius: 8,
+                    backgroundColor: o.isPendingAck
+                        ? kOwnerRed
+                        : (o.isNegotiating
+                            ? const Color(0xFFE6A817)
+                            : kOwnerGreen),
+                  ),
                   title: Text(
                     o.id,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  subtitle: Text('${o.owner} · ${o.product} · ${o.status}'),
+                  subtitle: Text(
+                    '${o.owner} · ${o.product} · ${o.isPendingAck ? 'Pending' : (o.isNegotiating ? 'Negotiation' : fertStatusLabel(o.status))}',
+                  ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -923,4 +919,142 @@ Future<void> showSupplierOrderDetail(
       );
     },
   );
+}
+
+class _CalLegendDot extends StatelessWidget {
+  const _CalLegendDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: kOwnerMuted),
+        ),
+      ],
+    );
+  }
+}
+
+/// One calendar day — soft fill by priority, small status dots for counts.
+class _CalendarDayCell extends StatelessWidget {
+  const _CalendarDayCell({
+    required this.day,
+    required this.pending,
+    required this.negotiating,
+    required this.accepted,
+  });
+
+  final int day;
+  final int pending;
+  final int negotiating;
+  final int accepted;
+
+  int get total => pending + negotiating + accepted;
+
+  /// Why: pending needs attention first, then negotiation, then accepted.
+  Color get accent {
+    if (pending > 0) return kOwnerRed;
+    if (negotiating > 0) return const Color(0xFFE6A817);
+    if (accepted > 0) return kOwnerGreen;
+    return kOwnerBorder;
+  }
+
+  Color get fill {
+    if (pending > 0) return const Color(0xFFFDECEC);
+    if (negotiating > 0) return const Color(0xFFFFF6DE);
+    if (accepted > 0) return const Color(0xFFE6F4EA);
+    return const Color(0xFFF0F6F1);
+  }
+
+  List<Color> get _dots {
+    final out = <Color>[];
+    for (var i = 0; i < pending && out.length < 4; i++) {
+      out.add(kOwnerRed);
+    }
+    for (var i = 0; i < negotiating && out.length < 4; i++) {
+      out.add(const Color(0xFFE6A817));
+    }
+    for (var i = 0; i < accepted && out.length < 4; i++) {
+      out.add(kOwnerGreen);
+    }
+    return out;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dots = _dots;
+    return Container(
+      margin: const EdgeInsets.all(2),
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 3),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(14),
+        border: total > 0 ? Border.all(color: accent, width: 1.2) : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '$day',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: kOwnerInk,
+                ),
+              ),
+              const Spacer(),
+              if (total > 0)
+                Container(
+                  height: 16,
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    '$total',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const Spacer(),
+          if (dots.isNotEmpty)
+            Row(
+              children: [
+                for (final c in dots)
+                  Container(
+                    width: 5,
+                    height: 5,
+                    margin: const EdgeInsets.only(right: 2),
+                    decoration: BoxDecoration(
+                      color: c,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
 }

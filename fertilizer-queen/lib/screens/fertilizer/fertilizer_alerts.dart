@@ -77,8 +77,10 @@ Future<void> showFertAlerts(
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (ctx) {
-      final alerts =
-          forSupplier ? store.supplierAlerts : store.ownerAlerts;
+      // Why: supplier bell only lists low stock / new orders / estate cancel / dispute.
+      final alerts = forSupplier
+          ? store.importantSupplierAlerts
+          : store.ownerAlerts;
       return Align(
         alignment: Alignment.bottomCenter,
         child: ConstrainedBox(
@@ -334,7 +336,10 @@ class _AlertTile extends StatelessWidget {
       case 'delivered':
         return AppColors.green;
       case 'cancelled':
+      case 'estate_dispute':
         return AppColors.dangerText;
+      case 'new_order':
+        return AppColors.green;
       case 'negotiating':
         return AppColors.warning;
       case 'low_stock':
@@ -349,7 +354,10 @@ class _AlertTile extends StatelessWidget {
       case 'accepted':
         return Icons.check_circle_outline;
       case 'cancelled':
+      case 'estate_dispute':
         return Icons.cancel_outlined;
+      case 'new_order':
+        return Icons.shopping_bag_outlined;
       case 'negotiating':
         return Icons.forum_outlined;
       case 'delivered':

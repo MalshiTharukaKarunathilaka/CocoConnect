@@ -81,16 +81,11 @@ class _FertilizerDisputeSheetState extends State<FertilizerDisputeSheet> {
         ? 'Disputed by supplier · $_reason'
         : 'Disputed by estate · $_reason';
     if (widget.bySupplier) {
+      // Why: supplier's own dispute should not clutter their notification bell.
       store.notifyOwner(
         title: 'Supplier dispute on ${o.id}',
         body: '$_reason · ${o.company}',
         kind: 'cancelled',
-        orderId: o.id,
-      );
-      store.notifySupplier(
-        title: 'Dispute filed for ${o.id}',
-        body: _reason,
-        kind: 'info',
         orderId: o.id,
       );
     } else {
@@ -100,10 +95,11 @@ class _FertilizerDisputeSheetState extends State<FertilizerDisputeSheet> {
         kind: 'info',
         orderId: o.id,
       );
+      // Why: estate dispute needs the supplier's quick attention.
       store.notifySupplier(
         title: 'Estate dispute on ${o.id}',
         body: '$_reason · ${o.owner}',
-        kind: 'cancelled',
+        kind: 'estate_dispute',
         orderId: o.id,
       );
     }
