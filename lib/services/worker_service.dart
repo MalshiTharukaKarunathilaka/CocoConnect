@@ -65,6 +65,8 @@ class WorkerJob {
   final bool canDecline;
   final int? rating;
   final int? estateOwnerRating;
+  final double? estateOwnerAverageRating;
+  final int estateOwnerRatingCount;
   final bool completionAcknowledged;
 
   const WorkerJob({
@@ -89,6 +91,8 @@ class WorkerJob {
     required this.canDecline,
     required this.rating,
     required this.estateOwnerRating,
+    required this.estateOwnerAverageRating,
+    required this.estateOwnerRatingCount,
     required this.completionAcknowledged,
   });
 
@@ -116,6 +120,10 @@ class WorkerJob {
     canDecline: json['can_decline'] == true,
     rating: (json['rating'] as num?)?.toInt(),
     estateOwnerRating: (json['estate_owner_rating'] as num?)?.toInt(),
+    estateOwnerAverageRating: (json['estate_owner_average_rating'] as num?)
+        ?.toDouble(),
+    estateOwnerRatingCount:
+        (json['estate_owner_rating_count'] as num?)?.toInt() ?? 0,
     completionAcknowledged: json['completion_acknowledged'] == true,
   );
 
