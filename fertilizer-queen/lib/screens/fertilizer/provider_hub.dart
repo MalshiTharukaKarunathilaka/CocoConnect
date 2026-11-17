@@ -292,6 +292,8 @@ class _ProviderHubState extends State<ProviderHub> {
   }
 
   Widget _cdoRequestCard(FertGovRequest r) {
+    final accepted =
+        r.status == 'Accepted' || r.status == 'Receipt Confirmed';
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -335,20 +337,56 @@ class _ProviderHubState extends State<ProviderHub> {
             ),
           ],
           const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton(
-              onPressed: () async {
-                final ok = await showModalBottomSheet<bool>(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (_) => FertilizerCdoRequestSheet(request: r),
-                );
-                if (ok == true && mounted) setState(() {});
-              },
-              child: const Text('View'),
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.end,
+            children: [
+              OutlinedButton(
+                onPressed: () async {
+                  final ok = await showModalBottomSheet<bool>(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => FertilizerCdoRequestSheet(request: r),
+                  );
+                  if (ok == true && mounted) setState(() {});
+                },
+                child: const Text('View'),
+              ),
+              if (accepted) ...[
+                ElevatedButton(
+                  onPressed: () {
+                    _store.markGovDelivered(r.id);
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${r.id} marked delivered')),
+                    );
+                  },
+                  child: const Text('Delivered'),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.dangerText,
+                    backgroundColor: AppColors.dangerSoft,
+                  ),
+                  onPressed: () async {
+                    final note = await showFertCdoDisputeReasons(
+                      context,
+                      title: 'Dispute ${r.id}',
+                    );
+                    if (note == null) return;
+                    _store.disputeGovRequest(r.id, reason: note);
+                    setState(() {});
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${r.id} disputed')),
+                    );
+                  },
+                  child: const Text('Dispute'),
+                ),
+              ],
+            ],
           ),
         ],
       ),

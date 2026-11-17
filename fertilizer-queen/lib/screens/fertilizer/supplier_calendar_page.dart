@@ -55,7 +55,8 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
 
   Map<String, List<FertGovRequest>> get _cdoByDate {
     final map = <String, List<FertGovRequest>>{};
-    for (final r in _store.myCdoRequests) {
+    // Why: delivered / cancelled / disputed leave the CDO calendar.
+    for (final r in _store.myCdoCalendarRequests) {
       final k = _key(r.date);
       map.putIfAbsent(k, () => []).add(r);
     }
@@ -64,8 +65,6 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
 
   @override
   Widget build(BuildContext context) {
-    final pendingCount =
-        _isCdo ? _cdoPending.length : _strictPending.length;
     final daysInMonth = DateTime(_cursor.year, _cursor.month + 1, 0).day;
     final firstWeekday = DateTime(_cursor.year, _cursor.month, 1).weekday % 7;
 
@@ -102,41 +101,7 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
               ],
             ),
           ),
-          if (pendingCount > 0)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF5F4),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFF3C1BC)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: kOwnerRed,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        '$pendingCount pending acknowledgements',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          // Why: removed the top “pending acknowledgements” banner — calendar colors are enough.
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(16),
@@ -199,27 +164,31 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      // Why: legend so red / yellow / green dots are clear.
-                      if (!_isCdo)
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _CalLegendDot(color: kOwnerRed, label: 'Pending'),
-                              SizedBox(width: 10),
-                              _CalLegendDot(
+                      // Why: legend so status dots are clear for supplier and CDO.
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const _CalLegendDot(
+                              color: kOwnerRed,
+                              label: 'Pending',
+                            ),
+                            if (!_isCdo) ...[
+                              const SizedBox(width: 10),
+                              const _CalLegendDot(
                                 color: Color(0xFFE6A817),
                                 label: 'Negotiation',
                               ),
-                              SizedBox(width: 10),
-                              _CalLegendDot(
-                                color: kOwnerGreen,
-                                label: 'Accepted',
-                              ),
                             ],
-                          ),
+                            const SizedBox(width: 10),
+                            const _CalLegendDot(
+                              color: kOwnerGreen,
+                              label: 'Accepted',
+                            ),
+                          ],
                         ),
+                      ),
                       GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
@@ -227,9 +196,10 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 7,
-                          mainAxisSpacing: 5,
-                          crossAxisSpacing: 5,
-                          childAspectRatio: 1,
+                          mainAxisSpacing: 4,
+                          crossAxisSpacing: 4,
+                          // Why: slightly taller cells stop the 1.9px overflow warning.
+                          childAspectRatio: 0.92,
                         ),
                         itemBuilder: (_, i) {
                           if (i < firstWeekday) {
@@ -241,15 +211,18 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                           if (_isCdo) {
                             final list =
                                 _cdoByDate[key] ?? const <FertGovRequest>[];
-                            final count = list.length;
+                            final pending =
+                                list.where((r) => r.isPendingAck).length;
+                            final accepted =
+                                list.where((r) => r.isAcceptedOnCalendar).length;
                             return InkWell(
                               onTap: () => _openCdoDay(date, list),
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(12),
                               child: _CalendarDayCell(
                                 day: day,
-                                pending: count,
+                                pending: pending,
                                 negotiating: 0,
-                                accepted: 0,
+                                accepted: accepted,
                               ),
                             );
                           }
@@ -262,7 +235,7 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                               list.where((o) => o.isAcceptedOnCalendar).length;
                           return InkWell(
                             onTap: () => _openDay(date, list),
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(12),
                             child: _CalendarDayCell(
                               day: day,
                               pending: pending,
@@ -277,9 +250,7 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  _isCdo
-                      ? 'Applications needing acknowledgement'
-                      : 'Pending requests',
+                  _isCdo ? 'Pending requests' : 'Pending requests',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -289,7 +260,7 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                 if (_isCdo) ...[
                   if (_cdoPending.isEmpty)
                     const Text(
-                      'No pending applications. Tap a day to view submitted forms.',
+                      'No pending requests. Tap a day to view other applications.',
                       style: TextStyle(color: kOwnerMuted, fontSize: 13),
                     )
                   else
@@ -452,24 +423,30 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Tap to open the estate form. Accept or cancel only.',
+              'Tap an application to open full details.',
               style: TextStyle(fontSize: 12.5, color: kOwnerMuted),
             ),
             const SizedBox(height: 10),
             if (dayRequests.isEmpty)
               const Text(
-                'No applications on this day.',
+                'No active applications on this day.',
                 style: TextStyle(color: kOwnerMuted),
               )
             else
               for (final r in dayRequests)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    radius: 8,
+                    backgroundColor: r.isPendingAck ? kOwnerRed : kOwnerGreen,
+                  ),
                   title: Text(
                     r.id,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  subtitle: Text('${r.owner} · ${r.fertilizer} · ${r.status}'),
+                  subtitle: Text(
+                    '${r.owner} · ${r.fertilizer} · ${r.isPendingAck ? 'Pending' : 'Accepted'}',
+                  ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -995,65 +972,71 @@ class _CalendarDayCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dots = _dots;
-    return Container(
-      margin: const EdgeInsets.all(2),
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 3),
-      decoration: BoxDecoration(
-        color: fill,
-        borderRadius: BorderRadius.circular(14),
-        border: total > 0 ? Border.all(color: accent, width: 1.2) : null,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                '$day',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: kOwnerInk,
-                ),
-              ),
-              const Spacer(),
-              if (total > 0)
-                Container(
-                  height: 16,
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: accent,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    '$total',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const Spacer(),
-          if (dots.isNotEmpty)
+    // Why: clip + compact layout removes the red “OVERFLOWED BY …” overlay.
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.all(1),
+        padding: const EdgeInsets.fromLTRB(3, 3, 3, 2),
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(12),
+          border: total > 0 ? Border.all(color: accent, width: 1.1) : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
               children: [
-                for (final c in dots)
+                Text(
+                  '$day',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: kOwnerInk,
+                    height: 1.1,
+                  ),
+                ),
+                const Spacer(),
+                if (total > 0)
                   Container(
-                    width: 5,
-                    height: 5,
-                    margin: const EdgeInsets.only(right: 2),
+                    height: 14,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: c,
-                      shape: BoxShape.circle,
+                      color: accent,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      '$total',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        height: 1,
+                      ),
                     ),
                   ),
               ],
             ),
-        ],
+            const Spacer(),
+            if (dots.isNotEmpty)
+              Row(
+                children: [
+                  for (final c in dots)
+                    Container(
+                      width: 4,
+                      height: 4,
+                      margin: const EdgeInsets.only(right: 2),
+                      decoration: BoxDecoration(
+                        color: c,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }

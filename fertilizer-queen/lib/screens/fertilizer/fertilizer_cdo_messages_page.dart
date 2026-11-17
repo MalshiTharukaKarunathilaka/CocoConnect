@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
+import 'fertilizer_cancel_reasons.dart';
 import 'fertilizer_data.dart';
 
 /// CDO ↔ estate chat threads (mobile width). Delivery date/time shown in chat.
@@ -174,6 +175,32 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
                 ),
               ),
             ),
+            if (r.status == 'Accepted' || r.status == 'Receipt Confirmed') ...[
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.dangerText,
+                    backgroundColor: AppColors.dangerSoft,
+                  ),
+                  onPressed: () async {
+                    final note = await showFertCdoDisputeReasons(
+                      context,
+                      title: 'Dispute ${r.id}',
+                    );
+                    if (note == null) return;
+                    _store.disputeGovRequest(r.id, reason: note);
+                    setState(() {});
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${r.id} disputed')),
+                    );
+                  },
+                  child: const Text('Dispute'),
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
           ],
       ],
@@ -183,6 +210,8 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
   Widget _chat(FertGovRequest r) {
     final estate = r.estateName.isNotEmpty ? r.estateName : r.owner;
     final cdoName = r.cdo;
+    final canDispute =
+        r.status == 'Accepted' || r.status == 'Receipt Confirmed';
     return Column(
       children: [
         Padding(
@@ -217,6 +246,26 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
                   ],
                 ),
               ),
+              if (canDispute)
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.dangerText,
+                  ),
+                  onPressed: () async {
+                    final note = await showFertCdoDisputeReasons(
+                      context,
+                      title: 'Dispute ${r.id}',
+                    );
+                    if (note == null) return;
+                    _store.disputeGovRequest(r.id, reason: note);
+                    setState(() => _open = null);
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${r.id} disputed')),
+                    );
+                  },
+                  child: const Text('Dispute'),
+                ),
             ],
           ),
         ),

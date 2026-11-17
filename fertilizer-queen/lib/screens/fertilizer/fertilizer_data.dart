@@ -327,6 +327,19 @@ class FertGovRequest {
   final int coconutTrees;
   final int coconutSaplings;
   final int annualHarvestNuts;
+
+  /// Why: delivered / cancelled / disputed leave the CDO calendar.
+  bool get showsOnCalendar =>
+      status != 'Cancelled' &&
+      status != 'Disputed' &&
+      status != 'Distributed' &&
+      distributed == 0;
+
+  bool get isPendingAck =>
+      status == 'Pending Ack' || status == 'Submitted';
+
+  bool get isAcceptedOnCalendar =>
+      status == 'Accepted' || status == 'Receipt Confirmed';
 }
 
 class FertComplaint {
@@ -1546,6 +1559,9 @@ class FertilizerStore {
       .where((r) => r.status == 'Pending Ack' || r.status == 'Submitted')
       .toList();
 
+  List<FertGovRequest> get myCdoCalendarRequests =>
+      myCdoRequests.where((r) => r.showsOnCalendar).toList();
+
   void acceptGovRequest(String id, {DateTime? deliveryAt}) {
     for (final r in govRequests) {
       if (r.id == id &&
@@ -1585,6 +1601,60 @@ class FertilizerStore {
         notifyOwner(
           title: 'Government request cancelled',
           body: '${r.id} · $why',
+          kind: 'cancelled',
+        );
+        break;
+      }
+    }
+  }
+
+  /// Why: CDO marks bags as delivered so the request leaves the calendar.
+  void markGovDelivered(String id) {
+    for (final r in govRequests) {
+      if (r.id == id &&
+          (r.status == 'Accepted' || r.status == 'Receipt Confirmed')) {
+        r.status = 'Distributed';
+        r.distributed = r.approved > 0 ? r.approved : r.requested;
+        r.chat.add(
+          FertChat(r.cdo, 'Marked delivered by CDO.', _nowStamp()),
+        );
+        notifyOwner(
+          title: 'Government fertilizer delivered',
+          body: '${r.id} · ${r.fertilizer} · ${r.distributed} bags',
+          kind: 'delivered',
+        );
+        break;
+      }
+    }
+  }
+
+  /// Why: CDO can dispute an accepted application with a written reason.
+  void disputeGovRequest(String id, {required String reason}) {
+    final why = reason.trim();
+    if (why.isEmpty) return;
+    for (final r in govRequests) {
+      if (r.id == id &&
+          (r.status == 'Accepted' ||
+              r.status == 'Receipt Confirmed' ||
+              r.status == 'Pending Ack' ||
+              r.status == 'Submitted')) {
+        r.status = 'Disputed';
+        r.chat.add(FertChat(r.cdo, 'Disputed · $why', _nowStamp()));
+        addComplaint(
+          FertComplaint(
+            id: 'DP-${300 + complaints.length + 1}',
+            category: 'Dispute · CDO · $why',
+            product: r.fertilizer,
+            status: 'Submitted',
+            date: DateTime.now(),
+            description: '${r.id} · ${r.owner}\n$why',
+            owner: r.owner,
+            district: r.district,
+          ),
+        );
+        notifyOwner(
+          title: 'CDO disputed ${r.id}',
+          body: why,
           kind: 'cancelled',
         );
         break;
@@ -1632,6 +1702,16 @@ class FertilizerStore {
       }
     }
     cdoStock.add(FertCdoStockLine(type: name, bags: bags));
+  }
+
+  /// Why: CDO can nudge one fertilizer line up or down from the stock table.
+  void adjustCdoStock(String type, int delta) {
+    for (final line in cdoStock) {
+      if (line.type.toLowerCase() == type.toLowerCase()) {
+        line.bags = (line.bags + delta).clamp(0, 99999);
+        return;
+      }
+    }
   }
 
   void addComplaint(FertComplaint complaint) => complaints.insert(0, complaint);

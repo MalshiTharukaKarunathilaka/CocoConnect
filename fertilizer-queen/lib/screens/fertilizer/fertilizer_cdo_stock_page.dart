@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import 'fertilizer_data.dart';
 
-/// CDO warehouse stock — record received bags and see available / low / empty.
+/// CDO warehouse stock — add new lines behind a button; +/- each row.
 class FertilizerCdoStockPage extends StatefulWidget {
   const FertilizerCdoStockPage({super.key});
 
@@ -16,6 +16,8 @@ class _FertilizerCdoStockPageState extends State<FertilizerCdoStockPage> {
   String? _pickedType;
   final _customType = TextEditingController();
   bool _useCustom = false;
+  /// Why: form stays hidden until the CDO taps Add fertilizer.
+  bool _showAddForm = false;
 
   static const _catalog = [
     'ERP Coconut Fertilizer',
@@ -50,6 +52,7 @@ class _FertilizerCdoStockPageState extends State<FertilizerCdoStockPage> {
       _customType.clear();
       _useCustom = false;
       _pickedType = null;
+      _showAddForm = false;
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Recorded +$qty bags of $type')),
@@ -105,87 +108,98 @@ class _FertilizerCdoStockPageState extends State<FertilizerCdoStockPage> {
           ),
         ),
         const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.line),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => setState(() => _showAddForm = !_showAddForm),
+            icon: Icon(_showAddForm ? Icons.close : Icons.add),
+            label: Text(_showAddForm ? 'Close add form' : 'Add fertilizer'),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Record stock received',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Choose a fertilizer type, enter bags, then add. The table below updates.',
-                style: TextStyle(fontSize: 12.5, color: AppColors.muted),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Fertilizer type',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final t in _catalog)
+        ),
+        if (_showAddForm) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.line),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Add fertilizer',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Choose a fertilizer type and enter bags.',
+                  style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Fertilizer type',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final t in _catalog)
+                      ChoiceChip(
+                        label: Text(t, style: const TextStyle(fontSize: 12)),
+                        selected: !_useCustom && _pickedType == t,
+                        selectedColor: AppColors.greenSoft,
+                        onSelected: (_) => setState(() {
+                          _useCustom = false;
+                          _pickedType = t;
+                        }),
+                      ),
                     ChoiceChip(
-                      label: Text(t, style: const TextStyle(fontSize: 12)),
-                      selected: !_useCustom && _pickedType == t,
+                      label: const Text('Other', style: TextStyle(fontSize: 12)),
+                      selected: _useCustom,
                       selectedColor: AppColors.greenSoft,
                       onSelected: (_) => setState(() {
-                        _useCustom = false;
-                        _pickedType = t;
+                        _useCustom = true;
+                        _pickedType = null;
                       }),
                     ),
-                  ChoiceChip(
-                    label: const Text('Other', style: TextStyle(fontSize: 12)),
-                    selected: _useCustom,
-                    selectedColor: AppColors.greenSoft,
-                    onSelected: (_) => setState(() {
-                      _useCustom = true;
-                      _pickedType = null;
-                    }),
+                  ],
+                ),
+                if (_useCustom) ...[
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _customType,
+                    decoration: const InputDecoration(
+                      labelText: 'Type name',
+                      isDense: true,
+                    ),
                   ),
                 ],
-              ),
-              if (_useCustom) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 TextField(
-                  controller: _customType,
+                  controller: _qtyCtrl,
+                  keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'Type name',
+                    labelText: 'Quantity (50 kg bags)',
                     isDense: true,
                   ),
                 ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _add,
+                    icon: const Icon(Icons.add_box_outlined),
+                    label: const Text('Save to stock'),
+                  ),
+                ),
               ],
-              const SizedBox(height: 12),
-              TextField(
-                controller: _qtyCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Quantity (50 kg bags)',
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _add,
-                  icon: const Icon(Icons.add_box_outlined),
-                  label: const Text('Add fertilizers'),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
         const SizedBox(height: 18),
         const Text(
           'Stock table',
@@ -220,6 +234,7 @@ class _FertilizerCdoStockPageState extends State<FertilizerCdoStockPage> {
                       ),
                     ),
                     Expanded(
+                      flex: 2,
                       child: Text(
                         'Bags',
                         textAlign: TextAlign.center,
@@ -270,7 +285,7 @@ class _FertilizerCdoStockPageState extends State<FertilizerCdoStockPage> {
       _ => (AppColors.dangerText, AppColors.dangerSoft, 'Not available'),
     };
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Row(
         children: [
           Expanded(
@@ -281,10 +296,38 @@ class _FertilizerCdoStockPageState extends State<FertilizerCdoStockPage> {
             ),
           ),
           Expanded(
-            child: Text(
-              '${line.bags}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+            flex: 2,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  onPressed: line.bags <= 0
+                      ? null
+                      : () => setState(
+                            () => _store.adjustCdoStock(line.type, -1),
+                          ),
+                  icon: const Icon(Icons.remove_circle_outline, size: 20),
+                ),
+                Text(
+                  '${line.bags}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  onPressed: () => setState(
+                    () => _store.adjustCdoStock(line.type, 1),
+                  ),
+                  icon: const Icon(Icons.add_circle_outline, size: 20),
+                ),
+              ],
             ),
           ),
           Expanded(

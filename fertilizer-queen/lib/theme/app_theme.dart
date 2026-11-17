@@ -301,15 +301,15 @@ class StatusPill extends StatelessWidget {
     switch (status) {
       case 'Pending Ack':
       case 'Processing':
+      case 'Submitted':
         return const StatusPill(
-          'Processing',
+          'Pending',
           fg: AppColors.warning,
           bg: AppColors.warningSoft,
         );
       case 'Negotiating':
       case 'Negotiation':
       case 'In talk':
-      case 'Submitted':
         return StatusPill(
           status == 'Negotiating' ? 'In talk' : status,
           fg: AppColors.warning,
@@ -325,8 +325,13 @@ class StatusPill extends StatelessWidget {
         );
       case 'Accepted':
       case 'Receipt Confirmed':
-      case 'Distributed':
         return const StatusPill('Accepted');
+      case 'Distributed':
+        return const StatusPill(
+          'Delivered',
+          fg: AppColors.info,
+          bg: AppColors.infoSoft,
+        );
       default:
         return StatusPill(
           status,

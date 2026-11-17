@@ -6,7 +6,9 @@ import 'fertilizer_data.dart';
 String fertStatusLabel(String status) {
   switch (status) {
     case 'Pending Ack':
-      return 'Processing';
+    case 'Submitted':
+    case 'Processing':
+      return 'Pending';
     case 'Negotiating':
       return 'In talk';
     case 'Accepted':
