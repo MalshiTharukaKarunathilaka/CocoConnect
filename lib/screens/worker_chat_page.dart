@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/day_job_chat_service.dart';
 
-const Color _workerChatBackground = Color(0xFFFCF9F3);
-const Color _workerChatInk = Color(0xFF17243A);
-const Color _workerChatMuted = Color(0xFF61718A);
-const Color _workerChatGreen = Color(0xFF43855F);
+const Color _workerChatBackground = Color(0xFFEFE9DF);
+const Color _workerChatBar = Color(0xFFF7F4EE);
+const Color _workerChatInk = Color(0xFF1F2A24);
+const Color _workerChatMuted = Color(0xFF6B7280);
+const Color _workerChatGreen = Color(0xFF256B45);
+const Color _workerChatMyBubble = Color(0xFFDCF3DC);
 
 class WorkerChatPage extends StatefulWidget {
   final int chatId;
@@ -77,9 +79,9 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
       await _load();
     } on ApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -90,65 +92,81 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
   Widget build(BuildContext context) {
     final chat = _chat;
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: Container(
-          width: 390,
-          constraints: const BoxConstraints(maxWidth: 430),
-          color: _workerChatBackground,
-          child: SafeArea(
-            child: Column(
-              children: [
-                _header(context, chat),
-                Expanded(child: _messages(chat)),
-                _composer(),
-              ],
-            ),
-          ),
+      backgroundColor: _workerChatBackground,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Column(
+          children: [
+            _header(context, chat),
+            Expanded(child: _messages(chat)),
+            _composer(),
+          ],
         ),
       ),
     );
   }
 
   Widget _header(BuildContext context, DayJobChat? chat) {
+    final name = chat?.counterpartName ?? '';
     return Container(
-      height: 124,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE0E4E9))),
+        color: _workerChatBar,
+        border: Border(bottom: BorderSide(color: Color(0xFFEDE7DA))),
       ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, size: 38, color: _workerChatMuted),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  chat?.counterpartName ?? 'Loading...',
-                  overflow: TextOverflow.ellipsis,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back, color: _workerChatInk),
+              ),
+              CircleAvatar(
+                radius: 19,
+                backgroundColor: _workerChatGreen,
+                child: Text(
+                  name.isEmpty ? '?' : name[0].toUpperCase(),
                   style: const TextStyle(
-                    color: _workerChatInk,
-                    fontSize: 24,
+                    color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(
-                  chat?.counterpartRole == 'WORKER'
-                      ? 'WORKER'
-                      : 'ESTATE OWNER',
-                  style: const TextStyle(color: _workerChatMuted, fontSize: 17),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name.isEmpty ? 'Loading...' : name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _workerChatGreen,
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (chat != null)
+                      Text(
+                        chat.counterpartRole == 'WORKER'
+                            ? 'WORKER'
+                            : 'ESTATE OWNER',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _workerChatMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -158,54 +176,46 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
       return Center(child: Text(_error!));
     }
     if (chat == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: _workerChatGreen),
+      );
     }
-    return Container(
-      margin: const EdgeInsets.fromLTRB(17, 30, 17, 0),
-      padding: const EdgeInsets.fromLTRB(16, 32, 16, 20),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFDCE5EF)),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: ListView(
-        controller: _scrollController,
-        padding: EdgeInsets.zero,
-        children: [
-          _dateLabel(),
-          const SizedBox(height: 18),
-          _jobLabel(chat.category),
-          const SizedBox(height: 30),
-          if (chat.messages.isEmpty)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Start a conversation with the estate owner.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: _workerChatMuted),
-                ),
+    return ListView(
+      controller: _scrollController,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+      children: [
+        _dateLabel(),
+        _jobLabel(chat.category),
+        const SizedBox(height: 10),
+        if (chat.messages.isEmpty)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Start a conversation with the estate owner.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: _workerChatMuted),
               ),
-            )
-          else
-            for (final message in chat.messages) _messageBubble(message),
-        ],
-      ),
+            ),
+          )
+        else
+          for (final message in chat.messages) _messageBubble(message),
+      ],
     );
   }
 
-  Widget _dateLabel() => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
-    decoration: BoxDecoration(
-      color: const Color(0xFFEFF1F3),
-      borderRadius: BorderRadius.circular(28),
-    ),
-    child: const Text(
-      'Day job chat',
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        color: _workerChatMuted,
-        fontSize: 17,
-        fontWeight: FontWeight.w600,
+  Widget _dateLabel() => Center(
+    child: Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF6D6),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: const Text(
+        'Day job chat',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 12.5, color: Color(0xFF5A4A1A)),
       ),
     ),
   );
@@ -213,16 +223,17 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
   Widget _jobLabel(String category) => Align(
     alignment: Alignment.center,
     child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF1F3),
-        borderRadius: BorderRadius.circular(24),
+        color: const Color(0xFFDDEEE0),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         category,
         style: const TextStyle(
-          color: _workerChatMuted,
-          fontSize: 15,
+          color: _workerChatGreen,
+          fontSize: 12.5,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -233,18 +244,31 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
     return Align(
       alignment: message.isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        constraints: const BoxConstraints(maxWidth: 280),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+        constraints: const BoxConstraints(maxWidth: 285),
         decoration: BoxDecoration(
-          color: message.isMine ? _workerChatGreen : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          color: message.isMine ? _workerChatMyBubble : Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(14),
+            topRight: const Radius.circular(14),
+            bottomLeft: Radius.circular(message.isMine ? 14 : 3),
+            bottomRight: Radius.circular(message.isMine ? 3 : 14),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(14),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: Text(
           message.message,
-          style: TextStyle(
-            color: message.isMine ? Colors.white : _workerChatInk,
-            fontSize: 16,
+          style: const TextStyle(
+            color: _workerChatInk,
+            fontSize: 14,
+            height: 1.35,
           ),
         ),
       ),
@@ -252,39 +276,54 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
   }
 
   Widget _composer() => Container(
-    margin: const EdgeInsets.fromLTRB(36, 22, 36, 24),
-    height: 80,
-    padding: const EdgeInsets.fromLTRB(20, 10, 13, 10),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(40),
-      border: Border.all(color: const Color(0xFFE0E8F0), width: 1.5),
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _messageController,
-            textInputAction: TextInputAction.send,
-            onSubmitted: (_) => _send(),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              hintText: 'Type a message',
+    padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+    color: _workerChatBar,
+    child: SafeArea(
+      top: false,
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _messageController,
+              minLines: 1,
+              maxLines: 4,
+              textCapitalization: TextCapitalization.sentences,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _send(),
+              decoration: InputDecoration(
+                hintText: 'Type a message',
+                isDense: true,
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+              ),
             ),
           ),
-        ),
-        IconButton(
-          onPressed: _sending ? null : _send,
-          icon: const Icon(Icons.send_outlined, color: Colors.white, size: 30),
-          style: IconButton.styleFrom(
-            backgroundColor: const Color(0xFF256B45),
-            fixedSize: const Size(64, 56),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
+          const SizedBox(width: 6),
+          IconButton.filled(
+            tooltip: 'Send message',
+            onPressed: _sending ? null : _send,
+            style: IconButton.styleFrom(backgroundColor: _workerChatGreen),
+            icon: _sending
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.send, color: Colors.white),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }
