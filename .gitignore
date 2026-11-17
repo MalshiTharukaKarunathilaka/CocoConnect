@@ -43,3 +43,9 @@ Thumbs.db
 # Local DB dumps
 *.sql.bak
 *.dump
+
+# fertilizer-queen local build outputs
+fertilizer-queen/build/
+fertilizer-queen/.dart_tool/
+fertilizer-queen/.flutter-plugins-dependencies
+fertilizer-queen/backend/node_modules/
