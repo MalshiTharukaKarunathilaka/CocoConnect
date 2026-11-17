@@ -5,7 +5,9 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
 import '../services/day_job_chat_service.dart';
+import '../services/holiday_service.dart';
 import '../services/worker_service.dart';
+import '../widgets/holiday_widgets.dart';
 import 'auth_gate.dart';
 import 'worker_chat_page.dart';
 import 'estate_jobs_map_page.dart';
@@ -1002,6 +1004,13 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   }
 
   Widget _calendarCard(List<WorkerJob> jobs) {
+    return HolidayListener(
+      years: [_month.year],
+      builder: (_) => _calendarCardContent(jobs),
+    );
+  }
+
+  Widget _calendarCardContent(List<WorkerJob> jobs) {
     final calendarJobs = _category == null
         ? jobs
         : jobs
@@ -1103,6 +1112,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 return const SizedBox.shrink();
               }
               final date = DateTime(_month.year, _month.month, day);
+              final holiday = HolidayService.of(date);
               final marked = jobDays.contains(day);
               final dayJobs = jobsByDay[day];
               final dayIcons = dayJobs == null
@@ -1160,7 +1170,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                           right: 3,
                           child: _calendarStatusDot(dayJobs!),
                         ),
-                      if (marked)
+                      if (marked || holiday != null)
                         Positioned(
                           bottom: 3,
                           left: 0,
@@ -1170,6 +1180,10 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                if (holiday != null)
+                                  const HolidayFlag(size: 12),
+                                if (holiday != null && dayIcons.isNotEmpty)
+                                  const SizedBox(width: 2),
                                 for (final icon in dayIcons)
                                   Icon(icon, color: _workerGreen, size: 11),
                               ],
@@ -1183,15 +1197,18 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             },
           ),
           const SizedBox(height: 16),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          const Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 18,
+            runSpacing: 8,
             children: [
               _WorkerCalendarLegend(
                 color: Color(0xFFF0A315),
                 label: 'Partially filled',
               ),
-              SizedBox(width: 24),
               _WorkerCalendarLegend(color: _workerGreen, label: 'Fully filled'),
+              HolidayLegend(),
             ],
           ),
         ],

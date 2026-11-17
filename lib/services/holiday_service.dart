@@ -14,9 +14,9 @@ class Holiday {
   String get label => '$name · ${isPublic ? 'Public holiday' : 'Observance'}';
 }
 
-/// Sri Lankan holidays for the calendars, from the backend (`GET /api/holidays`),
-/// which reads Google's free public holiday calendar. Each year is fetched once
-/// and remembered; calendars listen to [revision] to redraw when it arrives.
+/// Approved Sri Lankan holidays from the backend (`GET /api/holidays`). Each
+/// year is fetched once and remembered; calendars listen to [revision] to
+/// redraw when it arrives.
 class HolidayService {
   HolidayService._();
 
@@ -81,8 +81,12 @@ class HolidayService {
       }
       final bool isPublic = row['type'] == 'public';
       final Holiday? already = out[date];
-      // Two events on one day: keep the public holiday.
-      if (already == null || (!already.isPublic && isPublic)) {
+      // Keep every approved public-holiday name when two fall on one date.
+      if (already != null && already.isPublic && isPublic) {
+        if (!already.name.split(' / ').contains(name)) {
+          out[date] = Holiday('$name / ${already.name}', isPublic: true);
+        }
+      } else if (already == null || (!already.isPublic && isPublic)) {
         out[date] = Holiday(name, isPublic: isPublic);
       }
     }
