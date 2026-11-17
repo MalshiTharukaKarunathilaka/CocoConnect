@@ -29,33 +29,11 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
 
   Widget _areasHome() {
     final areas = _store.areasForMyCdo();
-    final who = _store.myShop.who;
-    var estateCount = 0;
-    var requestCount = 0;
-    var bagsOut = 0;
-    for (final a in areas) {
-      estateCount += a.estates.length;
-      for (final e in a.estates) {
-        final s = _store.statsForEstate(e.name);
-        requestCount += s.totalRequests;
-        bagsOut += s.bagsDistributed;
-      }
-    }
 
+    // Why: removed the big green summary box so Area matches the cleaner Stock look.
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
       children: [
-        _hero(
-          title: 'Area',
-          subtitle: '$who · estates and fertilizer progress under your desk',
-          stats: [
-            ('$estateCount', 'Estates'),
-            ('${areas.length}', 'Areas'),
-            ('$requestCount', 'Requests'),
-            ('$bagsOut', 'Bags out'),
-          ],
-        ),
-        const SizedBox(height: 18),
         const Text(
           'Your areas',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
@@ -456,79 +434,6 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
       ),
     );
   }
-}
-
-Widget _hero({
-  required String title,
-  required String subtitle,
-  required List<(String, String)> stats,
-}) {
-  return Container(
-    padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(22),
-      gradient: const LinearGradient(
-        colors: [Color(0xFF1B5E3A), Color(0xFF2E7D4F), Color(0xFF3D8B63)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.85),
-            fontSize: 12.5,
-          ),
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            for (var i = 0; i < stats.length; i++) ...[
-              if (i > 0)
-                Container(
-                  width: 1,
-                  height: 28,
-                  color: Colors.white.withValues(alpha: 0.2),
-                ),
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(
-                      stats[i].$1,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
-                      ),
-                    ),
-                    Text(
-                      stats[i].$2,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ],
-    ),
-  );
 }
 
 Widget _subHeader({

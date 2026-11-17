@@ -7,35 +7,43 @@ import 'fertilizer_dispute_sheet.dart';
 import 'fertilizer_order_edit_sheet.dart';
 import 'fertilizer_processing_banner.dart';
 
-/// Bell in the fertilizer header — estate or supplier alerts.
+/// Bell in the fertilizer header — estate, supplier, or CDO alerts.
 class FertAlertBell extends StatelessWidget {
   const FertAlertBell({
     super.key,
     this.forSupplier = false,
+    this.forCdo = false,
     this.onOpenStock,
     this.onOpenOrders,
   });
 
   final bool forSupplier;
+  final bool forCdo;
   final VoidCallback? onOpenStock;
   final VoidCallback? onOpenOrders;
 
   @override
   Widget build(BuildContext context) {
     final store = FertilizerStore.instance;
-    final tick =
-        forSupplier ? store.supplierAlertTick : store.ownerAlertTick;
+    final tick = forCdo
+        ? store.cdoAlertTick
+        : forSupplier
+            ? store.supplierAlertTick
+            : store.ownerAlertTick;
     return ValueListenableBuilder<int>(
       valueListenable: tick,
       builder: (context, _, __) {
-        final unread = forSupplier
-            ? store.unreadSupplierAlerts
-            : store.unreadOwnerAlerts;
+        final unread = forCdo
+            ? store.unreadCdoAlerts
+            : forSupplier
+                ? store.unreadSupplierAlerts
+                : store.unreadOwnerAlerts;
         return IconButton(
           tooltip: 'Notifications',
           onPressed: () => showFertAlerts(
             context,
             forSupplier: forSupplier,
+            forCdo: forCdo,
             onOpenStock: onOpenStock,
             onOpenOrders: onOpenOrders,
           ),
@@ -62,11 +70,14 @@ Future<void> showFertOwnerAlerts(BuildContext context) =>
 Future<void> showFertAlerts(
   BuildContext context, {
   required bool forSupplier,
+  bool forCdo = false,
   VoidCallback? onOpenStock,
   VoidCallback? onOpenOrders,
 }) async {
   final store = FertilizerStore.instance;
-  if (forSupplier) {
+  if (forCdo) {
+    store.markCdoAlertsRead();
+  } else if (forSupplier) {
     store.markSupplierAlertsRead();
   } else {
     store.markOwnerAlertsRead();
@@ -77,10 +88,12 @@ Future<void> showFertAlerts(
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (ctx) {
-      // Why: supplier bell only lists low stock / new orders / estate cancel / dispute.
-      final alerts = forSupplier
-          ? store.importantSupplierAlerts
-          : store.ownerAlerts;
+      // Why: supplier/CDO bells only list alerts that need quick attention.
+      final alerts = forCdo
+          ? store.importantCdoAlerts
+          : forSupplier
+              ? store.importantSupplierAlerts
+              : store.ownerAlerts;
       return Align(
         alignment: Alignment.bottomCenter,
         child: ConstrainedBox(
@@ -129,9 +142,11 @@ Future<void> showFertAlerts(
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: Text(
-                      forSupplier
-                          ? 'New orders, disputes and low-stock alerts. Tap Show to open the page.'
-                          : 'Supplier updates on your orders. Tap Show to open details.',
+                      forCdo
+                          ? 'Estate cancel / dispute and low-stock alerts. Tap Show to open the page.'
+                          : forSupplier
+                              ? 'New orders, disputes and low-stock alerts. Tap Show to open the page.'
+                              : 'Supplier updates on your orders. Tap Show to open details.',
                       style: const TextStyle(
                         fontSize: 12.5,
                         color: AppColors.muted,
@@ -155,6 +170,7 @@ Future<void> showFertAlerts(
                             itemBuilder: (_, i) => _AlertTile(
                               alerts[i],
                               forSupplier: forSupplier,
+                              forCdo: forCdo,
                               onCloseSheet: () => Navigator.pop(ctx),
                               onOpenStock: onOpenStock,
                               onOpenOrders: onOpenOrders,
@@ -319,6 +335,7 @@ class _AlertTile extends StatelessWidget {
   const _AlertTile(
     this.alert, {
     required this.forSupplier,
+    this.forCdo = false,
     required this.onCloseSheet,
     this.onOpenStock,
     this.onOpenOrders,
@@ -326,6 +343,7 @@ class _AlertTile extends StatelessWidget {
 
   final FertOwnerAlert alert;
   final bool forSupplier;
+  final bool forCdo;
   final VoidCallback onCloseSheet;
   final VoidCallback? onOpenStock;
   final VoidCallback? onOpenOrders;
@@ -371,12 +389,18 @@ class _AlertTile extends StatelessWidget {
 
   Future<void> _show(BuildContext context) async {
     onCloseSheet();
-    // Why: low-stock alerts open Stock; order alerts open the order sheet.
+    // Why: low-stock alerts open Stock; order alerts open Orders / Messages.
     if (alert.opensStock) {
       onOpenStock?.call();
       return;
     }
     if (alert.orderId.isNotEmpty) {
+      if (forCdo) {
+        // Why: CDO Show jumps into the matching Messages thread.
+        FertilizerStore.instance.pendingOpenGovId = alert.orderId;
+        onOpenOrders?.call();
+        return;
+      }
       onOpenOrders?.call();
       await _openOrderFromAlert(
         context,

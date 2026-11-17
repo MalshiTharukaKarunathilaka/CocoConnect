@@ -17,6 +17,7 @@ class FertPage extends StatelessWidget {
     this.showBack = true,
     this.showAlerts = false,
     this.supplierAlerts = false,
+    this.cdoAlerts = false,
     this.onOpenStock,
     this.onOpenOrders,
   });
@@ -31,9 +32,11 @@ class FertPage extends StatelessWidget {
   final bool showAlerts;
   /// Supplier bell for new orders / disputes / low stock.
   final bool supplierAlerts;
+  /// CDO bell for estate cancel / dispute / low warehouse stock.
+  final bool cdoAlerts;
   /// Notification Show → Stock tab.
   final VoidCallback? onOpenStock;
-  /// Notification Show → Orders tab.
+  /// Notification Show → Orders (or Messages for CDO) tab.
   final VoidCallback? onOpenOrders;
 
   @override
@@ -93,6 +96,12 @@ class FertPage extends StatelessWidget {
               if (supplierAlerts)
                 FertAlertBell(
                   forSupplier: true,
+                  onOpenStock: onOpenStock,
+                  onOpenOrders: onOpenOrders,
+                ),
+              if (cdoAlerts)
+                FertAlertBell(
+                  forCdo: true,
                   onOpenStock: onOpenStock,
                   onOpenOrders: onOpenOrders,
                 ),

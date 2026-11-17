@@ -783,6 +783,54 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                             ],
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        // Why: estate cancel notifies the CDO desk bell.
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.dangerText,
+                              backgroundColor: AppColors.dangerSoft,
+                            ),
+                            onPressed: () {
+                              _store.cancelGovRequest(
+                                r.id,
+                                note: 'Cancelled by estate',
+                                byCdo: false,
+                              );
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('${r.id} cancelled')),
+                              );
+                            },
+                            child: const Text('Cancel request'),
+                          ),
+                        ),
+                      ],
+                      if (r.status == 'Accepted') ...[
+                        const SizedBox(height: 8),
+                        // Why: estate dispute notifies the CDO desk bell.
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.dangerText,
+                              backgroundColor: AppColors.dangerSoft,
+                            ),
+                            onPressed: () {
+                              _store.disputeGovRequest(
+                                r.id,
+                                reason: 'Disputed by estate',
+                                byCdo: false,
+                              );
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('${r.id} disputed')),
+                              );
+                            },
+                            child: const Text('Dispute'),
+                          ),
+                        ),
                       ],
                     ],
                   ),

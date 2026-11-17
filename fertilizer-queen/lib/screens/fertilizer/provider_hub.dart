@@ -26,6 +26,8 @@ class _ProviderHubState extends State<ProviderHub> {
   final _store = FertilizerStore.instance;
   int _tab = 0;
   String _orderStatusFilter = 'all';
+  /// Why: notification Show can open a specific CDO chat.
+  String? _msgFocusId;
 
   bool get _isCdo => widget.mode == FertHomeMode.cdo;
 
@@ -49,7 +51,7 @@ class _ProviderHubState extends State<ProviderHub> {
         case 'delivered':
           return r.distributed > 0 || r.status == 'Distributed';
         case 'disputed':
-          return false;
+          return r.status == 'Disputed';
         default:
           return true;
       }
@@ -78,11 +80,13 @@ class _ProviderHubState extends State<ProviderHub> {
   @override
   void initState() {
     super.initState();
-    if (!_isCdo) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isCdo) {
+        _store.ensureCdoDemoAlerts();
+      } else {
         _store.checkLowStock(_shop);
-      });
-    }
+      }
+    });
   }
 
   @override
@@ -108,13 +112,24 @@ class _ProviderHubState extends State<ProviderHub> {
           '${_isCdo ? 'CDO' : 'SUPPLIER'} \u00b7 ${_shop.company}'.toUpperCase(),
       showLogout: true,
       supplierAlerts: !_isCdo,
-      // Why: notification Show can jump to Stock or Orders.
-      onOpenStock: !_isCdo ? () => setState(() => _tab = 2) : null,
-      onOpenOrders: () => setState(() => _tab = 1),
+      cdoAlerts: _isCdo,
+      // Why: notification Show can jump to Stock, Orders, or CDO Messages.
+      onOpenStock: () => setState(() => _tab = _isCdo ? 3 : 2),
+      onOpenOrders: () => setState(() {
+            if (_isCdo) {
+              _msgFocusId = _store.consumePendingOpenGovId();
+              _tab = 4;
+            } else {
+              _tab = 1;
+            }
+          }),
       bottom: FertTabBar(
         items: tabs,
         current: _tab,
-        onTap: (i) => setState(() => _tab = i),
+        onTap: (i) => setState(() {
+              _tab = i;
+              if (i != 4) _msgFocusId = null;
+            }),
       ),
       child: _body(),
     );
@@ -133,7 +148,7 @@ class _ProviderHubState extends State<ProviderHub> {
         case 3:
           return const FertilizerCdoStockPage();
         case 4:
-          return const FertilizerCdoMessagesPage();
+          return FertilizerCdoMessagesPage(focusRequestId: _msgFocusId);
       }
     } else {
       switch (_tab) {

@@ -197,6 +197,9 @@ class FertOwnerAlert {
       kind == 'cancelled' ||
       kind == 'estate_dispute' ||
       opensStock;
+
+  /// Why: CDO bell mirrors supplier — cancel, dispute, low stock, new requests.
+  bool get isImportantForCdo => isImportantForSupplier;
 }
 
 class FertDayAvail {
@@ -383,9 +386,13 @@ class FertilizerStore {
   /// Supplier alerts (new order, dispute, low stock…).
   final List<FertOwnerAlert> supplierAlerts = [];
 
+  /// CDO desk alerts (estate cancel / dispute, low warehouse stock, new request).
+  final List<FertOwnerAlert> cdoAlerts = [];
+
   /// Bumps whenever a new alert arrives so the hub bell can refresh.
   final ValueNotifier<int> ownerAlertTick = ValueNotifier<int>(0);
   final ValueNotifier<int> supplierAlertTick = ValueNotifier<int>(0);
+  final ValueNotifier<int> cdoAlertTick = ValueNotifier<int>(0);
 
   int get unreadOwnerAlerts => ownerAlerts.where((a) => !a.read).length;
   /// Only attention-needed alerts for the supplier bell.
@@ -394,6 +401,11 @@ class FertilizerStore {
 
   int get unreadSupplierAlerts =>
       importantSupplierAlerts.where((a) => !a.read).length;
+
+  List<FertOwnerAlert> get importantCdoAlerts =>
+      cdoAlerts.where((a) => a.isImportantForCdo).toList();
+
+  int get unreadCdoAlerts => importantCdoAlerts.where((a) => !a.read).length;
 
   void notifyOwner({
     required String title,
@@ -435,6 +447,26 @@ class FertilizerStore {
     supplierAlertTick.value++;
   }
 
+  void notifyCdo({
+    required String title,
+    required String body,
+    required String kind,
+    String orderId = '',
+  }) {
+    cdoAlerts.insert(
+      0,
+      FertOwnerAlert(
+        id: 'CA-${cdoAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
+        title: title,
+        body: body,
+        kind: kind,
+        at: DateTime.now(),
+        orderId: orderId,
+      ),
+    );
+    cdoAlertTick.value++;
+  }
+
   void markOwnerAlertsRead() {
     for (final a in ownerAlerts) {
       a.read = true;
@@ -447,6 +479,13 @@ class FertilizerStore {
       a.read = true;
     }
     supplierAlertTick.value++;
+  }
+
+  void markCdoAlertsRead() {
+    for (final a in cdoAlerts) {
+      a.read = true;
+    }
+    cdoAlertTick.value++;
   }
 
   /// Low-stock threshold in 50 kg bag units.
@@ -465,6 +504,23 @@ class FertilizerStore {
           title: title,
           body:
               'Only ${item.stock50} × 50 kg left. Update Stock or raise the price.',
+          kind: 'low_stock',
+        );
+      }
+    }
+  }
+
+  /// Why: CDO warehouse also warns when a line drops to / under the bag limit.
+  void checkCdoLowStock() {
+    for (final line in cdoStock) {
+      if (line.bags > 0 && line.bags <= lowStockBags) {
+        final title = 'Low stock · ${line.type}';
+        final already = cdoAlerts.any((a) => a.title == title && !a.read);
+        if (already) continue;
+        notifyCdo(
+          title: title,
+          body:
+              'Only ${line.bags} × 50 kg left at the CDO warehouse. Update Stock.',
           kind: 'low_stock',
         );
       }
@@ -1547,7 +1603,17 @@ class FertilizerStore {
     }
   }
 
-  void placeGovRequest(FertGovRequest request) => govRequests.insert(0, request);
+  void placeGovRequest(FertGovRequest request) {
+    govRequests.insert(0, request);
+    // Why: CDO bell should light up when an estate sends a new board request.
+    notifyCdo(
+      title: 'New request ${request.id}',
+      body:
+          '${request.estateName.isNotEmpty ? request.estateName : request.owner} · ${request.fertilizer} · ${request.requested} bags',
+      kind: 'new_order',
+      orderId: request.id,
+    );
+  }
 
   /// Government requests for the logged-in CDO desk (matched by officer name).
   List<FertGovRequest> get myCdoRequests {
@@ -1589,20 +1655,32 @@ class FertilizerStore {
     }
   }
 
-  void cancelGovRequest(String id, {String? note}) {
+  void cancelGovRequest(String id, {String? note, bool byCdo = true}) {
     for (final r in govRequests) {
       if (r.id == id &&
           (r.status == 'Pending Ack' || r.status == 'Submitted')) {
         r.status = 'Cancelled';
+        final who = byCdo ? r.cdo : (r.estateName.isNotEmpty ? r.estateName : r.owner);
         final why = note?.trim().isNotEmpty == true
             ? note!.trim()
-            : 'Cancelled by ${r.cdo}';
-        r.chat.add(FertChat(r.cdo, why, _nowStamp()));
-        notifyOwner(
-          title: 'Government request cancelled',
-          body: '${r.id} · $why',
-          kind: 'cancelled',
-        );
+            : 'Cancelled by $who';
+        r.chat.add(FertChat(who, why, _nowStamp()));
+        if (byCdo) {
+          notifyOwner(
+            title: 'Government request cancelled',
+            body: '${r.id} · $why',
+            kind: 'cancelled',
+            orderId: r.id,
+          );
+        } else {
+          // Why: CDO must hear when the estate pulls a pending application.
+          notifyCdo(
+            title: 'Estate cancelled ${r.id}',
+            body: '$who · ${r.fertilizer}. $why',
+            kind: 'cancelled',
+            orderId: r.id,
+          );
+        }
         break;
       }
     }
@@ -1628,8 +1706,12 @@ class FertilizerStore {
     }
   }
 
-  /// Why: CDO can dispute an accepted application with a written reason.
-  void disputeGovRequest(String id, {required String reason}) {
+  /// Why: CDO or estate can dispute; the other side gets a bell alert.
+  void disputeGovRequest(
+    String id, {
+    required String reason,
+    bool byCdo = true,
+  }) {
     final why = reason.trim();
     if (why.isEmpty) return;
     for (final r in govRequests) {
@@ -1639,11 +1721,14 @@ class FertilizerStore {
               r.status == 'Pending Ack' ||
               r.status == 'Submitted')) {
         r.status = 'Disputed';
-        r.chat.add(FertChat(r.cdo, 'Disputed · $why', _nowStamp()));
+        final who = byCdo
+            ? r.cdo
+            : (r.estateName.isNotEmpty ? r.estateName : r.owner);
+        r.chat.add(FertChat(who, 'Disputed · $why', _nowStamp()));
         addComplaint(
           FertComplaint(
             id: 'DP-${300 + complaints.length + 1}',
-            category: 'Dispute · CDO · $why',
+            category: 'Dispute · ${byCdo ? 'CDO' : 'Estate'} · $why',
             product: r.fertilizer,
             status: 'Submitted',
             date: DateTime.now(),
@@ -1652,11 +1737,21 @@ class FertilizerStore {
             district: r.district,
           ),
         );
-        notifyOwner(
-          title: 'CDO disputed ${r.id}',
-          body: why,
-          kind: 'cancelled',
-        );
+        if (byCdo) {
+          notifyOwner(
+            title: 'CDO disputed ${r.id}',
+            body: why,
+            kind: 'cancelled',
+            orderId: r.id,
+          );
+        } else {
+          notifyCdo(
+            title: 'Estate disputed ${r.id}',
+            body: '$who · ${r.fertilizer}. $why',
+            kind: 'estate_dispute',
+            orderId: r.id,
+          );
+        }
         break;
       }
     }
@@ -1684,13 +1779,44 @@ class FertilizerStore {
 
   /// CDO warehouse stock (bags). Receiving stock increases these counts.
   final List<FertCdoStockLine> cdoStock = [
-    FertCdoStockLine(type: 'ERP Coconut Fertilizer', bags: 120),
-    FertCdoStockLine(type: 'Urea subsidy', bags: 8),
-    FertCdoStockLine(type: 'MOP', bags: 0),
-    FertCdoStockLine(type: 'Dolomite', bags: 45),
+    FertCdoStockLine(type: 'ERP Coconut Fertilizer', bags: 120, packPrice: 6200),
+    FertCdoStockLine(type: 'Urea subsidy', bags: 8, packPrice: 5900),
+    FertCdoStockLine(type: 'MOP', bags: 0, packPrice: 5400),
+    FertCdoStockLine(type: 'Dolomite', bags: 45, packPrice: 2800),
   ];
 
   List<FertCdoStockLine> get myCdoStock => cdoStock;
+
+  /// Demo seed so the CDO bell has cancel / dispute / low-stock samples.
+  bool _cdoAlertsSeeded = false;
+
+  /// Why: notification Show can hand the hub a gov request id to open in Messages.
+  String? pendingOpenGovId;
+
+  void ensureCdoDemoAlerts() {
+    if (_cdoAlertsSeeded) return;
+    _cdoAlertsSeeded = true;
+    if (cdoAlerts.isNotEmpty) return;
+    notifyCdo(
+      title: 'Estate cancelled FR-1102',
+      body: 'Estate F · ERP Coconut Fertilizer. Land title copy was missing.',
+      kind: 'cancelled',
+      orderId: 'FR-1102',
+    );
+    notifyCdo(
+      title: 'Estate disputed FR-1101',
+      body: 'Estate A · Wrong bag count on delivery note.',
+      kind: 'estate_dispute',
+      orderId: 'FR-1101',
+    );
+    checkCdoLowStock();
+  }
+
+  String? consumePendingOpenGovId() {
+    final id = pendingOpenGovId;
+    pendingOpenGovId = null;
+    return id;
+  }
 
   void receiveCdoStock(String type, int bags) {
     final name = type.trim();
@@ -1912,10 +2038,18 @@ class FertEstateOrderStats {
 
 /// One fertilizer type held at the CDO warehouse.
 class FertCdoStockLine {
-  FertCdoStockLine({required this.type, required this.bags});
+  FertCdoStockLine({
+    required this.type,
+    required this.bags,
+    this.packPrice = 5000,
+  });
 
   final String type;
   int bags;
+  /// Board pack price shown read-only on the CDO stock card.
+  final int packPrice;
+
+  int get perKg => (packPrice / 50).round();
 
   /// available | low | not available
   String get level {
