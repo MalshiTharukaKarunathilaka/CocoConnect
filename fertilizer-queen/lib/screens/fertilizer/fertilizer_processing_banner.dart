@@ -13,6 +13,8 @@ String fertStatusLabel(String status) {
       return 'Accepted';
     case 'Cancelled':
       return 'Cancelled';
+    case 'Disputed':
+      return 'Disputed';
     case 'Distributed':
       return 'Delivered';
     default:
@@ -24,11 +26,12 @@ Color fertStatusColor(String status) {
   switch (status) {
     case 'Pending Ack':
     case 'Negotiating':
-      return AppColors.warning;
+      return AppColors.dangerText;
     case 'Accepted':
     case 'Distributed':
       return AppColors.green;
     case 'Cancelled':
+    case 'Disputed':
       return AppColors.dangerText;
     default:
       return AppColors.muted;

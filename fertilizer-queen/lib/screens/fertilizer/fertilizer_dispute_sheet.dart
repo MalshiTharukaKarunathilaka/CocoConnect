@@ -75,6 +75,11 @@ class _FertilizerDisputeSheetState extends State<FertilizerDisputeSheet> {
         district: 'Kurunegala',
       ),
     );
+    // Why: after a dispute, Mark delivered must disappear — status becomes Disputed.
+    o.status = 'Disputed';
+    o.message = widget.bySupplier
+        ? 'Disputed by supplier · $_reason'
+        : 'Disputed by estate · $_reason';
     if (widget.bySupplier) {
       store.notifyOwner(
         title: 'Supplier dispute on ${o.id}',

@@ -35,7 +35,8 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
       case 'delivered':
         return o.status == 'Distributed';
       case 'disputed':
-        return _store.complaints.any((c) => c.description.contains(o.id));
+        return o.status == 'Disputed' ||
+            _store.complaints.any((c) => c.description.contains(o.id));
       default:
         return true;
     }

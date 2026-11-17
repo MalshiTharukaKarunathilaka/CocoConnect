@@ -9,9 +9,16 @@ import 'fertilizer_processing_banner.dart';
 
 /// Bell in the fertilizer header — estate or supplier alerts.
 class FertAlertBell extends StatelessWidget {
-  const FertAlertBell({super.key, this.forSupplier = false});
+  const FertAlertBell({
+    super.key,
+    this.forSupplier = false,
+    this.onOpenStock,
+    this.onOpenOrders,
+  });
 
   final bool forSupplier;
+  final VoidCallback? onOpenStock;
+  final VoidCallback? onOpenOrders;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +36,8 @@ class FertAlertBell extends StatelessWidget {
           onPressed: () => showFertAlerts(
             context,
             forSupplier: forSupplier,
+            onOpenStock: onOpenStock,
+            onOpenOrders: onOpenOrders,
           ),
           icon: Badge(
             isLabelVisible: unread > 0,
@@ -53,6 +62,8 @@ Future<void> showFertOwnerAlerts(BuildContext context) =>
 Future<void> showFertAlerts(
   BuildContext context, {
   required bool forSupplier,
+  VoidCallback? onOpenStock,
+  VoidCallback? onOpenOrders,
 }) async {
   final store = FertilizerStore.instance;
   if (forSupplier) {
@@ -117,8 +128,8 @@ Future<void> showFertAlerts(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: Text(
                       forSupplier
-                          ? 'New orders, disputes and low-stock alerts. Tap to open the order.'
-                          : 'Supplier updates on your orders. Tap View order to open details.',
+                          ? 'New orders, disputes and low-stock alerts. Tap Show to open the page.'
+                          : 'Supplier updates on your orders. Tap Show to open details.',
                       style: const TextStyle(
                         fontSize: 12.5,
                         color: AppColors.muted,
@@ -143,6 +154,8 @@ Future<void> showFertAlerts(
                               alerts[i],
                               forSupplier: forSupplier,
                               onCloseSheet: () => Navigator.pop(ctx),
+                              onOpenStock: onOpenStock,
+                              onOpenOrders: onOpenOrders,
                             ),
                           ),
                   ),
@@ -305,11 +318,15 @@ class _AlertTile extends StatelessWidget {
     this.alert, {
     required this.forSupplier,
     required this.onCloseSheet,
+    this.onOpenStock,
+    this.onOpenOrders,
   });
 
   final FertOwnerAlert alert;
   final bool forSupplier;
   final VoidCallback onCloseSheet;
+  final VoidCallback? onOpenStock;
+  final VoidCallback? onOpenOrders;
 
   Color get _accent {
     switch (alert.kind) {
@@ -319,6 +336,8 @@ class _AlertTile extends StatelessWidget {
       case 'cancelled':
         return AppColors.dangerText;
       case 'negotiating':
+        return AppColors.warning;
+      case 'low_stock':
         return AppColors.warning;
       default:
         return AppColors.muted;
@@ -335,28 +354,43 @@ class _AlertTile extends StatelessWidget {
         return Icons.forum_outlined;
       case 'delivered':
         return Icons.local_shipping_outlined;
+      case 'low_stock':
+        return Icons.inventory_2_outlined;
       default:
         return Icons.notifications_outlined;
     }
   }
 
+  Future<void> _show(BuildContext context) async {
+    onCloseSheet();
+    // Why: low-stock alerts open Stock; order alerts open the order sheet.
+    if (alert.opensStock) {
+      onOpenStock?.call();
+      return;
+    }
+    if (alert.orderId.isNotEmpty) {
+      onOpenOrders?.call();
+      await _openOrderFromAlert(
+        context,
+        alert: alert,
+        forSupplier: forSupplier,
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Nothing to open for this alert.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canShow = alert.opensStock || alert.orderId.isNotEmpty;
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: alert.orderId.isEmpty
-            ? null
-            : () async {
-                onCloseSheet();
-                await _openOrderFromAlert(
-                  context,
-                  alert: alert,
-                  forSupplier: forSupplier,
-                );
-              },
+        onTap: canShow ? () => _show(context) : null,
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -392,7 +426,7 @@ class _AlertTile extends StatelessWidget {
                         height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Text(
@@ -403,13 +437,25 @@ class _AlertTile extends StatelessWidget {
                           ),
                         ),
                         const Spacer(),
-                        if (alert.orderId.isNotEmpty)
-                          Text(
-                            'View order',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.green,
+                        if (canShow)
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              foregroundColor: AppColors.green,
+                              backgroundColor: AppColors.greenSoft,
+                            ),
+                            onPressed: () => _show(context),
+                            child: Text(
+                              alert.opensStock ? 'Show stock' : 'Show',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                       ],

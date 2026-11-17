@@ -41,10 +41,10 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
   String _key(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  /// All shop orders by preferred date — so tapping a day can open any order.
+  /// Active shop orders by preferred date (cancelled/disputed stay off the calendar).
   Map<String, List<FertOrder>> get _byDate {
     final map = <String, List<FertOrder>>{};
-    for (final o in _store.myShopOrders) {
+    for (final o in _store.myShopCalendarOrders) {
       final k = _key(o.preferredDate);
       map.putIfAbsent(k, () => []).add(o);
     }
@@ -352,7 +352,15 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-              OwnerPill(o.status, tone: PillTone.neutral),
+              // Why: pending / negotiation labels should read in red under the calendar.
+              OwnerPill(
+                o.status == 'Pending Ack'
+                    ? 'Pending'
+                    : (o.status == 'Negotiating' ? 'Negotiation' : o.status),
+                tone: (o.status == 'Pending Ack' || o.status == 'Negotiating')
+                    ? PillTone.red
+                    : PillTone.neutral,
+              ),
             ],
           ),
           Text(
@@ -395,7 +403,12 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-              OwnerPill(r.status, tone: PillTone.neutral),
+              OwnerPill(
+                r.status == 'Pending Ack' ? 'Pending' : r.status,
+                tone: (r.status == 'Pending Ack' || r.status == 'Submitted')
+                    ? PillTone.red
+                    : PillTone.neutral,
+              ),
             ],
           ),
           Text(
@@ -537,305 +550,14 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
     );
   }
 
-  void _openJob(FertOrder o) {
-    final loc = FertilizerStore.estateGeo[o.owner] ??
-        FertilizerStore.estateGeo['Your Estate']!;
-    final mapH = (MediaQuery.sizeOf(context).height * 0.22).clamp(120.0, 180.0);
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Align(
-        alignment: Alignment.bottomCenter,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 430,
-            maxHeight: MediaQuery.sizeOf(ctx).height * 0.9,
-          ),
-          child: Material(
-            color: kOwnerCream,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(22)),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          o.id,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: kOwnerGreen,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(
-                  height: mapH,
-                  child: FlutterMap(
-                    options: MapOptions(
-                      initialCenter: loc,
-                      initialZoom: 13.5,
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.example.kapconnect_mobile',
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: loc,
-                            width: 120,
-                            height: 60,
-                            alignment: Alignment.topCenter,
-                            child: Column(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: kOwnerBorder),
-                                  ),
-                                  child: Text(
-                                    o.owner,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                const Icon(
-                                  Icons.location_on,
-                                  color: kOwnerRed,
-                                  size: 28,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      Text(
-                        '${o.owner} → ${o.company}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                      Text(
-                        '${shortDate(o.preferredDate)} · ${o.slot}',
-                        style: const TextStyle(color: kOwnerMuted),
-                      ),
-                      const SizedBox(height: 6),
-                      FertOrderStatusDot(status: o.status),
-                      const SizedBox(height: 10),
-                      for (final line in o.items)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${line.item.name} · 50 kg\n${line.qty50} units · ${rupees(line.item.price50)} / 50 kg',
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              Text(
-                                rupees(line.lineTotal),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      Text(
-                        o.message,
-                        style: const TextStyle(color: kOwnerMuted),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Negotiation happens in chat — open it to message and Approve.',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: kOwnerMuted,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (o.status == 'Pending Ack' ||
-                          o.status == 'Negotiating') ...[
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: kOwnerGreen,
-                                  foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                ),
-                                onPressed: () {
-                                  _store.acceptOrder(o.id);
-                                  Navigator.pop(ctx);
-                                  setState(() {});
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('${o.id} accepted'),
-                                    ),
-                                  );
-                                },
-                                child: const Text('Accept'),
-                              ),
-                            ),
-                            // Why: private suppliers negotiate price; CDO government forms do not.
-                            if (!_isCdo) ...[
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: OutlinedButton(
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: kOwnerGreen,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                  onPressed: () async {
-                                    Navigator.pop(ctx);
-                                    await Navigator.push<bool>(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            FertilizerSupplierChatPage(
-                                          order: o,
-                                        ),
-                                      ),
-                                    );
-                                    if (mounted) setState(() {});
-                                  },
-                                  child: const Text('Negotiate'),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.dangerText,
-                              backgroundColor: AppColors.dangerSoft,
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
-                              shape: const StadiumBorder(),
-                            ),
-                            onPressed: () async {
-                              final note = await showFertCancelReasons(
-                                context,
-                                title: 'Cancel ${o.id}',
-                              );
-                              if (note == null) return;
-                              _store.cancelOrder(
-                                o.id,
-                                bySupplier: true,
-                                note: note,
-                              );
-                              if (ctx.mounted) Navigator.pop(ctx);
-                              setState(() {});
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    '${o.id} cancelled · estate will see this',
-                                  ),
-                                ),
-                              );
-                            },
-                            child: const Text('Cancel'),
-                          ),
-                        ),
-                      ],
-                      if (o.status == 'Accepted' ||
-                          o.status == 'Stock Confirmed') ...[
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.green,
-                              foregroundColor: Colors.white,
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            onPressed: () {
-                              _store.markDelivered(o.id);
-                              Navigator.pop(ctx);
-                              setState(() {});
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('${o.id} marked delivered'),
-                                ),
-                              );
-                            },
-                            child: const Text('Mark delivered'),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.dangerText,
-                              backgroundColor: AppColors.dangerSoft,
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
-                              shape: const StadiumBorder(),
-                            ),
-                            onPressed: () async {
-                              Navigator.pop(ctx);
-                              final ok = await showModalBottomSheet<bool>(
-                                context: context,
-                                isScrollControlled: true,
-                                backgroundColor: Colors.transparent,
-                                builder: (_) => FertilizerDisputeSheet(
-                                  order: o,
-                                  bySupplier: true,
-                                ),
-                              );
-                              if (ok == true && mounted) setState(() {});
-                            },
-                            child: const Text('Dispute'),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+  Future<void> _openJob(FertOrder o) async {
+    await showSupplierOrderDetail(
+      context,
+      order: o,
+      isCdo: _isCdo,
+      onChanged: () {
+        if (mounted) setState(() {});
+      },
     );
   }
 
@@ -854,4 +576,351 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
         'November',
         'December',
       ][m];
+}
+
+/// Shared supplier order detail sheet — used by calendar and Orders tab.
+/// Why: Accept / Negotiate / Cancel sit pinned at the bottom so they stay visible.
+Future<void> showSupplierOrderDetail(
+  BuildContext context, {
+  required FertOrder order,
+  bool isCdo = false,
+  VoidCallback? onChanged,
+}) async {
+  final store = FertilizerStore.instance;
+  final loc = FertilizerStore.estateGeo[order.owner] ??
+      FertilizerStore.estateGeo['Your Estate']!;
+  final mapH = (MediaQuery.sizeOf(context).height * 0.18).clamp(100.0, 150.0);
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) {
+      final canAck = order.status == 'Pending Ack' ||
+          order.status == 'Negotiating' ||
+          order.status == 'Submitted';
+      final canDeliver = (order.status == 'Accepted' ||
+              order.status == 'Stock Confirmed') &&
+          !store.isDisputed(order.id);
+      final showFooter = canAck || canDeliver;
+
+      return Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 430,
+            maxHeight: MediaQuery.sizeOf(ctx).height * 0.92,
+          ),
+          child: Material(
+            color: kOwnerCream,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(22)),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            order.id,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: kOwnerGreen,
+                            ),
+                          ),
+                        ),
+                        FertOrderStatusDot(status: order.status),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    height: mapH,
+                    child: FlutterMap(
+                      options: MapOptions(
+                        initialCenter: loc,
+                        initialZoom: 13.5,
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.example.kapconnect_mobile',
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: loc,
+                              width: 120,
+                              height: 60,
+                              alignment: Alignment.topCenter,
+                              child: Column(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: kOwnerBorder),
+                                    ),
+                                    child: Text(
+                                      order.owner,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.location_on,
+                                    color: kOwnerRed,
+                                    size: 28,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      children: [
+                        Text(
+                          '${order.owner} → ${order.company}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        Text(
+                          '${shortDate(order.preferredDate)} · ${order.slot}',
+                          style: const TextStyle(color: kOwnerMuted),
+                        ),
+                        const SizedBox(height: 10),
+                        for (final line in order.items)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${line.item.name} · 50 kg\n${line.qty50} units · ${rupees(line.item.price50)} / 50 kg',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                                Text(
+                                  rupees(line.lineTotal),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (order.message.trim().isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            order.message,
+                            style: const TextStyle(color: kOwnerMuted),
+                          ),
+                        ],
+                        if (canAck) ...[
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Negotiation happens in chat — open it to message and Approve.',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: kOwnerMuted,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (showFooter)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          top: BorderSide(color: kOwnerBorder),
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (canAck) ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: kOwnerGreen,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      store.acceptOrder(order.id);
+                                      Navigator.pop(ctx);
+                                      onChanged?.call();
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content:
+                                              Text('${order.id} accepted'),
+                                        ),
+                                      );
+                                    },
+                                    child: const Text('Accept'),
+                                  ),
+                                ),
+                                if (!isCdo) ...[
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: kOwnerGreen,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
+                                      ),
+                                      onPressed: () async {
+                                        Navigator.pop(ctx);
+                                        await Navigator.push<bool>(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                FertilizerSupplierChatPage(
+                                              order: order,
+                                            ),
+                                          ),
+                                        );
+                                        onChanged?.call();
+                                      },
+                                      child: const Text('Negotiate'),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.dangerText,
+                                  backgroundColor: AppColors.dangerSoft,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  shape: const StadiumBorder(),
+                                ),
+                                onPressed: () async {
+                                  final note = await showFertCancelReasons(
+                                    context,
+                                    title: 'Cancel ${order.id}',
+                                  );
+                                  if (note == null) return;
+                                  store.cancelOrder(
+                                    order.id,
+                                    bySupplier: true,
+                                    note: note,
+                                  );
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                  onChanged?.call();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '${order.id} cancelled · estate will see this',
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: const Text('Cancel'),
+                              ),
+                            ),
+                          ],
+                          if (canDeliver) ...[
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.green,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  store.markDelivered(order.id);
+                                  Navigator.pop(ctx);
+                                  onChanged?.call();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '${order.id} marked delivered',
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: const Text('Mark delivered'),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.dangerText,
+                                  backgroundColor: AppColors.dangerSoft,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  shape: const StadiumBorder(),
+                                ),
+                                onPressed: () async {
+                                  Navigator.pop(ctx);
+                                  final ok = await showModalBottomSheet<bool>(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: Colors.transparent,
+                                    builder: (_) => FertilizerDisputeSheet(
+                                      order: order,
+                                      bySupplier: true,
+                                    ),
+                                  );
+                                  if (ok == true) onChanged?.call();
+                                },
+                                child: const Text('Dispute'),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }

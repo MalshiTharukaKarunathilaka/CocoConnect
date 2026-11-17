@@ -4,7 +4,6 @@ import 'fertilizer_complaints_page.dart';
 import 'fertilizer_data.dart';
 import 'fertilizer_gov_order_form.dart';
 import 'fertilizer_map_page.dart';
-import 'fertilizer_processing_banner.dart';
 import 'fertilizer_requests_page.dart';
 
 /// Owner fertilizer shell — same tabs as the HTML demo bottom nav.
@@ -51,15 +50,8 @@ class _FertilizerHubState extends State<FertilizerHub> {
         current: _tab,
         onTap: (i) => setState(() => _tab = i),
       ),
-      child: Column(
-        children: [
-          if (_tab != 4)
-            FertProcessingBanner(
-              onOpenOrders: () => setState(() => _tab = 3),
-            ),
-          Expanded(child: _body()),
-        ],
-      ),
+      // Why: estate owner asked to remove the top "Order placed · processing" strip.
+      child: _body(),
     );
   }
 

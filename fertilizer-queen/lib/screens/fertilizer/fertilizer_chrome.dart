@@ -17,6 +17,8 @@ class FertPage extends StatelessWidget {
     this.showBack = true,
     this.showAlerts = false,
     this.supplierAlerts = false,
+    this.onOpenStock,
+    this.onOpenOrders,
   });
 
   final String title;
@@ -29,6 +31,10 @@ class FertPage extends StatelessWidget {
   final bool showAlerts;
   /// Supplier bell for new orders / disputes / low stock.
   final bool supplierAlerts;
+  /// Notification Show → Stock tab.
+  final VoidCallback? onOpenStock;
+  /// Notification Show → Orders tab.
+  final VoidCallback? onOpenOrders;
 
   @override
   Widget build(BuildContext context) {
@@ -79,8 +85,17 @@ class FertPage extends StatelessWidget {
             subtitle: subtitle,
             showBack: showBack,
             actions: [
-              if (showAlerts) const FertAlertBell(),
-              if (supplierAlerts) const FertAlertBell(forSupplier: true),
+              if (showAlerts)
+                FertAlertBell(
+                  onOpenStock: onOpenStock,
+                  onOpenOrders: onOpenOrders,
+                ),
+              if (supplierAlerts)
+                FertAlertBell(
+                  forSupplier: true,
+                  onOpenStock: onOpenStock,
+                  onOpenOrders: onOpenOrders,
+                ),
               if (showLogout)
                 IconButton(
                   tooltip: 'Log out',

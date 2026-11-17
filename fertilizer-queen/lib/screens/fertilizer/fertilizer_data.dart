@@ -128,10 +128,14 @@ class FertOrder {
   int price;
   DateTime preferredDate;
   String slot;
-  String status; // Pending Ack | Accepted | Cancelled | Negotiating
+  String status; // Pending Ack | Accepted | Cancelled | Negotiating | Disputed
   String message;
   /// Chat notes between estate and supplier on this order.
   final List<FertChat> negotiation;
+
+  /// Why: cancelled/disputed jobs should not keep calendar day badges.
+  bool get showsOnCalendar =>
+      status != 'Cancelled' && status != 'Disputed';
 
   /// Why: after the owner changes bag counts, total bags and price must match the lines.
   void refreshTotals() {
@@ -166,11 +170,14 @@ class FertOwnerAlert {
   final String id;
   final String title;
   final String body;
-  /// accepted | cancelled | negotiating | delivered | info
+  /// accepted | cancelled | negotiating | delivered | info | low_stock
   final String kind;
   final DateTime at;
   final String orderId;
   bool read;
+
+  /// Why: Show can open Stock when there is no order id (low-stock alerts).
+  bool get opensStock => kind == 'low_stock' || title.toLowerCase().contains('low stock');
 }
 
 class FertDayAvail {
@@ -422,7 +429,7 @@ class FertilizerStore {
           title: title,
           body:
               'Only ${item.stock50} × 50 kg left. Update Stock or raise the price.',
-          kind: 'info',
+          kind: 'low_stock',
         );
       }
     }
@@ -1361,9 +1368,17 @@ class FertilizerStore {
   List<FertOrder> get myShopOrders =>
       orders.where((o) => o.placeId == agentShopId).toList();
 
+  /// Active jobs that still belong on the supplier calendar.
+  List<FertOrder> get myShopCalendarOrders =>
+      myShopOrders.where((o) => o.showsOnCalendar).toList();
+
   List<FertOrder> get pendingAck => myShopOrders
       .where((o) => o.status == 'Pending Ack' || o.status == 'Negotiating')
       .toList();
+
+  bool isDisputed(String orderId) =>
+      complaints.any((c) => c.description.contains(orderId)) ||
+      orders.any((o) => o.id == orderId && o.status == 'Disputed');
 
   List<FertOrder> ownerOrders(String owner) =>
       orders.where((o) => o.owner == owner).toList();

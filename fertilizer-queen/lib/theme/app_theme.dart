@@ -317,6 +317,7 @@ class StatusPill extends StatelessWidget {
         );
       case 'Cancelled':
       case 'Rejected':
+      case 'Disputed':
         return StatusPill(
           status,
           fg: AppColors.dangerText,

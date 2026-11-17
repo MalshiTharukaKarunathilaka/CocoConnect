@@ -222,20 +222,6 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
             ],
           ),
         ),
-        // When embedded in the hub, the hub already shows this strip.
-        if (!widget.embedded)
-          FertProcessingBanner(
-            onOpenOrders: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const FertilizerOrdersPage(),
-                ),
-              ).then((_) {
-                if (mounted) setState(() {});
-              });
-            },
-          ),
         Expanded(
           child: Stack(
             children: [
