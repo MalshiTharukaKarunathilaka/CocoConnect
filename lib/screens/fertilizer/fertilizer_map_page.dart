@@ -178,53 +178,45 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Map fills the screen. List is a bottom sheet — drag/scroll it up to open.
-    // Why: keeps the map highlighted; avoids FlutterMap-inside-page-scroll blank bug.
-    final body = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _activeChannel == 'gov'
-                          ? 'CCB near your estate'
-                          : 'Suppliers near you',
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                  ],
-                ),
+    // Why: DraggableScrollableSheet overlays the map and steals taps on Flutter
+    // web (estate hub feels “dead”). Use a split layout — map + list never overlap.
+    final header = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              _activeChannel == 'gov'
+                  ? 'CCB near your estate'
+                  : 'Suppliers near you',
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: AppColors.ink,
               ),
-              TextButton(
-                onPressed: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const FertilizerOrdersPage(),
-                    ),
-                  );
-                  setState(() {});
-                },
-                child: Text(
-                  _pendingMine > 0 ? 'Orders · $_pendingMine' : 'Orders',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-        // When embedded in the hub, the hub already shows this strip.
-        if (!widget.embedded)
-          FertProcessingBanner(
+          TextButton(
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const FertilizerOrdersPage(),
+                ),
+              );
+              if (mounted) setState(() {});
+            },
+            child: Text(
+              _pendingMine > 0 ? 'Orders · $_pendingMine' : 'Orders',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final banner = (!widget.embedded)
+        ? FertProcessingBanner(
             onOpenOrders: () {
               Navigator.push(
                 context,
@@ -235,40 +227,41 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                 if (mounted) setState(() {});
               });
             },
-          ),
+          )
+        : const SizedBox.shrink();
+
+    final map = Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: _mapBlock(),
+      ),
+    );
+
+    // Show order list under the map when no supplier card is open.
+    final showOrders =
+        _selected == null && _clusterKey == null && _menu == null;
+
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        header,
+        banner,
         Expanded(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: _mapBlock(),
-                  ),
-                ),
-              ),
-              // Peek shows title + first rows so the list is visible; drag up for more.
-              // It steps aside while a supplier card is open, so the card is not
-              // hidden behind it.
-              if (_selected == null && _clusterKey == null && _menu == null)
-                DraggableScrollableSheet(
-                  initialChildSize: 0.42,
-                  minChildSize: 0.28,
-                  maxChildSize: 0.8,
-                  snap: true,
-                  snapSizes: const [0.42, 0.6, 0.8],
-                  builder: (context, scrollController) {
-                    return _ordersSheet(scrollController);
-                  },
-                ),
-            ],
-          ),
+          flex: showOrders ? 5 : 8,
+          child: map,
         ),
+        if (showOrders)
+          Expanded(
+            flex: 5,
+            child: _ordersSheet(null),
+          ),
       ],
     );
 
-    if (widget.embedded) return ColoredBox(color: AppColors.cream, child: body);
+    if (widget.embedded) {
+      return ColoredBox(color: AppColors.cream, child: body);
+    }
 
     return FertPage(
       title: 'Suppliers near you',
@@ -311,7 +304,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   }
 
   /// The owner's own orders: what is waiting, what was accepted, with View and Cancel.
-  Widget _ordersSheet(ScrollController scrollController) {
+  Widget _ordersSheet(ScrollController? scrollController) {
     final mine = _store.ownerOrders('Your Estate');
     final pending = mine
         .where((o) => o.status == 'Pending Ack' || o.status == 'Negotiating')
@@ -339,9 +332,10 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
     return Material(
       color: Colors.white,
-      elevation: 10,
+      elevation: 4,
       shadowColor: const Color(0x33183E29),
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -360,6 +354,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
           Expanded(
             child: ListView(
               controller: scrollController,
+              primary: scrollController == null,
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
               children: [
                 const Text(
@@ -920,9 +915,14 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
             options: MapOptions(
               initialCenter: _centerFor(_zoomFor(_radiusKm)),
               initialZoom: _zoomFor(_radiusKm),
+              // Why: keep pan/zoom/taps enabled on Flutter web desktop browsers.
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all,
+              ),
               onTap: (_, __) => setState(() {
                 _selected = null;
                 _clusterKey = null;
+                _menu = null;
               }),
             ),
             children: [
