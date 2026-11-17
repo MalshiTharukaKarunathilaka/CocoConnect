@@ -4,8 +4,8 @@ import '../buyer/buyer_format.dart';
 import 'fertilizer_cancel_reasons.dart';
 import 'fertilizer_data.dart';
 
-/// CDO reads the estate Annex 01 application, then Accept or Cancel only.
-/// Why: government programme has no price negotiation.
+/// CDO reads the estate Annex 01 application.
+/// Pending → Accept / Cancel. Accepted → Delivered / Dispute.
 class FertilizerCdoRequestSheet extends StatelessWidget {
   const FertilizerCdoRequestSheet({super.key, required this.request});
 
@@ -13,6 +13,9 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
 
   bool get _canDecide =>
       request.status == 'Pending Ack' || request.status == 'Submitted';
+
+  bool get _canDeliverOrDispute =>
+      request.status == 'Accepted' || request.status == 'Receipt Confirmed';
 
   @override
   Widget build(BuildContext context) {
@@ -64,13 +67,20 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Estate application form · review, then accept or cancel',
-                      style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+                      _canDecide
+                          ? 'Estate application form · review, then accept or cancel'
+                          : (_canDeliverOrDispute
+                              ? 'Accepted application · mark delivered or dispute'
+                              : 'Estate application form'),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.muted,
+                      ),
                     ),
                   ),
                 ),
@@ -135,6 +145,63 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
                               );
                             },
                             child: const Text('Accept'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (_canDeliverOrDispute)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(16, 8, 16, 12 + bottom),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            onPressed: () {
+                              FertilizerStore.instance.markGovDelivered(r.id);
+                              Navigator.pop(context, true);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${r.id} marked delivered'),
+                                ),
+                              );
+                            },
+                            child: const Text('Delivered'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.dangerText,
+                              backgroundColor: AppColors.dangerSoft,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: const StadiumBorder(),
+                            ),
+                            onPressed: () async {
+                              final note = await showFertCdoDisputeReasons(
+                                context,
+                                title: 'Dispute ${r.id}',
+                              );
+                              if (note == null) return;
+                              FertilizerStore.instance.disputeGovRequest(
+                                r.id,
+                                reason: note,
+                              );
+                              if (!context.mounted) return;
+                              Navigator.pop(context, true);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${r.id} disputed'),
+                                ),
+                              );
+                            },
+                            child: const Text('Dispute'),
                           ),
                         ),
                       ],

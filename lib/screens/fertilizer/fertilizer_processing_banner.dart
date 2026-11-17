@@ -6,13 +6,17 @@ import 'fertilizer_data.dart';
 String fertStatusLabel(String status) {
   switch (status) {
     case 'Pending Ack':
-      return 'Processing';
+    case 'Submitted':
+    case 'Processing':
+      return 'Pending';
     case 'Negotiating':
       return 'In talk';
     case 'Accepted':
       return 'Accepted';
     case 'Cancelled':
       return 'Cancelled';
+    case 'Disputed':
+      return 'Disputed';
     case 'Distributed':
       return 'Delivered';
     default:
@@ -24,11 +28,12 @@ Color fertStatusColor(String status) {
   switch (status) {
     case 'Pending Ack':
     case 'Negotiating':
-      return AppColors.warning;
+      return AppColors.dangerText;
     case 'Accepted':
     case 'Distributed':
       return AppColors.green;
     case 'Cancelled':
+    case 'Disputed':
       return AppColors.dangerText;
     default:
       return AppColors.muted;

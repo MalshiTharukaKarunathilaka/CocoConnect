@@ -119,7 +119,7 @@ class _FertilizerSupplierChatPageState
                 ),
                 const SizedBox(height: 6),
                 StatusPill.forStatus(
-                  o.status == 'Pending Ack' ? 'Processing' : o.status,
+                  o.status == 'Pending Ack' ? 'Pending' : o.status,
                 ),
               ],
             ),
