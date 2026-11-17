@@ -57,6 +57,10 @@ class _SellRequestPageState extends State<SellRequestPage> {
 
   bool sending = false;
 
+  bool get usesUnits => widget.productType.toUpperCase() == 'COCONUT_HUSK';
+  String get quantityPlural => usesUnits ? 'units' : 'nuts';
+  String get priceUnit => usesUnits ? 'unit' : 'nut';
+
   /// Saves the offer; the buyer sees it under My Activity > Requests.
   Future<void> sendOffer() async {
     final int? quantity = int.tryParse(
@@ -71,7 +75,7 @@ class _SellRequestPageState extends State<SellRequestPage> {
     );
     if (quantity == null || quantity <= 0 || price == null || price <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a quantity and a price per nut')),
+        SnackBar(content: Text('Enter a quantity and a price per $priceUnit')),
       );
       return;
     }
@@ -123,7 +127,7 @@ class _SellRequestPageState extends State<SellRequestPage> {
     return switch (widget.productType.toUpperCase()) {
       'RAW_COCONUT' => 'Raw Coconuts(with husks)',
       'DEHUSKED_COCONUT' => 'Dehusked Coconut',
-      'COCONUT_HUSK' => 'Coconut Husks',
+      'COCONUT_HUSK' => 'Only Husks',
       _ => widget.productType,
     };
   }
@@ -269,7 +273,8 @@ class _SellRequestPageState extends State<SellRequestPage> {
                             Expanded(
                               child: RequestInfoItem(
                                 title: 'QUANTITY',
-                                value: '${widget.requestedQuantity} nuts',
+                                value:
+                                    '${widget.requestedQuantity} $quantityPlural',
                               ),
                             ),
                             Expanded(
@@ -347,7 +352,8 @@ class _SellRequestPageState extends State<SellRequestPage> {
                       fontWeight: FontWeight.w600,
                     ),
                     decoration: InputDecoration(
-                      labelText: 'Quantity Requested (Nuts)',
+                      labelText:
+                          'Quantity Requested (${usesUnits ? 'Units' : 'Nuts'})',
                       floatingLabelBehavior: FloatingLabelBehavior.always,
                       filled: true,
                       fillColor: const Color(0xFFE3E1DC),
@@ -380,7 +386,8 @@ class _SellRequestPageState extends State<SellRequestPage> {
                       fontWeight: FontWeight.w600,
                     ),
                     decoration: InputDecoration(
-                      labelText: 'Offer Price per Nut (LKR)',
+                      labelText:
+                          'Offer Price per ${usesUnits ? 'Unit' : 'Nut'} (LKR)',
                       floatingLabelBehavior: FloatingLabelBehavior.always,
                       prefixText: 'Rs. ',
                       filled: true,

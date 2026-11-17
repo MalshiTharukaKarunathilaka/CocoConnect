@@ -458,6 +458,7 @@ class _EditRequestDialogState extends State<_EditRequestDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('Edit Request'),
       content: Column(
         mainAxisSize: MainAxisSize.min,

@@ -159,7 +159,8 @@ const getAvailableJobs = async (req, res) => {
          ${ratingColumn} AS rating,
          ${ownerRatingColumn} AS estate_owner_rating,
          dj.status AS worker_status,
-         (UPPER(COALESCE(dja.status, '')) = 'COMPLETED')
+         (UPPER(COALESCE(dja.status, '')) = 'COMPLETED'
+           AND ${ownerRatingColumn} IS NOT NULL)
            AS completion_acknowledged,
          CASE
            WHEN UPPER(COALESCE(dja.status, '')) = 'ACCEPTED'
@@ -680,7 +681,8 @@ const acknowledgeJobCompletion = async (req, res) => {
            estate_owner_rated_at = CURRENT_TIMESTAMP
        WHERE day_job_id = $1
          AND worker_id = $2
-         AND UPPER(status) = 'ACCEPTED'
+         AND UPPER(status) IN ('ACCEPTED', 'COMPLETED')
+         AND estate_owner_rating IS NULL
        RETURNING *`,
       [jobId, worker.id, rating]
     );
@@ -695,7 +697,11 @@ const acknowledgeJobCompletion = async (req, res) => {
       `SELECT COUNT(*)::integer AS count
        FROM day_job_applications
        WHERE day_job_id = $1
-         AND UPPER(status) = 'ACCEPTED'`,
+         AND UPPER(status) IN ('ACCEPTED', 'COMPLETED')
+         AND (
+           UPPER(status) <> 'COMPLETED'
+           OR estate_owner_rating IS NULL
+         )`,
       [jobId]
     );
     const completed = Number(pending.rows[0]?.count || 0) === 0;

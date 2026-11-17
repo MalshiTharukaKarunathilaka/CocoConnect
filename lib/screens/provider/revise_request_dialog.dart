@@ -151,6 +151,7 @@ class _ReviseDialogState extends State<_ReviseDialog> {
   Widget build(BuildContext context) {
     final request = widget.request;
     return AlertDialog(
+      scrollable: true,
       title: const Text('Change price or request'),
       content: SingleChildScrollView(
         child: Column(

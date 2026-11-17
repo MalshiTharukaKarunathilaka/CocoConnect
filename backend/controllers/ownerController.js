@@ -1094,6 +1094,7 @@ const createDayJob = async (req, res) => {
     const allowedPaymentMethods = new Set([
       "Cash",
       "Direct Bank Transfer",
+      "Any",
     ]);
     const estate = await getOwnEstate(pool, req.user.id);
     const jobLocation = String(estate.location || "").trim();

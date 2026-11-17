@@ -54,7 +54,16 @@ class KapConnectApp extends StatelessWidget {
     return MaterialApp(
       title: 'KapConnect',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true, fontFamily: 'Arial'),
+      theme: ThemeData(
+        useMaterial3: true,
+        fontFamily: 'Arial',
+        dialogTheme: const DialogThemeData(
+          insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          constraints: BoxConstraints(maxWidth: 430),
+        ),
+      ),
       navigatorObservers: [KeyboardDismissNavigatorObserver()],
 
       // First screen
