@@ -9,6 +9,14 @@ import 'worker_chat_page.dart';
 const Color _green = Color(0xFF256B45);
 const Color _muted = Color(0xFF6B7280);
 
+const List<Color> _avatarColors = [
+  Color(0xFF2E7D32),
+  Color(0xFF8B4A1C),
+  Color(0xFF1565C0),
+  Color(0xFF6A1B9A),
+  Color(0xFF00838F),
+];
+
 String _chatTime(BuildContext context, DateTime? time) {
   if (time == null) return '';
   final now = DateTime.now();
@@ -165,77 +173,111 @@ class DayJobChatTile extends StatelessWidget {
     final name = chat.counterpartName.trim().isEmpty
         ? 'User'
         : chat.counterpartName;
-    return ListTile(
+    return InkWell(
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-      leading: CircleAvatar(
-        radius: 25,
-        backgroundColor: const Color(0xFFDDEEE0),
-        child: Text(
-          name[0].toUpperCase(),
-          style: const TextStyle(
-            color: _green,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      title: Row(
-        children: [
-          Expanded(
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontWeight: unread ? FontWeight.w800 : FontWeight.w600,
-              ),
-            ),
-          ),
-          Text(
-            _chatTime(context, chat.lastActivityAt),
-            style: TextStyle(
-              color: unread ? _green : _muted,
-              fontSize: 11.5,
-              fontWeight: unread ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
-      ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 4),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Row(
           children: [
-            const Icon(Icons.work_outline, size: 14, color: _green),
-            const SizedBox(width: 5),
-            Expanded(
+            CircleAvatar(
+              radius: 26,
+              backgroundColor:
+                  _avatarColors[chat.id % _avatarColors.length],
               child: Text(
-                '${chat.category} · ${chat.lastMessage ?? 'Conversation started'}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: unread ? const Color(0xFF111B21) : _muted,
-                  fontWeight: unread ? FontWeight.w600 : FontWeight.normal,
+                name[0].toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            if (unread)
-              Container(
-                margin: const EdgeInsets.only(left: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _green,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${chat.unreadCount}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF111B21),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _chatTime(context, chat.lastActivityAt),
+                        style: TextStyle(
+                          color: unread ? _green : _muted,
+                          fontSize: 11.5,
+                          fontWeight: unread
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 2),
+                  Text(
+                    chat.category,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11.5, color: _muted),
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      const Icon(Icons.work_outline, size: 13, color: _green),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          chat.lastMessage ?? 'Conversation started',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            color: unread
+                                ? const Color(0xFF111B21)
+                                : _muted,
+                            fontWeight: unread
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      if (unread)
+                        Container(
+                          margin: const EdgeInsets.only(left: 6),
+                          constraints: const BoxConstraints(minWidth: 20),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _green,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${chat.unreadCount}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ),
+            ),
           ],
         ),
       ),
