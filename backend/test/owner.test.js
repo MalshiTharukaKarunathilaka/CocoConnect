@@ -817,6 +817,8 @@ test("worker acceptance appears in the land owner's job details", async () => {
     (item) => item.id === historicalJob.data.id
   );
   assert.equal(ratedHistoricalJob.estate_owner_rating, 5);
+  assert.equal(ratedHistoricalJob.estate_owner_average_rating, 4);
+  assert.equal(ratedHistoricalJob.estate_owner_rating_count, 2);
 
   const ownerCannotReadWorkerSelfProfile = await call(
     "GET",

@@ -1,13 +1,9 @@
-import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/day_job_chat_service.dart';
 import '../services/owner_service.dart';
+import '../widgets/owner_widgets.dart';
 import 'worker_chat_page.dart';
-
-const Color _rosterGreen = Color(0xFF246B45);
-const Color _rosterBackground = Color(0xFFFCF9F3);
-const Color _rosterInk = Color(0xFF17251F);
 
 class AcceptedWorkersPage extends StatelessWidget {
   final DayJob job;
@@ -18,117 +14,87 @@ class AcceptedWorkersPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final workers = job.acceptedWorkers;
 
-    return RoleNavigationPage(
-      current: AppTab.dashboard,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFE7E5DF),
-        body: Center(
-          child: Container(
-            width: 390,
-            constraints: const BoxConstraints(maxWidth: 430),
-            color: _rosterBackground,
-            child: SafeArea(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(
-                          Icons.arrow_back,
-                          size: 32,
-                          color: _rosterInk,
+    return OwnerPage(
+      child: Column(
+        children: [
+          OwnerHeader(title: job.category),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Accepted Workers',
+                        style: TextStyle(
+                          color: kOwnerInk,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          job.category,
-                          style: const TextStyle(
-                            color: _rosterInk,
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Accepted Workers',
-                          style: TextStyle(color: _rosterInk, fontSize: 22),
-                        ),
-                      ),
-                      _countBadge(workers.length),
-                    ],
-                  ),
-                  const SizedBox(height: 28),
-                  if (workers.isEmpty)
-                    _emptyState()
-                  else
-                    for (final worker in workers) ...[
-                      _workerCard(context, worker),
-                      const SizedBox(height: 22),
-                    ],
-                ],
-              ),
+                    ),
+                    _countBadge(workers.length),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                if (workers.isEmpty)
+                  _emptyState()
+                else
+                  for (final worker in workers) ...[
+                    _workerCard(context, worker),
+                    const SizedBox(height: 12),
+                  ],
+              ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _countBadge(int count) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-      decoration: const BoxDecoration(
-        color: Color(0xFFB1F0C9),
+      width: 28,
+      height: 28,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: kOwnerGreenSoft,
         shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFFBFDCC6)),
       ),
       child: Text(
         '$count',
         style: const TextStyle(
-          color: _rosterGreen,
-          fontWeight: FontWeight.bold,
+          color: kOwnerGreen,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
   }
 
   Widget _emptyState() {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: const Color(0xFFD8E3DC)),
-      ),
-      child: const Column(
+    return const OwnerCard(
+      padding: EdgeInsets.all(24),
+      child: Column(
         children: [
-          Icon(Icons.people_outline, color: _rosterGreen, size: 54),
-          SizedBox(height: 14),
+          Icon(Icons.people_outline, color: kOwnerGreen, size: 42),
+          SizedBox(height: 12),
           Text(
             'No accepted workers yet',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: _rosterInk,
-              fontSize: 20,
+              color: kOwnerInk,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 8),
+          SizedBox(height: 6),
           Text(
             'Workers will appear here after they accept this job.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF68766F), fontSize: 16),
+            style: TextStyle(color: kOwnerMuted, fontSize: 13),
           ),
         ],
       ),
@@ -136,63 +102,36 @@ class AcceptedWorkersPage extends StatelessWidget {
   }
 
   Widget _workerCard(BuildContext context, AcceptedWorker worker) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 22, 18, 18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: _rosterGreen, width: 1.5),
-      ),
+    return OwnerCard(
       child: Column(
         children: [
           Row(
             children: [
-              Container(
-                width: 74,
-                height: 74,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFD8EBDD),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.person, color: _rosterGreen, size: 46),
+              const CircleAvatar(
+                radius: 26,
+                backgroundColor: kOwnerGreenSoft,
+                child: Icon(Icons.person, color: kOwnerGreen, size: 30),
               ),
-              const SizedBox(width: 18),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   worker.name,
                   style: const TextStyle(
-                    color: _rosterInk,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 9,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFB1F0C9),
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: const Text(
-                  'Accepted',
-                  style: TextStyle(
-                    color: _rosterGreen,
+                    color: kOwnerInk,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
+              const OwnerPill('Accepted', icon: Icons.check_circle),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFFCFAF5),
-              borderRadius: BorderRadius.circular(17),
-              border: Border.all(color: const Color(0xFFAD6C2D), width: 1.5),
+              color: kOwnerPanel,
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               children: [
@@ -202,17 +141,14 @@ class AcceptedWorkersPage extends StatelessWidget {
                     children: [
                       const Text(
                         'Daily Rate',
-                        style: TextStyle(
-                          color: Color(0xFF68766F),
-                          fontSize: 15,
-                        ),
+                        style: TextStyle(color: kOwnerMuted, fontSize: 11.5),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(
                         'Rs. ${job.dailyRate.toStringAsFixed(0)} / day',
                         style: const TextStyle(
-                          color: _rosterInk,
-                          fontSize: 18,
+                          color: kOwnerInk,
+                          fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -220,14 +156,13 @@ class AcceptedWorkersPage extends StatelessWidget {
                   ),
                 ),
                 IconButton(
+                  tooltip: 'Open chat',
                   onPressed: () => _openChat(context, worker),
-                  icon: const Icon(Icons.send, color: Colors.white, size: 24),
+                  icon: const Icon(Icons.send, color: Colors.white, size: 20),
                   style: IconButton.styleFrom(
-                    backgroundColor: _rosterGreen,
-                    fixedSize: const Size(54, 54),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
+                    backgroundColor: kOwnerGreen,
+                    fixedSize: const Size(44, 44),
+                    shape: const CircleBorder(),
                   ),
                 ),
               ],

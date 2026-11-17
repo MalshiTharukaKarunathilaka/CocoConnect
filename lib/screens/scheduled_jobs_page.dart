@@ -1,15 +1,14 @@
-import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/owner_service.dart';
+import '../widgets/owner_widgets.dart';
 import 'job_detail_page.dart';
 import 'post_day_job_page.dart';
 
-const _green = Color(0xFF246B45);
+const _green = kOwnerGreen;
 const _greenBright = Color(0xFF0B9B70);
-const _background = Color(0xFFFCF9F3);
-const _ink = Color(0xFF1D1D1D);
-const _muted = Color(0xFF77716D);
-const _line = Color(0xFFE8E1D7);
+const _ink = kOwnerInk;
+const _muted = kOwnerMuted;
+const _line = kOwnerBorder;
 
 enum _JobsFilter { all, completed }
 
@@ -95,38 +94,26 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return RoleNavigationPage(
-      chatScope: ChatScope.dayJobs,
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
-          child: Container(
-            width: 430,
-            constraints: const BoxConstraints(maxWidth: 430),
-            color: _background,
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: FutureBuilder<List<DayJob>>(
-                      future: _jobs,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(color: _green),
-                          );
-                        }
-                        if (snapshot.hasError) return _errorState();
-                        return _content(snapshot.data ?? const <DayJob>[]);
-                      },
-                    ),
-                  ),
-                ],
+    return OwnerPage(
+      child: FutureBuilder<List<DayJob>>(
+        future: _jobs,
+        builder: (context, snapshot) {
+          final jobs = snapshot.data ?? const <DayJob>[];
+          return Column(
+            children: [
+              _header(jobs),
+              Expanded(
+                child: snapshot.connectionState == ConnectionState.waiting
+                    ? const Center(
+                        child: CircularProgressIndicator(color: _green),
+                      )
+                    : snapshot.hasError
+                    ? _errorState()
+                    : _content(jobs),
               ),
-            ),
-          ),
-        ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -141,15 +128,13 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
       onRefresh: _refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
         children: [
-          _header(jobs),
-          const SizedBox(height: 10),
           _summary(jobs),
           if (!_isPast) ...[
             const SizedBox(height: 8),
             SizedBox(
-              height: 42,
+              height: 50,
               child: FilledButton.icon(
                 onPressed: _openPostJob,
                 icon: const Icon(Icons.add_circle_outline),
@@ -157,7 +142,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                 style: FilledButton.styleFrom(
                   backgroundColor: _green,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
@@ -175,7 +160,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                       : 'ALL JOBS',
                   style: const TextStyle(
                     color: _ink,
-                    fontSize: 17,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -199,46 +184,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
 
   Widget _header(List<DayJob> jobs) {
     final location = jobs.isEmpty ? 'Estate operations' : jobs.first.location;
-    return Row(
-      children: [
-        Material(
-          color: Colors.white,
-          elevation: 1,
-          borderRadius: BorderRadius.circular(15),
-          child: InkWell(
-            onTap: () => Navigator.pop(context),
-            borderRadius: BorderRadius.circular(15),
-            child: const SizedBox(
-              width: 44,
-              height: 44,
-              child: Icon(Icons.arrow_back, color: _ink, size: 25),
-            ),
-          ),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Job Details',
-                style: TextStyle(
-                  color: _ink,
-                  fontSize: 23,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                location,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: _muted, fontSize: 13),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+    return OwnerHeader(title: 'Job Details', subtitle: location);
   }
 
   Widget _summary(List<DayJob> jobs) {
@@ -254,7 +200,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
       padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _line),
         boxShadow: const [
           BoxShadow(
@@ -276,7 +222,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                 ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEAF6EF),
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: const Color(0xFFC8E8D5)),
                 ),
                 child: const Row(
@@ -315,7 +261,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
             '${_months[widget.date.month - 1]} ${widget.date.year}',
             style: const TextStyle(
               color: _ink,
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -384,7 +330,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
       padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,7 +384,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
         foregroundColor: selected ? Colors.white : _muted,
         side: BorderSide(color: selected ? _green : _line),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
     );
@@ -461,7 +407,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _line),
         boxShadow: const [
           BoxShadow(
@@ -480,7 +426,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
               decoration: const BoxDecoration(
                 color: Color(0xFF19BE88),
                 borderRadius: BorderRadius.horizontal(
-                  left: Radius.circular(22),
+                  left: Radius.circular(12),
                 ),
               ),
             ),
@@ -497,7 +443,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                             job.category,
                             style: const TextStyle(
                               color: _ink,
-                              fontSize: 19,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -513,7 +459,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                       ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8F5EF),
-                        borderRadius: BorderRadius.circular(15),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         children: [
@@ -573,7 +519,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                     const SizedBox(height: 11),
                     SizedBox(
                       width: double.infinity,
-                      height: 42,
+                      height: 44,
                       child: OutlinedButton.icon(
                         onPressed: () => _openDetails(job),
                         iconAlignment: IconAlignment.end,
@@ -588,7 +534,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                             fontWeight: FontWeight.bold,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(17),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                       ),
@@ -609,7 +555,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: positive ? const Color(0xFFD4F8E5) : const Color(0xFFFFE7D5),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: positive ? const Color(0xFF92E8BA) : const Color(0xFFF4C19B),
         ),
@@ -626,8 +572,9 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
           Text(
             status,
             style: TextStyle(
+              fontSize: 11,
               color: positive ? _green : const Color(0xFF7B431B),
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -656,7 +603,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _line),
       ),
       child: Column(
@@ -668,7 +615,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                 ? 'No completed jobs for this date.'
                 : 'No jobs posted for this date.',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: _muted, fontSize: 16),
+            style: const TextStyle(color: _muted, fontSize: 13),
           ),
         ],
       ),

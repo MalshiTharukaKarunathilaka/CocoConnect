@@ -8,7 +8,7 @@ const router = express.Router();
  * @swagger
  * /api/holidays:
  *   get:
- *     summary: Sri Lankan public holidays and observances (from Google's free public calendar)
+ *     summary: Approved Sri Lankan public holidays for the app calendars
  *     tags: [Calendar]
  *     security:
  *       - bearerAuth: []
@@ -19,7 +19,7 @@ const router = express.Router();
  *         description: Only holidays in this year
  *     responses:
  *       200:
- *         description: "{ holidays: [{ date, name, type }], stale, fetched_at }. type is public or observance."
+ *         description: "{ holidays: [{ date, name, type }], stale, fetched_at }."
  */
 router.get("/", requireAuth, async (req, res) => {
   const year = Number(req.query.year);

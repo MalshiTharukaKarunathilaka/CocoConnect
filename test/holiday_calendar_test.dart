@@ -19,6 +19,23 @@ void main() {
     expect(m['2026-12-24']!.name, 'Poya');
   });
 
+  test('parse combines two approved public holidays on the same date', () {
+    final m = HolidayService.parse({
+      'holidays': [
+        {
+          'date': '2026-05-01',
+          'name': 'Vesak Full Moon Poya Day',
+          'type': 'public',
+        },
+        {'date': '2026-05-01', 'name': 'May Day', 'type': 'public'},
+      ],
+    });
+
+    expect(m.length, 1);
+    expect(m['2026-05-01']!.name, contains('Vesak Full Moon Poya Day'));
+    expect(m['2026-05-01']!.name, contains('May Day'));
+  });
+
   testWidgets('note and flag show only on holidays', (tester) async {
     HolidayService.seed(2026, {
       '2026-12-25': const Holiday('Christmas Day', isPublic: true),

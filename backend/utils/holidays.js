@@ -1,93 +1,66 @@
-// Sri Lankan public holidays and observances, from Google's free public
-// holiday calendar (no account or key needed). The server downloads the feed,
-// keeps a copy for a day, and falls back to the last good copy if Google
-// cannot be reached, so the app's calendars always have something to mark.
-const FEED_URL =
-  "https://calendar.google.com/calendar/ical/en.lk%23holiday%40group.v.calendar.google.com/public/basic.ics";
-const TTL_MS = 24 * 60 * 60 * 1000;
-const RETRY_MS = 10 * 60 * 1000; // after a failed download, wait before trying again
+// Approved Sri Lankan public holidays shown by the app's calendars.
+// The supplied third table duplicated 2027, so the approved years are 2026
+// and 2027. Dates outside this list are intentionally not marked as holidays.
+const APPROVED_HOLIDAYS = Object.freeze([
+  { date: "2026-01-03", name: "Duruthu Full Moon Poya Day", type: "public" },
+  { date: "2026-01-15", name: "Tamil Thai Pongal Day", type: "public" },
+  { date: "2026-02-01", name: "Navam Full Moon Poya Day", type: "public" },
+  { date: "2026-02-04", name: "Independence Day", type: "public" },
+  { date: "2026-02-15", name: "Maha Sivarathri Day", type: "public" },
+  { date: "2026-03-02", name: "Medin Full Moon Poya Day", type: "public" },
+  { date: "2026-03-21", name: "Id-Ul-Fitre / Ramazan Festival Day", type: "public" },
+  { date: "2026-04-01", name: "Bak Full Moon Poya Day", type: "public" },
+  { date: "2026-04-03", name: "Good Friday", type: "public" },
+  { date: "2026-04-13", name: "Day Prior to Sinhala & Tamil New Year", type: "public" },
+  { date: "2026-04-14", name: "Sinhala & Tamil New Year Day", type: "public" },
+  { date: "2026-05-01", name: "Vesak Full Moon Poya Day", type: "public" },
+  { date: "2026-05-01", name: "May Day", type: "public" },
+  { date: "2026-05-02", name: "Day Following Vesak Full Moon Poya Day", type: "public" },
+  { date: "2026-05-28", name: "Id-Ul-Alha / Hadji Festival Day", type: "public" },
+  { date: "2026-05-30", name: "Adhi Poson Full Moon Poya Day", type: "public" },
+  { date: "2026-06-29", name: "Poson Full Moon Poya Day", type: "public" },
+  { date: "2026-07-29", name: "Esala Full Moon Poya Day", type: "public" },
+  { date: "2026-08-26", name: "Milad-Un-Nabi / Holy Prophet's Birthday", type: "public" },
+  { date: "2026-08-27", name: "Nikini Full Moon Poya Day", type: "public" },
+  { date: "2026-09-26", name: "Binara Full Moon Poya Day", type: "public" },
+  { date: "2026-10-25", name: "Vap Full Moon Poya Day", type: "public" },
+  { date: "2026-11-08", name: "Deepawali Festival Day", type: "public" },
+  { date: "2026-11-24", name: "Il Full Moon Poya Day", type: "public" },
+  { date: "2026-12-23", name: "Unduvap Full Moon Poya Day", type: "public" },
+  { date: "2026-12-25", name: "Christmas Day", type: "public" },
 
-let cache = { at: 0, items: [], good: false, failedAt: 0 };
-let fetcher = null; // tests replace this
+  { date: "2027-01-15", name: "Tamil Thai Pongal Day", type: "public" },
+  { date: "2027-01-22", name: "Duruthu Full Moon Poya Day", type: "public" },
+  { date: "2027-02-04", name: "Independence Day", type: "public" },
+  { date: "2027-02-20", name: "Navam Full Moon Poya Day", type: "public" },
+  { date: "2027-03-06", name: "Maha Sivarathri Day", type: "public" },
+  { date: "2027-03-10", name: "Id-Ul-Fitre / Ramazan Festival Day", type: "public" },
+  { date: "2027-03-22", name: "Medin Full Moon Poya Day", type: "public" },
+  { date: "2027-03-26", name: "Good Friday", type: "public" },
+  { date: "2027-04-13", name: "Day Prior to Sinhala & Tamil New Year", type: "public" },
+  { date: "2027-04-14", name: "Sinhala & Tamil New Year Day", type: "public" },
+  { date: "2027-04-20", name: "Bak Full Moon Poya Day", type: "public" },
+  { date: "2027-05-01", name: "May Day", type: "public" },
+  { date: "2027-05-17", name: "Id-Ul-Alha / Hadji Festival Day", type: "public" },
+  { date: "2027-05-19", name: "Vesak Full Moon Poya Day", type: "public" },
+  { date: "2027-05-20", name: "Day Following Vesak Full Moon Poya Day", type: "public" },
+  { date: "2027-06-18", name: "Poson Full Moon Poya Day", type: "public" },
+  { date: "2027-07-18", name: "Esala Full Moon Poya Day", type: "public" },
+  { date: "2027-08-15", name: "Milad-Un-Nabi / Holy Prophet's Birthday", type: "public" },
+  { date: "2027-08-16", name: "Nikini Full Moon Poya Day", type: "public" },
+  { date: "2027-09-15", name: "Binara Full Moon Poya Day", type: "public" },
+  { date: "2027-10-15", name: "Vap Full Moon Poya Day", type: "public" },
+  { date: "2027-10-28", name: "Deepawali Festival Day", type: "public" },
+  { date: "2027-11-13", name: "Il Full Moon Poya Day", type: "public" },
+  { date: "2027-12-13", name: "Unduvap Full Moon Poya Day", type: "public" },
+  { date: "2027-12-25", name: "Christmas Day", type: "public" },
+]);
 
-const setFetcher = (fn) => {
-  fetcher = fn;
-  cache = { at: 0, items: [], good: false, failedAt: 0 };
+const getHolidays = async ({ year } = {}) => {
+  const holidays = year
+    ? APPROVED_HOLIDAYS.filter((holiday) => holiday.date.startsWith(`${year}-`))
+    : [...APPROVED_HOLIDAYS];
+  return { stale: false, fetched_at: null, holidays };
 };
 
-// ICS text escapes commas, semicolons, backslashes and new lines with a backslash.
-const unescapeText = (value) =>
-  String(value || "")
-    .replace(/\\n/gi, "\n")
-    .replace(/\\([,;\\])/g, "$1")
-    .trim();
-
-const toDay = (yyyymmdd) => `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`;
-const addDay = (day, n) => {
-  const d = new Date(`${day}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
-
-/** Turns the text of a Google .ics feed into [{ date, name, type }], sorted by date. */
-const parseIcs = (text) => {
-  // Long lines are folded onto the next line with a leading space.
-  const lines = String(text || "").replace(/\r\n/g, "\n").replace(/\n[ \t]/g, "").split("\n");
-  const out = [];
-  let ev = null;
-  for (const line of lines) {
-    if (line === "BEGIN:VEVENT") ev = {};
-    else if (line === "END:VEVENT") {
-      if (ev && ev.start && ev.name) {
-        const type = /^public holiday/i.test(ev.description || "") ? "public" : "observance";
-        const last = ev.end && ev.end > ev.start ? addDay(ev.end, -1) : ev.start; // DTEND is the day after
-        for (let day = ev.start, guard = 0; day <= last && guard < 14; day = addDay(day, 1), guard++) {
-          out.push({ date: day, name: ev.name, type });
-        }
-      }
-      ev = null;
-    } else if (ev) {
-      const colon = line.indexOf(":");
-      if (colon < 0) continue;
-      const key = line.slice(0, colon).split(";")[0];
-      const value = line.slice(colon + 1);
-      if (key === "DTSTART" && /^\d{8}$/.test(value)) ev.start = toDay(value);
-      else if (key === "DTEND" && /^\d{8}$/.test(value)) ev.end = toDay(value);
-      else if (key === "SUMMARY") ev.name = unescapeText(value);
-      else if (key === "DESCRIPTION") ev.description = unescapeText(value);
-    }
-  }
-  return out.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
-};
-
-const download = async () => {
-  const run = fetcher || ((url) => fetch(url, { signal: AbortSignal.timeout(8000) }));
-  const response = await run(FEED_URL);
-  if (!response.ok) throw new Error(`Holiday feed answered ${response.status}`);
-  return parseIcs(await response.text());
-};
-
-/**
- * All holidays, optionally for one year. `stale` is true when Google could not
- * be reached and the last good copy (or nothing) is being served.
- */
-const getHolidays = async ({ year, now = Date.now() } = {}) => {
-  const fresh = cache.good && now - cache.at < TTL_MS;
-  const waiting = cache.failedAt && now - cache.failedAt < RETRY_MS;
-  let stale = false;
-  if (!fresh && !waiting) {
-    try {
-      cache = { at: now, items: await download(), good: true, failedAt: 0 };
-    } catch (error) {
-      console.error("Holiday feed error:", error.message);
-      cache = { ...cache, failedAt: now };
-      stale = true;
-    }
-  } else if (!fresh) {
-    stale = true;
-  }
-  const items = year ? cache.items.filter((h) => h.date.startsWith(`${year}-`)) : cache.items;
-  return { stale, fetched_at: cache.at ? new Date(cache.at).toISOString() : null, holidays: items };
-};
-
-module.exports = { getHolidays, parseIcs, setFetcher, FEED_URL };
+module.exports = { getHolidays, APPROVED_HOLIDAYS };

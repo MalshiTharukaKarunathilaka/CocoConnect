@@ -143,6 +143,28 @@ const getAvailableJobs = async (req, res) => {
     const ownerRatingColumn = ownerRatingsReady
       ? "dja.estate_owner_rating"
       : "NULL::smallint";
+    const ownerRatingStats = ownerRatingsReady
+      ? `owner_rating_stats.average_rating AS estate_owner_average_rating,
+         owner_rating_stats.rating_count AS estate_owner_rating_count`
+      : `NULL::double precision AS estate_owner_average_rating,
+         0::integer AS estate_owner_rating_count`;
+    const ownerRatingStatsJoin = ownerRatingsReady
+      ? `LEFT JOIN (
+           SELECT rated_jobs.estate_owner_id,
+                  AVG(rated_applications.estate_owner_rating)::double precision
+                    AS average_rating,
+                  COUNT(rated_applications.estate_owner_rating)::integer
+                    AS rating_count
+           FROM day_job_applications rated_applications
+           JOIN day_jobs rated_jobs
+             ON rated_jobs.id = rated_applications.day_job_id
+           WHERE UPPER(rated_jobs.status) = 'COMPLETED'
+             AND UPPER(rated_applications.status) IN ('ACCEPTED', 'COMPLETED')
+             AND rated_applications.estate_owner_rating IS NOT NULL
+           GROUP BY rated_jobs.estate_owner_id
+         ) owner_rating_stats
+           ON owner_rating_stats.estate_owner_id = dj.estate_owner_id`
+      : "";
     const result = await pool.query(
       `SELECT
          dj.*,
@@ -158,6 +180,7 @@ const getAvailableJobs = async (req, res) => {
          END AS application_status,
          ${ratingColumn} AS rating,
          ${ownerRatingColumn} AS estate_owner_rating,
+         ${ownerRatingStats},
          dj.status AS worker_status,
          (UPPER(COALESCE(dja.status, '')) = 'COMPLETED'
            AND ${ownerRatingColumn} IS NOT NULL)
@@ -174,6 +197,7 @@ const getAvailableJobs = async (req, res) => {
        LEFT JOIN users u ON u.id = eo.user_id
        LEFT JOIN day_job_applications dja
          ON dja.day_job_id = dj.id AND dja.worker_id = $1
+       ${ownerRatingStatsJoin}
        WHERE (
            (
              (

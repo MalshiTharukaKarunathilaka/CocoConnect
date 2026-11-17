@@ -2,12 +2,13 @@ import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/owner_service.dart';
+import '../widgets/owner_widgets.dart';
 import 'accepted_workers_page.dart';
 import 'worker_profile_page.dart';
 
-const Color _detailGreen = Color(0xFF2A704E);
-const Color _detailBackground = Color(0xFFFCF9F3);
-const Color _detailInk = Color(0xFF193126);
+const Color _detailGreen = kOwnerGreen;
+const Color _detailBackground = kOwnerCream;
+const Color _detailInk = kOwnerInk;
 
 class JobDetailPage extends StatefulWidget {
   final DayJob job;
@@ -103,25 +104,25 @@ class _JobDetailPageState extends State<JobDetailPage> {
                       'All Workers',
                       style: TextStyle(
                         color: _detailInk,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      width: 34,
-                      height: 34,
+                      width: 28,
+                      height: 28,
                       alignment: Alignment.center,
                       decoration: const BoxDecoration(
-                        color: Color(0xFFA8EDC5),
+                        color: kOwnerGreenSoft,
                         shape: BoxShape.circle,
                       ),
                       child: Text(
                         '${job.acceptedWorkers.length}',
                         style: TextStyle(
                           color: _detailGreen,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -166,16 +167,16 @@ class _JobDetailPageState extends State<JobDetailPage> {
                       builder: (_) => AcceptedWorkersPage(job: job),
                     ),
                   ),
-                  icon: const Icon(Icons.arrow_forward, size: 26),
+                  icon: const Icon(Icons.arrow_forward, size: 18),
                   label: const Text(
                     'View Accepted Workers',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: _detailGreen,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(34),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
@@ -193,8 +194,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
       padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFD5E3DB), width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kOwnerBorder),
       ),
       child: Column(
         children: [
@@ -259,7 +260,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
           disabledForegroundColor: Colors.white,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(34),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
         child: _completing
@@ -308,7 +309,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
           side: const BorderSide(color: Color(0xFFC62828)),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(34),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -396,32 +397,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
   }
 
   Widget _header(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 8, 14, 8),
-      decoration: const BoxDecoration(
-        color: _detailBackground,
-        border: Border(bottom: BorderSide(color: Color(0xFFE9E2D9))),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, size: 32, color: _detailInk),
-          ),
-          const SizedBox(width: 4),
-          const Text(
-            'Job Detail',
-            style: TextStyle(
-              color: _detailInk,
-              fontSize: 23,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const Spacer(),
-          const SizedBox(width: 48),
-        ],
-      ),
-    );
+    return const OwnerHeader(title: 'Job Detail');
   }
 
   Widget _status() {
@@ -438,14 +414,14 @@ class _JobDetailPageState extends State<JobDetailPage> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: const Color(0xFFD8F1DF),
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Text(
           '●  NG-${job.id.toString().padLeft(3, '0')} · $status',
           style: const TextStyle(
             color: _detailGreen,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -457,8 +433,15 @@ class _JobDetailPageState extends State<JobDetailPage> {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFD5E3DB), width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kOwnerBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(8),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,14 +450,14 @@ class _JobDetailPageState extends State<JobDetailPage> {
             job.category,
             style: TextStyle(
               color: _detailInk,
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 3),
           const Text(
             'Estate job',
-            style: TextStyle(color: Color(0xFF65766C), fontSize: 14),
+            style: TextStyle(color: kOwnerMuted, fontSize: 12),
           ),
           const SizedBox(height: 6),
           _infoTile(Icons.location_on_outlined, 'Location', job.location),
@@ -493,8 +476,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             decoration: BoxDecoration(
               color: const Color(0xFFFCFAF5),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: const Color(0xFFE7E0D4)),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: kOwnerBorder),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -502,7 +485,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                 const Expanded(
                   child: Text(
                     'Daily Rate',
-                    style: TextStyle(color: Color(0xFF65766C), fontSize: 14),
+                    style: TextStyle(color: kOwnerMuted, fontSize: 11.5),
                   ),
                 ),
                 Flexible(
@@ -512,7 +495,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: _detailGreen,
-                      fontSize: 19,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -530,8 +513,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: const Color(0xFFFCFAF5),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: const Color(0xFFE7E0D4)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: kOwnerBorder),
       ),
       child: Row(
         children: [
@@ -553,7 +536,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                   label,
                   style: const TextStyle(
                     color: Color(0xFF65766C),
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -561,7 +544,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                   value,
                   style: const TextStyle(
                     color: _detailInk,
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -579,8 +562,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _detailGreen, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kOwnerBorder),
       ),
       child: Column(
         children: [
@@ -601,8 +584,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
                   worker.name,
                   style: const TextStyle(
                     color: _detailInk,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -676,7 +659,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
           foregroundColor: foreground,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -696,7 +679,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
         child: rating == null
