@@ -152,43 +152,51 @@ class FertTabBar extends StatelessWidget {
         children: [
           for (int i = 0; i < items.length; i++)
             Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => onTap(i),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: i == current ? _greenSoft : Colors.transparent,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(
-                        items[i].$1,
-                        size: 22,
-                        color: i == current ? _green : _grey,
-                      ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => onTap(i),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                i == current ? _greenSoft : Colors.transparent,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Icon(
+                            items[i].$1,
+                            size: 22,
+                            color: i == current ? _green : _grey,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          items[i].$2,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: items[i].$2.length > 11 ? 9.5 : 10.5,
+                            height: 1.1,
+                            fontWeight: i == current
+                                ? FontWeight.bold
+                                : FontWeight.w600,
+                            color: i == current ? _green : _grey,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      items[i].$2,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: items[i].$2.length > 11 ? 9.5 : 10.5,
-                        height: 1.1,
-                        fontWeight:
-                            i == current ? FontWeight.bold : FontWeight.w600,
-                        color: i == current ? _green : _grey,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

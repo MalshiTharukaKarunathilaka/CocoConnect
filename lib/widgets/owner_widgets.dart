@@ -26,18 +26,21 @@ class OwnerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Why: a full-screen GestureDetector can steal taps on Flutter web and make
+    // buttons/tabs feel untouchable. Only dismiss keyboard on empty taps.
     return Scaffold(
       backgroundColor: const Color(0xFFEFEFEF),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Center(
-          child: Container(
-            width: MediaQuery.sizeOf(context).width < kMachineryPageWidth + 24
-                ? MediaQuery.sizeOf(context).width
-                : kMachineryPageWidth,
-            height: double.infinity,
-            color: kOwnerCream,
-            child: SafeArea(
+      body: Center(
+        child: Container(
+          width: MediaQuery.sizeOf(context).width < kMachineryPageWidth + 24
+              ? MediaQuery.sizeOf(context).width
+              : kMachineryPageWidth,
+          height: double.infinity,
+          color: kOwnerCream,
+          child: SafeArea(
+            child: GestureDetector(
+              behavior: HitTestBehavior.deferToChild,
+              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
               child: Column(
                 children: [
                   Expanded(child: child),
