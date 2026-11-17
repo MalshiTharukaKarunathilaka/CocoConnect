@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
+import 'fertilizer_cancel_reasons.dart';
 import 'fertilizer_data.dart';
 
 /// CDO ↔ estate chat threads (mobile width). Delivery date/time shown in chat.
 class FertilizerCdoMessagesPage extends StatefulWidget {
-  const FertilizerCdoMessagesPage({super.key});
+  const FertilizerCdoMessagesPage({
+    super.key,
+    this.focusRequestId,
+  });
+
+  /// Why: notification Show can jump straight into this chat.
+  final String? focusRequestId;
 
   @override
   State<FertilizerCdoMessagesPage> createState() =>
@@ -17,6 +24,32 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
   FertGovRequest? _open;
   final _ctrl = TextEditingController();
   final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _tryFocus(widget.focusRequestId);
+  }
+
+  @override
+  void didUpdateWidget(covariant FertilizerCdoMessagesPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusRequestId != null &&
+        widget.focusRequestId != oldWidget.focusRequestId) {
+      _tryFocus(widget.focusRequestId);
+    }
+  }
+
+  void _tryFocus(String? id) {
+    if (id == null || id.isEmpty) return;
+    for (final r in _store.myCdoRequests) {
+      if (r.id == id) {
+        _open = r;
+        _toEnd();
+        break;
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -59,6 +92,20 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
     final m = d.minute.toString().padLeft(2, '0');
     final am = d.hour >= 12 ? 'PM' : 'AM';
     return '${shortDate(d)} · $h:$m $am';
+  }
+
+  Future<void> _dispute(FertGovRequest r) async {
+    final note = await showFertCdoDisputeReasons(
+      context,
+      title: 'Dispute ${r.id}',
+    );
+    if (note == null) return;
+    _store.disputeGovRequest(r.id, reason: note);
+    setState(() {});
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${r.id} disputed')),
+    );
   }
 
   @override
@@ -174,6 +221,7 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
                 ),
               ),
             ),
+            // Why: Dispute stays inside the chat only — not on the inbox list.
             const SizedBox(height: 10),
           ],
       ],
@@ -183,6 +231,8 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
   Widget _chat(FertGovRequest r) {
     final estate = r.estateName.isNotEmpty ? r.estateName : r.owner;
     final cdoName = r.cdo;
+    // Why: Dispute only for accepted orders, and only at the bottom of the chat.
+    final canDispute = r.status == 'Accepted';
     return Column(
       children: [
         Padding(
@@ -271,6 +321,25 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
             ],
           ),
         ),
+        if (canDispute)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.dangerText,
+                  backgroundColor: AppColors.dangerSoft,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () => _dispute(r),
+                child: const Text('Dispute'),
+              ),
+            ),
+          ),
         Container(
           padding: EdgeInsets.fromLTRB(
             12,
@@ -316,42 +385,35 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
   Widget _bubble(FertChat m, {required bool mine}) {
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 280),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-          decoration: BoxDecoration(
-            color: mine ? AppColors.greenSoft : Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(16),
-              topRight: const Radius.circular(16),
-              bottomLeft: Radius.circular(mine ? 16 : 4),
-              bottomRight: Radius.circular(mine ? 4 : 16),
-            ),
-            border: Border.all(
-              color: mine ? AppColors.green.withValues(alpha: 0.25) : AppColors.line,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                m.from,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: mine ? AppColors.green : AppColors.muted,
-                ),
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.78,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: mine ? AppColors.greenSoft : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              m.from,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: mine ? AppColors.green : AppColors.muted,
               ),
-              const SizedBox(height: 4),
-              Text(m.text, style: const TextStyle(fontSize: 13.5, height: 1.3)),
-              const SizedBox(height: 4),
-              Text(
-                m.time,
-                style: const TextStyle(fontSize: 10.5, color: AppColors.muted),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 2),
+            Text(m.text, style: const TextStyle(fontSize: 13.5, height: 1.35)),
+            const SizedBox(height: 4),
+            Text(
+              m.time,
+              style: const TextStyle(fontSize: 10.5, color: AppColors.muted),
+            ),
+          ],
         ),
       ),
     );

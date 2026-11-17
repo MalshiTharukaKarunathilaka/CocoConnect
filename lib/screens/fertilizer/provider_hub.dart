@@ -26,6 +26,8 @@ class _ProviderHubState extends State<ProviderHub> {
   final _store = FertilizerStore.instance;
   int _tab = 0;
   String _orderStatusFilter = 'all';
+  /// Why: notification Show can open a specific CDO chat.
+  String? _msgFocusId;
 
   bool get _isCdo => widget.mode == FertHomeMode.cdo;
 
@@ -49,7 +51,7 @@ class _ProviderHubState extends State<ProviderHub> {
         case 'delivered':
           return r.distributed > 0 || r.status == 'Distributed';
         case 'disputed':
-          return false;
+          return r.status == 'Disputed';
         default:
           return true;
       }
@@ -68,9 +70,7 @@ class _ProviderHubState extends State<ProviderHub> {
         case 'delivered':
           return o.status == 'Distributed';
         case 'disputed':
-          return FertilizerStore.instance.complaints.any(
-            (c) => c.description.contains(o.id),
-          );
+          return o.status == 'Disputed' || _store.isDisputed(o.id);
         default:
           return true;
       }
@@ -80,11 +80,13 @@ class _ProviderHubState extends State<ProviderHub> {
   @override
   void initState() {
     super.initState();
-    if (!_isCdo) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isCdo) {
+        _store.ensureCdoDemoAlerts();
+      } else {
         _store.checkLowStock(_shop);
-      });
-    }
+      }
+    });
   }
 
   @override
@@ -110,10 +112,24 @@ class _ProviderHubState extends State<ProviderHub> {
           '${_isCdo ? 'CDO' : 'SUPPLIER'} \u00b7 ${_shop.company}'.toUpperCase(),
       showLogout: true,
       supplierAlerts: !_isCdo,
+      cdoAlerts: _isCdo,
+      // Why: notification Show can jump to Stock, Orders, or CDO Messages.
+      onOpenStock: () => setState(() => _tab = _isCdo ? 3 : 2),
+      onOpenOrders: () => setState(() {
+            if (_isCdo) {
+              _msgFocusId = _store.consumePendingOpenGovId();
+              _tab = 4;
+            } else {
+              _tab = 1;
+            }
+          }),
       bottom: FertTabBar(
         items: tabs,
         current: _tab,
-        onTap: (i) => setState(() => _tab = i),
+        onTap: (i) => setState(() {
+              _tab = i;
+              if (i != 4) _msgFocusId = null;
+            }),
       ),
       child: _body(),
     );
@@ -132,7 +148,7 @@ class _ProviderHubState extends State<ProviderHub> {
         case 3:
           return const FertilizerCdoStockPage();
         case 4:
-          return const FertilizerCdoMessagesPage();
+          return FertilizerCdoMessagesPage(focusRequestId: _msgFocusId);
       }
     } else {
       switch (_tab) {
@@ -291,6 +307,8 @@ class _ProviderHubState extends State<ProviderHub> {
   }
 
   Widget _cdoRequestCard(FertGovRequest r) {
+    final accepted =
+        r.status == 'Accepted' || r.status == 'Receipt Confirmed';
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -334,20 +352,56 @@ class _ProviderHubState extends State<ProviderHub> {
             ),
           ],
           const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton(
-              onPressed: () async {
-                final ok = await showModalBottomSheet<bool>(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (_) => FertilizerCdoRequestSheet(request: r),
-                );
-                if (ok == true && mounted) setState(() {});
-              },
-              child: const Text('View'),
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.end,
+            children: [
+              OutlinedButton(
+                onPressed: () async {
+                  final ok = await showModalBottomSheet<bool>(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => FertilizerCdoRequestSheet(request: r),
+                  );
+                  if (ok == true && mounted) setState(() {});
+                },
+                child: const Text('View'),
+              ),
+              if (accepted) ...[
+                ElevatedButton(
+                  onPressed: () {
+                    _store.markGovDelivered(r.id);
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${r.id} marked delivered')),
+                    );
+                  },
+                  child: const Text('Delivered'),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.dangerText,
+                    backgroundColor: AppColors.dangerSoft,
+                  ),
+                  onPressed: () async {
+                    final note = await showFertCdoDisputeReasons(
+                      context,
+                      title: 'Dispute ${r.id}',
+                    );
+                    if (note == null) return;
+                    _store.disputeGovRequest(r.id, reason: note);
+                    setState(() {});
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${r.id} disputed')),
+                    );
+                  },
+                  child: const Text('Dispute'),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -355,10 +409,14 @@ class _ProviderHubState extends State<ProviderHub> {
   }
 
   Widget _orderCard(FertOrder o) {
-    final canAck =
-        o.status == 'Pending Ack' || o.status == 'Negotiating' || o.status == 'Submitted';
-    final canDeliver =
-        o.status == 'Accepted' || o.status == 'Stock Confirmed';
+    final disputed = o.status == 'Disputed' || _store.isDisputed(o.id);
+    final canAck = !disputed &&
+        (o.status == 'Pending Ack' ||
+            o.status == 'Negotiating' ||
+            o.status == 'Submitted');
+    // Why: after dispute, Mark delivered must go away.
+    final canDeliver = !disputed &&
+        (o.status == 'Accepted' || o.status == 'Stock Confirmed');
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -378,7 +436,7 @@ class _ProviderHubState extends State<ProviderHub> {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
-              StatusPill.forStatus(o.status),
+              StatusPill.forStatus(disputed ? 'Disputed' : o.status),
             ],
           ),
           const SizedBox(height: 4),
@@ -391,6 +449,21 @@ class _ProviderHubState extends State<ProviderHub> {
             spacing: 8,
             runSpacing: 8,
             children: [
+              // Why: cancelled / disputed orders still need a View button.
+              OutlinedButton(
+                onPressed: () async {
+                  await showSupplierOrderDetail(
+                    context,
+                    order: o,
+                    isCdo: _isCdo,
+                    onChanged: () {
+                      if (mounted) setState(() {});
+                    },
+                  );
+                  if (mounted) setState(() {});
+                },
+                child: const Text('View'),
+              ),
               if (canAck) ...[
                 ElevatedButton(
                   onPressed: () {
@@ -494,6 +567,38 @@ class _ProviderHubState extends State<ProviderHub> {
           'Update bag counts and pack prices here. Low stock alerts show in Notifications.',
           style: TextStyle(fontSize: 12.5, color: AppColors.muted),
         ),
+        const SizedBox(height: 12),
+        // Why: supplier can add a new fertilizer type + bag quantity from here.
+        Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: _addFertilizerStock,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.line),
+              ),
+              child: const Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Enter fertilizer stock',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.add_circle, color: AppColors.green, size: 28),
+                ],
+              ),
+            ),
+          ),
+        ),
         if (low.isNotEmpty) ...[
           const SizedBox(height: 12),
           Container(
@@ -517,6 +622,154 @@ class _ProviderHubState extends State<ProviderHub> {
         const SizedBox(height: 12),
         for (var i = 0; i < items.length; i++) _stockCard(items[i]),
       ],
+    );
+  }
+
+  Future<void> _addFertilizerStock() async {
+    final brands = _shop.brands.isEmpty ? kFertBrands : _shop.brands;
+    var type = kFertKinds.first;
+    var brand = brands.first;
+    final qtyCtrl = TextEditingController(text: '10');
+    final priceCtrl = TextEditingController(text: '5000');
+    final nameCtrl = TextEditingController();
+
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(ctx).bottom,
+          ),
+          child: StatefulBuilder(
+            builder: (ctx, setLocal) {
+              return Align(
+                alignment: Alignment.bottomCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 430),
+                  child: Material(
+                    color: AppColors.cream,
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(22)),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Add fertilizer stock',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Pick a type, then set how many 50 kg bags you have.',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            // ignore: deprecated_member_use
+                            value: type,
+                            decoration: const InputDecoration(
+                              labelText: 'Fertilizer type',
+                            ),
+                            items: [
+                              for (final t in kFertKinds)
+                                DropdownMenuItem(value: t, child: Text(t)),
+                            ],
+                            onChanged: (v) =>
+                                setLocal(() => type = v ?? type),
+                          ),
+                          const SizedBox(height: 10),
+                          DropdownButtonFormField<String>(
+                            // ignore: deprecated_member_use
+                            value: brand,
+                            decoration: const InputDecoration(
+                              labelText: 'Brand',
+                            ),
+                            items: [
+                              for (final b in brands)
+                                DropdownMenuItem(value: b, child: Text(b)),
+                            ],
+                            onChanged: (v) =>
+                                setLocal(() => brand = v ?? brand),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: nameCtrl,
+                            textInputAction: TextInputAction.next,
+                            decoration: InputDecoration(
+                              labelText: 'Product name (optional)',
+                              hintText: '$brand $type',
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: qtyCtrl,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Quantity (50 kg bags)',
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: priceCtrl,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.done,
+                            decoration: const InputDecoration(
+                              labelText: 'Pack price (Rs.)',
+                            ),
+                            onSubmitted: (_) => Navigator.pop(ctx, true),
+                          ),
+                          const SizedBox(height: 14),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Add to stock'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
+    final price = int.tryParse(priceCtrl.text.trim()) ?? 0;
+    final customName = nameCtrl.text.trim();
+    qtyCtrl.dispose();
+    priceCtrl.dispose();
+    nameCtrl.dispose();
+    if (ok != true || qty <= 0 || price <= 0) return;
+
+    setState(() {
+      _shop.items.add(
+        FertItem(
+          name: customName.isEmpty ? '$brand $type' : customName,
+          brand: brand,
+          type: type,
+          price: price,
+          unit: '50 kg bag',
+          stock: qty,
+        ),
+      );
+    });
+    _store.checkLowStock(_shop);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Added $qty bags of $brand $type')),
     );
   }
 
@@ -610,61 +863,98 @@ class _ProviderHubState extends State<ProviderHub> {
   }
 
   Future<void> _editPrice(FertItem item) async {
+    // Why: Enter used to crash the dialog — Form + onFieldSubmitted handles it safely.
     final ctrl = TextEditingController(text: '${item.price}');
     final reason = TextEditingController();
-    final ok = await showDialog<bool>(
+    final formKey = GlobalKey<FormState>();
+
+    Future<void> save(BuildContext ctx) async {
+      final raw = ctrl.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
+      final v = int.tryParse(raw);
+      if (v == null || v <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a valid pack price')),
+        );
+        return;
+      }
+      final why = reason.text.trim();
+      Navigator.pop(ctx, (v, why));
+    }
+
+    final result = await showDialog<(int, String)?>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Price · ${item.name}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: ctrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'New pack price (Rs.)',
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: ctrl,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'New pack price (Rs.)',
+                ),
+                validator: (v) {
+                  final n = int.tryParse(
+                    (v ?? '').trim().replaceAll(RegExp(r'[^0-9]'), ''),
+                  );
+                  if (n == null || n <= 0) return 'Enter a valid price';
+                  return null;
+                },
               ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: reason,
-              decoration: const InputDecoration(
-                labelText: 'Reason (optional)',
-                hintText: 'e.g. transport cost up',
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: reason,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  labelText: 'Reason (optional)',
+                  hintText: 'e.g. transport cost up',
+                ),
+                onFieldSubmitted: (_) {
+                  if (formKey.currentState?.validate() == true) {
+                    save(ctx);
+                  }
+                },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () => Navigator.pop(ctx, null),
             child: const Text('Back'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () {
+              if (formKey.currentState?.validate() == true) {
+                save(ctx);
+              }
+            },
             child: const Text('Save'),
           ),
         ],
       ),
     );
-    if (ok != true) {
-      ctrl.dispose();
-      reason.dispose();
-      return;
-    }
-    final v = int.tryParse(ctrl.text.trim());
     ctrl.dispose();
-    final why = reason.text.trim();
     reason.dispose();
-    if (v == null || v <= 0) return;
+    if (result == null) return;
+    final v = result.$1;
+    final why = result.$2;
     setState(() => item.price = v);
-    _store.notifySupplier(
-      title: 'Price updated · ${item.name}',
-      body: why.isEmpty
-          ? 'Now ${rupees(v)} per pack'
-          : '${rupees(v)} per pack · $why',
-      kind: 'info',
+    // Why: price edits are the supplier's own action — do not push to notifications.
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          why.isEmpty
+              ? 'Price saved · ${rupees(v)}'
+              : 'Price saved · ${rupees(v)} · $why',
+        ),
+      ),
     );
   }
 

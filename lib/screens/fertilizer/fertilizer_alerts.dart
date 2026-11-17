@@ -7,28 +7,45 @@ import 'fertilizer_dispute_sheet.dart';
 import 'fertilizer_order_edit_sheet.dart';
 import 'fertilizer_processing_banner.dart';
 
-/// Bell in the fertilizer header — estate or supplier alerts.
+/// Bell in the fertilizer header — estate, supplier, or CDO alerts.
 class FertAlertBell extends StatelessWidget {
-  const FertAlertBell({super.key, this.forSupplier = false});
+  const FertAlertBell({
+    super.key,
+    this.forSupplier = false,
+    this.forCdo = false,
+    this.onOpenStock,
+    this.onOpenOrders,
+  });
 
   final bool forSupplier;
+  final bool forCdo;
+  final VoidCallback? onOpenStock;
+  final VoidCallback? onOpenOrders;
 
   @override
   Widget build(BuildContext context) {
     final store = FertilizerStore.instance;
-    final tick =
-        forSupplier ? store.supplierAlertTick : store.ownerAlertTick;
+    final tick = forCdo
+        ? store.cdoAlertTick
+        : forSupplier
+            ? store.supplierAlertTick
+            : store.ownerAlertTick;
     return ValueListenableBuilder<int>(
       valueListenable: tick,
       builder: (context, _, __) {
-        final unread = forSupplier
-            ? store.unreadSupplierAlerts
-            : store.unreadOwnerAlerts;
+        final unread = forCdo
+            ? store.unreadCdoAlerts
+            : forSupplier
+                ? store.unreadSupplierAlerts
+                : store.unreadOwnerAlerts;
         return IconButton(
           tooltip: 'Notifications',
           onPressed: () => showFertAlerts(
             context,
             forSupplier: forSupplier,
+            forCdo: forCdo,
+            onOpenStock: onOpenStock,
+            onOpenOrders: onOpenOrders,
           ),
           icon: Badge(
             isLabelVisible: unread > 0,
@@ -53,9 +70,14 @@ Future<void> showFertOwnerAlerts(BuildContext context) =>
 Future<void> showFertAlerts(
   BuildContext context, {
   required bool forSupplier,
+  bool forCdo = false,
+  VoidCallback? onOpenStock,
+  VoidCallback? onOpenOrders,
 }) async {
   final store = FertilizerStore.instance;
-  if (forSupplier) {
+  if (forCdo) {
+    store.markCdoAlertsRead();
+  } else if (forSupplier) {
     store.markSupplierAlertsRead();
   } else {
     store.markOwnerAlertsRead();
@@ -66,8 +88,12 @@ Future<void> showFertAlerts(
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (ctx) {
-      final alerts =
-          forSupplier ? store.supplierAlerts : store.ownerAlerts;
+      // Why: supplier/CDO bells only list alerts that need quick attention.
+      final alerts = forCdo
+          ? store.importantCdoAlerts
+          : forSupplier
+              ? store.importantSupplierAlerts
+              : store.ownerAlerts;
       return Align(
         alignment: Alignment.bottomCenter,
         child: ConstrainedBox(
@@ -116,9 +142,11 @@ Future<void> showFertAlerts(
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: Text(
-                      forSupplier
-                          ? 'New orders, disputes and low-stock alerts. Tap to open the order.'
-                          : 'Supplier updates on your orders. Tap View order to open details.',
+                      forCdo
+                          ? 'Estate cancel / dispute and low-stock alerts. Tap Show to open the page.'
+                          : forSupplier
+                              ? 'New orders, disputes and low-stock alerts. Tap Show to open the page.'
+                              : 'Supplier updates on your orders. Tap Show to open details.',
                       style: const TextStyle(
                         fontSize: 12.5,
                         color: AppColors.muted,
@@ -142,7 +170,10 @@ Future<void> showFertAlerts(
                             itemBuilder: (_, i) => _AlertTile(
                               alerts[i],
                               forSupplier: forSupplier,
+                              forCdo: forCdo,
                               onCloseSheet: () => Navigator.pop(ctx),
+                              onOpenStock: onOpenStock,
+                              onOpenOrders: onOpenOrders,
                             ),
                           ),
                   ),
@@ -304,12 +335,18 @@ class _AlertTile extends StatelessWidget {
   const _AlertTile(
     this.alert, {
     required this.forSupplier,
+    this.forCdo = false,
     required this.onCloseSheet,
+    this.onOpenStock,
+    this.onOpenOrders,
   });
 
   final FertOwnerAlert alert;
   final bool forSupplier;
+  final bool forCdo;
   final VoidCallback onCloseSheet;
+  final VoidCallback? onOpenStock;
+  final VoidCallback? onOpenOrders;
 
   Color get _accent {
     switch (alert.kind) {
@@ -317,8 +354,13 @@ class _AlertTile extends StatelessWidget {
       case 'delivered':
         return AppColors.green;
       case 'cancelled':
+      case 'estate_dispute':
         return AppColors.dangerText;
+      case 'new_order':
+        return AppColors.green;
       case 'negotiating':
+        return AppColors.warning;
+      case 'low_stock':
         return AppColors.warning;
       default:
         return AppColors.muted;
@@ -330,33 +372,57 @@ class _AlertTile extends StatelessWidget {
       case 'accepted':
         return Icons.check_circle_outline;
       case 'cancelled':
+      case 'estate_dispute':
         return Icons.cancel_outlined;
+      case 'new_order':
+        return Icons.shopping_bag_outlined;
       case 'negotiating':
         return Icons.forum_outlined;
       case 'delivered':
         return Icons.local_shipping_outlined;
+      case 'low_stock':
+        return Icons.inventory_2_outlined;
       default:
         return Icons.notifications_outlined;
     }
   }
 
+  Future<void> _show(BuildContext context) async {
+    onCloseSheet();
+    // Why: low-stock alerts open Stock; order alerts open Orders / Messages.
+    if (alert.opensStock) {
+      onOpenStock?.call();
+      return;
+    }
+    if (alert.orderId.isNotEmpty) {
+      if (forCdo) {
+        // Why: CDO Show jumps into the matching Messages thread.
+        FertilizerStore.instance.pendingOpenGovId = alert.orderId;
+        onOpenOrders?.call();
+        return;
+      }
+      onOpenOrders?.call();
+      await _openOrderFromAlert(
+        context,
+        alert: alert,
+        forSupplier: forSupplier,
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Nothing to open for this alert.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canShow = alert.opensStock || alert.orderId.isNotEmpty;
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: alert.orderId.isEmpty
-            ? null
-            : () async {
-                onCloseSheet();
-                await _openOrderFromAlert(
-                  context,
-                  alert: alert,
-                  forSupplier: forSupplier,
-                );
-              },
+        onTap: canShow ? () => _show(context) : null,
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -392,7 +458,7 @@ class _AlertTile extends StatelessWidget {
                         height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Text(
@@ -403,13 +469,25 @@ class _AlertTile extends StatelessWidget {
                           ),
                         ),
                         const Spacer(),
-                        if (alert.orderId.isNotEmpty)
-                          Text(
-                            'View order',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.green,
+                        if (canShow)
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              foregroundColor: AppColors.green,
+                              backgroundColor: AppColors.greenSoft,
+                            ),
+                            onPressed: () => _show(context),
+                            child: Text(
+                              alert.opensStock ? 'Show stock' : 'Show',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                       ],
