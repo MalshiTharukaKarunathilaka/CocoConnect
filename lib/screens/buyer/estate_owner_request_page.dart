@@ -195,13 +195,15 @@ class _EstateOwnerRequestPageState extends State<EstateOwnerRequestPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            BuyerSectionTitle(
-                              text:
-                                  'Order Request for '
-                                  '${type.singular.toLowerCase()}s',
+                            Expanded(
+                              child: BuyerSectionTitle(
+                                text:
+                                    'Order Request for '
+                                    '${type.singular.toLowerCase()}s',
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             const BuyerPill(
                               text: 'OPEN',
                               background: Color(0xFFDDEEE0),
