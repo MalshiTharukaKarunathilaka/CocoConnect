@@ -1191,10 +1191,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 label: 'Partially filled',
               ),
               SizedBox(width: 24),
-              _WorkerCalendarLegend(
-                color: _workerGreen,
-                label: 'Fully filled',
-              ),
+              _WorkerCalendarLegend(color: _workerGreen, label: 'Fully filled'),
             ],
           ),
         ],
@@ -1780,63 +1777,89 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           ),
         ),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: _cardDecoration(),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF4F0E8),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: _workerGreen,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      firstJob.estateName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+        Semantics(
+          button: true,
+          label: 'View ${firstJob.estateName} location',
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _openEstateLocation(firstJob, jobs),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: _cardDecoration(),
+              child: Row(
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF4F0E8),
+                      borderRadius: BorderRadius.circular(17),
+                    ),
+                    child: Text(
+                      initials,
                       style: const TextStyle(
-                        color: _workerInk,
-                        fontSize: 17,
+                        color: _workerGreen,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Owner: ${firstJob.estateOwnerName}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: _workerMuted, fontSize: 13),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                firstJob.estateName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: _workerInk,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(
+                              Icons.check_circle,
+                              color: Color(0xFF65B985),
+                              size: 15,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Owner: ${firstJob.estateOwnerName}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: _workerMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        _estateRatingPill(firstJob),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    tooltip: 'View estate location',
+                    onPressed: () => _openEstateLocation(firstJob, jobs),
+                    icon: const Icon(
+                      Icons.location_on,
+                      color: _workerGreen,
+                      size: 32,
+                    ),
+                  ),
+                ],
               ),
-              IconButton(
-                tooltip: 'View estate location',
-                onPressed: () => _openEstateLocation(firstJob, jobs),
-                icon: const Icon(
-                  Icons.location_on,
-                  color: _workerGreen,
-                  size: 27,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -1887,6 +1910,39 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           ],
         ),
       ],
+    );
+  }
+
+  Widget _estateRatingPill(WorkerJob job) {
+    final average = job.estateOwnerAverageRating;
+    final label = average == null
+        ? 'New (0)'
+        : '${average.toStringAsFixed(1)} (${job.estateOwnerRatingCount})';
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFAED),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFFFD47A)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.star, color: Color(0xFFF5A623), size: 15),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF9A6400),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -2585,9 +2641,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     final categories = profile.workCategories.isEmpty
         ? 'No completed or accepted job categories yet'
         : profile.workCategories.join(', ');
-    final average = profile.completedJobs == 0
-        ? null
-        : profile.totalRatingMarks / profile.completedJobs;
+    final average = profile.averageRating;
     final ratingLabel = average == null ? 'New' : average.toStringAsFixed(1);
     final activeLabel = profile.activeJobs == 0
         ? 'Available for nearby jobs'
@@ -2682,12 +2736,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                       label: 'Accepted',
                     ),
                   ),
-                  Expanded(
-                    child: _WorkerProfileStat(
-                      value: ratingLabel,
-                      label: 'Rating',
-                    ),
-                  ),
+                  Expanded(child: _WorkerProfileRatingStat(value: ratingLabel)),
                 ],
               ),
             ],
@@ -2912,6 +2961,42 @@ class _WorkerProfileStat extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: const TextStyle(color: _workerMuted, fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
+class _WorkerProfileRatingStat extends StatelessWidget {
+  final String value;
+
+  const _WorkerProfileRatingStat({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.star, color: Color(0xFFE3A008), size: 22),
+            const SizedBox(width: 5),
+            Text(
+              value == 'New' ? value : '$value / 5',
+              style: const TextStyle(
+                color: _workerGreen,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Rating',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: _workerMuted, fontSize: 12),
         ),
       ],
     );
