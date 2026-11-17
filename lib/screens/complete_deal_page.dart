@@ -170,6 +170,7 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
 
     final double? diff = _difference(deal);
     final bool differs = diff != null && diff != 0;
+    final bool isHuskDeal = deal.productType.toUpperCase() == 'COCONUT_HUSK';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -208,7 +209,13 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
               const SizedBox(height: 18),
               Row(
                 children: [
-                  Expanded(child: _label('Final Price per Coconut (Rs.)')),
+                  Expanded(
+                    child: _label(
+                      isHuskDeal
+                          ? 'Final Price per Husk (Rs.)'
+                          : 'Final Price per Coconut (Rs.)',
+                    ),
+                  ),
                   Text(
                     'Agreed: ${rupees(deal.pricePerUnit)}',
                     style: const TextStyle(fontSize: 12, color: kOwnerMuted),
