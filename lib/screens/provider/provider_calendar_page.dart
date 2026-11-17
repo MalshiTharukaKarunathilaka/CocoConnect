@@ -1,3 +1,4 @@
+import '../../widgets/profile_widgets.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/provider_calendar.dart';
@@ -8,7 +9,6 @@ import '../../services/auth_service.dart';
 import '../../services/api_client.dart';
 import '../../services/provider_calendar_repository.dart';
 import '../../widgets/owner_widgets.dart';
-import '../../widgets/buyer_widgets.dart';
 import '../account_dialogs.dart';
 import '../auth_gate.dart';
 import '../buyer/buyer_format.dart';
@@ -111,7 +111,9 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
           revision == _calendarRevision &&
           month == _month &&
           (machine == null || machine == _live?.selectedMachineId)) {
-        setState(() => _data = Future.value(data));
+        setState(() {
+          _data = Future.value(data);
+        });
       }
     } on ApiException catch (_) {
       /* Explicit refresh displays connection errors. */
@@ -540,7 +542,6 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
             icon: const Icon(Icons.add),
             label: const Text('Add Machinery'),
           ),
-          
         ],
       ),
     );
@@ -725,7 +726,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
         ),
       ),
       const SizedBox(height: 4),
-    
+
       const SizedBox(height: 16),
       _inventory(),
       _calendar(data),
@@ -1302,145 +1303,28 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
 
   Widget _profile() {
     final user = AuthService.currentUser;
-    final location = user?.location?.trim() ?? '';
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
-        const Text(
-          'Profile',
-          style: TextStyle(
-            fontSize: 27,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1A1A1A),
-          ),
-        ),
+        const ProfileTitle(),
         const SizedBox(height: 16),
-        BuyerCard(
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 32,
-                backgroundColor: kBuyerGreen,
-                child: Text(
-                  initialsOf(user?.name ?? 'Provider preview'),
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      user?.name ?? 'Provider preview',
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A1A1A),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const BuyerPill(
-                      text: 'SERVICE PROVIDER',
-                      background: Color(0xFFDDEEE0),
-                      foreground: kBuyerGreen,
-                    ),
-                    const SizedBox(height: 10),
-                    _profileInfo(
-                      Icons.phone_outlined,
-                      user?.phone ?? 'Preview account',
-                    ),
-                    const SizedBox(height: 4),
-                    _profileInfo(
-                      Icons.location_on_outlined,
-                      location.isEmpty ? 'No location added' : location,
-                      muted: location.isEmpty,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        ProfileIdentityCard(
+          name: user?.name ?? 'Provider preview',
+          role: 'Service Provider',
+          phone: user?.phone ?? 'Preview account',
+          location: user?.location,
         ),
         const SizedBox(height: 18),
-        const Text(
-          'ACCOUNT',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: kBuyerGrey,
-            letterSpacing: 0.6,
-          ),
-        ),
+        const ProfileSectionLabel('ACCOUNT'),
         const SizedBox(height: 8),
-        BuyerCard(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Column(
-            children: [
-              ListTile(
-                onTap: user == null ? null : () => _editProfile(user),
-                leading: const Icon(Icons.edit_outlined, color: kBuyerGreen),
-                title: const Text(
-                  'Edit profile',
-                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
-                ),
-                subtitle: const Text(
-                  'Name and location',
-                  style: TextStyle(fontSize: 12, color: kBuyerGrey),
-                ),
-                trailing: const Icon(
-                  Icons.chevron_right,
-                  color: Color(0xFFBBBBBB),
-                ),
-              ),
-              if (user != null) ...[
-                const Divider(height: 1, indent: 56, color: kBuyerBorder),
-                ListTile(
-                  onTap: () => confirmLogOut(context),
-                  leading: const Icon(Icons.logout, color: Color(0xFFC62828)),
-                  title: const Text(
-                    'Log out',
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFFC62828),
-                    ),
-                  ),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    color: Color(0xFFBBBBBB),
-                  ),
-                ),
-              ],
-            ],
-          ),
+        ProfileAccountCard(
+          onEdit: user == null ? null : () => _editProfile(user),
+          showLogout: user != null,
         ),
       ],
     );
   }
-
-  Widget _profileInfo(IconData icon, String text, {bool muted = false}) => Row(
-    children: [
-      Icon(icon, size: 15, color: kBuyerGrey),
-      const SizedBox(width: 6),
-      Expanded(
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 13,
-            color: muted ? const Color(0xFFAAAAAA) : const Color(0xFF3A3A3A),
-            fontStyle: muted ? FontStyle.italic : FontStyle.normal,
-          ),
-        ),
-      ),
-    ],
-  );
 }
 
 Widget _dot(Color color) => Container(

@@ -19,6 +19,11 @@ String roleLabel(String role) =>
       'ESTATE_OWNER': 'Land Owner',
       'ESTATE_MANAGER': 'Estate Manager',
       'SERVICE_PROVIDER': 'Service Provider',
+      'WORKER': 'Day Job Worker',
+      'FERTILIZER_SUPPLIER': 'Fertilizer Supplier',
+      'CDO': 'Coconut Development Officer',
+      'REGIONAL_MANAGER': 'Regional Manager',
+      'CHAIRMAN': 'Chairman',
     }[role] ??
     role;
 

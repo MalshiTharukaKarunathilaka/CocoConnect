@@ -1,3 +1,4 @@
+import '../account_profile_page.dart';
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
@@ -266,6 +267,11 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
             ),
           ),
           const SizedBox(width: 10),
+          IconButton(
+            tooltip: 'Profile',
+            onPressed: () => openAccountProfile(context),
+            icon: const Icon(Icons.account_circle_outlined, color: AppColors.green),
+          ),
           IconButton(
             tooltip: 'Log out / switch role',
             onPressed: () => confirmLogOut(context),

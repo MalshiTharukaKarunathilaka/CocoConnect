@@ -1,3 +1,4 @@
+import '../account_profile_page.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/owner_widgets.dart';
 import '../account_dialogs.dart';
@@ -24,6 +25,7 @@ class FertPage extends StatelessWidget {
   final Widget? bottom;
   final bool showLogout;
   final bool showBack;
+
   /// Estate-owner bell for supplier accept / cancel / negotiate alerts.
   final bool showAlerts;
 
@@ -77,6 +79,16 @@ class FertPage extends StatelessWidget {
             showBack: showBack,
             actions: [
               if (showAlerts) const FertAlertBell(),
+              if (showLogout)
+                IconButton(
+                  tooltip: 'Profile',
+                  onPressed: () => openAccountProfile(context),
+                  icon: const Icon(
+                    Icons.account_circle_outlined,
+                    color: kOwnerGreen,
+                    size: 22,
+                  ),
+                ),
               if (showLogout)
                 IconButton(
                   tooltip: 'Log out',
@@ -155,8 +167,9 @@ class FertTabBar extends StatelessWidget {
                       style: TextStyle(
                         fontSize: items[i].$2.length > 11 ? 9.5 : 10.5,
                         height: 1.1,
-                        fontWeight:
-                            i == current ? FontWeight.bold : FontWeight.w600,
+                        fontWeight: i == current
+                            ? FontWeight.bold
+                            : FontWeight.w600,
                         color: i == current ? _green : _grey,
                       ),
                     ),
