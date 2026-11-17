@@ -32,7 +32,9 @@ class OwnerPage extends StatelessWidget {
         onTap: () => FocusScope.of(context).unfocus(),
         child: Center(
           child: Container(
-            width: kMachineryPageWidth,
+            width: MediaQuery.sizeOf(context).width < kMachineryPageWidth + 24
+                ? MediaQuery.sizeOf(context).width
+                : kMachineryPageWidth,
             height: double.infinity,
             color: kOwnerCream,
             child: SafeArea(

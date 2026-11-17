@@ -16,6 +16,7 @@ class FertPage extends StatelessWidget {
     this.showLogout = false,
     this.showBack = true,
     this.showAlerts = false,
+    this.supplierAlerts = false,
   });
 
   final String title;
@@ -26,6 +27,8 @@ class FertPage extends StatelessWidget {
   final bool showBack;
   /// Estate-owner bell for supplier accept / cancel / negotiate alerts.
   final bool showAlerts;
+  /// Supplier bell for new orders / disputes / low stock.
+  final bool supplierAlerts;
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +80,7 @@ class FertPage extends StatelessWidget {
             showBack: showBack,
             actions: [
               if (showAlerts) const FertAlertBell(),
+              if (supplierAlerts) const FertAlertBell(forSupplier: true),
               if (showLogout)
                 IconButton(
                   tooltip: 'Log out',

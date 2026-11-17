@@ -4,6 +4,7 @@ import 'fertilizer_complaints_page.dart';
 import 'fertilizer_data.dart';
 import 'fertilizer_gov_order_form.dart';
 import 'fertilizer_map_page.dart';
+import 'fertilizer_processing_banner.dart';
 import 'fertilizer_requests_page.dart';
 
 /// Owner fertilizer shell — same tabs as the HTML demo bottom nav.
@@ -43,14 +44,22 @@ class _FertilizerHubState extends State<FertilizerHub> {
         items: const [
           (Icons.home_outlined, 'Hub'),
           (Icons.grid_view_rounded, 'Suppliers'),
-          (Icons.account_balance_outlined, 'CCB'),
+          (Icons.account_balance_outlined, 'Government'),
           (Icons.receipt_long_outlined, 'My orders'),
           (Icons.flag_outlined, 'Complaints'),
         ],
         current: _tab,
         onTap: (i) => setState(() => _tab = i),
       ),
-      child: _body(),
+      child: Column(
+        children: [
+          if (_tab != 4)
+            FertProcessingBanner(
+              onOpenOrders: () => setState(() => _tab = 3),
+            ),
+          Expanded(child: _body()),
+        ],
+      ),
     );
   }
 
@@ -59,7 +68,7 @@ class _FertilizerHubState extends State<FertilizerHub> {
       case 1:
         return 'Private suppliers';
       case 2:
-        return 'CCB programme';
+        return 'Government';
       case 3:
         return 'My orders';
       case 4:

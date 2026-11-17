@@ -4,7 +4,12 @@ import '../../theme/app_theme.dart';
 import '../../widgets/owner_widgets.dart';
 import '../account_dialogs.dart';
 import '../buyer/buyer_format.dart';
+import 'fertilizer_cancel_reasons.dart';
+import 'fertilizer_cdo_request_sheet.dart';
 import 'fertilizer_data.dart';
+import 'fertilizer_dispute_sheet.dart';
+import 'fertilizer_supplier_chat_page.dart';
+import 'fertilizer_processing_banner.dart';
 
 /// Supplier or CDO calendar — one login = one shop / one CDO desk.
 class SupplierCalendarPage extends StatefulWidget {
@@ -31,21 +36,33 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
 
   List<FertOrder> get _pending => _store.pendingAck;
 
+  List<FertGovRequest> get _cdoPending => _store.pendingCdoAck;
+
   String _key(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+  /// All shop orders by preferred date — so tapping a day can open any order.
   Map<String, List<FertOrder>> get _byDate {
     final map = <String, List<FertOrder>>{};
-    for (final o in _pending) {
+    for (final o in _store.myShopOrders) {
       final k = _key(o.preferredDate);
       map.putIfAbsent(k, () => []).add(o);
     }
     return map;
   }
 
+  Map<String, List<FertGovRequest>> get _cdoByDate {
+    final map = <String, List<FertGovRequest>>{};
+    for (final r in _store.myCdoRequests) {
+      final k = _key(r.date);
+      map.putIfAbsent(k, () => []).add(r);
+    }
+    return map;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final pending = _pending;
+    final pendingCount = _isCdo ? _cdoPending.length : _pending.length;
     final daysInMonth = DateTime(_cursor.year, _cursor.month + 1, 0).day;
     final firstWeekday = DateTime(_cursor.year, _cursor.month, 1).weekday % 7;
 
@@ -57,13 +74,6 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
             subtitle: _shop.company.toUpperCase(),
             showBack: false,
             actions: [
-              IconButton(
-                tooltip: 'Availability',
-                icon: const Icon(Icons.inventory_2_outlined, color: AppColors.green),
-                onPressed: () => _openAvail(
-                  DateTime.now().add(const Duration(days: 1)),
-                ),
-              ),
               IconButton(
                 tooltip: 'Log out',
                 icon: const Icon(Icons.logout, color: AppColors.green),
@@ -86,17 +96,10 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                     ),
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Availability',
-                  icon: const Icon(Icons.inventory_2_outlined, color: AppColors.green),
-                  onPressed: () => _openAvail(
-                    DateTime.now().add(const Duration(days: 1)),
-                  ),
-                ),
               ],
             ),
           ),
-          if (pending.isNotEmpty)
+          if (pendingCount > 0)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
               child: Container(
@@ -119,7 +122,7 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
-                        '${pending.length} pending acknowledgements',
+                        '$pendingCount pending acknowledgements',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -211,19 +214,33 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                           final day = i - firstWeekday + 1;
                           final date = DateTime(_cursor.year, _cursor.month, day);
                           final key = _key(date);
-                          final pend = _byDate[key] ?? const <FertOrder>[];
+                          final count = _isCdo
+                              ? (_cdoByDate[key]?.length ?? 0)
+                              : (_byDate[key]?.length ?? 0);
                           return InkWell(
-                            onTap: () => _openDay(date, pend),
+                            onTap: () {
+                              if (_isCdo) {
+                                _openCdoDay(
+                                  date,
+                                  _cdoByDate[key] ?? const <FertGovRequest>[],
+                                );
+                              } else {
+                                _openDay(
+                                  date,
+                                  _byDate[key] ?? const <FertOrder>[],
+                                );
+                              }
+                            },
                             borderRadius: BorderRadius.circular(14),
                             child: Container(
                               margin: const EdgeInsets.all(2),
                               padding: const EdgeInsets.all(5),
                               decoration: BoxDecoration(
-                                color: pend.isNotEmpty
+                                color: count > 0
                                     ? const Color(0xFFFDECEC)
                                     : const Color(0xFFF0F6F1),
                                 borderRadius: BorderRadius.circular(14),
-                                border: pend.isNotEmpty
+                                border: count > 0
                                     ? Border.all(color: kOwnerRed, width: 1.2)
                                     : null,
                               ),
@@ -241,7 +258,7 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                                       ),
                                     ),
                                   ),
-                                  if (pend.isNotEmpty)
+                                  if (count > 0)
                                     Positioned(
                                       left: 2,
                                       bottom: 0,
@@ -254,7 +271,7 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                                           shape: BoxShape.circle,
                                         ),
                                         child: Text(
-                                          '${pend.length}',
+                                          '$count',
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 9.5,
@@ -273,18 +290,37 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'Needs acknowledgement',
-                  style: TextStyle(
+                Text(
+                  _isCdo
+                      ? 'Applications needing acknowledgement'
+                      : 'Orders needing acknowledgement',
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
                   ),
                 ),
                 const SizedBox(height: 8),
-                for (final o in pending) ...[
-                  _pendingCard(o),
-                  const SizedBox(height: 8),
-                ],
+                if (_isCdo) ...[
+                  if (_cdoPending.isEmpty)
+                    const Text(
+                      'No pending applications. Tap a day to view submitted forms.',
+                      style: TextStyle(color: kOwnerMuted, fontSize: 13),
+                    )
+                  else
+                    for (final r in _cdoPending) ...[
+                      _cdoPendingCard(r),
+                      const SizedBox(height: 8),
+                    ],
+                ] else if (_pending.isEmpty)
+                  const Text(
+                    'No pending orders. Tap a calendar day to view scheduled orders.',
+                    style: TextStyle(color: kOwnerMuted, fontSize: 13),
+                  )
+                else
+                  for (final o in _pending) ...[
+                    _pendingCard(o),
+                    const SizedBox(height: 8),
+                  ],
               ],
             ),
           ),
@@ -340,7 +376,60 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
     );
   }
 
-  void _openDay(DateTime date, List<FertOrder> pend) {
+  Widget _cdoPendingCard(FertGovRequest r) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kOwnerBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${r.id} · ${r.fertilizer}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              OwnerPill(r.status, tone: PillTone.neutral),
+            ],
+          ),
+          Text(
+            '${r.owner} · ${r.requested} bags · ${shortDate(r.date)}',
+            style: const TextStyle(fontSize: 12.5, color: kOwnerMuted),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kOwnerGreen,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => _openCdoForm(r),
+              child: const Text('View'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openCdoForm(FertGovRequest r) async {
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => FertilizerCdoRequestSheet(request: r),
+    );
+    if (ok == true && mounted) setState(() {});
+  }
+
+  void _openCdoDay(DateTime date, List<FertGovRequest> dayRequests) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -362,43 +451,39 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
                 color: kOwnerGreen,
               ),
             ),
+            const SizedBox(height: 4),
+            const Text(
+              'Tap to open the estate form. Accept or cancel only.',
+              style: TextStyle(fontSize: 12.5, color: kOwnerMuted),
+            ),
             const SizedBox(height: 10),
-            if (pend.isEmpty)
+            if (dayRequests.isEmpty)
               const Text(
-                'No pending requests on this day.',
+                'No applications on this day.',
                 style: TextStyle(color: kOwnerMuted),
               )
             else
-              for (final o in pend)
+              for (final r in dayRequests)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(o.id, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('${o.owner} · ${o.product}'),
+                  title: Text(
+                    r.id,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text('${r.owner} · ${r.fertilizer} · ${r.status}'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.pop(ctx);
-                    _openJob(o);
+                    _openCdoForm(r);
                   },
                 ),
-            const Divider(),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _openAvail(date);
-                },
-                child: const Text('Set availability for this day'),
-              ),
-            ),
           ],
         ),
       ),
     );
   }
 
-  void _openAvail(DateTime date) {
-    final key = _key(date);
+  void _openDay(DateTime date, List<FertOrder> dayOrders) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -406,424 +491,349 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      builder: (ctx) {
-        final cur = Map<String, FertDayAvail>.from(
-          _store.availability[key] ?? {},
-        );
-        return StatefulBuilder(
-          builder: (ctx, setLocal) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                16,
-                16,
-                16 + MediaQuery.of(ctx).viewInsets.bottom,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              shortDate(date),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: kOwnerGreen,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Availability · ${shortDate(date)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: kOwnerGreen,
-                    ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Tap an order to open full details.',
+              style: TextStyle(fontSize: 12.5, color: kOwnerMuted),
+            ),
+            const SizedBox(height: 10),
+            if (dayOrders.isEmpty)
+              const Text(
+                'No orders on this day.',
+                style: TextStyle(color: kOwnerMuted),
+              )
+            else
+              for (final o in dayOrders)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    o.id,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  Text(
-                    'Only ${_shop.company} products',
-                    style: const TextStyle(fontSize: 12.5, color: kOwnerMuted),
-                  ),
-                  const SizedBox(height: 10),
-                  for (final item in _shop.items) ...[
-                    Builder(
-                      builder: (_) {
-                        final ik = '${_shop.id}::${item.name}';
-                        final row = cur[ik] ??
-                            FertDayAvail(mode: 'units', qty: item.stock50);
-                        cur[ik] = row;
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: kOwnerBorder),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${item.name} · 50 kg',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                '${_shop.company} · sold as ${item.unit} · ${rupees(item.perKg)}/kg',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: kOwnerMuted,
-                                ),
-                              ),
-                              Row(
-                                children: [
-                                  Radio<String>(
-                                    value: 'unlimited',
-                                    groupValue: row.mode,
-                                    activeColor: kOwnerGreen,
-                                    onChanged: (v) => setLocal(() {
-                                      row.mode = v!;
-                                      row.qty = null;
-                                    }),
-                                  ),
-                                  const Text('Unlimited'),
-                                  Radio<String>(
-                                    value: 'units',
-                                    groupValue: row.mode,
-                                    activeColor: kOwnerGreen,
-                                    onChanged: (v) => setLocal(() {
-                                      row.mode = v!;
-                                      row.qty ??= item.stock50;
-                                    }),
-                                  ),
-                                  const Text('Units (50 kg)'),
-                                ],
-                              ),
-                              if (row.mode == 'units')
-                                TextFormField(
-                                  initialValue: '${row.qty ?? item.stock50}',
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
-                                    isDense: true,
-                                    border: OutlineInputBorder(),
-                                    labelText: 'Number of 50 kg units',
-                                  ),
-                                  onChanged: (v) =>
-                                      row.qty = int.tryParse(v) ?? 0,
-                                ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kOwnerGreen,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: () {
-                        _store.availability[key] = cur;
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Availability saved for $key'),
-                          ),
-                        );
-                        setState(() {});
-                      },
-                      child: const Text('Save availability'),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  /// Simple note box for Negotiate / Cancel. Returns null if the supplier backs out.
-  Future<String?> _askNote({required String title, required String hint}) async {
-    final ctrl = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (dCtx) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: ctrl,
-          maxLines: 3,
-          decoration: InputDecoration(hintText: hint),
-          autofocus: true,
+                  subtitle: Text('${o.owner} · ${o.product} · ${o.status}'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openJob(o);
+                  },
+                ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dCtx),
-            child: const Text('Back'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(dCtx, ctrl.text.trim()),
-            child: const Text('Confirm'),
-          ),
-        ],
       ),
     );
-    ctrl.dispose();
-    return result;
   }
 
   void _openJob(FertOrder o) {
     final loc = FertilizerStore.estateGeo[o.owner] ??
         FertilizerStore.estateGeo['Your Estate']!;
+    final mapH = (MediaQuery.sizeOf(context).height * 0.22).clamp(120.0, 180.0);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(ctx).size.height * 0.85,
-        decoration: const BoxDecoration(
-          color: kOwnerCream,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      o.id,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: kOwnerGreen,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: 200,
-              child: FlutterMap(
-                options: MapOptions(
-                  initialCenter: loc,
-                  initialZoom: 13.5,
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.example.kapconnect_mobile',
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: loc,
-                        width: 120,
-                        height: 60,
-                        alignment: Alignment.topCenter,
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: kOwnerBorder),
-                              ),
-                              child: Text(
-                                o.owner,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const Icon(Icons.location_on, color: kOwnerRed, size: 28),
-                          ],
+      builder: (ctx) => Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 430,
+            maxHeight: MediaQuery.sizeOf(ctx).height * 0.9,
+          ),
+          child: Material(
+            color: kOwnerCream,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(22)),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          o.id,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: kOwnerGreen,
+                          ),
                         ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Text(
-                    '${o.owner} → ${o.company}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                ),
+                SizedBox(
+                  height: mapH,
+                  child: FlutterMap(
+                    options: MapOptions(
+                      initialCenter: loc,
+                      initialZoom: 13.5,
                     ),
-                  ),
-                  Text(
-                    '${shortDate(o.preferredDate)} · ${o.slot}',
-                    style: const TextStyle(color: kOwnerMuted),
-                  ),
-                  const SizedBox(height: 6),
-                  OwnerPill(o.status, tone: PillTone.neutral),
-                  const SizedBox(height: 10),
-                  for (final line in o.items)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${line.item.name} · 50 kg\n${line.qty50} units · ${rupees(line.item.price50)} / 50 kg',
-                              style: const TextStyle(fontSize: 13),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.example.kapconnect_mobile',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: loc,
+                            width: 120,
+                            height: 60,
+                            alignment: Alignment.topCenter,
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: kOwnerBorder),
+                                  ),
+                                  child: Text(
+                                    o.owner,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.location_on,
+                                  color: kOwnerRed,
+                                  size: 28,
+                                ),
+                              ],
                             ),
-                          ),
-                          Text(
-                            rupees(line.lineTotal),
-                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
-                    ),
-                  Text(o.message, style: const TextStyle(color: kOwnerMuted)),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Negotiation',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    ],
                   ),
-                  if (o.negotiation.isEmpty)
-                    const Text(
-                      'No negotiation on this order yet.',
-                      style: TextStyle(color: kOwnerMuted),
-                    )
-                  else
-                    for (final m in o.negotiation)
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          m.from,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                        subtitle: Text(m.text),
-                        trailing: Text(
-                          m.time,
-                          style: const TextStyle(fontSize: 11, color: kOwnerMuted),
+                ),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      Text(
+                        '${o.owner} → ${o.company}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
                         ),
                       ),
-                  const SizedBox(height: 12),
-                  if (o.status == 'Pending Ack' || o.status == 'Negotiating') ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: kOwnerGreen,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            onPressed: () {
-                              _store.acceptOrder(o.id);
-                              Navigator.pop(ctx);
-                              setState(() {});
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('${o.id} accepted')),
-                              );
-                            },
-                            child: const Text('Accept'),
+                      Text(
+                        '${shortDate(o.preferredDate)} · ${o.slot}',
+                        style: const TextStyle(color: kOwnerMuted),
+                      ),
+                      const SizedBox(height: 6),
+                      FertOrderStatusDot(status: o.status),
+                      const SizedBox(height: 10),
+                      for (final line in o.items)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${line.item.name} · 50 kg\n${line.qty50} units · ${rupees(line.item.price50)} / 50 kg',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                              Text(
+                                rupees(line.lineTotal),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: kOwnerGreen,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                      Text(
+                        o.message,
+                        style: const TextStyle(color: kOwnerMuted),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Negotiation happens in chat — open it to message and Approve.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: kOwnerMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (o.status == 'Pending Ack' ||
+                          o.status == 'Negotiating') ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: kOwnerGreen,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                onPressed: () {
+                                  _store.acceptOrder(o.id);
+                                  Navigator.pop(ctx);
+                                  setState(() {});
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('${o.id} accepted'),
+                                    ),
+                                  );
+                                },
+                                child: const Text('Accept'),
+                              ),
+                            ),
+                            // Why: private suppliers negotiate price; CDO government forms do not.
+                            if (!_isCdo) ...[
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: kOwnerGreen,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  onPressed: () async {
+                                    Navigator.pop(ctx);
+                                    await Navigator.push<bool>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            FertilizerSupplierChatPage(
+                                          order: o,
+                                        ),
+                                      ),
+                                    );
+                                    if (mounted) setState(() {});
+                                  },
+                                  child: const Text('Negotiate'),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.dangerText,
+                              backgroundColor: AppColors.dangerSoft,
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12),
+                              shape: const StadiumBorder(),
                             ),
                             onPressed: () async {
-                              final note = await _askNote(
-                                title: 'Negotiation',
-                                hint: 'e.g. Can do 8 bags on 18 Nov morning',
+                              final note = await showFertCancelReasons(
+                                context,
+                                title: 'Cancel ${o.id}',
                               );
                               if (note == null) return;
-                              _store.startNegotiation(o.id, note: note);
+                              _store.cancelOrder(
+                                o.id,
+                                bySupplier: true,
+                                note: note,
+                              );
                               if (ctx.mounted) Navigator.pop(ctx);
                               setState(() {});
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('${o.id} · negotiation started'),
+                                  content: Text(
+                                    '${o.id} cancelled · estate will see this',
+                                  ),
                                 ),
                               );
                             },
-                            child: const Text('Negotiate'),
+                            child: const Text('Cancel'),
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.dangerText,
-                          backgroundColor: AppColors.dangerSoft,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: const StadiumBorder(),
-                        ),
-                        onPressed: () async {
-                          final note = await _askNote(
-                            title: 'Cancel order',
-                            hint: 'Optional reason for the estate',
-                          );
-                          // null = closed sheet without confirm; empty string = cancel with no reason
-                          if (note == null) return;
-                          _store.cancelOrder(
-                            o.id,
-                            bySupplier: true,
-                            note: note.isEmpty ? null : note,
-                          );
-                          if (ctx.mounted) Navigator.pop(ctx);
-                          setState(() {});
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${o.id} cancelled · estate will see this'),
+                      if (o.status == 'Accepted' ||
+                          o.status == 'Stock Confirmed') ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.green,
+                              foregroundColor: Colors.white,
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
                             ),
-                          );
-                        },
-                        child: const Text('Cancel'),
-                      ),
-                    ),
-                  ],
-                  if (o.status == 'Accepted' || o.status == 'Stock Confirmed')
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.green,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                            onPressed: () {
+                              _store.markDelivered(o.id);
+                              Navigator.pop(ctx);
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${o.id} marked delivered'),
+                                ),
+                              );
+                            },
+                            child: const Text('Mark delivered'),
+                          ),
                         ),
-                        onPressed: () {
-                          _store.markDelivered(o.id);
-                          Navigator.pop(ctx);
-                          setState(() {});
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('${o.id} marked delivered')),
-                          );
-                        },
-                        child: const Text('Mark delivered'),
-                      ),
-                    ),
-                ],
-              ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.dangerText,
+                              backgroundColor: AppColors.dangerSoft,
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12),
+                              shape: const StadiumBorder(),
+                            ),
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              final ok = await showModalBottomSheet<bool>(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => FertilizerDisputeSheet(
+                                  order: o,
+                                  bySupplier: true,
+                                ),
+                              );
+                              if (ok == true && mounted) setState(() {});
+                            },
+                            child: const Text('Dispute'),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

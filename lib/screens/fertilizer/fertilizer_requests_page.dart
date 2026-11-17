@@ -3,7 +3,9 @@ import 'fertilizer_chrome.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
+import 'fertilizer_dispute_sheet.dart';
 import 'fertilizer_order_edit_sheet.dart';
+import 'fertilizer_processing_banner.dart';
 
 /// My orders: private supplier orders and government requests, newest first.
 class FertilizerRequestsPage extends StatefulWidget {
@@ -17,6 +19,46 @@ class FertilizerRequestsPage extends StatefulWidget {
 
 class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
   final _store = FertilizerStore.instance;
+  /// all | private | gov — why: estate wants to filter shop vs government orders.
+  String _channel = 'all';
+  /// all | pending | accepted | cancelled | disputed | delivered
+  String _status = 'all';
+
+  bool _privateMatchesStatus(FertOrder o) {
+    switch (_status) {
+      case 'pending':
+        return o.status == 'Pending Ack' || o.status == 'Negotiating';
+      case 'accepted':
+        return o.status == 'Accepted' || o.status == 'Stock Confirmed';
+      case 'cancelled':
+        return o.status == 'Cancelled';
+      case 'delivered':
+        return o.status == 'Distributed';
+      case 'disputed':
+        return _store.complaints.any((c) => c.description.contains(o.id));
+      default:
+        return true;
+    }
+  }
+
+  bool _govMatchesStatus(FertGovRequest r) {
+    switch (_status) {
+      case 'pending':
+        return r.status == 'Pending Ack' || r.status == 'Negotiation';
+      case 'accepted':
+        return r.status == 'Accepted' ||
+            r.status == 'Receipt Confirmed' ||
+            (r.status == 'Distributed' && r.distributed == 0);
+      case 'cancelled':
+        return r.status == 'Cancelled' || r.status == 'Rejected';
+      case 'delivered':
+        return r.distributed > 0 || r.status == 'Distributed';
+      case 'disputed':
+        return _store.complaints.any((c) => c.description.contains(r.id));
+      default:
+        return true;
+    }
+  }
 
   Future<void> _viewPrivate(FertOrder o) async {
     await showModalBottomSheet<void>(
@@ -140,45 +182,115 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
     if (changed == true && mounted) setState(() {});
   }
 
+  Widget _filterRow({
+    required List<(String, String)> options,
+    required String selected,
+    required ValueChanged<String> onPick,
+  }) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final e in options)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: FilterChip(
+                label: Text(e.$2, style: const TextStyle(fontSize: 12)),
+                selected: selected == e.$1,
+                onSelected: (_) => onPick(e.$1),
+                selectedColor: AppColors.greenSoft,
+                checkmarkColor: AppColors.green,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final private = _store.ownerOrders('Your Estate');
-    final gov = _store.govRequests
+    final allPrivate = _store.ownerOrders('Your Estate');
+    final allGov = _store.govRequests
         .where((r) => r.owner == 'Your Estate')
         .toList();
-    final waiting = private.where((o) => o.status == 'Pending Ack').length +
-        gov.where((r) => r.status == 'Pending Ack').length;
-    final accepted = private.where((o) => o.status == 'Accepted').length;
-    final spend = private.fold<int>(0, (s, o) => s + o.price);
+    final private = allPrivate
+        .where(_privateMatchesStatus)
+        .where((_) => _channel == 'all' || _channel == 'private')
+        .toList();
+    final gov = allGov
+        .where(_govMatchesStatus)
+        .where((_) => _channel == 'all' || _channel == 'gov')
+        .toList();
+    final waiting = allPrivate.where((o) => o.status == 'Pending Ack').length +
+        allGov.where((r) => r.status == 'Pending Ack').length;
+    final accepted = allPrivate.where((o) => o.status == 'Accepted').length;
+    final spend = allPrivate.fold<int>(0, (s, o) => s + o.price);
 
     final body = ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
       children: [
-        _summary(private.length + gov.length, waiting, accepted, spend),
-        const SizedBox(height: 20),
-        _section(
-          Icons.storefront_outlined,
-          'Private suppliers',
-          private.length,
-          AppColors.green,
-        ),
-        const SizedBox(height: 10),
-        if (private.isEmpty)
-          _empty('No private orders yet')
-        else
-          for (final o in private) _privateCard(o),
+        _summary(allPrivate.length + allGov.length, waiting, accepted, spend),
         const SizedBox(height: 14),
-        _section(
-          Icons.account_balance_outlined,
-          'Government',
-          gov.length,
-          const Color(0xFF1F5E8C),
+        const Text(
+          'Supplier type',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        ),
+        const SizedBox(height: 6),
+        _filterRow(
+          options: const [
+            ('all', 'All'),
+            ('private', 'Private'),
+            ('gov', 'Government'),
+          ],
+          selected: _channel,
+          onPick: (v) => setState(() => _channel = v),
         ),
         const SizedBox(height: 10),
-        if (gov.isEmpty)
-          _empty('No government requests yet')
-        else
-          for (final r in gov) _govCard(r),
+        const Text(
+          'Order status',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        ),
+        const SizedBox(height: 6),
+        _filterRow(
+          options: const [
+            ('all', 'All'),
+            ('pending', 'Pending'),
+            ('accepted', 'Accepted'),
+            ('cancelled', 'Cancelled'),
+            ('disputed', 'Disputed'),
+            ('delivered', 'Delivered'),
+          ],
+          selected: _status,
+          onPick: (v) => setState(() => _status = v),
+        ),
+        const SizedBox(height: 16),
+        if (_channel != 'gov') ...[
+          _section(
+            Icons.storefront_outlined,
+            'Private suppliers',
+            private.length,
+            AppColors.green,
+          ),
+          const SizedBox(height: 10),
+          if (private.isEmpty)
+            _empty('No private orders in this filter')
+          else
+            for (final o in private) _privateCard(o),
+          const SizedBox(height: 14),
+        ],
+        if (_channel != 'private') ...[
+          _section(
+            Icons.account_balance_outlined,
+            'Government',
+            gov.length,
+            const Color(0xFF1F5E8C),
+          ),
+          const SizedBox(height: 10),
+          if (gov.isEmpty)
+            _empty('No government requests in this filter')
+          else
+            for (final r in gov) _govCard(r),
+        ],
       ],
     );
 
@@ -386,7 +498,31 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _badge(Icons.inventory_2_outlined, AppColors.green),
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              _badge(
+                                Icons.inventory_2_outlined,
+                                AppColors.green,
+                              ),
+                              Positioned(
+                                right: -3,
+                                bottom: -3,
+                                child: Container(
+                                  width: 14,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: fertStatusColor(o.status),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -408,6 +544,8 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                                     color: AppColors.muted,
                                   ),
                                 ),
+                                const SizedBox(height: 4),
+                                FertOrderStatusDot(status: o.status),
                               ],
                             ),
                           ),
@@ -481,6 +619,23 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                             TextButton(
                               onPressed: () => _editPrivate(o),
                               child: const Text('Edit'),
+                            ),
+                          if (o.status == 'Accepted')
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.dangerText,
+                              ),
+                              onPressed: () async {
+                                final ok = await showModalBottomSheet<bool>(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) =>
+                                      FertilizerDisputeSheet(order: o),
+                                );
+                                if (ok == true && mounted) setState(() {});
+                              },
+                              child: const Text('Dispute'),
                             ),
                         ],
                       ),
