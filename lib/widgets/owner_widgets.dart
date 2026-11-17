@@ -15,7 +15,8 @@ const Color kOwnerRed = Color(0xFFC62828);
 const Color kOwnerBrown = Color(0xFF8B4A1C);
 
 /// Shared phone canvas for estate owner and service provider machinery screens.
-const double kMachineryPageWidth = 390;
+/// Why: slightly wider on desktop web so taps are easier than a skinny 390 column.
+const double kMachineryPageWidth = 430;
 
 /// The phone-width cream page every estate owner screen sits in.
 class OwnerPage extends StatelessWidget {
