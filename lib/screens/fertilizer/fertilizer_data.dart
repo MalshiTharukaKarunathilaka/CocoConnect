@@ -115,6 +115,10 @@ class FertOrder {
     required this.status,
     required this.message,
     List<FertChat>? negotiation,
+    this.deliveredAt,
+    this.confirmedAt,
+    this.ratingFromOwner,
+    this.ratingFromProvider,
   }) : negotiation = List<FertChat>.from(negotiation ?? const []);
 
   final String id;
@@ -128,16 +132,36 @@ class FertOrder {
   int price;
   DateTime preferredDate;
   String slot;
-  String status; // Pending Ack | Accepted | Cancelled | Negotiating | Disputed
+  /// Pending Ack | Accepted | Cancelled | Negotiating | Delivered | Completed | Disputed
+  String status;
   String message;
   /// Chat notes between estate and supplier on this order.
   final List<FertChat> negotiation;
+  DateTime? deliveredAt;
+  DateTime? confirmedAt;
+  /// Estate rates the supplier (1–5) after completion.
+  int? ratingFromOwner;
+  /// Supplier rates the estate (1–5) after completion.
+  int? ratingFromProvider;
 
-  /// Why: cancelled / disputed / delivered jobs leave the supplier calendar.
+  bool get awaitsOwnerConfirm =>
+      status == 'Delivered' || status == 'Distributed';
+
+  bool get isCompleted => status == 'Completed';
+
+  bool get ownerCanRate =>
+      isCompleted && ratingFromOwner == null;
+
+  bool get providerCanRate =>
+      isCompleted && ratingFromProvider == null;
+
+  /// Why: cancelled / disputed / finished jobs leave the supplier calendar.
   bool get showsOnCalendar =>
       status != 'Cancelled' &&
       status != 'Disputed' &&
-      status != 'Distributed';
+      status != 'Distributed' &&
+      status != 'Delivered' &&
+      status != 'Completed';
 
   bool get isPendingAck =>
       status == 'Pending Ack' || status == 'Submitted';
@@ -294,6 +318,9 @@ class FertGovRequest {
     this.coconutSaplings = 0,
     this.annualHarvestNuts = 0,
     this.deliveryAt,
+    this.confirmedAt,
+    this.ratingFromOwner,
+    this.ratingFromProvider,
     List<FertChat>? chat,
   }) : chat = List<FertChat>.from(chat ?? const []);
 
@@ -309,8 +336,20 @@ class FertGovRequest {
   int distributed;
   /// Planned / confirmed delivery moment shown in CDO ↔ estate chat.
   DateTime? deliveryAt;
+  DateTime? confirmedAt;
+  int? ratingFromOwner;
+  int? ratingFromProvider;
   /// CDO ↔ estate messages for this government application.
   final List<FertChat> chat;
+
+  bool get awaitsOwnerConfirm =>
+      status == 'Delivered' || status == 'Distributed';
+
+  bool get isCompleted => status == 'Completed';
+
+  bool get ownerCanRate => isCompleted && ratingFromOwner == null;
+
+  bool get providerCanRate => isCompleted && ratingFromProvider == null;
 
   // From the request form (Annex 01 / RH/AGRI/CCB/01)
   final String estateName;
@@ -336,6 +375,8 @@ class FertGovRequest {
       status != 'Cancelled' &&
       status != 'Disputed' &&
       status != 'Distributed' &&
+      status != 'Delivered' &&
+      status != 'Completed' &&
       distributed == 0;
 
   bool get isPendingAck =>
@@ -1135,8 +1176,9 @@ class FertilizerStore {
       price: 35400,
       preferredDate: DateTime(2026, 11, 7),
       slot: 'Morning 8–11',
-      status: 'Accepted',
-      message: 'Already accepted sample order.',
+      status: 'Delivered',
+      message: 'Supplier marked delivered · waiting for your confirm',
+      deliveredAt: DateTime(2026, 11, 17, 15, 30),
     ),
     FertOrder(
       id: 'PO-501',
@@ -1249,7 +1291,7 @@ class FertilizerStore {
       requested: 20,
       approved: 20,
       distributed: 20,
-      status: 'Distributed',
+      status: 'Delivered',
       cdo: 'CDO - Mawathagama',
       date: DateTime(2026, 10, 12),
       district: 'Kurunegala',
@@ -1590,16 +1632,74 @@ class FertilizerStore {
     for (final o in orders) {
       if (o.id == id &&
           (o.status == 'Accepted' || o.status == 'Stock Confirmed')) {
-        o.status = 'Distributed';
-        o.message = 'Marked delivered by supplier';
+        o.status = 'Delivered';
+        o.deliveredAt = DateTime.now();
+        o.message = 'Supplier marked delivered · waiting for your confirm';
+        o.negotiation.add(
+          FertChat(o.agent, 'Goods marked as delivered.', _nowStamp()),
+        );
         notifyOwner(
-          title: '${o.company} marked delivered',
-          body: '${o.id} · ${o.product} is on the way / delivered.',
+          title: 'Confirm delivery · ${o.id}',
+          body: '${o.company} says ${o.product} was delivered. Tap to confirm.',
           kind: 'delivered',
           orderId: o.id,
         );
         return;
       }
+    }
+  }
+
+  /// Estate confirms bags arrived → order completed → both can rate.
+  void confirmOrderReceipt(String id) {
+    for (final o in orders) {
+      if (o.id == id && o.awaitsOwnerConfirm) {
+        o.status = 'Completed';
+        o.confirmedAt = DateTime.now();
+        o.message = 'Delivery confirmed · order completed';
+        o.negotiation.add(
+          FertChat(o.owner, 'I received the goods. Thank you.', _nowStamp()),
+        );
+        notifyOwner(
+          title: 'Order completed · rate ${o.company}',
+          body: '${o.id} · please leave a star rating.',
+          kind: 'delivered',
+          orderId: o.id,
+        );
+        notifySupplier(
+          title: 'Estate confirmed · ${o.id}',
+          body: '${o.owner} received the goods. You can rate them.',
+          kind: 'delivered',
+          orderId: o.id,
+        );
+        return;
+      }
+    }
+  }
+
+  void rateOrder(String id, {required int stars, required bool byOwner}) {
+    final s = stars.clamp(1, 5);
+    for (final o in orders) {
+      if (o.id != id || !o.isCompleted) continue;
+      if (byOwner) {
+        if (o.ratingFromOwner != null) return;
+        o.ratingFromOwner = s;
+        notifySupplier(
+          title: 'You got $s★ from ${o.owner}',
+          body: '${o.id} · ${o.product}',
+          kind: 'info',
+          orderId: o.id,
+        );
+      } else {
+        if (o.ratingFromProvider != null) return;
+        o.ratingFromProvider = s;
+        notifyOwner(
+          title: 'You got $s★ from ${o.company}',
+          body: '${o.id} · thank you for confirming delivery.',
+          kind: 'info',
+          orderId: o.id,
+        );
+      }
+      return;
     }
   }
 
@@ -1691,18 +1791,79 @@ class FertilizerStore {
     for (final r in govRequests) {
       if (r.id == id &&
           (r.status == 'Accepted' || r.status == 'Receipt Confirmed')) {
-        r.status = 'Distributed';
+        r.status = 'Delivered';
         r.distributed = r.approved > 0 ? r.approved : r.requested;
+        r.deliveryAt ??= DateTime.now();
         r.chat.add(
-          FertChat(r.cdo, 'Marked delivered by CDO.', _nowStamp()),
+          FertChat(r.cdo, 'Marked delivered by CDO. Please confirm receipt.', _nowStamp()),
         );
         notifyOwner(
-          title: 'Government fertilizer delivered',
-          body: '${r.id} · ${r.fertilizer} · ${r.distributed} bags',
+          title: 'Confirm delivery · ${r.id}',
+          body: '${r.cdo} delivered ${r.distributed} bags. Tap to confirm.',
           kind: 'delivered',
+          orderId: r.id,
         );
         break;
       }
+    }
+  }
+
+  void confirmGovReceipt(String id) {
+    for (final r in govRequests) {
+      if (r.id == id && r.awaitsOwnerConfirm) {
+        r.status = 'Completed';
+        r.confirmedAt = DateTime.now();
+        if (r.distributed <= 0) {
+          r.distributed = r.approved > 0 ? r.approved : r.requested;
+        }
+        r.chat.add(
+          FertChat(
+            r.estateName.isNotEmpty ? r.estateName : r.owner,
+            'I received the fertilizer. Order completed.',
+            _nowStamp(),
+          ),
+        );
+        notifyOwner(
+          title: 'Request completed · rate ${r.cdo}',
+          body: '${r.id} · leave a star rating.',
+          kind: 'delivered',
+          orderId: r.id,
+        );
+        notifyCdo(
+          title: 'Estate confirmed · ${r.id}',
+          body: 'Delivery confirmed. You can rate the estate.',
+          kind: 'delivered',
+          orderId: r.id,
+        );
+        break;
+      }
+    }
+  }
+
+  void rateGovRequest(String id, {required int stars, required bool byOwner}) {
+    final s = stars.clamp(1, 5);
+    for (final r in govRequests) {
+      if (r.id != id || !r.isCompleted) continue;
+      if (byOwner) {
+        if (r.ratingFromOwner != null) return;
+        r.ratingFromOwner = s;
+        notifyCdo(
+          title: 'You got $s★ from estate',
+          body: '${r.id} · ${r.fertilizer}',
+          kind: 'info',
+          orderId: r.id,
+        );
+      } else {
+        if (r.ratingFromProvider != null) return;
+        r.ratingFromProvider = s;
+        notifyOwner(
+          title: 'You got $s★ from ${r.cdo}',
+          body: '${r.id} · thank you.',
+          kind: 'info',
+          orderId: r.id,
+        );
+      }
+      break;
     }
   }
 
@@ -1718,6 +1879,8 @@ class FertilizerStore {
       if (r.id == id &&
           (r.status == 'Accepted' ||
               r.status == 'Receipt Confirmed' ||
+              r.status == 'Delivered' ||
+              r.status == 'Distributed' ||
               r.status == 'Pending Ack' ||
               r.status == 'Submitted')) {
         r.status = 'Disputed';

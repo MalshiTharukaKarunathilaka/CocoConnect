@@ -324,8 +324,17 @@ class StatusPill extends StatelessWidget {
         );
       case 'Accepted':
       case 'Receipt Confirmed':
-      case 'Distributed':
+      case 'Stock Confirmed':
         return const StatusPill('Accepted');
+      case 'Delivered':
+      case 'Distributed':
+        return const StatusPill(
+          'Delivered',
+          fg: AppColors.info,
+          bg: AppColors.infoSoft,
+        );
+      case 'Completed':
+        return const StatusPill('Completed');
       default:
         return StatusPill(
           status,

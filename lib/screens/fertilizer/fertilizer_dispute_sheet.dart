@@ -63,6 +63,9 @@ class _FertilizerDisputeSheetState extends State<FertilizerDisputeSheet> {
     final o = widget.order;
     final store = FertilizerStore.instance;
     final who = widget.bySupplier ? 'Supplier' : 'Estate';
+    // Why: after delivery, a dispute must close the order so confirm/rate stop.
+    o.status = 'Disputed';
+    o.message = 'Disputed · $_reason';
     store.addComplaint(
       FertComplaint(
         id: 'DP-${300 + store.complaints.length + 1}',

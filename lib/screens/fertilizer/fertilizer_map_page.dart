@@ -215,21 +215,6 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
       ),
     );
 
-    final banner = (!widget.embedded)
-        ? FertProcessingBanner(
-            onOpenOrders: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const FertilizerOrdersPage(),
-                ),
-              ).then((_) {
-                if (mounted) setState(() {});
-              });
-            },
-          )
-        : const SizedBox.shrink();
-
     final map = Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: ClipRRect(
@@ -246,7 +231,6 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         header,
-        banner,
         Expanded(
           flex: showOrders ? 5 : 8,
           child: map,

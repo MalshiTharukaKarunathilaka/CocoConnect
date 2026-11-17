@@ -6,6 +6,7 @@ import 'fertilizer_data.dart';
 import 'fertilizer_dispute_sheet.dart';
 import 'fertilizer_order_edit_sheet.dart';
 import 'fertilizer_processing_banner.dart';
+import 'fertilizer_receipt_rating.dart';
 
 /// My orders: private supplier orders and government requests, newest first.
 class FertilizerRequestsPage extends StatefulWidget {
@@ -640,6 +641,21 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                             ),
                         ],
                       ),
+                      if (o.awaitsOwnerConfirm ||
+                          o.ownerCanRate ||
+                          o.isCompleted) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: fertDeliveryActions(
+                            context: context,
+                            onChanged: () => setState(() {}),
+                            order: o,
+                            asOwner: true,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -654,7 +670,11 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
   Color _accent(String status) {
     switch (status) {
       case 'Accepted':
+      case 'Completed':
         return AppColors.green;
+      case 'Delivered':
+      case 'Distributed':
+        return AppColors.info;
       case 'Pending Ack':
         return AppColors.warning;
       default:
@@ -832,6 +852,21 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                           ),
                         ),
                       ],
+                      if (r.awaitsOwnerConfirm ||
+                          r.ownerCanRate ||
+                          r.isCompleted) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: fertDeliveryActions(
+                            context: context,
+                            onChanged: () => setState(() {}),
+                            gov: r,
+                            asOwner: true,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -844,7 +879,7 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
   }
 
   Widget _steps(int step) {
-    const labels = ['Sent', 'CDO approval', 'Distributed'];
+    const labels = ['Sent', 'CDO approval', 'Delivered'];
     final done = step;
     return Row(
       children: [

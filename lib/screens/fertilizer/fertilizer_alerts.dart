@@ -6,6 +6,7 @@ import 'fertilizer_data.dart';
 import 'fertilizer_dispute_sheet.dart';
 import 'fertilizer_order_edit_sheet.dart';
 import 'fertilizer_processing_banner.dart';
+import 'fertilizer_receipt_rating.dart';
 
 /// Bell in the fertilizer header — estate, supplier, or CDO alerts.
 class FertAlertBell extends StatelessWidget {
@@ -295,25 +296,46 @@ Future<void> _openOrderFromAlert(
                         },
                         child: const Text('Edit order'),
                       )
-                    else if (o.status == 'Accepted')
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.dangerText,
-                          backgroundColor: AppColors.dangerSoft,
-                        ),
-                        onPressed: () {
-                          Navigator.pop(sheetContext);
-                          showModalBottomSheet<bool>(
+                    else if (o.awaitsOwnerConfirm ||
+                        o.isCompleted ||
+                        (forSupplier &&
+                            (o.status == 'Accepted' ||
+                                o.providerCanRate)))
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ...fertDeliveryActions(
                             context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (_) => FertilizerDisputeSheet(
-                              order: o,
-                              bySupplier: forSupplier,
+                            onChanged: () {
+                              if (sheetContext.mounted) {
+                                Navigator.pop(sheetContext);
+                              }
+                            },
+                            order: o,
+                            asOwner: !forSupplier,
+                          ),
+                          if (o.status == 'Accepted')
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.dangerText,
+                                backgroundColor: AppColors.dangerSoft,
+                              ),
+                              onPressed: () {
+                                Navigator.pop(sheetContext);
+                                showModalBottomSheet<bool>(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => FertilizerDisputeSheet(
+                                    order: o,
+                                    bySupplier: forSupplier,
+                                  ),
+                                );
+                              },
+                              child: const Text('Dispute'),
                             ),
-                          );
-                        },
-                        child: const Text('Dispute'),
+                        ],
                       )
                     else
                       OutlinedButton(
