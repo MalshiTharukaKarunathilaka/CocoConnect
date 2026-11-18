@@ -1,3 +1,4 @@
+import '../theme/app_theme.dart';
 import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/owner_service.dart';
@@ -5,9 +6,9 @@ import '../services/owner_service.dart';
 const Color _jobGreen = Color(0xFF245F48);
 const Color _jobBackground = Color(0xFFFCF9F3);
 const Color _jobInk = Color(0xFF17251F);
-const Color _prefilledBackground = Color(0xFFE5E8E6);
-const Color _prefilledBorder = Color(0xFFB5BDB9);
-const Color _prefilledInk = Color(0xFF4F5954);
+const Color _prefilledBackground = AppColors.autoFilledBackground;
+const Color _prefilledBorder = AppColors.autoFilledBorder;
+const Color _prefilledInk = AppColors.autoFilledInk;
 
 class PostDayJobPage extends StatefulWidget {
   final DateTime requiredDate;
@@ -49,7 +50,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
       if (!mounted) return;
       setState(() => _loadingEstate = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not load your estate location')),
+        const SnackBar(content: Text('Could not load your land location')),
       );
     }
   }
@@ -131,7 +132,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
     if (_loadingEstate || _estateLocation.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Add your estate location before posting this job'),
+          content: Text('Add your land location before posting this job'),
         ),
       );
       return;
@@ -286,15 +287,16 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
           child: const Icon(Icons.sensors, color: _jobGreen, size: 31),
         ),
         const SizedBox(width: 14),
-        const Text(
-          'Post Day Job',
-          style: TextStyle(
-            color: _jobInk,
-            fontSize: 25,
-            fontWeight: FontWeight.bold,
+        Expanded(
+          child: const Text(
+            'Post Day Job',
+            style: TextStyle(
+              color: _jobInk,
+              fontSize: 25,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
-        const Spacer(),
         IconButton(
           tooltip: 'Close',
           onPressed: () => Navigator.maybePop(context),
@@ -332,6 +334,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
   Widget _categoryCard() {
     return _outlinedCard(
       child: DropdownButtonFormField<String>(
+        isExpanded: true,
         initialValue: _category,
         hint: const Text(
           'Select job category',
@@ -468,7 +471,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
                   )
                 : Text(
                     _displayLocation.isEmpty
-                        ? 'Estate location not set'
+                        ? 'Land location not set'
                         : _displayLocation,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

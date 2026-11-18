@@ -225,20 +225,22 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
         children: [
           const Icon(Icons.star, color: Color(0xFFE3A008), size: 28),
           const SizedBox(width: 9),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                rating == null
-                    ? 'Not rated yet'
-                    : '${rating.toStringAsFixed(1)} / 5',
-                style: const TextStyle(
-                  color: _profileInk,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  rating == null
+                      ? 'Not rated yet'
+                      : '${rating.toStringAsFixed(1)} / 5',
+                  style: const TextStyle(
+                    color: _profileInk,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -251,6 +253,7 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          scrollable: true,
           title: Text('Rate ${profile.name}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -261,8 +264,9 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
                   style: const TextStyle(color: _profileMuted),
                 ),
               const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
+                runSpacing: 4,
                 children: [
                   for (var value = 1; value <= 5; value++)
                     IconButton(

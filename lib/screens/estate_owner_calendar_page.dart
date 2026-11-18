@@ -1,3 +1,4 @@
+import '../widgets/deal_cancellation_dialog.dart';
 import 'dart:async';
 import '../widgets/mobile_sheet.dart';
 import '../widgets/role_navigation_page.dart';
@@ -203,7 +204,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                     child: FilledButton(
                       onPressed: () {
                         Navigator.pop(dialogContext);
-                        _showRateWorkerCompletionDialog(job);
+                        _confirmWorkerCompletion(job);
                       },
                       style: FilledButton.styleFrom(
                         backgroundColor: _calendarGreen,
@@ -230,400 +231,35 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     );
   }
 
-  Future<void> _showRateWorkerCompletionDialog(DayJob job) async {
-    if (!mounted) return;
-    int selectedRating = 5;
-    bool submitting = false;
-    final workerName = job.acceptedWorkers.isNotEmpty
-        ? job.acceptedWorkers.first.name
-        : 'Worker';
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final ratingLabels = {
-            1: 'Poor',
-            2: 'Fair',
-            3: 'Good',
-            4: 'Very Good',
-            5: 'Excellent',
-          };
-
-          return AlertDialog(
-            scrollable: true,
-            backgroundColor: const Color(0xFFFCF8EF),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            title: const Row(
-              children: [
-                Icon(Icons.star, color: Color(0xFFFFB300)),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Rate Worker Performance',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: _calendarInk,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Confirm completion of ${job.category} by rating $workerName.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFF6B7280), fontSize: 13),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (int star = 1; star <= 5; star++)
-                      IconButton(
-                        onPressed: submitting
-                            ? null
-                            : () => setDialogState(() => selectedRating = star),
-                        icon: Icon(
-                          star <= selectedRating ? Icons.star : Icons.star_border,
-                          color: const Color(0xFFFFB300),
-                          size: 38,
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$selectedRating / 5 · ${ratingLabels[selectedRating] ?? ''}',
-                  style: const TextStyle(
-                    color: _calendarGreen,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-              ],
-            ),
-            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-            actions: [
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 48,
-                      child: OutlinedButton(
-                        onPressed: submitting
-                            ? null
-                            : () {
-                                Navigator.pop(dialogContext);
-                                _showCompletionAcknowledgement(job);
-                              },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF6B7280),
-                          side: const BorderSide(color: Color(0xFFE5E7EB)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: const Text('Back'),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SizedBox(
-                      height: 48,
-                      child: FilledButton.icon(
-                        onPressed: submitting
-                            ? null
-                            : () async {
-                                setDialogState(() => submitting = true);
-                                try {
-                                  await OwnerService.completeDayJob(
-                                    job.id,
-                                    rating: selectedRating,
-                                  );
-                                  if (!mounted) return;
-                                  if (dialogContext.mounted) {
-                                    Navigator.pop(dialogContext);
-                                  }
-                                  _loadPostedJobs();
-                                  ScaffoldMessenger.of(this.context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Job confirmed and worker rating submitted! Deal finished.',
-                                      ),
-                                    ),
-                                  );
-                                } catch (error) {
-                                  if (mounted) {
-                                    final message = error is ApiException
-                                        ? error.message
-                                        : error.toString();
-                                    ScaffoldMessenger.of(this.context).showSnackBar(
-                                      SnackBar(content: Text(message)),
-                                    );
-                                  }
-                                } finally {
-                                  if (mounted) {
-                                    setDialogState(() => submitting = false);
-                                  }
-                                }
-                              },
-                        icon: submitting
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.check_circle_outline, size: 18),
-                        label: Text(submitting ? 'Saving…' : 'Submit'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _calendarGreen,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          );
-        },
-      ),
-    );
+  Future<void> _confirmWorkerCompletion(DayJob job) async {
+    try {
+      await OwnerService.completeDayJob(job.id);
+      if (!mounted) return;
+      await _loadPostedJobs();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Job completed. You can now rate each other.')),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
   }
 
   Future<void> _showCancelCompletionDialog(DayJob job) async {
-    if (!mounted) return;
-    const reasons = [
-      'Job is not needed now',
-      'Bad weather or site problem',
-      'Not enough workers',
-      'Workers are not available',
-      'Job was posted by mistake',
-      'Other',
-    ];
-    String selectedReason = reasons.first;
-    final noteController = TextEditingController();
-    bool submitting = false;
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            scrollable: true,
-            backgroundColor: const Color(0xFFFCF8EF),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            title: const Row(
-              children: [
-                Icon(Icons.cancel_outlined, color: Color(0xFFA32820)),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Cancel Job Completion',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: _calendarInk,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Select why you are not confirming completion:',
-                  style: TextStyle(
-                    color: Color(0xFF6B7280),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                for (final reason in reasons)
-                  InkWell(
-                    onTap: submitting
-                        ? null
-                        : () => setDialogState(() => selectedReason = reason),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Icon(
-                            selectedReason == reason
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_off,
-                            color: selectedReason == reason
-                                ? const Color(0xFFA32820)
-                                : const Color(0xFFCBD5E1),
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              reason,
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                color: selectedReason == reason
-                                    ? _calendarInk
-                                    : const Color(0xFF4A5568),
-                                fontWeight: selectedReason == reason
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Optional note:',
-                  style: TextStyle(
-                    color: Color(0xFF6B7280),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: noteController,
-                  maxLines: 3,
-                  enabled: !submitting,
-                  decoration: InputDecoration(
-                    hintText: 'Add comments or instructions for the worker...',
-                    hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFFA0AEC0)),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFA32820), width: 1.5),
-                    ),
-                    contentPadding: const EdgeInsets.all(12),
-                  ),
-                ),
-              ],
-            ),
-            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-            actions: [
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 48,
-                      child: OutlinedButton(
-                        onPressed: submitting
-                            ? null
-                            : () {
-                                Navigator.pop(dialogContext);
-                                _showCompletionAcknowledgement(job);
-                              },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF6B7280),
-                          side: const BorderSide(color: Color(0xFFE5E7EB)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: const Text('Back'),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SizedBox(
-                      height: 48,
-                      child: FilledButton.icon(
-                        onPressed: submitting
-                            ? null
-                            : () async {
-                                setDialogState(() => submitting = true);
-                                try {
-                                  await OwnerService.cancelDayJobCompletion(
-                                    jobId: job.id,
-                                    reason: selectedReason,
-                                    note: noteController.text,
-                                  );
-                                  if (!mounted) return;
-                                  if (dialogContext.mounted) {
-                                    Navigator.pop(dialogContext);
-                                  }
-                                  _loadPostedJobs();
-                                  ScaffoldMessenger.of(this.context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Job completion cancelled. Reason recorded.',
-                                      ),
-                                    ),
-                                  );
-                                } catch (error) {
-                                  if (mounted) {
-                                    final message = error is ApiException
-                                        ? error.message
-                                        : error.toString();
-                                    ScaffoldMessenger.of(this.context).showSnackBar(
-                                      SnackBar(content: Text(message)),
-                                    );
-                                  }
-                                } finally {
-                                  if (mounted) {
-                                    setDialogState(() => submitting = false);
-                                  }
-                                }
-                              },
-                        icon: submitting
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                        label: Text(submitting ? 'Submitting…' : 'Submit'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFFA32820),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          );
-        },
-      ),
-    );
+    final details = await showDealCancellationDialog(context, type: DealCancellationType.dayJobCompletion);
+    if (details == null || !mounted) return;
+    try {
+      await ApiClient.post('/api/owner/day-jobs/${job.id}/cancel', details);
+      if (mounted) await _loadPostedJobs();
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
   }
 
   Widget _ackDetail(String label, String value) {
@@ -878,8 +514,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
               ],
             ),
           ),
-          const Spacer(),
-          const LanguageSelector(),
+          const Flexible(child: LanguageSelector()),
           const SizedBox(width: 10),
         ],
       ),

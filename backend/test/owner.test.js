@@ -624,8 +624,8 @@ test("worker acceptance appears in the land owner's job details", async () => {
     `/api/owner/day-jobs/${historicalJob.data.id}/complete`,
     { token: owner.token }
   );
-  assert.equal(historicalCompletion.status, 200);
-  assert.equal(historicalCompletion.data.status, "AWAITING_WORKER_ACK");
+  assert.equal(historicalCompletion.status, 409);
+  await pool.query("UPDATE day_jobs SET status = 'AWAITING_WORKER_ACK' WHERE id = $1", [historicalJob.data.id]);
 
   const ownerJobsAwaitingWorker = await call("GET", "/api/owner/day-jobs", {
     token: owner.token,
@@ -643,8 +643,8 @@ test("worker acceptance appears in the land owner's job details", async () => {
     `/api/owner/day-jobs/${historicalJob.data.id}/workers/1/rating`,
     { token: owner.token, body: { rating: 4 } }
   );
-  assert.equal(ratingWhileAwaitingWorker.status, 200);
-  assert.equal(ratingWhileAwaitingWorker.data.rating, 4);
+  assert.equal(ratingWhileAwaitingWorker.status, 404);
+
 
   // Recover an acknowledgement interrupted after its status changed but
   // before its required estate-owner rating was saved.
@@ -789,15 +789,21 @@ test("worker acceptance appears in the land owner's job details", async () => {
     token: worker.token,
   });
   await call(
+    "POST",
+    `/api/worker/jobs/${unratedHistoricalJob.data.id}/initiate-complete`,
+    { token: worker.token }
+  );
+  await call(
     "PATCH",
     `/api/owner/day-jobs/${unratedHistoricalJob.data.id}/complete`,
     { token: owner.token }
   );
-  await call(
-    "PATCH",
-    `/api/worker/jobs/${unratedHistoricalJob.data.id}/complete`,
-    { token: worker.token, body: { rating: 3 } }
+  const optionalRating = await call(
+    'PUT',
+    `/api/worker/jobs/${unratedHistoricalJob.data.id}/estate-owner/rating`,
+    {token: worker.token, body: {rating: 3}}
   );
+  assert.equal(optionalRating.status, 200);
 
   const ratedOwnerProfile = await call(
     "GET",
@@ -940,7 +946,11 @@ test("worker acceptance appears in the land owner's job details", async () => {
     `/api/owner/day-jobs/${nextDayJob.data.id}`,
     { token: owner.token }
   );
-  assert.equal(futureDeletion.status, 200);
+  assert.equal(futureDeletion.status, 409);
+  const ownerCancellation = await call('POST', `/api/owner/day-jobs/${nextDayJob.data.id}/cancel`, {
+    token: owner.token, body: {reason: 'Schedule changed'},
+  });
+  assert.equal(ownerCancellation.status, 200, JSON.stringify(ownerCancellation.data));
 
   const declined = await call(
     "POST",
@@ -981,7 +991,7 @@ test("worker acceptance appears in the land owner's job details", async () => {
     { token: owner.token }
   );
   assert.equal(completed.status, 409);
-  assert.match(completed.data.message, /all required workers/i);
+  assert.match(completed.data.message, /worker must mark|future day/i);
 
   const completedJobs = await call("GET", "/api/owner/day-jobs", {
     token: owner.token,
@@ -990,4 +1000,17 @@ test("worker acceptance appears in the land owner's job details", async () => {
     (item) => item.id === sameDayJob.data.id
   );
   assert.equal(completedJob.status, "OPEN");
+
+  const cancellationPath = `/api/worker/jobs/${sameDayJob.data.id}/cancel`;
+  assert.equal((await call('POST', cancellationPath, {
+    token: worker.token, body: {},
+  })).status, 400);
+  assert.equal((await call('POST', cancellationPath, {
+    token: worker.token, body: {reason: 'Schedule changed', note: 'Unavailable'},
+  })).data.status, 'CANCELLED');
+  const cancellation = await pool.query('SELECT cancel_reason, cancel_note FROM day_jobs WHERE id = $1', [sameDayJob.data.id]);
+  assert.deepEqual(cancellation.rows[0], {cancel_reason: 'Schedule changed', cancel_note: 'Unavailable'});
+  assert.equal((await call('POST', `/api/worker/jobs/${sameDayJob.data.id}/initiate-complete`, {
+    token: worker.token,
+  })).status, 409);
 });

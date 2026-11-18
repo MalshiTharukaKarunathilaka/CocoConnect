@@ -254,6 +254,7 @@ class _EstateOwnerWorkerProfilePageState
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          scrollable: true,
           title: Text('Rate ${profile.ownerName}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -263,8 +264,9 @@ class _EstateOwnerWorkerProfilePageState
                 style: const TextStyle(color: _ownerMuted),
               ),
               const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
+                runSpacing: 4,
                 children: [
                   for (var value = 1; value <= 5; value++)
                     IconButton(

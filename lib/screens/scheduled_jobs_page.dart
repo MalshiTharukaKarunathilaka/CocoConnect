@@ -70,7 +70,9 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
 
   Future<void> _refresh() async {
     final refreshed = OwnerService.getDayJobs(widget.date);
-    setState(() => _jobs = refreshed);
+    setState(() {
+      _jobs = refreshed;
+    });
     await refreshed;
   }
 
@@ -183,7 +185,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
   }
 
   Widget _header(List<DayJob> jobs) {
-    final location = jobs.isEmpty ? 'Estate operations' : jobs.first.location;
+    final location = jobs.isEmpty ? 'Land operations' : jobs.first.location;
     return OwnerHeader(title: 'Job Details', subtitle: location);
   }
 
@@ -213,7 +215,10 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -234,18 +239,20 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                       size: 17,
                     ),
                     SizedBox(width: 6),
-                    Text(
-                      'SCHEDULED DAY JOBS',
-                      style: TextStyle(
-                        color: _green,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                    Flexible(
+                      child: Text(
+                        'SCHEDULED DAY JOBS',
+                        style: TextStyle(
+                          color: _green,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const Spacer(),
+
               Text(
                 'ID: #DJ-${widget.date.year}'
                 '${widget.date.month.toString().padLeft(2, '0')}'
@@ -326,7 +333,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
     required Color foreground,
   }) {
     return Container(
-      height: 58,
+      constraints: const BoxConstraints(minHeight: 58),
       padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
       decoration: BoxDecoration(
         color: background,
@@ -343,7 +350,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 8),
           Row(
             children: [
               Text(
@@ -398,7 +405,9 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
     final required = job.workersNeeded;
     final confirmed = job.confirmedWorkers.clamp(0, required);
     final progress = required == 0 ? 0.0 : confirmed / required;
-    final status = completed
+    final status = job.status.toUpperCase() == 'CANCELLED'
+        ? 'Cancelled'
+        : completed
         ? 'Completed'
         : awaiting
         ? 'Awaiting worker'

@@ -22,6 +22,7 @@ const {
   createDayJob,
   completeDayJob,
   cancelDayJobCompletion,
+  cancelConfirmedDayJob,
   deleteDayJob,
   rateDayJobWorker,
 } = require("../controllers/ownerController");
@@ -370,6 +371,7 @@ router.get("/day-jobs", getDayJobs);
 router.post("/day-jobs", createDayJob);
 router.patch("/day-jobs/:id/complete", completeDayJob);
 router.patch("/day-jobs/:id/cancel-completion", cancelDayJobCompletion);
+router.post('/day-jobs/:id/cancel', cancelConfirmedDayJob);
 router.delete("/day-jobs/:id", deleteDayJob);
 router.put("/day-jobs/:jobId/workers/:workerId/rating", rateDayJobWorker);
 router.get("/workers/:id", getWorkerProfile);

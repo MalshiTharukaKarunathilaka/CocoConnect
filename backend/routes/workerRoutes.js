@@ -15,6 +15,7 @@ const {
 } = require("../controllers/workerController");
 
 const router = express.Router();
+const {cancelConfirmedDayJob} = require('../controllers/ownerController');
 
 router.use(requireAuth, requireRole("WORKER"));
 router.get("/profile", getProfile);
@@ -28,5 +29,6 @@ router.post("/jobs/:id/apply", applyForJob);
 router.post("/jobs/:id/decline", declineJob);
 router.post("/jobs/:id/initiate-complete", initiateJobCompletion);
 router.patch("/jobs/:id/complete", acknowledgeJobCompletion);
+router.post('/jobs/:id/cancel', cancelConfirmedDayJob);
 
 module.exports = router;

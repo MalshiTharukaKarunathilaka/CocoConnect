@@ -310,7 +310,7 @@ const getEstateOwnerProfile = async (req, res) => {
         completedJobs > 0 ? totalRatingMarks / completedJobs : null,
     });
   } catch (error) {
-    console.error("Get estate owner profile error:", error);
+    console.error("Get land owner profile error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -364,7 +364,7 @@ const rateEstateOwner = async (req, res) => {
       rated_at: result.rows[0].estate_owner_rated_at,
     });
   } catch (error) {
-    console.error("Rate estate owner error:", error);
+    console.error("Rate land owner error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -596,7 +596,7 @@ const declineJob = async (req, res) => {
     }
     const requiredDay = dayOf(job.rows[0].required_date);
     if (
-      String(job.rows[0].status).toUpperCase() === "COMPLETED" ||
+      ['COMPLETED', 'CANCELLED'].includes(String(job.rows[0].status).toUpperCase()) ||
       !requiredDay ||
       requiredDay <= localToday()
     ) {
@@ -689,6 +689,10 @@ const initiateJobCompletion = async (req, res) => {
     if (st === "AWAITING_OWNER_ACK") {
       await client.query("ROLLBACK");
       return res.status(409).json({ message: "Completion already sent to the land owner" });
+    }
+    if (st === 'CANCELLED') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({message: 'This job was cancelled'});
     }
 
     // Worker must have an ACCEPTED application for this job

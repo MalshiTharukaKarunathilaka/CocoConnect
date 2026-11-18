@@ -157,7 +157,7 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
                       Text(
                         chat.counterpartRole == 'WORKER'
                             ? 'WORKER'
-                            : 'ESTATE OWNER',
+                            : 'LAND OWNER',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -196,7 +196,7 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
             child: Padding(
               padding: EdgeInsets.all(24),
               child: Text(
-                'Start a conversation with the estate owner.',
+                'Start a conversation with the land owner.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: _workerChatMuted),
               ),

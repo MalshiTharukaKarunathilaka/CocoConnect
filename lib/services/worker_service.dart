@@ -108,7 +108,7 @@ class WorkerJob {
     paymentMethod: json['payment_method'] as String? ?? '',
     status:
         json['worker_status'] as String? ?? json['status'] as String? ?? 'OPEN',
-    estateName: json['estate_name'] as String? ?? 'Estate',
+    estateName: json['estate_name'] as String? ?? 'Land',
     estateOwnerName: json['estate_owner_name'] as String? ?? 'Land owner',
     estateLocation:
         json['estate_location'] as String? ?? json['location'] as String? ?? '',
@@ -148,6 +148,7 @@ class WorkerJob {
     return applicationStatus?.toUpperCase() == 'ACCEPTED' &&
         isPastOrToday &&
         st != 'COMPLETED' &&
+        st != 'CANCELLED' &&
         st != 'AWAITING_WORKER_ACK' &&
         st != 'AWAITING_OWNER_ACK';
   }
@@ -188,7 +189,7 @@ class EstateOwnerWorkerProfile {
       EstateOwnerWorkerProfile(
         id: (json['id'] as num).toInt(),
         ownerName: json['owner_name'] as String? ?? 'Land owner',
-        estateName: json['estate_name'] as String? ?? 'Estate',
+        estateName: json['estate_name'] as String? ?? 'Land',
         location: json['location'] as String? ?? '',
         phone: json['phone'] as String? ?? '',
         totalLandArea: json['total_land_area'] as String?,
@@ -219,7 +220,7 @@ class WorkerEstate {
   });
   factory WorkerEstate.fromJson(Map<String, dynamic> j) => WorkerEstate(
     id: (j['id'] as num?)?.toInt() ?? 0,
-    estateName: j['estate_name'] as String? ?? 'Estate',
+    estateName: j['estate_name'] as String? ?? 'Land',
     ownerName: j['estate_owner_name'] as String? ?? 'Land owner',
     location: j['location'] as String? ?? '',
     latitude: _optionalNumber(j['estate_latitude'] ?? j['latitude']),

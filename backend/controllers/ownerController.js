@@ -1269,32 +1269,42 @@ const completeDayJob = async (req, res) => {
       });
     }
 
-    // --- Owner initiates first: check staffing, set AWAITING_WORKER_ACK ---
-    if (Number(job.confirmed_workers) < Number(job.workers_needed)) {
-      await client.query("ROLLBACK");
-      return res.status(409).json({
-        message: "All required workers must be accepted before completion",
-      });
-    }
-
-    const result = await client.query(
-      `UPDATE day_jobs
-       SET status = 'AWAITING_WORKER_ACK'
-       WHERE id = $1 AND estate_owner_id = $2
-       RETURNING *`,
-      [jobId, estate.id]
-    );
-    await client.query("COMMIT");
-
-    return res.status(200).json({
-      ...result.rows[0],
-      message: "Completion sent to the accepted workers for acknowledgement",
+    await client.query("ROLLBACK");
+    return res.status(409).json({
+      message: "The worker must mark the job as finished before you can confirm completion",
     });
   } catch (error) {
     if (client) await client.query("ROLLBACK").catch(() => {});
     return serverError(res, "Complete day job", error);
   } finally {
     client?.release();
+  }
+};
+
+const cancelConfirmedDayJob = async (req, res) => {
+  const jobId = Number(req.params.id);
+  const {reason, note = ''} = req.body ?? {};
+  if (!Number.isSafeInteger(jobId) || jobId < 1 || typeof reason !== 'string' ||
+      !reason.trim() || reason.length > 200 || typeof note !== 'string' || note.length > 500) {
+    return res.status(400).json({message: 'Choose a cancellation reason and enter an optional note'});
+  }
+  try {
+    const participant = req.user.role === 'WORKER'
+      ? `id IN (SELECT a.day_job_id FROM day_job_applications a JOIN worker w ON w.id = a.worker_id
+          WHERE w.user_id = $2 AND UPPER(a.status) = 'ACCEPTED')`
+      : `estate_owner_id IN (SELECT id FROM estate_owners WHERE user_id = $2)`;
+    const result = await pool.query(
+      `UPDATE day_jobs SET status = 'CANCELLED', cancel_reason = $3, cancel_note = $4,
+         cancelled_by = $2, cancelled_at = $5
+       WHERE id = $1 AND confirmed_workers > 0
+         AND UPPER(status) NOT IN ('COMPLETED', 'CANCELLED') AND ${participant}
+       RETURNING id, status`,
+      [jobId, req.user.id, reason.trim(), note.trim() || null, new Date()]
+    );
+    if (!result.rows.length) return res.status(409).json({message: 'This job cannot be cancelled'});
+    return res.json(result.rows[0]);
+  } catch (error) {
+    return serverError(res, 'Cancel confirmed day job', error);
   }
 };
 
@@ -1405,11 +1415,15 @@ const deleteDayJob = async (req, res) => {
       });
     }
 
-    await pool.query(
+    const deleted = await pool.query(
       `DELETE FROM day_jobs
-       WHERE id = $1 AND estate_owner_id = $2`,
+       WHERE id = $1 AND estate_owner_id = $2 AND confirmed_workers = 0
+         AND UPPER(status) = 'OPEN' RETURNING id`,
       [jobId, estate.id]
     );
+    if (!deleted.rows.length) {
+      return res.status(409).json({message: 'Only open jobs without accepted workers can be deleted'});
+    }
     return res.status(200).json({ message: "Day job deleted" });
   } catch (error) {
     return serverError(res, "Delete day job", error);
@@ -1442,7 +1456,7 @@ const rateDayJobWorker = async (req, res) => {
        WHERE dj.id = $1
          AND dja.worker_id = $2
          AND dj.estate_owner_id = $3
-         AND UPPER(dj.status) IN ('AWAITING_WORKER_ACK', 'COMPLETED')
+         AND UPPER(dj.status) = 'COMPLETED'
          AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')`,
       [jobId, workerId, estate.id]
     );
@@ -1492,6 +1506,7 @@ module.exports = {
   createDayJob,
   completeDayJob,
   cancelDayJobCompletion,
+  cancelConfirmedDayJob,
   deleteDayJob,
   rateDayJobWorker,
 };

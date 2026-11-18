@@ -1,3 +1,4 @@
+import '../widgets/mobile_sheet.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -83,7 +84,9 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
 
   void _refreshEstates() {
     if (!mounted) return;
-    setState(() => _estates = _loadEstates());
+    setState(() {
+      _estates = _loadEstates();
+    });
   }
 
   void _handleTileError(TileImage _, Object error, StackTrace? stackTrace) {
@@ -118,12 +121,12 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
             appBar: AppBar(
               title: Text(
                 widget.nearbyOnly
-                    ? 'Reachable Estates (${widget.radiusKm} km)'
-                    : 'All Estates',
+                    ? 'Reachable Lands (${widget.radiusKm} km)'
+                    : 'All Lands',
               ),
               actions: [
                 IconButton(
-                  tooltip: 'Refresh estates',
+                  tooltip: 'Refresh lands',
                   onPressed: _refreshEstates,
                   icon: const Icon(Icons.refresh),
                 ),
@@ -231,7 +234,7 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
                       ),
                       const SizedBox(height: 8),
                       _mapControl(
-                        tooltip: 'Show all estates',
+                        tooltip: 'Show all lands',
                         icon: Icons.fit_screen,
                         onPressed: () => _fitAllEstates(estates),
                       ),
@@ -268,8 +271,8 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
                     bottom: 28,
                     child: _mapMessage(
                       _workerPoint == null && widget.nearbyOnly
-                          ? 'Set your worker location to find reachable estates.'
-                          : 'Could not load estates. Check the connection and retry.',
+                          ? 'Set your worker location to find reachable lands.'
+                          : 'Could not load lands. Check the connection and retry.',
                       showRetry: true,
                     ),
                   )
@@ -281,7 +284,7 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
                     right: 18,
                     bottom: 28,
                     child: _mapMessage(
-                      'No estates are within ${widget.radiusKm} km of your location.',
+                      'No lands are within ${widget.radiusKm} km of your location.',
                     ),
                   ),
                 if (_tileLoadFailed)
@@ -370,36 +373,40 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
       height: 78,
       child: GestureDetector(
         onTap: () => showModalBottomSheet<void>(
+          isScrollControlled: true,
+          useSafeArea: true,
           context: context,
           showDragHandle: true,
-          builder: (_) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${group.estates.length} nearby estates',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                for (final estate in group.estates)
-                  ListTile(
-                    onTap: () {
-                      Navigator.pop(context);
-                      _focusEstate(estate, _pointForEstate(estate)!);
-                    },
-                    leading: const Icon(Icons.park, color: Color(0xFF256B45)),
-                    title: Text(estate.estateName),
-                    subtitle: Text(
-                      estate.distanceKm == null
-                          ? estate.location
-                          : '${estate.location}\n'
-                                '${estate.distanceKm!.toStringAsFixed(1)} km away',
+          builder: mobileSheetBuilder(
+            (_) => SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${group.estates.length} nearby lands',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-              ],
+                  const SizedBox(height: 6),
+                  for (final estate in group.estates)
+                    ListTile(
+                      onTap: () {
+                        Navigator.pop(context);
+                        _focusEstate(estate, _pointForEstate(estate)!);
+                      },
+                      leading: const Icon(Icons.park, color: Color(0xFF256B45)),
+                      title: Text(estate.estateName),
+                      subtitle: Text(
+                        estate.distanceKm == null
+                            ? estate.location
+                            : '${estate.location}\n'
+                                  '${estate.distanceKm!.toStringAsFixed(1)} km away',
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -577,93 +584,97 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
         '${point.latitude.toStringAsFixed(6)}, '
         '${point.longitude.toStringAsFixed(6)}';
     await showModalBottomSheet<void>(
+      isScrollControlled: true,
+      useSafeArea: true,
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                estate.estateName,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text('Land owner: ${estate.ownerName}'),
-              const SizedBox(height: 10),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.location_on_outlined,
-                    color: Color(0xFF256B45),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      estate.location.trim().isEmpty
-                          ? coordinates
-                          : '${estate.location}\n$coordinates',
-                    ),
-                  ),
-                ],
-              ),
-              if (estate.distanceKm != null) ...[
-                const SizedBox(height: 8),
-                Text('${estate.distanceKm!.toStringAsFixed(1)} km away'),
-              ],
-              if (warning != null) ...[
-                const SizedBox(height: 8),
+      builder: mobileSheetBuilder(
+        (sheetContext) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  '$warning. Showing the approximate map position.',
-                  style: const TextStyle(color: Colors.orange),
-                ),
-              ],
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(sheetContext);
-                        _map.move(point, 17);
-                      },
-                      icon: const Icon(Icons.zoom_in_map),
-                      label: const Text('Zoom Here'),
-                    ),
+                  estate.estateName,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () async {
-                        await Clipboard.setData(
-                          ClipboardData(
-                            text: '${estate.location}\n$coordinates',
-                          ),
-                        );
-                        if (!mounted || !sheetContext.mounted) return;
-                        Navigator.pop(sheetContext);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Estate location copied.'),
-                          ),
-                        );
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF256B45),
-                      ),
-                      icon: const Icon(Icons.content_copy),
-                      label: const Text('Copy Location'),
+                ),
+                const SizedBox(height: 4),
+                Text('Land owner: ${estate.ownerName}'),
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.location_on_outlined,
+                      color: Color(0xFF256B45),
                     ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        estate.location.trim().isEmpty
+                            ? coordinates
+                            : '${estate.location}\n$coordinates',
+                      ),
+                    ),
+                  ],
+                ),
+                if (estate.distanceKm != null) ...[
+                  const SizedBox(height: 8),
+                  Text('${estate.distanceKm!.toStringAsFixed(1)} km away'),
+                ],
+                if (warning != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '$warning. Showing the approximate map position.',
+                    style: const TextStyle(color: Colors.orange),
                   ),
                 ],
-              ),
-            ],
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          _map.move(point, 17);
+                        },
+                        icon: const Icon(Icons.zoom_in_map),
+                        label: const Text('Zoom Here'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () async {
+                          await Clipboard.setData(
+                            ClipboardData(
+                              text: '${estate.location}\n$coordinates',
+                            ),
+                          );
+                          if (!mounted || !sheetContext.mounted) return;
+                          Navigator.pop(sheetContext);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Land location copied.'),
+                            ),
+                          );
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF256B45),
+                        ),
+                        icon: const Icon(Icons.content_copy),
+                        label: const Text('Copy Location'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -724,12 +735,16 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
       height: 70,
       child: GestureDetector(
         onTap: () => showModalBottomSheet<void>(
+          isScrollControlled: true,
+          useSafeArea: true,
           context: context,
-          builder: (_) => ListTile(
-            leading: const Icon(Icons.park),
-            title: Text(name),
-            subtitle: Text(
-              distanceLabel == null ? location : '$location\n$distanceLabel',
+          builder: mobileSheetBuilder(
+            (_) => ListTile(
+              leading: const Icon(Icons.park),
+              title: Text(name),
+              subtitle: Text(
+                distanceLabel == null ? location : '$location\n$distanceLabel',
+              ),
             ),
           ),
         ),

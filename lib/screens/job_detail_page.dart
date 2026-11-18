@@ -1,3 +1,5 @@
+import '../widgets/deal_cancellation_dialog.dart';
+import '../widgets/mobile_sheet.dart';
 import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
@@ -98,7 +100,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                 const SizedBox(height: 10),
                 _completionButton(),
               ],
-              if (_isFuture) ...[const SizedBox(height: 10), _deleteButton()],
+              if (_canCancelDeal) _cancelDealButton(),
               if (_isCompleted || _awaitingWorkerAcknowledgement || _awaitingOwnerAcknowledgement) ...[
                 const SizedBox(height: 14),
                 Row(
@@ -184,7 +186,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
                   ),
                 ),
               ),
-              if (_isFuture) ...[const SizedBox(height: 8), _deleteButton()],
+              if (_canCancelDeal) _cancelDealButton()
+              else if (_isFuture && job.confirmedWorkers == 0) _deleteButton(),
             ],
           ),
         ),
@@ -286,9 +289,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
       width: double.infinity,
       height: 50,
       child: FilledButton(
-        onPressed: _isCompleted || _awaitingWorkerAcknowledgement || _completing
-            ? null
-            : _completeJob,
+        onPressed: null,
         style: FilledButton.styleFrom(
           backgroundColor: _detailGreen,
           disabledBackgroundColor: _detailGreen,
@@ -312,7 +313,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                     ? 'Completed'
                     : _awaitingWorkerAcknowledgement
                     ? 'Awaiting worker acknowledgement'
-                    : 'Complete Job',
+                    : 'Waiting for worker to finish',
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -321,6 +322,28 @@ class _JobDetailPageState extends State<JobDetailPage> {
       ),
     );
   }
+
+  bool get _canCancelDeal =>
+      job.confirmedWorkers > 0 &&
+      !_isCompleted &&
+      job.status.toUpperCase() != 'CANCELLED';
+
+  Widget _cancelDealButton() => OutlinedButton(
+    onPressed: _deleting ? null : () async {
+      final details = await showDealCancellationDialog(context, type: DealCancellationType.dayJob);
+      if (details == null || !mounted) return;
+      setState(() => _deleting = true);
+      try {
+        await ApiClient.post('/api/owner/day-jobs/${job.id}/cancel', details);
+        if (mounted) Navigator.pop(context, true);
+      } on ApiException catch (error) {
+        if (mounted) _showMessage(context, error.message);
+      } finally {
+        if (mounted) setState(() => _deleting = false);
+      }
+    },
+    child: const Text('Cancel job'),
+  );
 
   Widget _deleteButton() {
     return SizedBox(
@@ -355,6 +378,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('Delete this job?'),
         content: const Text(
           'This future job and its worker applications will be removed.',
@@ -406,33 +430,17 @@ class _JobDetailPageState extends State<JobDetailPage> {
       return;
     }
 
-    // When confirming worker's initiation, skip the staffing check
-    if (!_awaitingOwnerAcknowledgement && !_isFullyStaffed) {
-      _showMessage(
-        context,
-        'All required workers must be accepted before completion.',
-      );
-      return;
-    }
+    if (!_awaitingOwnerAcknowledgement) return;
 
     setState(() => _completing = true);
     try {
       await OwnerService.completeDayJob(job.id);
       if (!mounted) return;
-      if (_awaitingOwnerAcknowledgement) {
-        // Worker had already initiated → now fully COMPLETED
-        setState(() {
-          _awaitingOwnerAcknowledgement = false;
-          _isCompleted = true;
-        });
-        _showMessage(context, 'Job completed! Both parties have confirmed.');
-      } else {
-        setState(() => _awaitingWorkerAcknowledgement = true);
-        _showMessage(
-          context,
-          'Completion sent. The job will be completed after the accepted workers acknowledge it.',
-        );
-      }
+      setState(() {
+        _awaitingOwnerAcknowledgement = false;
+        _isCompleted = true;
+      });
+      _showMessage(context, 'Job completed! Both parties have confirmed.');
     } on ApiException catch (error) {
       if (mounted) _showMessage(context, error.message);
     } catch (_) {
@@ -504,7 +512,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
           ),
           const SizedBox(height: 3),
           const Text(
-            'Estate job',
+            'Land job',
             style: TextStyle(color: kOwnerMuted, fontSize: 12),
           ),
           const SizedBox(height: 6),
@@ -742,8 +750,9 @@ class _JobDetailPageState extends State<JobDetailPage> {
                   ),
                 ],
               )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+            : Wrap(
+                alignment: WrapAlignment.center,
+                runSpacing: 4,
                 children: [
                   for (var value = 1; value <= 5; value++)
                     Padding(
@@ -770,16 +779,19 @@ class _JobDetailPageState extends State<JobDetailPage> {
 
   Future<void> _showRatingSheet(AcceptedWorker worker) async {
     final rating = await showModalBottomSheet<int>(
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _RatingSheet(
-        worker: _Worker(
-          worker.name,
-          Icons.person,
-          '${job.category} · NG-${job.id.toString().padLeft(3, '0')}',
+      builder: mobileSheetBuilder(
+        (_) => _RatingSheet(
+          worker: _Worker(
+            worker.name,
+            Icons.person,
+            '${job.category} · NG-${job.id.toString().padLeft(3, '0')}',
+          ),
+          initialRating: _workerRatings[worker.id],
         ),
-        initialRating: _workerRatings[worker.id],
       ),
     );
     if (rating == null || !mounted) return;
