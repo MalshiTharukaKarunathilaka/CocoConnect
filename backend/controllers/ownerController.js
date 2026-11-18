@@ -1135,6 +1135,7 @@ const createDayJob = async (req, res) => {
 };
 
 const completeDayJob = async (req, res) => {
+  let client;
   try {
     const jobId = Number(req.params.id);
     if (!Number.isInteger(jobId)) {
@@ -1142,49 +1143,193 @@ const completeDayJob = async (req, res) => {
     }
 
     const estate = await getOwnEstate(pool, req.user.id);
-    const found = await pool.query(
+
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const found = await client.query(
       `SELECT * FROM day_jobs
-       WHERE id = $1 AND estate_owner_id = $2`,
+       WHERE id = $1 AND estate_owner_id = $2
+       FOR UPDATE`,
       [jobId, estate.id]
     );
     if (found.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ message: "Day job not found" });
     }
     const job = found.rows[0];
-    if (String(job.status).toUpperCase() === "COMPLETED") {
+    const st = String(job.status).toUpperCase();
+
+    if (st === "COMPLETED") {
+      await client.query("ROLLBACK");
       return res.status(409).json({ message: "This job is already completed" });
     }
-    if (String(job.status).toUpperCase() === "AWAITING_WORKER_ACK") {
+    if (st === "AWAITING_WORKER_ACK") {
+      await client.query("ROLLBACK");
       return res.status(409).json({
         message: "Waiting for the accepted workers to acknowledge completion",
       });
     }
-    if (Number(job.confirmed_workers) < Number(job.workers_needed)) {
-      return res.status(409).json({
-        message: "All required workers must be accepted before completion",
-      });
-    }
+
     const requiredDay = dayOf(job.required_date);
     if (requiredDay && requiredDay > localToday()) {
+      await client.query("ROLLBACK");
       return res.status(409).json({
         message: "This is a future day. You cannot complete this job yet.",
       });
     }
 
-    const result = await pool.query(
+    // --- Worker already initiated: owner acknowledges → mark COMPLETED ---
+    if (st === "AWAITING_OWNER_ACK") {
+      const rating = Number(req.body.rating);
+      const hasRating = Number.isInteger(rating) && rating >= 1 && rating <= 5;
+      if (hasRating && !(await dayJobRatingsReady())) {
+        await client.query("ROLLBACK");
+        return res.status(503).json({
+          message:
+            "Worker ratings are not configured. Run backend/sql/012_day_job_worker_ratings.sql.",
+        });
+      }
+
+      await client.query(
+        `UPDATE day_jobs SET status = 'COMPLETED' WHERE id = $1`,
+        [jobId]
+      );
+      // Also mark all ACCEPTED applications as COMPLETED
+      await client.query(
+        `UPDATE day_job_applications
+         SET status = 'COMPLETED'
+         WHERE day_job_id = $1 AND UPPER(status) = 'ACCEPTED'`,
+        [jobId]
+      );
+
+      // If rating is provided (1 to 5), save it for the workers
+      if (hasRating) {
+        await client.query(
+          `UPDATE day_job_applications
+           SET rating = $2, rated_at = CURRENT_TIMESTAMP
+           WHERE day_job_id = $1 AND UPPER(status) = 'COMPLETED'`,
+          [jobId, rating]
+        );
+      }
+
+      await client.query("COMMIT");
+      return res.status(200).json({
+        job_id: jobId,
+        status: "COMPLETED",
+        message: "Job completed. Well done!",
+      });
+    }
+
+    // --- Owner initiates first: check staffing, set AWAITING_WORKER_ACK ---
+    if (Number(job.confirmed_workers) < Number(job.workers_needed)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        message: "All required workers must be accepted before completion",
+      });
+    }
+
+    const result = await client.query(
       `UPDATE day_jobs
        SET status = 'AWAITING_WORKER_ACK'
        WHERE id = $1 AND estate_owner_id = $2
        RETURNING *`,
       [jobId, estate.id]
     );
+    await client.query("COMMIT");
 
     return res.status(200).json({
       ...result.rows[0],
       message: "Completion sent to the accepted workers for acknowledgement",
     });
   } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
     return serverError(res, "Complete day job", error);
+  } finally {
+    client?.release();
+  }
+};
+
+const completionCancellationReady = async () => {
+  if (pool.databaseMode === "memory") return true;
+  try {
+    await pool.query(
+      `ALTER TABLE day_jobs
+       ADD COLUMN IF NOT EXISTS completion_cancel_reason text,
+       ADD COLUMN IF NOT EXISTS completion_cancel_note text,
+       ADD COLUMN IF NOT EXISTS completion_cancelled_at timestamp`
+    );
+    return true;
+  } catch (_) {
+    return false;
+  }
+};
+
+const cancelDayJobCompletion = async (req, res) => {
+  let client;
+  try {
+    const jobId = Number(req.params.id);
+    const { reason, note } = req.body;
+    if (!Number.isInteger(jobId)) {
+      return res.status(400).json({ message: "Invalid day job" });
+    }
+    if (!reason || !String(reason).trim()) {
+      return res.status(400).json({ message: "A cancellation reason is required" });
+    }
+
+    const estate = await getOwnEstate(pool, req.user.id);
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const found = await client.query(
+      `SELECT * FROM day_jobs
+       WHERE id = $1 AND estate_owner_id = $2
+       FOR UPDATE`,
+      [jobId, estate.id]
+    );
+    if (found.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Day job not found" });
+    }
+    const job = found.rows[0];
+    const st = String(job.status).toUpperCase();
+
+    if (st !== "AWAITING_OWNER_ACK") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        message: "This job is not awaiting completion confirmation",
+      });
+    }
+
+    if (!(await completionCancellationReady())) {
+      await client.query("ROLLBACK");
+      return res.status(503).json({
+        message:
+          "Completion cancellation details are not configured. Run backend/sql/015_day_job_completion_cancellation.sql.",
+      });
+    }
+
+    await client.query(
+      `UPDATE day_jobs
+       SET status = 'OPEN',
+           completion_cancel_reason = $2,
+           completion_cancel_note = $3,
+           completion_cancelled_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [jobId, String(reason).trim(), note ? String(note).trim() : null]
+    );
+
+    await client.query("COMMIT");
+    return res.status(200).json({
+      job_id: jobId,
+      status: "OPEN",
+      message: "Job completion cancelled. Reason recorded.",
+    });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    return serverError(res, "Cancel day job completion", error);
+  } finally {
+    client?.release();
   }
 };
 
@@ -1298,6 +1443,7 @@ module.exports = {
   getWorkerProfile,
   createDayJob,
   completeDayJob,
+  cancelDayJobCompletion,
   deleteDayJob,
   rateDayJobWorker,
 };
