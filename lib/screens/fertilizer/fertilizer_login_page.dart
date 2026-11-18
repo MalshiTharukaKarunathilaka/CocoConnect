@@ -32,9 +32,7 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
     _phoneController = TextEditingController(
       text: a == null ? '' : a.phone.replaceFirst(RegExp(r'^0'), ''),
     );
-    _passwordController = TextEditingController(
-      text: FertilizerDemoAuth.passwordHint,
-    );
+    _passwordController = TextEditingController();
   }
 
   @override
@@ -50,37 +48,12 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
     setState(() => _loading = true);
 
     try {
-      AppUser? user;
-      final expected = widget.account?.role;
-
-      try {
-        user = await AuthService.login(
-          phone: _phoneController.text,
-          password: _passwordController.text,
-        );
-        if (expected != null &&
-            user.role != expected &&
-            !(expected == 'FERTILIZER_SUPPLIER' &&
-                user.role == 'SERVICE_PROVIDER')) {
-          await AuthService.logout();
-          throw const ApiException(
-            'This phone is registered as a different role.',
-          );
-        }
-      } on ApiException {
-        user = FertilizerDemoAuth.tryLogin(
-          phone: _phoneController.text,
-          password: _passwordController.text,
-          expectedRole: expected,
-        );
-        if (user == null) {
-          throw const ApiException('Incorrect phone number or password');
-        }
-        AuthService.currentUser = user;
-      }
-
+      final user = await AuthService.login(
+        phone: _phoneController.text,
+        password: _passwordController.text,
+      );
       if (!mounted) return;
-      openHomeFor(context, user!);
+      openHomeFor(context, user);
     } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -173,18 +146,6 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
                   onPressed: _loading ? null : _submit,
                 ),
                 const SizedBox(height: 12),
-                AuthSecondaryAction(
-                  icon: Icons.flash_on_outlined,
-                  label: 'Quick land demo login',
-                  onTap: _loading
-                      ? () {}
-                      : () {
-                          _phoneController.text = '711000001';
-                          _passwordController.text =
-                              FertilizerDemoAuth.passwordHint;
-                          _submit();
-                        },
-                ),
               ],
             ),
           ),
@@ -198,7 +159,7 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
               context,
               MaterialPageRoute(
                 builder: (_) => FertilizerSignupPage(
-                  lockedRole: a ?? FertilizerDemoAuth.accounts.first,
+                  lockedRole: a,
                 ),
               ),
             );

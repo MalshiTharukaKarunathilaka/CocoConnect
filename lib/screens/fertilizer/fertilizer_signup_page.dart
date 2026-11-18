@@ -10,9 +10,9 @@ import '../location_picker_page.dart';
 
 /// Create Account for one fertilizer role — matches the signup screenshot.
 class FertilizerSignupPage extends StatefulWidget {
-  const FertilizerSignupPage({super.key, required this.lockedRole});
+  const FertilizerSignupPage({super.key, this.lockedRole});
 
-  final FertDemoAccount lockedRole;
+  final FertDemoAccount? lockedRole;
 
   @override
   State<FertilizerSignupPage> createState() => _FertilizerSignupPageState();
@@ -29,6 +29,12 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _loading = false;
+  static const _roles = {
+    'ESTATE_OWNER': 'Land Owner',
+    'FERTILIZER_SUPPLIER': 'Fertilizer Supplier',
+    'CDO': 'CDO',
+  };
+  late String _role = widget.lockedRole?.role ?? 'ESTATE_OWNER';
 
   @override
   void dispose() {
@@ -43,7 +49,7 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
   Future<void> _pickLocation() async {
     FocusScope.of(context).unfocus();
     final picked = await pickLocation(context, initial: _location);
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
     setState(() {
       _location = picked;
       _locationController.text = picked.name;
@@ -62,30 +68,15 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
     setState(() => _loading = true);
 
     try {
-      AppUser user;
-      try {
-        user = await AuthService.signup(
-          name: _nameController.text.trim(),
-          phone: _phoneController.text,
-          password: _passwordController.text,
-          role: _roleApiLabel(widget.lockedRole.role),
-          location: _location!.name,
-          latitude: _location!.latitude,
-          longitude: _location!.longitude,
-        );
-      } on ApiException {
-        // Offline demo: create a local session with this role.
-        user = AppUser(
-          id: DateTime.now().millisecondsSinceEpoch % 100000,
-          name: _nameController.text.trim(),
-          phone: AuthService.normalisePhone(_phoneController.text),
-          role: widget.lockedRole.role,
-          location: _location!.name,
-          latitude: _location!.latitude,
-          longitude: _location!.longitude,
-        );
-        AuthService.currentUser = user;
-      }
+      final user = await AuthService.signup(
+        name: _nameController.text.trim(),
+        phone: _phoneController.text,
+        password: _passwordController.text,
+        role: _role,
+        location: _location!.name,
+        latitude: _location!.latitude,
+        longitude: _location!.longitude,
+      );
       if (!mounted) return;
       openHomeFor(context, user);
     } on ApiException catch (error) {
@@ -101,27 +92,9 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
     }
   }
 
-  /// Backend expects friendly labels like "Fertilizer Supplier".
-  String _roleApiLabel(String code) {
-    switch (code) {
-      case 'ESTATE_OWNER':
-        return 'Land Owner';
-      case 'FERTILIZER_SUPPLIER':
-        return 'Fertilizer Supplier';
-      case 'CDO':
-        return 'CDO';
-      case 'REGIONAL_MANAGER':
-        return 'Land Manager';
-      case 'CHAIRMAN':
-        return 'Land Manager';
-      default:
-        return 'Land Owner';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final role = widget.lockedRole;
+    final lockedRole = widget.lockedRole;
     return AuthScaffold(
       children: [
         Align(
@@ -178,19 +151,16 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _RoleChip(role.roleLabel, true),
-                    const _RoleChip('Land Owner', false),
-                    const _RoleChip('Buyer', false),
-                    const _RoleChip('Service Provider', false),
+                    if (lockedRole != null)
+                      Chip(label: Text(lockedRole.roleLabel))
+                    else
+                      for (final option in _roles.entries)
+                        ChoiceChip(
+                          label: Text(option.value),
+                          selected: _role == option.key,
+                          onSelected: _loading ? null : (_) => setState(() => _role = option.key),
+                        ),
                   ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'This signup is locked to ${role.roleLabel} for the fertilizer demo.',
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: AppColors.muted,
-                  ),
                 ),
                 const SizedBox(height: 16),
                 const AuthLabel(text: 'Password'),
@@ -252,32 +222,6 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _RoleChip extends StatelessWidget {
-  const _RoleChip(this.label, this.on);
-  final String label;
-  final bool on;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: on ? AppColors.green : Colors.white,
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: on ? AppColors.green : AppColors.line),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w700,
-          color: on ? Colors.white : AppColors.muted,
-        ),
-      ),
     );
   }
 }

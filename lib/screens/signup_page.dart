@@ -22,6 +22,8 @@ class _SignupPageState extends State<SignupPage> {
     'Buyer',
     'Service Provider',
     'Worker',
+    'Fertilizer Supplier',
+    'CDO',
   ];
 
   final _formKey = GlobalKey<FormState>();
