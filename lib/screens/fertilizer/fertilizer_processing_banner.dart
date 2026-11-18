@@ -82,10 +82,9 @@ class _FertProcessingBannerState extends State<FertProcessingBanner>
       valueListenable: store.ownerAlertTick,
       builder: (context, _, __) {
         final pending = store
-            .ownerOrders('Your Estate')
+            .ownerOrders('Your Land')
             .where(
-              (o) =>
-                  o.status == 'Pending Ack' || o.status == 'Negotiating',
+              (o) => o.status == 'Pending Ack' || o.status == 'Negotiating',
             )
             .toList();
         if (pending.isEmpty) return const SizedBox.shrink();
@@ -178,9 +177,7 @@ class FertOrderStatusDot extends StatelessWidget {
           Icon(
             status == 'Pending Ack'
                 ? Icons.autorenew
-                : (status == 'Accepted'
-                    ? Icons.check_circle
-                    : Icons.circle),
+                : (status == 'Accepted' ? Icons.check_circle : Icons.circle),
             size: 11,
             color: c,
           ),

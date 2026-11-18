@@ -1,3 +1,4 @@
+import '../../widgets/mobile_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import '../../theme/app_theme.dart';
@@ -102,187 +103,195 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
               ],
             ),
           ),
-          // Why: removed the top “pending acknowledgements” banner — calendar colors are enough.
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: kOwnerBorder),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: () => setState(() {
-                              _cursor = DateTime(
-                                _cursor.year,
-                                _cursor.month - 1,
-                              );
-                            }),
-                            icon: const Icon(Icons.chevron_left),
+        // Why: removed the top “pending acknowledgements” banner — calendar colors are enough.
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: kOwnerBorder),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => setState(() {
+                            _cursor = DateTime(_cursor.year, _cursor.month - 1);
+                          }),
+                          icon: const Icon(Icons.chevron_left),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '${_monthName(_cursor.month)} ${_cursor.year}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
+                        ),
+                        IconButton(
+                          onPressed: () => setState(() {
+                            _cursor = DateTime(_cursor.year, _cursor.month + 1);
+                          }),
+                          icon: const Icon(Icons.chevron_right),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        for (final d in [
+                          'Su',
+                          'Mo',
+                          'Tu',
+                          'We',
+                          'Th',
+                          'Fr',
+                          'Sa',
+                        ])
                           Expanded(
                             child: Text(
-                              '${_monthName(_cursor.month)} ${_cursor.year}',
+                              d,
                               textAlign: TextAlign.center,
                               style: const TextStyle(
+                                fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                                color: kOwnerMuted,
                               ),
                             ),
                           ),
-                          IconButton(
-                            onPressed: () => setState(() {
-                              _cursor = DateTime(
-                                _cursor.year,
-                                _cursor.month + 1,
-                              );
-                            }),
-                            icon: const Icon(Icons.chevron_right),
-                          ),
-                        ],
-                      ),
-                      Row(
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // Why: legend so status dots are clear for supplier and CDO.
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 8,
+                        runSpacing: 6,
                         children: [
-                          for (final d in ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'])
-                            Expanded(
-                              child: Text(
-                                d,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: kOwnerMuted,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      // Why: legend so status dots are clear for supplier and CDO.
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const _CalLegendDot(
-                              color: kOwnerRed,
-                              label: 'Pending',
-                            ),
-                            if (!_isCdo) ...[
-                              const SizedBox(width: 10),
-                              const _CalLegendDot(
-                                color: Color(0xFFE6A817),
-                                label: 'Negotiation',
-                              ),
-                            ],
+                          const _CalLegendDot(
+                            color: kOwnerRed,
+                            label: 'Pending',
+                          ),
+                          if (!_isCdo) ...[
                             const SizedBox(width: 10),
                             const _CalLegendDot(
-                              color: kOwnerGreen,
-                              label: 'Accepted',
+                              color: Color(0xFFE6A817),
+                              label: 'Negotiation',
                             ),
                           ],
-                        ),
+                          const SizedBox(width: 10),
+                          const _CalLegendDot(
+                            color: kOwnerGreen,
+                            label: 'Accepted',
+                          ),
+                        ],
                       ),
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: firstWeekday + daysInMonth,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 7,
-                          mainAxisSpacing: 4,
-                          crossAxisSpacing: 4,
-                          // Why: slightly taller cells stop the 1.9px overflow warning.
-                          childAspectRatio: 0.92,
-                        ),
-                        itemBuilder: (_, i) {
-                          if (i < firstWeekday) {
-                            return const SizedBox.shrink();
-                          }
-                          final day = i - firstWeekday + 1;
-                          final date = DateTime(_cursor.year, _cursor.month, day);
-                          final key = _key(date);
-                          if (_isCdo) {
-                            final list =
-                                _cdoByDate[key] ?? const <FertGovRequest>[];
-                            final pending =
-                                list.where((r) => r.isPendingAck).length;
-                            final accepted =
-                                list.where((r) => r.isAcceptedOnCalendar).length;
-                            return InkWell(
-                              onTap: () => _openCdoDay(date, list),
-                              borderRadius: BorderRadius.circular(12),
-                              child: _CalendarDayCell(
-                                day: day,
-                                pending: pending,
-                                negotiating: 0,
-                                accepted: accepted,
-                              ),
-                            );
-                          }
-                          final list = _byDate[key] ?? const <FertOrder>[];
-                          final pending =
-                              list.where((o) => o.isPendingAck).length;
-                          final negotiating =
-                              list.where((o) => o.isNegotiating).length;
-                          final accepted =
-                              list.where((o) => o.isAcceptedOnCalendar).length;
+                    ),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: firstWeekday + daysInMonth,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 7,
+                        mainAxisSpacing: 4,
+                        crossAxisSpacing: 4,
+                        // Why: slightly taller cells stop the 1.9px overflow warning.
+                        childAspectRatio: 0.92,
+                      ),
+                      itemBuilder: (_, i) {
+                        if (i < firstWeekday) {
+                          return const SizedBox.shrink();
+                        }
+                        final day = i - firstWeekday + 1;
+                        final date = DateTime(_cursor.year, _cursor.month, day);
+                        final key = _key(date);
+                        if (_isCdo) {
+                          final list =
+                              _cdoByDate[key] ?? const <FertGovRequest>[];
+                          final pending = list
+                              .where((r) => r.isPendingAck)
+                              .length;
+                          final accepted = list
+                              .where((r) => r.isAcceptedOnCalendar)
+                              .length;
                           return InkWell(
-                            onTap: () => _openDay(date, list),
+                            onTap: () => _openCdoDay(date, list),
                             borderRadius: BorderRadius.circular(12),
                             child: _CalendarDayCell(
                               day: day,
                               pending: pending,
-                              negotiating: negotiating,
+                              negotiating: 0,
                               accepted: accepted,
                             ),
                           );
-                        },
-                      ),
-                    ],
-                  ),
+                        }
+                        final list = _byDate[key] ?? const <FertOrder>[];
+                        final pending = list
+                            .where((o) => o.isPendingAck)
+                            .length;
+                        final negotiating = list
+                            .where((o) => o.isNegotiating)
+                            .length;
+                        final accepted = list
+                            .where((o) => o.isAcceptedOnCalendar)
+                            .length;
+                        return InkWell(
+                          onTap: () => _openDay(date, list),
+                          borderRadius: BorderRadius.circular(12),
+                          child: _CalendarDayCell(
+                            day: day,
+                            pending: pending,
+                            negotiating: negotiating,
+                            accepted: accepted,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 14),
-                Text(
-                  _isCdo ? 'Pending requests' : 'Pending requests',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                _isCdo ? 'Pending requests' : 'Pending requests',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
                 ),
-                const SizedBox(height: 8),
-                if (_isCdo) ...[
-                  if (_cdoPending.isEmpty)
-                    const Text(
-                      'No pending requests. Tap a day to view other applications.',
-                      style: TextStyle(color: kOwnerMuted, fontSize: 13),
-                    )
-                  else
-                    for (final r in _cdoPending) ...[
-                      _cdoPendingCard(r),
-                      const SizedBox(height: 8),
-                    ],
-                ] else if (_strictPending.isEmpty)
+              ),
+              const SizedBox(height: 8),
+              if (_isCdo) ...[
+                if (_cdoPending.isEmpty)
                   const Text(
-                    'No pending requests. Tap a calendar day to view other orders.',
+                    'No pending requests. Tap a day to view other applications.',
                     style: TextStyle(color: kOwnerMuted, fontSize: 13),
                   )
                 else
-                  for (final o in _strictPending) ...[
-                    _pendingCard(o),
+                  for (final r in _cdoPending) ...[
+                    _cdoPendingCard(r),
                     const SizedBox(height: 8),
                   ],
-              ],
-            ),
+              ] else if (_strictPending.isEmpty)
+                const Text(
+                  'No pending requests. Tap a calendar day to view other orders.',
+                  style: TextStyle(color: kOwnerMuted, fontSize: 13),
+                )
+              else
+                for (final o in _strictPending) ...[
+                  _pendingCard(o),
+                  const SizedBox(height: 8),
+                ],
+            ],
           ),
-        ],
+        ),
+      ],
     );
 
     if (widget.embedded) {
@@ -392,69 +401,73 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
 
   Future<void> _openCdoForm(FertGovRequest r) async {
     final ok = await showModalBottomSheet<bool>(
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => FertilizerCdoRequestSheet(request: r),
+      builder: mobileSheetBuilder((_) => FertilizerCdoRequestSheet(request: r)),
     );
     if (ok == true && mounted) setState(() {});
   }
 
   void _openCdoDay(DateTime date, List<FertGovRequest> dayRequests) {
     showModalBottomSheet<void>(
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: kOwnerCream,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              shortDate(date),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: kOwnerGreen,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Tap an application to open full details.',
-              style: TextStyle(fontSize: 12.5, color: kOwnerMuted),
-            ),
-            const SizedBox(height: 10),
-            if (dayRequests.isEmpty)
-              const Text(
-                'No active applications on this day.',
-                style: TextStyle(color: kOwnerMuted),
-              )
-            else
-              for (final r in dayRequests)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    radius: 8,
-                    backgroundColor: r.isPendingAck ? kOwnerRed : kOwnerGreen,
-                  ),
-                  title: Text(
-                    r.id,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    '${r.owner} · ${r.fertilizer} · ${r.isPendingAck ? 'Pending' : 'Accepted'}',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _openCdoForm(r);
-                  },
+      builder: mobileSheetBuilder(
+        (ctx) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                shortDate(date),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: kOwnerGreen,
                 ),
-          ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Tap an application to open full details.',
+                style: TextStyle(fontSize: 12.5, color: kOwnerMuted),
+              ),
+              const SizedBox(height: 10),
+              if (dayRequests.isEmpty)
+                const Text(
+                  'No active applications on this day.',
+                  style: TextStyle(color: kOwnerMuted),
+                )
+              else
+                for (final r in dayRequests)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      radius: 8,
+                      backgroundColor: r.isPendingAck ? kOwnerRed : kOwnerGreen,
+                    ),
+                    title: Text(
+                      r.id,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      '${r.owner} · ${r.fertilizer} · ${r.isPendingAck ? 'Pending' : 'Accepted'}',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _openCdoForm(r);
+                    },
+                  ),
+            ],
+          ),
         ),
       ),
     );
@@ -462,63 +475,66 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
 
   void _openDay(DateTime date, List<FertOrder> dayOrders) {
     showModalBottomSheet<void>(
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: kOwnerCream,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              shortDate(date),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: kOwnerGreen,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Tap an order to open full details.',
-              style: TextStyle(fontSize: 12.5, color: kOwnerMuted),
-            ),
-            const SizedBox(height: 10),
-            if (dayOrders.isEmpty)
-              const Text(
-                'No active orders on this day.',
-                style: TextStyle(color: kOwnerMuted),
-              )
-            else
-              for (final o in dayOrders)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    radius: 8,
-                    backgroundColor: o.isPendingAck
-                        ? kOwnerRed
-                        : (o.isNegotiating
-                            ? const Color(0xFFE6A817)
-                            : kOwnerGreen),
-                  ),
-                  title: Text(
-                    o.id,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    '${o.owner} · ${o.product} · ${o.isPendingAck ? 'Pending' : (o.isNegotiating ? 'Negotiation' : fertStatusLabel(o.status))}',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _openJob(o);
-                  },
+      builder: mobileSheetBuilder(
+        (ctx) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                shortDate(date),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: kOwnerGreen,
                 ),
-          ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Tap an order to open full details.',
+                style: TextStyle(fontSize: 12.5, color: kOwnerMuted),
+              ),
+              const SizedBox(height: 10),
+              if (dayOrders.isEmpty)
+                const Text(
+                  'No active orders on this day.',
+                  style: TextStyle(color: kOwnerMuted),
+                )
+              else
+                for (final o in dayOrders)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      radius: 8,
+                      backgroundColor: o.isPendingAck
+                          ? kOwnerRed
+                          : (o.isNegotiating
+                                ? const Color(0xFFE6A817)
+                                : kOwnerGreen),
+                    ),
+                    title: Text(
+                      o.id,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      '${o.owner} · ${o.product} · ${o.isPendingAck ? 'Pending' : (o.isNegotiating ? 'Negotiation' : fertStatusLabel(o.status))}',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _openJob(o);
+                    },
+                  ),
+            ],
+          ),
         ),
       ),
     );
@@ -536,20 +552,20 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
   }
 
   String _monthName(int m) => const [
-        '',
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ][m];
+    '',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ][m];
 }
 
 /// Shared supplier order detail sheet — used by calendar and Orders tab.
@@ -561,22 +577,26 @@ Future<void> showSupplierOrderDetail(
   VoidCallback? onChanged,
 }) async {
   final store = FertilizerStore.instance;
-  final loc = FertilizerStore.estateGeo[order.owner] ??
-      FertilizerStore.estateGeo['Your Estate']!;
+  final loc =
+      FertilizerStore.estateGeo[order.owner] ??
+      FertilizerStore.estateGeo['Your Land']!;
   final mapH = (MediaQuery.sizeOf(context).height * 0.18).clamp(100.0, 150.0);
 
   await showModalBottomSheet<void>(
+    useSafeArea: true,
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (ctx) {
-      final canAck = order.status == 'Pending Ack' ||
+    builder: mobileSheetBuilder((ctx) {
+      final canAck =
+          order.status == 'Pending Ack' ||
           order.status == 'Negotiating' ||
           order.status == 'Submitted';
-      final canDeliver = (order.status == 'Accepted' ||
-              order.status == 'Stock Confirmed') &&
+      final canDeliver =
+          (order.status == 'Accepted' || order.status == 'Stock Confirmed') &&
           !store.isDisputed(order.id);
-      final showDeliveryFollowUp = order.awaitsOwnerConfirm ||
+      final showDeliveryFollowUp =
+          order.awaitsOwnerConfirm ||
           order.providerCanRate ||
           order.isCompleted;
       final showFooter = canAck || canDeliver || showDeliveryFollowUp;
@@ -590,8 +610,7 @@ Future<void> showSupplierOrderDetail(
           ),
           child: Material(
             color: kOwnerCream,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(22)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
             clipBehavior: Clip.antiAlias,
             child: SafeArea(
               top: false,
@@ -734,9 +753,7 @@ Future<void> showSupplierOrderDetail(
                       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
                       decoration: const BoxDecoration(
                         color: Colors.white,
-                        border: Border(
-                          top: BorderSide(color: kOwnerBorder),
-                        ),
+                        border: Border(top: BorderSide(color: kOwnerBorder)),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -757,11 +774,11 @@ Future<void> showSupplierOrderDetail(
                                       store.acceptOrder(order.id);
                                       Navigator.pop(ctx);
                                       onChanged?.call();
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(
-                                          content:
-                                              Text('${order.id} accepted'),
+                                          content: Text('${order.id} accepted'),
                                         ),
                                       );
                                     },
@@ -785,8 +802,8 @@ Future<void> showSupplierOrderDetail(
                                           MaterialPageRoute(
                                             builder: (_) =>
                                                 FertilizerSupplierChatPage(
-                                              order: order,
-                                            ),
+                                                  order: order,
+                                                ),
                                           ),
                                         );
                                         onChanged?.call();
@@ -825,7 +842,7 @@ Future<void> showSupplierOrderDetail(
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        '${order.id} cancelled · estate will see this',
+                                        '${order.id} cancelled · land will see this',
                                       ),
                                     ),
                                   );
@@ -864,12 +881,15 @@ Future<void> showSupplierOrderDetail(
                                   onPressed: () async {
                                     Navigator.pop(ctx);
                                     final ok = await showModalBottomSheet<bool>(
+                                      useSafeArea: true,
                                       context: context,
                                       isScrollControlled: true,
                                       backgroundColor: Colors.transparent,
-                                      builder: (_) => FertilizerDisputeSheet(
-                                        order: order,
-                                        bySupplier: true,
+                                      builder: mobileSheetBuilder(
+                                        (_) => FertilizerDisputeSheet(
+                                          order: order,
+                                          bySupplier: true,
+                                        ),
                                       ),
                                     );
                                     if (ok == true) onChanged?.call();
@@ -888,7 +908,7 @@ Future<void> showSupplierOrderDetail(
           ),
         ),
       );
-    },
+    }),
   );
 }
 
@@ -909,10 +929,7 @@ class _CalLegendDot extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, color: kOwnerMuted),
-        ),
+        Text(label, style: const TextStyle(fontSize: 11, color: kOwnerMuted)),
       ],
     );
   }
@@ -980,38 +997,42 @@ class _CalendarDayCell extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(
-                  '$day',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: kOwnerInk,
-                    height: 1.1,
-                  ),
-                ),
-                const Spacer(),
-                if (total > 0)
-                  Container(
-                    height: 14,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: accent,
-                      borderRadius: BorderRadius.circular(99),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$day',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: kOwnerInk,
+                      height: 1.1,
                     ),
-                    child: Text(
-                      '$total',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        height: 1,
+                  ),
+                  const SizedBox(width: 3),
+                  if (total > 0)
+                    Container(
+                      height: 14,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: accent,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        '$total',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          height: 1,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
             const Spacer(),
             if (dots.isNotEmpty)

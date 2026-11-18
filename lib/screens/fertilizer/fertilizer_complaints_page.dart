@@ -1,3 +1,4 @@
+import '../../widgets/mobile_sheet.dart';
 import 'package:flutter/material.dart';
 import 'fertilizer_chrome.dart';
 import '../../theme/app_theme.dart';
@@ -29,10 +30,13 @@ class _FertilizerComplaintsPageState extends State<FertilizerComplaintsPage> {
           child: ElevatedButton.icon(
             onPressed: () async {
               final ok = await showModalBottomSheet<bool>(
+                useSafeArea: true,
                 context: context,
                 isScrollControlled: true,
                 backgroundColor: Colors.transparent,
-                builder: (_) => const FertilizerComplaintSheet(),
+                builder: mobileSheetBuilder(
+                  (_) => const FertilizerComplaintSheet(),
+                ),
               );
               if (ok == true && mounted) setState(() {});
             },
@@ -91,7 +95,10 @@ class _FertilizerComplaintsPageState extends State<FertilizerComplaintsPage> {
                   const SizedBox(height: 6),
                   Text(
                     '${c.id} · ${c.product} · ${shortDate(c.date)}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.muted,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(c.description, style: const TextStyle(fontSize: 13)),

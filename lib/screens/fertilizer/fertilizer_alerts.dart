@@ -1,3 +1,4 @@
+import '../../widgets/mobile_sheet.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/owner_widgets.dart';
@@ -8,7 +9,7 @@ import 'fertilizer_order_edit_sheet.dart';
 import 'fertilizer_processing_banner.dart';
 import 'fertilizer_receipt_rating.dart';
 
-/// Bell in the fertilizer header — estate, supplier, or CDO alerts.
+/// Bell in the fertilizer header — land, supplier, or CDO alerts.
 class FertAlertBell extends StatelessWidget {
   const FertAlertBell({
     super.key,
@@ -29,16 +30,16 @@ class FertAlertBell extends StatelessWidget {
     final tick = forCdo
         ? store.cdoAlertTick
         : forSupplier
-            ? store.supplierAlertTick
-            : store.ownerAlertTick;
+        ? store.supplierAlertTick
+        : store.ownerAlertTick;
     return ValueListenableBuilder<int>(
       valueListenable: tick,
       builder: (context, _, __) {
         final unread = forCdo
             ? store.unreadCdoAlerts
             : forSupplier
-                ? store.unreadSupplierAlerts
-                : store.unreadOwnerAlerts;
+            ? store.unreadSupplierAlerts
+            : store.unreadOwnerAlerts;
         return IconButton(
           tooltip: 'Notifications',
           onPressed: () => showFertAlerts(
@@ -85,16 +86,17 @@ Future<void> showFertAlerts(
   }
 
   await showModalBottomSheet<void>(
+    useSafeArea: true,
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (ctx) {
+    builder: mobileSheetBuilder((ctx) {
       // Why: supplier/CDO bells only list alerts that need quick attention.
       final alerts = forCdo
           ? store.importantCdoAlerts
           : forSupplier
-              ? store.importantSupplierAlerts
-              : store.ownerAlerts;
+          ? store.importantSupplierAlerts
+          : store.ownerAlerts;
       return Align(
         alignment: Alignment.bottomCenter,
         child: ConstrainedBox(
@@ -104,8 +106,7 @@ Future<void> showFertAlerts(
           ),
           child: Material(
             color: const Color(0xFFFCF8EF),
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(22)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
             clipBehavior: Clip.antiAlias,
             child: SafeArea(
               top: false,
@@ -144,10 +145,10 @@ Future<void> showFertAlerts(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: Text(
                       forCdo
-                          ? 'Estate cancel / dispute and low-stock alerts. Tap Show to open the page.'
+                          ? 'Land cancel / dispute and low-stock alerts. Tap Show to open the page.'
                           : forSupplier
-                              ? 'New orders, disputes and low-stock alerts. Tap Show to open the page.'
-                              : 'Supplier updates on your orders. Tap Show to open details.',
+                          ? 'New orders, disputes and low-stock alerts. Tap Show to open the page.'
+                          : 'Supplier updates on your orders. Tap Show to open details.',
                       style: const TextStyle(
                         fontSize: 12.5,
                         color: AppColors.muted,
@@ -163,8 +164,7 @@ Future<void> showFertAlerts(
                             ),
                           )
                         : ListView.separated(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                             itemCount: alerts.length,
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 8),
@@ -184,7 +184,7 @@ Future<void> showFertAlerts(
           ),
         ),
       );
-    },
+    }),
   );
 }
 
@@ -214,10 +214,11 @@ Future<void> _openOrderFromAlert(
   }
   final o = order;
   await showModalBottomSheet<void>(
+    useSafeArea: true,
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (sheetContext) {
+    builder: mobileSheetBuilder((sheetContext) {
       return Align(
         alignment: Alignment.bottomCenter,
         child: ConstrainedBox(
@@ -227,8 +228,7 @@ Future<void> _openOrderFromAlert(
           ),
           child: Material(
             color: AppColors.cream,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(22)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
             clipBehavior: Clip.antiAlias,
             child: SafeArea(
               top: false,
@@ -287,11 +287,13 @@ Future<void> _openOrderFromAlert(
                         onPressed: () {
                           Navigator.pop(sheetContext);
                           showModalBottomSheet<bool>(
+                            useSafeArea: true,
                             context: context,
                             isScrollControlled: true,
                             backgroundColor: Colors.transparent,
-                            builder: (_) =>
-                                FertilizerOrderEditSheet(order: o),
+                            builder: mobileSheetBuilder(
+                              (_) => FertilizerOrderEditSheet(order: o),
+                            ),
                           );
                         },
                         child: const Text('Edit order'),
@@ -299,8 +301,7 @@ Future<void> _openOrderFromAlert(
                     else if (o.awaitsOwnerConfirm ||
                         o.isCompleted ||
                         (forSupplier &&
-                            (o.status == 'Accepted' ||
-                                o.providerCanRate)))
+                            (o.status == 'Accepted' || o.providerCanRate)))
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -324,12 +325,15 @@ Future<void> _openOrderFromAlert(
                               onPressed: () {
                                 Navigator.pop(sheetContext);
                                 showModalBottomSheet<bool>(
+                                  useSafeArea: true,
                                   context: context,
                                   isScrollControlled: true,
                                   backgroundColor: Colors.transparent,
-                                  builder: (_) => FertilizerDisputeSheet(
-                                    order: o,
-                                    bySupplier: forSupplier,
+                                  builder: mobileSheetBuilder(
+                                    (_) => FertilizerDisputeSheet(
+                                      order: o,
+                                      bySupplier: forSupplier,
+                                    ),
                                   ),
                                 );
                               },
@@ -349,7 +353,7 @@ Future<void> _openOrderFromAlert(
           ),
         ),
       );
-    },
+    }),
   );
 }
 

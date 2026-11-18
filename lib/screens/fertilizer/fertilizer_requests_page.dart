@@ -1,3 +1,4 @@
+import '../../widgets/mobile_sheet.dart';
 import 'package:flutter/material.dart';
 import 'fertilizer_chrome.dart';
 import '../../theme/app_theme.dart';
@@ -20,8 +21,10 @@ class FertilizerRequestsPage extends StatefulWidget {
 
 class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
   final _store = FertilizerStore.instance;
-  /// all | private | gov — why: estate wants to filter shop vs government orders.
+
+  /// all | private | gov — why: land wants to filter shop vs government orders.
   String _channel = 'all';
+
   /// all | pending | accepted | cancelled | disputed | delivered
   String _status = 'all';
 
@@ -64,10 +67,11 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
 
   Future<void> _viewPrivate(FertOrder o) async {
     await showModalBottomSheet<void>(
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
+      builder: mobileSheetBuilder((sheetContext) {
         final kg = o.items.fold<int>(0, (a, l) => a + l.qty50 * 50);
         return Container(
           constraints: BoxConstraints(
@@ -122,7 +126,11 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                   for (final l in o.items)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
                           Expanded(
                             child: Text(
@@ -149,7 +157,10 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                   Text('Date ${shortDate(o.preferredDate)} · ${o.slot}'),
                   if (o.message.trim().isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text(o.message, style: const TextStyle(color: AppColors.muted)),
+                    Text(
+                      o.message,
+                      style: const TextStyle(color: AppColors.muted),
+                    ),
                   ],
                   const SizedBox(height: 14),
                   if (o.status == 'Pending Ack' || o.status == 'Negotiating')
@@ -170,16 +181,17 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
             ),
           ),
         );
-      },
+      }),
     );
   }
 
   Future<void> _editPrivate(FertOrder o) async {
     final changed = await showModalBottomSheet<bool>(
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => FertilizerOrderEditSheet(order: o),
+      builder: mobileSheetBuilder((_) => FertilizerOrderEditSheet(order: o)),
     );
     if (changed == true && mounted) setState(() {});
   }
@@ -211,9 +223,9 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final allPrivate = _store.ownerOrders('Your Estate');
+    final allPrivate = _store.ownerOrders('Your Land');
     final allGov = _store.govRequests
-        .where((r) => r.owner == 'Your Estate')
+        .where((r) => r.owner == 'Your Land')
         .toList();
     final private = allPrivate
         .where(_privateMatchesStatus)
@@ -223,7 +235,8 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
         .where(_govMatchesStatus)
         .where((_) => _channel == 'all' || _channel == 'gov')
         .toList();
-    final waiting = allPrivate.where((o) => o.status == 'Pending Ack').length +
+    final waiting =
+        allPrivate.where((o) => o.status == 'Pending Ack').length +
         allGov.where((r) => r.status == 'Pending Ack').length;
     final accepted = allPrivate.where((o) => o.status == 'Accepted').length;
     final spend = allPrivate.fold<int>(0, (s, o) => s + o.price);
@@ -306,24 +319,24 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
 
   Widget _summary(int total, int waiting, int accepted, int spend) {
     Widget stat(String value, String label) => Expanded(
-          child: Column(
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 21,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: const TextStyle(color: Color(0xCCFFFFFF), fontSize: 11.5),
-              ),
-            ],
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 21,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-        );
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(color: Color(0xCCFFFFFF), fontSize: 11.5),
+          ),
+        ],
+      ),
+    );
     Widget bar() =>
         Container(width: 1, height: 30, color: const Color(0x33FFFFFF));
 
@@ -374,9 +387,11 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
           child: Icon(icon, size: 17, color: color),
         ),
         const SizedBox(width: 10),
-        Text(
-          title,
-          style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800),
+          ),
         ),
         const SizedBox(width: 8),
         Container(
@@ -399,88 +414,85 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
   }
 
   Widget _chip(IconData icon, String text) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF4F6F3),
-          borderRadius: BorderRadius.circular(99),
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF4F6F3),
+      borderRadius: BorderRadius.circular(99),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: AppColors.muted),
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: AppColors.muted),
-            const SizedBox(width: 5),
-            Text(
-              text,
-              style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
-            ),
-          ],
-        ),
-      );
+      ],
+    ),
+  );
 
   Widget _doc(String t) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppColors.greenSoft,
-          borderRadius: BorderRadius.circular(99),
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+    decoration: BoxDecoration(
+      color: AppColors.greenSoft,
+      borderRadius: BorderRadius.circular(99),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.check_circle, size: 13, color: AppColors.green),
+        const SizedBox(width: 4),
+        Text(
+          t,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: AppColors.green,
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.check_circle, size: 13, color: AppColors.green),
-            const SizedBox(width: 4),
-            Text(
-              t,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: AppColors.green,
-              ),
-            ),
-          ],
-        ),
-      );
+      ],
+    ),
+  );
 
   Widget _empty(String text) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppRadius.callout),
-          border: Border.all(color: AppColors.line),
-        ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.muted),
-        ),
-      );
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(AppRadius.callout),
+      border: Border.all(color: AppColors.line),
+    ),
+    child: Text(
+      text,
+      textAlign: TextAlign.center,
+      style: const TextStyle(color: AppColors.muted),
+    ),
+  );
 
   Widget _badge(IconData icon, Color color) => Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Icon(icon, color: color, size: 22),
-      );
+    width: 44,
+    height: 44,
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Icon(icon, color: color, size: 22),
+  );
 
   BoxDecoration _cardBox() => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.line),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
-      );
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(18),
+    border: Border.all(color: AppColors.line),
+    boxShadow: const [
+      BoxShadow(color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, 4)),
+    ],
+  );
 
   Widget _privateCard(FertOrder o) {
-    final canEdit =
-        o.status == 'Pending Ack' || o.status == 'Negotiating';
+    final canEdit = o.status == 'Pending Ack' || o.status == 'Negotiating';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: _cardBox(),
@@ -589,9 +601,7 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            o.message.trim().isEmpty
-                                ? o.status
-                                : o.message,
+                            o.message.trim().isEmpty ? o.status : o.message,
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -602,7 +612,11 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                           ),
                         ),
                       ],
-                      Row(
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
                           Text(
                             rupees(o.price),
@@ -612,7 +626,7 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                               color: AppColors.green,
                             ),
                           ),
-                          const Spacer(),
+
                           TextButton(
                             onPressed: () => _viewPrivate(o),
                             child: const Text('View'),
@@ -629,11 +643,13 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                               ),
                               onPressed: () async {
                                 final ok = await showModalBottomSheet<bool>(
+                                  useSafeArea: true,
                                   context: context,
                                   isScrollControlled: true,
                                   backgroundColor: Colors.transparent,
-                                  builder: (_) =>
-                                      FertilizerDisputeSheet(order: o),
+                                  builder: mobileSheetBuilder(
+                                    (_) => FertilizerDisputeSheet(order: o),
+                                  ),
                                 );
                                 if (ok == true && mounted) setState(() {});
                               },
@@ -804,7 +820,7 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        // Why: estate cancel notifies the CDO desk bell.
+                        // Why: land cancel notifies the CDO desk bell.
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
@@ -815,7 +831,7 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                             onPressed: () {
                               _store.cancelGovRequest(
                                 r.id,
-                                note: 'Cancelled by estate',
+                                note: 'Cancelled by land',
                                 byCdo: false,
                               );
                               setState(() {});
@@ -829,7 +845,7 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                       ],
                       if (r.status == 'Accepted') ...[
                         const SizedBox(height: 8),
-                        // Why: estate dispute notifies the CDO desk bell.
+                        // Why: land dispute notifies the CDO desk bell.
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
@@ -840,7 +856,7 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                             onPressed: () {
                               _store.disputeGovRequest(
                                 r.id,
-                                reason: 'Disputed by estate',
+                                reason: 'Disputed by land',
                                 byCdo: false,
                               );
                               setState(() {});
@@ -884,36 +900,39 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
     return Row(
       children: [
         for (var i = 0; i < 3; i++) ...[
-          Column(
-            children: [
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: i < done
-                      ? AppColors.green
-                      : (i == done
-                          ? AppColors.warning.withValues(alpha: 0.18)
-                          : const Color(0xFFEDEFEB)),
-                  border: i == done
-                      ? Border.all(color: AppColors.warning, width: 1.6)
+          Expanded(
+            child: Column(
+              children: [
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: i < done
+                        ? AppColors.green
+                        : (i == done
+                              ? AppColors.warning.withValues(alpha: 0.18)
+                              : const Color(0xFFEDEFEB)),
+                    border: i == done
+                        ? Border.all(color: AppColors.warning, width: 1.6)
+                        : null,
+                  ),
+                  child: i < done
+                      ? const Icon(Icons.check, size: 14, color: Colors.white)
                       : null,
                 ),
-                child: i < done
-                    ? const Icon(Icons.check, size: 14, color: Colors.white)
-                    : null,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                labels[i],
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: i <= done ? FontWeight.w700 : FontWeight.w500,
-                  color: i <= done ? Colors.black87 : AppColors.muted,
+                const SizedBox(height: 4),
+                Text(
+                  labels[i],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: i <= done ? FontWeight.w700 : FontWeight.w500,
+                    color: i <= done ? Colors.black87 : AppColors.muted,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           if (i < 2)
             Expanded(

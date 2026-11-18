@@ -1,3 +1,4 @@
+import '../../widgets/mobile_sheet.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 
@@ -14,13 +15,13 @@ const List<String> kFertCdoCancelReasons = [
   'Out of stock',
   'Cannot deliver on that date',
   'Documents incomplete',
-  'Estate not eligible',
+  'Land not eligible',
   'Duplicate / wrong order',
 ];
 
 /// Why: CDO dispute reasons for accepted government applications.
 const List<String> kFertCdoDisputeReasons = [
-  'Incorrect estate information',
+  'Incorrect land information',
   'Quantity disagreement',
   'Eligibility issue',
   'Incorrect documentation',
@@ -41,10 +42,11 @@ Future<String?> showFertCancelReasons(
   var useOther = false;
 
   final result = await showModalBottomSheet<String>(
+    useSafeArea: true,
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (ctx) {
+    builder: mobileSheetBuilder((ctx) {
       return Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
         child: Align(
@@ -53,8 +55,9 @@ Future<String?> showFertCancelReasons(
             constraints: const BoxConstraints(maxWidth: 430),
             child: Material(
               color: AppColors.cream,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(22)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(22),
+              ),
               clipBehavior: Clip.antiAlias,
               child: StatefulBuilder(
                 builder: (context, setLocal) {
@@ -86,7 +89,7 @@ Future<String?> showFertCancelReasons(
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            'Pick one or more reasons. The estate will see this.',
+                            'Pick one or more reasons. The land will see this.',
                             style: TextStyle(
                               fontSize: 12.5,
                               color: AppColors.muted,
@@ -99,7 +102,10 @@ Future<String?> showFertCancelReasons(
                               contentPadding: EdgeInsets.zero,
                               value: selected.contains(r),
                               activeColor: AppColors.green,
-                              title: Text(r, style: const TextStyle(fontSize: 14)),
+                              title: Text(
+                                r,
+                                style: const TextStyle(fontSize: 14),
+                              ),
                               onChanged: (v) => setLocal(() {
                                 if (v == true) {
                                   selected.add(r);
@@ -152,8 +158,9 @@ Future<String?> showFertCancelReasons(
                                       parts.add(other.text.trim());
                                     }
                                     if (parts.isEmpty) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                             'Pick a reason or type Other.',
@@ -179,7 +186,7 @@ Future<String?> showFertCancelReasons(
           ),
         ),
       );
-    },
+    }),
   );
   other.dispose();
   return result;
@@ -195,10 +202,11 @@ Future<String?> showFertCdoDisputeReasons(
   var useOther = false;
 
   final result = await showModalBottomSheet<String>(
+    useSafeArea: true,
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (ctx) {
+    builder: mobileSheetBuilder((ctx) {
       return Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
         child: Align(
@@ -207,8 +215,9 @@ Future<String?> showFertCdoDisputeReasons(
             constraints: const BoxConstraints(maxWidth: 430),
             child: Material(
               color: AppColors.cream,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(22)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(22),
+              ),
               clipBehavior: Clip.antiAlias,
               child: StatefulBuilder(
                 builder: (context, setLocal) {
@@ -254,7 +263,10 @@ Future<String?> showFertCdoDisputeReasons(
                               contentPadding: EdgeInsets.zero,
                               value: selected.contains(r),
                               activeColor: AppColors.green,
-                              title: Text(r, style: const TextStyle(fontSize: 14)),
+                              title: Text(
+                                r,
+                                style: const TextStyle(fontSize: 14),
+                              ),
                               onChanged: (v) => setLocal(() {
                                 if (v == true) {
                                   selected.add(r);
@@ -305,8 +317,9 @@ Future<String?> showFertCdoDisputeReasons(
                                     if (useOther) {
                                       final t = other.text.trim();
                                       if (t.isEmpty) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           const SnackBar(
                                             content: Text(
                                               'Type a reason for Other.',
@@ -318,8 +331,9 @@ Future<String?> showFertCdoDisputeReasons(
                                       parts.add(t);
                                     }
                                     if (parts.isEmpty) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                             'Pick a reason to dispute.',
@@ -345,7 +359,7 @@ Future<String?> showFertCdoDisputeReasons(
           ),
         ),
       );
-    },
+    }),
   );
   other.dispose();
   return result;

@@ -3,7 +3,7 @@ import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
 
-/// Estate files a dispute on an accepted order (goes to Complaints / disputes).
+/// Land files a dispute on an accepted order (goes to Complaints / disputes).
 class FertilizerDisputeSheet extends StatefulWidget {
   const FertilizerDisputeSheet({
     super.key,
@@ -12,7 +12,8 @@ class FertilizerDisputeSheet extends StatefulWidget {
   });
 
   final FertOrder order;
-  /// Supplier can also dispute (estate no-show, payment issue, etc.).
+
+  /// Supplier can also dispute (land no-show, payment issue, etc.).
   final bool bySupplier;
 
   @override
@@ -25,8 +26,8 @@ class _FertilizerDisputeSheetState extends State<FertilizerDisputeSheet> {
 
   List<String> get _reasons => widget.bySupplier
       ? const [
-          'Estate cancelled after accept',
-          'Estate unreachable / no-show',
+          'Land cancelled after accept',
+          'Land unreachable / no-show',
           'Payment dispute',
           'Wrong address / location',
           'Buyer changed quantity late',
@@ -62,7 +63,7 @@ class _FertilizerDisputeSheetState extends State<FertilizerDisputeSheet> {
     }
     final o = widget.order;
     final store = FertilizerStore.instance;
-    final who = widget.bySupplier ? 'Supplier' : 'Estate';
+    final who = widget.bySupplier ? 'Supplier' : 'Land';
     // Why: after delivery, a dispute must close the order so confirm/rate stop.
     o.status = 'Disputed';
     o.message = 'Disputed · $_reason';
@@ -74,7 +75,7 @@ class _FertilizerDisputeSheetState extends State<FertilizerDisputeSheet> {
         status: 'Submitted',
         date: DateTime.now(),
         description: '${o.id} · ${o.company}\n${_desc.text.trim()}',
-        owner: 'Your Estate',
+        owner: 'Your Land',
         district: 'Kurunegala',
       ),
     );
@@ -99,7 +100,7 @@ class _FertilizerDisputeSheetState extends State<FertilizerDisputeSheet> {
         orderId: o.id,
       );
       store.notifySupplier(
-        title: 'Estate dispute on ${o.id}',
+        title: 'Land dispute on ${o.id}',
         body: '$_reason · ${o.owner}',
         kind: 'cancelled',
         orderId: o.id,
@@ -110,7 +111,7 @@ class _FertilizerDisputeSheetState extends State<FertilizerDisputeSheet> {
       SnackBar(
         content: Text(
           widget.bySupplier
-              ? 'Dispute sent · estate will see this'
+              ? 'Dispute sent · land will see this'
               : 'Dispute sent · see Complaints',
         ),
       ),
@@ -132,8 +133,7 @@ class _FertilizerDisputeSheetState extends State<FertilizerDisputeSheet> {
           ),
           child: Material(
             color: AppColors.cream,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(22)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
             clipBehavior: Clip.antiAlias,
             child: SafeArea(
               top: false,
@@ -182,8 +182,7 @@ class _FertilizerDisputeSheetState extends State<FertilizerDisputeSheet> {
                         for (final r in _reasons)
                           DropdownMenuItem(value: r, child: Text(r)),
                       ],
-                      onChanged: (v) =>
-                          setState(() => _reason = v ?? _reason),
+                      onChanged: (v) => setState(() => _reason = v ?? _reason),
                     ),
                     const SizedBox(height: 12),
                     TextField(

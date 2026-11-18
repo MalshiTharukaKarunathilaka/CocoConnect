@@ -1,3 +1,4 @@
+import '../../widgets/mobile_sheet.dart';
 import '../../widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
@@ -24,7 +25,7 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
 
   /// The owner's latest order with this supplier, if there is one.
   FertOrder? get _order {
-    for (final o in _store.ownerOrders('Your Estate')) {
+    for (final o in _store.ownerOrders('Your Land')) {
       if (o.placeId == widget.place.id) return o;
     }
     return null;
@@ -82,10 +83,13 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
 
   Future<void> _orderNow() async {
     await showModalBottomSheet<void>(
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => FertilizerOrderSheet(place: widget.place),
+      builder: mobileSheetBuilder(
+        (_) => FertilizerOrderSheet(place: widget.place),
+      ),
     );
     if (mounted) setState(() {});
   }
@@ -205,8 +209,10 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
                   color: kOwnerGreenSoft,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
                     const Text(
                       'Order total',
@@ -243,7 +249,12 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
                           ),
                         ),
                       ),
-                      Text('${rupees(it.price)} / ${it.unit}', style: muted),
+                      Flexible(
+                        child: Text(
+                          '${rupees(it.price)} / ${it.unit}',
+                          style: muted,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -379,23 +390,24 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
               },
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: Wrap(
-              spacing: 6,
-              children: [
-                for (final q in [
-                  'What colour are the bags?',
-                  'Phone number?',
-                  'Best price for 10 \u00d7 50 kg?',
-                ])
-                  ActionChip(
-                    label: Text(q, style: const TextStyle(fontSize: 11)),
-                    onPressed: () => _send(q),
-                  ),
-              ],
+          if (MediaQuery.viewInsetsOf(context).bottom == 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Wrap(
+                spacing: 6,
+                children: [
+                  for (final q in [
+                    'What colour are the bags?',
+                    'Phone number?',
+                    'Best price for 10 \u00d7 50 kg?',
+                  ])
+                    ActionChip(
+                      label: Text(q, style: const TextStyle(fontSize: 11)),
+                      onPressed: () => _send(q),
+                    ),
+                ],
+              ),
             ),
-          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Row(

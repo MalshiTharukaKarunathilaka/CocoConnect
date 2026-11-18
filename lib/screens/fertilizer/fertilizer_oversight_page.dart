@@ -34,7 +34,10 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
       : [
           (icon: Icons.dashboard_outlined, label: 'Regional overview'),
           (icon: Icons.list_alt_outlined, label: 'Request monitoring'),
-          (icon: Icons.local_shipping_outlined, label: 'Distribution monitoring'),
+          (
+            icon: Icons.local_shipping_outlined,
+            label: 'Distribution monitoring',
+          ),
           (icon: Icons.flag_outlined, label: 'Quality complaints'),
         ];
 
@@ -70,10 +73,7 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
               children: [
                 _topBar(showMenu: !wide),
                 Expanded(
-                  child: ColoredBox(
-                    color: AppColors.page,
-                    child: _body(),
-                  ),
+                  child: ColoredBox(color: AppColors.page, child: _body()),
                 ),
               ],
             ),
@@ -82,9 +82,7 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
       ),
       drawer: wide
           ? null
-          : Drawer(
-              child: SafeArea(child: _sidebar(drawer: true)),
-            ),
+          : Drawer(child: SafeArea(child: _sidebar(drawer: true))),
     );
   }
 
@@ -128,7 +126,7 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
                       ),
                     ),
                     Text(
-                      'Estate services',
+                      'Land services',
                       style: TextStyle(fontSize: 11, color: AppColors.muted),
                     ),
                   ],
@@ -183,8 +181,9 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
-                              color:
-                                  _nav == i ? AppColors.green : AppColors.ink,
+                              color: _nav == i
+                                  ? AppColors.green
+                                  : AppColors.ink,
                             ),
                           ),
                         ),
@@ -216,7 +215,7 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
 
   Widget _topBar({required bool showMenu}) {
     return Container(
-      height: 64,
+      constraints: const BoxConstraints(minHeight: 64),
       padding: const EdgeInsets.symmetric(horizontal: 18),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -251,26 +250,30 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppColors.greenSoft,
-              borderRadius: BorderRadius.circular(99),
-            ),
-            child: const Text(
-              '● Demo environment',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: AppColors.green,
+          if (MediaQuery.sizeOf(context).width >= 600)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.greenSoft,
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: const Text(
+                '● Demo environment',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.green,
+                ),
               ),
             ),
-          ),
           const SizedBox(width: 10),
           IconButton(
             tooltip: 'Profile',
             onPressed: () => openAccountProfile(context),
-            icon: const Icon(Icons.account_circle_outlined, color: AppColors.green),
+            icon: const Icon(
+              Icons.account_circle_outlined,
+              color: AppColors.green,
+            ),
           ),
           IconButton(
             tooltip: 'Log out / switch role',
@@ -356,8 +359,9 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
     );
   }
 
-  Widget _kpiRow(List<({String label, String value, String foot, IconData icon})>
-      items) {
+  Widget _kpiRow(
+    List<({String label, String value, String foot, IconData icon})> items,
+  ) {
     return LayoutBuilder(
       builder: (context, c) {
         final cols = c.maxWidth > 1100 ? 4 : (c.maxWidth > 700 ? 2 : 1);
@@ -367,7 +371,8 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: 14,
           mainAxisSpacing: 14,
-          childAspectRatio: 2.4,
+          mainAxisExtent:
+              200 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6),
           children: [
             for (final i in items)
               Container(
@@ -485,25 +490,25 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
           label: 'Regional requests',
           value: '${mr.length}',
           foot: 'Northern Region only',
-          icon: Icons.schedule
+          icon: Icons.schedule,
         ),
         (
           label: 'Pending decisions',
           value: '$pending',
           foot: 'Northern CDO queues',
-          icon: Icons.priority_high
+          icon: Icons.priority_high,
         ),
         (
           label: 'Bags distributed',
           value: '$bags',
           foot: 'Demo recorded quantity',
-          icon: Icons.check_circle_outline
+          icon: Icons.check_circle_outline,
         ),
         (
           label: 'Open complaints',
           value: '$openC',
           foot: 'Northern Region only',
-          icon: Icons.flag_outlined
+          icon: Icons.flag_outlined,
         ),
       ]),
       const SizedBox(height: 8),
@@ -570,25 +575,25 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
           label: 'Requests received',
           value: '${mr.length}',
           foot: 'All demo districts',
-          icon: Icons.schedule
+          icon: Icons.schedule,
         ),
         (
           label: 'Bags distributed',
           value: '$bags',
           foot: 'Recorded in sample data',
-          icon: Icons.check_circle_outline
+          icon: Icons.check_circle_outline,
         ),
         (
           label: 'Awaiting receipt',
           value: '$awaiting',
           foot: 'Owner confirmation pending',
-          icon: Icons.priority_high
+          icon: Icons.priority_high,
         ),
         (
           label: 'Open complaints',
           value: '$openC',
           foot: 'Quality cases',
-          icon: Icons.flag_outlined
+          icon: Icons.flag_outlined,
         ),
       ]),
       const SizedBox(height: 8),
@@ -598,15 +603,16 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
         'Pending requests and quality issues',
         Column(
           children: [
-            for (final r in mr
-                .where(
-                  (r) =>
-                      r.status == 'Negotiation' ||
-                      r.status == 'Under Review' ||
-                      r.status == 'Submitted' ||
-                      r.status == 'Pending Ack',
-                )
-                .take(4))
+            for (final r
+                in mr
+                    .where(
+                      (r) =>
+                          r.status == 'Negotiation' ||
+                          r.status == 'Under Review' ||
+                          r.status == 'Submitted' ||
+                          r.status == 'Pending Ack',
+                    )
+                    .take(4))
               _miniRow(
                 '${r.id} · ${r.owner}',
                 '${r.district} · ${r.requested} bags requested',
@@ -739,7 +745,9 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('• Who created or changed each request and when'),
-                Text('• Original requested quantity and each negotiated quantity'),
+                Text(
+                  '• Original requested quantity and each negotiated quantity',
+                ),
                 Text('• Approver identity, reason and decision timestamp'),
                 Text('• Stock received, allocated, distributed and remaining'),
                 Text('• Owner receipt confirmation or dispute'),
@@ -772,11 +780,14 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
-          Text(
-            '$n $unit',
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              color: AppColors.green,
+          Flexible(
+            child: Text(
+              '$n $unit',
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: AppColors.green,
+              ),
             ),
           ),
         ],
@@ -937,7 +948,10 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
   Widget _districtSummary(List<FertGovRequest> source) {
     final ds = source.map((r) => r.district).toSet().toList();
     if (ds.isEmpty) {
-      return const Text('No district data.', style: TextStyle(color: AppColors.muted));
+      return const Text(
+        'No district data.',
+        style: TextStyle(color: AppColors.muted),
+      );
     }
     return Column(
       children: [
@@ -945,8 +959,7 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
           Builder(
             builder: (_) {
               final arr = source.where((r) => r.district == d).toList();
-              final distributed =
-                  arr.fold<int>(0, (a, r) => a + r.distributed);
+              final distributed = arr.fold<int>(0, (a, r) => a + r.distributed);
               final requested = arr.fold<int>(0, (a, r) => a + r.requested);
               final pending = arr
                   .where(
@@ -1019,12 +1032,43 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
         style: TextStyle(color: AppColors.muted),
       );
     }
+    if (MediaQuery.sizeOf(context).width < 700) {
+      return Column(
+        children: [
+          for (final r in rows)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: AppColors.line),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${r.id} ? ${r.owner}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(r.fertilizer),
+                  Text('Requested: ${r.requested} bags'),
+                  Text('Approved: ${r.approved} bags'),
+                  const SizedBox(height: 6),
+                  StatusPill.forStatus(r.status),
+                ],
+              ),
+            ),
+        ],
+      );
+    }
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
         headingRowColor: WidgetStateProperty.all(const Color(0xFFFBFDFB)),
         columns: const [
-          DataColumn(label: Text('Request / Estate')),
+          DataColumn(label: Text('Request / Land')),
           DataColumn(label: Text('Fertilizer')),
           DataColumn(label: Text('Requested')),
           DataColumn(label: Text('Approved')),
@@ -1039,7 +1083,10 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(r.id, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      Text(
+                        r.id,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
                       Text(
                         r.owner,
                         style: const TextStyle(
@@ -1063,7 +1110,10 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
 
   Widget _privateOrdersTable(List<FertOrder> rows) {
     if (rows.isEmpty) {
-      return const Text('No private orders yet.', style: TextStyle(color: AppColors.muted));
+      return const Text(
+        'No private orders yet.',
+        style: TextStyle(color: AppColors.muted),
+      );
     }
     return Column(
       children: [
@@ -1115,14 +1165,54 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
     if (rows.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(8),
-        child: Text('No distribution records.', style: TextStyle(color: AppColors.muted)),
+        child: Text(
+          'No distribution records.',
+          style: TextStyle(color: AppColors.muted),
+        ),
+      );
+    }
+    if (MediaQuery.sizeOf(context).width < 700) {
+      return Column(
+        children: [
+          for (final r in rows)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: AppColors.line),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${r.id} ? ${r.owner}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text('Approved: ${r.approved} bags'),
+                  Text('Distributed: ${r.distributed} bags'),
+                  Text(
+                    r.status == 'Receipt Confirmed'
+                        ? 'Goods received: confirmed'
+                        : r.status == 'Distributed'
+                        ? 'Goods received: awaiting confirmation'
+                        : 'Goods not distributed yet',
+                  ),
+                  const SizedBox(height: 6),
+                  StatusPill.forStatus(r.status),
+                ],
+              ),
+            ),
+        ],
       );
     }
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
         columns: const [
-          DataColumn(label: Text('Request / Estate')),
+          DataColumn(label: Text('Request / Land')),
           DataColumn(label: Text('Approved')),
           DataColumn(label: Text('Distributed')),
           DataColumn(label: Text('Receipt')),
@@ -1140,8 +1230,8 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
                     r.status == 'Receipt Confirmed'
                         ? 'Confirmed'
                         : r.status == 'Distributed'
-                            ? 'Awaiting'
-                            : '—',
+                        ? 'Awaiting'
+                        : '—',
                   ),
                 ),
                 DataCell(StatusPill.forStatus(r.status)),
@@ -1177,7 +1267,9 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
                     '${c.id} · ${c.category}',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  subtitle: Text('${c.owner} · ${c.product} · ${shortDate(c.date)}'),
+                  subtitle: Text(
+                    '${c.owner} · ${c.product} · ${shortDate(c.date)}',
+                  ),
                   trailing: StatusPill.forStatus(c.status),
                 ),
               if (source.where((c) => c.district == d).isEmpty)
@@ -1206,7 +1298,10 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
                 Text(
                   sub,
                   style: const TextStyle(fontSize: 11, color: AppColors.muted),

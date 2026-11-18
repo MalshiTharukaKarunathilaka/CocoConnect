@@ -1,3 +1,4 @@
+import '../../widgets/mobile_sheet.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
@@ -14,14 +15,17 @@ Future<bool?> showFertConfirmReceipt(
   required bool isGov,
 }) {
   return showModalBottomSheet<bool>(
+    useSafeArea: true,
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _ConfirmReceiptSheet(
-      id: id,
-      title: title,
-      subtitle: subtitle,
-      isGov: isGov,
+    builder: mobileSheetBuilder(
+      (_) => _ConfirmReceiptSheet(
+        id: id,
+        title: title,
+        subtitle: subtitle,
+        isGov: isGov,
+      ),
     ),
   );
 }
@@ -34,14 +38,17 @@ Future<bool?> showFertRating(
   required bool isGov,
 }) {
   return showModalBottomSheet<bool>(
+    useSafeArea: true,
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _RatingSheet(
-      id: id,
-      partnerName: partnerName,
-      byOwner: byOwner,
-      isGov: isGov,
+    builder: mobileSheetBuilder(
+      (_) => _RatingSheet(
+        id: id,
+        partnerName: partnerName,
+        byOwner: byOwner,
+        isGov: isGov,
+      ),
     ),
   );
 }
@@ -112,10 +119,7 @@ class _ConfirmReceiptSheet extends StatelessWidget {
                   const Text(
                     'Did you receive the goods?',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -199,7 +203,7 @@ class _RatingSheetState extends State<_RatingSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
-    final who = widget.byOwner ? 'supplier / CDO' : 'estate';
+    final who = widget.byOwner ? 'supplier / CDO' : 'land';
     return Align(
       alignment: Alignment.bottomCenter,
       child: ConstrainedBox(
@@ -226,10 +230,7 @@ class _RatingSheetState extends State<_RatingSheet> {
                   const SizedBox(height: 16),
                   const Text(
                     'Rate your experience',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -328,13 +329,9 @@ Widget fertRatingRow({int? fromOwner, int? fromProvider}) {
       runSpacing: 6,
       children: [
         if (fromOwner != null)
-          _chip('Estate $fromOwner★', AppColors.gold, const Color(0xFFFFF6E0)),
+          _chip('Land $fromOwner★', AppColors.gold, const Color(0xFFFFF6E0)),
         if (fromProvider != null)
-          _chip(
-            'Provider $fromProvider★',
-            AppColors.info,
-            AppColors.infoSoft,
-          ),
+          _chip('Provider $fromProvider★', AppColors.info, AppColors.infoSoft),
       ],
     ),
   );
@@ -371,7 +368,9 @@ List<Widget> fertDeliveryActions({
   final canOwnerRate = isGov ? gov.ownerCanRate : order!.ownerCanRate;
   final canProviderRate = isGov ? gov.providerCanRate : order!.providerCanRate;
   final partner = isGov
-      ? (asOwner ? gov.cdo : (gov.estateName.isNotEmpty ? gov.estateName : gov.owner))
+      ? (asOwner
+            ? gov.cdo
+            : (gov.estateName.isNotEmpty ? gov.estateName : gov.owner))
       : (asOwner ? order!.company : order!.owner);
   final title = isGov ? gov.fertilizer : order!.product;
   final subtitle = isGov
@@ -417,16 +416,19 @@ List<Widget> fertDeliveryActions({
             );
             onChanged();
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('$id disputed')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('$id disputed')));
             }
           } else {
             final ok = await showModalBottomSheet<bool>(
+              useSafeArea: true,
               context: context,
               isScrollControlled: true,
               backgroundColor: Colors.transparent,
-              builder: (_) => FertilizerDisputeSheet(order: order!),
+              builder: mobileSheetBuilder(
+                (_) => FertilizerDisputeSheet(order: order!),
+              ),
             );
             if (ok == true) onChanged();
           }
@@ -455,7 +457,9 @@ List<Widget> fertDeliveryActions({
   }
 
   if (!asOwner &&
-      (status == 'Accepted' || status == 'Stock Confirmed' || status == 'Receipt Confirmed')) {
+      (status == 'Accepted' ||
+          status == 'Stock Confirmed' ||
+          status == 'Receipt Confirmed')) {
     out.add(
       ElevatedButton(
         onPressed: () {
@@ -468,7 +472,7 @@ List<Widget> fertDeliveryActions({
           onChanged();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$id marked delivered · waiting for estate confirm'),
+              content: Text('$id marked delivered · waiting for land confirm'),
             ),
           );
         },
@@ -480,7 +484,7 @@ List<Widget> fertDeliveryActions({
   if (!asOwner && awaits) {
     out.add(
       const Text(
-        'Waiting for estate to confirm receipt',
+        'Waiting for land to confirm receipt',
         style: TextStyle(fontSize: 12, color: AppColors.muted),
       ),
     );
@@ -499,7 +503,7 @@ List<Widget> fertDeliveryActions({
           );
           if (ok == true) onChanged();
         },
-        child: const Text('Rate estate'),
+        child: const Text('Rate land'),
       ),
     );
   }
@@ -508,8 +512,9 @@ List<Widget> fertDeliveryActions({
     out.add(
       fertRatingRow(
         fromOwner: isGov ? gov.ratingFromOwner : order!.ratingFromOwner,
-        fromProvider:
-            isGov ? gov.ratingFromProvider : order!.ratingFromProvider,
+        fromProvider: isGov
+            ? gov.ratingFromProvider
+            : order!.ratingFromProvider,
       ),
     );
   }

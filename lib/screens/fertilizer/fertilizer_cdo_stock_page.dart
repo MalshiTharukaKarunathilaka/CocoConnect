@@ -17,6 +17,7 @@ class _FertilizerCdoStockPageState extends State<FertilizerCdoStockPage> {
   String? _pickedType;
   final _customType = TextEditingController();
   bool _useCustom = false;
+
   /// Why: form stays hidden until the CDO taps Add fertilizer.
   bool _showAddForm = false;
 
@@ -55,9 +56,9 @@ class _FertilizerCdoStockPageState extends State<FertilizerCdoStockPage> {
       _pickedType = null;
       _showAddForm = false;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Recorded +$qty bags of $type')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Recorded +$qty bags of $type')));
   }
 
   @override
@@ -95,7 +96,9 @@ class _FertilizerCdoStockPageState extends State<FertilizerCdoStockPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      _showAddForm ? 'Close add form' : 'Enter fertilizer stock',
+                      _showAddForm
+                          ? 'Close add form'
+                          : 'Enter fertilizer stock',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -155,7 +158,10 @@ class _FertilizerCdoStockPageState extends State<FertilizerCdoStockPage> {
                         }),
                       ),
                     ChoiceChip(
-                      label: const Text('Other', style: TextStyle(fontSize: 12)),
+                      label: const Text(
+                        'Other',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       selected: _useCustom,
                       selectedColor: AppColors.greenSoft,
                       onSelected: (_) => setState(() {
@@ -289,20 +295,21 @@ class _FertilizerCdoStockPageState extends State<FertilizerCdoStockPage> {
             style: const TextStyle(fontSize: 12, color: AppColors.muted),
           ),
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 4,
             children: [
               const Text(
                 'Bags (50 kg)',
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
-              const Spacer(),
               IconButton(
                 onPressed: line.bags <= 0
                     ? null
                     : () => setState(() {
-                          _store.adjustCdoStock(line.type, -1);
-                          _store.checkCdoLowStock();
-                        }),
+                        _store.adjustCdoStock(line.type, -1);
+                        _store.checkCdoLowStock();
+                      }),
                 icon: const Icon(Icons.remove_circle_outline),
               ),
               Text(
