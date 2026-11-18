@@ -1,7 +1,9 @@
 import 'dart:async';
+import '../widgets/mobile_sheet.dart';
 import '../widgets/role_navigation_page.dart';
 import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
+import '../services/api_client.dart';
 import '../services/owner_service.dart';
 import '../services/holiday_service.dart';
 import '../widgets/holiday_widgets.dart';
@@ -731,39 +733,42 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     }).firstOrNull;
 
     showModalBottomSheet<void>(
+      useSafeArea: true,
       context: context,
       backgroundColor: Colors.white,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
       ),
-      builder: (context) => _DayActionsSheet(
-        date: selectedDay,
-        showScheduleActions: !isPast,
-        pendingAckJob: pendingAckJob,
-        onAcknowledge: pendingAckJob != null
-            ? () {
-                _showCompletionAcknowledgement(pendingAckJob);
-              }
-            : null,
-        onAddJob: () {
-          Navigator.pop(context);
-          Navigator.push(
-            this.context,
-            MaterialPageRoute(
-              builder: (_) => PostDayJobPage(requiredDate: selectedDay),
-            ),
-          ).then((_) => _loadPostedJobs());
-        },
-        onViewJobs: () {
-          Navigator.pop(context);
-          Navigator.push(
-            this.context,
-            MaterialPageRoute(
-              builder: (_) => ScheduledJobsPage(date: selectedDay),
-            ),
-          ).then((_) => _loadPostedJobs());
-        },
+      builder: mobileSheetBuilder(
+        (context) => _DayActionsSheet(
+          date: selectedDay,
+          showScheduleActions: !isPast,
+          pendingAckJob: pendingAckJob,
+          onAcknowledge: pendingAckJob != null
+              ? () {
+                  _showCompletionAcknowledgement(pendingAckJob);
+                }
+              : null,
+          onAddJob: () {
+            Navigator.pop(context);
+            Navigator.push(
+              this.context,
+              MaterialPageRoute(
+                builder: (_) => PostDayJobPage(requiredDate: selectedDay),
+              ),
+            ).then((_) => _loadPostedJobs());
+          },
+          onViewJobs: () {
+            Navigator.pop(context);
+            Navigator.push(
+              this.context,
+              MaterialPageRoute(
+                builder: (_) => ScheduledJobsPage(date: selectedDay),
+              ),
+            ).then((_) => _loadPostedJobs());
+          },
+        ),
       ),
     );
   }
@@ -842,30 +847,31 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             ),
           ),
           const SizedBox(width: 10),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'KapConnect',
-                style: TextStyle(
-                  color: _calendarGreen,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+          Expanded(
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'KapConnect',
+                  style: TextStyle(
+                    color: _calendarGreen,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              Text(
-                'DAY JOBS',
-                style: TextStyle(
-                  color: Color(0xFF718096),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.1,
+                Text(
+                  'DAY JOBS',
+                  style: TextStyle(
+                    color: Color(0xFF718096),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const Spacer(),
-          const LanguageSelector(),
+          const Flexible(child: LanguageSelector()),
           const SizedBox(width: 10),
         ],
       ),
@@ -962,11 +968,12 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             },
           ),
           SizedBox(height: compact ? 8 : 16),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          const Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 16,
+            runSpacing: 8,
             children: [
               _Legend(color: Color(0xFFF0A315), label: 'Partially filled'),
-              SizedBox(width: 24),
               _Legend(color: _calendarGreen, label: 'Fully filled'),
             ],
           ),
@@ -1583,9 +1590,11 @@ class _Legend extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 8),
-        Text(
-          label,
-          style: const TextStyle(color: Color(0xFF66615D), fontSize: 12),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(color: Color(0xFF66615D), fontSize: 12),
+          ),
         ),
       ],
     );

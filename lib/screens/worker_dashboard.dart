@@ -1,3 +1,4 @@
+import '../widgets/auto_filled_field.dart';
 import '../widgets/language_selector.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -384,7 +385,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             ),
           ),
           const Spacer(),
-          const LanguageSelector(),
+          const Flexible(child: LanguageSelector()),
         ],
       ),
     );
@@ -594,7 +595,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 ),
                 const SizedBox(height: 10),
                 _acknowledgementDetail('Job category', job.category),
-                _acknowledgementDetail('Estate', job.estateName),
+                _acknowledgementDetail('Land', job.estateName),
                 _acknowledgementDetail(
                   'Location',
                   job.estateLocation.isEmpty
@@ -621,8 +622,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    runSpacing: 4,
                     children: [
                       for (var value = 1; value <= 5; value++)
                         IconButton(
@@ -1358,7 +1360,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   _myJobsOnly
                       ? 'Accepted jobs'
                       : _selectedDate == null
-                      ? 'Estates near you'
+                      ? 'Lands near you'
                       : 'Jobs for ${_selectedDate!.day} '
                             '${_months[_selectedDate!.month - 1]}',
                   style: const TextStyle(color: _workerMuted, fontSize: 14),
@@ -1424,14 +1426,16 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               children: [
                 const Icon(Icons.circle, size: 12, color: _workerGreen),
                 const SizedBox(width: 6),
-                Text(
-                  _selectedDate == null
-                      ? 'View all estates across Sri Lanka'
-                      : 'Jobs for ${_selectedDate!.day} '
-                            '${_months[_selectedDate!.month - 1]}',
-                  style: const TextStyle(color: _workerMuted, fontSize: 12),
+                Expanded(
+                  child: Text(
+                    _selectedDate == null
+                        ? 'View all lands across Sri Lanka'
+                        : 'Jobs for ${_selectedDate!.day} '
+                              '${_months[_selectedDate!.month - 1]}',
+                    style: const TextStyle(color: _workerMuted, fontSize: 12),
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 TextButton(
                   onPressed: () => Navigator.push(
                     context,
@@ -1574,27 +1578,22 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   Widget _distanceFilter() {
     const options = <int?>[null, 2, 5, 10, 20, 30];
-    return SizedBox(
-      height: 36,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: options.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final value = options[index];
-          final selected = value == _radiusKm;
-          return ChoiceChip(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final value in options)
+          ChoiceChip(
             label: Text(value == null ? 'ALL' : '$value km'),
-            selected: selected,
+            selected: value == _radiusKm,
             selectedColor: _workerGreen,
             labelStyle: TextStyle(
-              color: selected ? Colors.white : _workerInk,
+              color: value == _radiusKm ? Colors.white : _workerInk,
               fontWeight: FontWeight.bold,
             ),
             onSelected: (_) => setState(() => _radiusKm = value),
-          );
-        },
-      ),
+          ),
+      ],
     );
   }
 
@@ -1615,7 +1614,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             top: 9,
             left: 9,
             child: _mapLabel(
-              _radiusKm == null ? 'All estates' : '$_radiusKm km radius',
+              _radiusKm == null ? 'All lands' : '$_radiusKm km radius',
             ),
           ),
           Positioned(
@@ -1639,7 +1638,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               ),
               child: Text(
                 _radiusKm == null
-                    ? 'Showing all estates across Sri Lanka'
+                    ? 'Showing all lands across Sri Lanka'
                     : 'Active Match Zone: 0 - $_radiusKm km',
                 style: TextStyle(
                   color: _workerInk,
@@ -1762,7 +1761,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   ),
                   const SizedBox(width: 6),
                   IconButton(
-                    tooltip: 'View estate location',
+                    tooltip: 'View land location',
                     onPressed: () => _openEstateLocation(firstJob, jobs),
                     icon: const Icon(
                       Icons.location_on,
@@ -2275,8 +2274,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 style: const TextStyle(color: _workerMuted),
               ),
               const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
+                runSpacing: 4,
                 children: [
                   for (var value = 1; value <= 5; value++)
                     IconButton(
@@ -2353,6 +2353,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('Job already selected'),
         content: Text(
           'You cannot select two jobs on the same day. Decline your '
@@ -2429,6 +2430,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('Decline this job?'),
         content: Text(
           'Your place on the ${job.category} job will become available to another worker.',
@@ -2500,7 +2502,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     if (normalized.contains('machine')) {
       return 'Operate and assist with agricultural machinery work.';
     }
-    return 'Help with general estate work, clearing and daily maintenance.';
+    return 'Help with general land work, clearing and daily maintenance.';
   }
 
   String _formatJobDate(DateTime date) {
@@ -2760,6 +2762,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     final saved = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('Edit worker details'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2775,7 +2778,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             TextField(
               controller: TextEditingController(text: user.phone),
               readOnly: true,
-              decoration: const InputDecoration(labelText: 'Phone'),
+              decoration: autoFilledDecoration(label: 'Phone'),
             ),
           ],
         ),
@@ -2830,42 +2833,46 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   Widget _navItem(IconData icon, String label, int index, {int badge = 0}) {
     final selected = _tab == index;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _tab = index;
-          if (index == 1) {
-            _myJobsOnly = false;
-            _category = null;
-          }
-          if (index == 3) _notificationCount = 0;
-        });
-        if (index == 0 || index == 1) _reloadJobs();
-        if (index == 4) _reloadProfile();
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Badge(
-            isLabelVisible: badge > 0,
-            label: Text(badge > 99 ? '99+' : '$badge'),
-            backgroundColor: Colors.red,
-            child: Icon(
-              icon,
-              color: selected ? _workerGreen : _workerMuted,
-              size: 29,
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _tab = index;
+            if (index == 1) {
+              _myJobsOnly = false;
+              _category = null;
+            }
+            if (index == 3) _notificationCount = 0;
+          });
+          if (index == 0 || index == 1) _reloadJobs();
+          if (index == 4) _reloadProfile();
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Badge(
+              isLabelVisible: badge > 0,
+              label: Text(badge > 99 ? '99+' : '$badge'),
+              backgroundColor: Colors.red,
+              child: Icon(
+                icon,
+                color: selected ? _workerGreen : _workerMuted,
+                size: 29,
+              ),
             ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: TextStyle(
-              color: selected ? _workerGreen : _workerMuted,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+            const SizedBox(height: 3),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: TextStyle(
+                color: selected ? _workerGreen : _workerMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2948,12 +2955,14 @@ class _WorkerCalendarLegend extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            color: _workerMuted,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: _workerMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
