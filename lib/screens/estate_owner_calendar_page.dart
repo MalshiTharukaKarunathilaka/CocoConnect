@@ -408,10 +408,11 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   Future<void> _showCancelCompletionDialog(DayJob job) async {
     if (!mounted) return;
     const reasons = [
-      'Work not finished yet',
-      'Incomplete or poor quality work',
-      'Workers left early / did not show up',
-      'Payment or working hours dispute',
+      'Job is not needed now',
+      'Bad weather or site problem',
+      'Not enough workers',
+      'Workers are not available',
+      'Job was posted by mistake',
       'Other',
     ];
     String selectedReason = reasons.first;
@@ -604,8 +605,8 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Icon(Icons.close, size: 18),
-                        label: Text(submitting ? 'Submitting…' : 'Submit Cancel'),
+                            : const SizedBox.shrink(),
+                        label: Text(submitting ? 'Submitting…' : 'Submit'),
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFFA32820),
                           foregroundColor: Colors.white,
@@ -878,19 +879,6 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             ),
           ),
           const Spacer(),
-          IconButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No new notifications')),
-              );
-            },
-            icon: const Icon(
-              Icons.notifications_none,
-              color: _calendarGreen,
-              size: 26,
-            ),
-          ),
-          const SizedBox(width: 4),
           const LanguageSelector(),
           const SizedBox(width: 10),
         ],
