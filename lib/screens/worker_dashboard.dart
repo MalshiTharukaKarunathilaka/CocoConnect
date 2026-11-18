@@ -459,8 +459,6 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           ),
           const SizedBox(height: 14),
         ],
-        _profileCard(jobs),
-        const SizedBox(height: 16),
         Row(
           children: [
             Expanded(child: SizedBox(height: 48, child: _searchBox())),
@@ -763,115 +761,6 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       child: Text(
         'Jobs could not be loaded yet.\n$message',
         style: const TextStyle(color: Color(0xFF8A4B1E), fontSize: 12),
-      ),
-    );
-  }
-
-  Widget _profileCard(List<WorkerJob> jobs) {
-    final user = AuthService.currentUser;
-    final profileLocation = _profileCache?.location.trim() ?? '';
-    final accountLocation = user?.location?.trim() ?? '';
-    final workerLocation = profileLocation.isNotEmpty
-        ? profileLocation
-        : accountLocation.isNotEmpty
-        ? accountLocation
-        : 'Location not provided';
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-      decoration: _cardDecoration(),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 27,
-            backgroundColor: Color(0xFFE9E6DC),
-            child: Icon(Icons.person, color: _workerGreen, size: 30),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user?.name ?? 'Worker',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _workerInk,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    const Icon(Icons.verified, color: _workerGreen, size: 18),
-                    const SizedBox(width: 5),
-                    const Icon(
-                      Icons.location_on_outlined,
-                      color: _workerGreen,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        workerLocation,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: _workerMuted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          _ratingBadge(jobs),
-        ],
-      ),
-    );
-  }
-
-  Widget _ratingBadge(List<WorkerJob> jobs) {
-    final completedJobs = jobs
-        .where(
-          (job) =>
-              job.applicationStatus?.toUpperCase() == 'ACCEPTED' &&
-              job.status.toUpperCase() == 'COMPLETED',
-        )
-        .toList();
-    final completedCount = _profileCache?.completedJobs ?? completedJobs.length;
-    final totalRatingMarks =
-        _profileCache?.totalRatingMarks ??
-        completedJobs.fold<int>(0, (total, job) => total + (job.rating ?? 0));
-    final averageRating =
-        _profileCache?.averageRating ??
-        (completedCount == 0 ? null : totalRatingMarks / completedCount);
-    final ratingLabel = averageRating == null
-        ? 'New'
-        : '${averageRating.toStringAsFixed(1)} ($completedCount)';
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F1E8),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.star, color: Color(0xFFFFB36D), size: 16),
-          const SizedBox(width: 4),
-          Text(
-            ratingLabel,
-            style: const TextStyle(
-              color: _workerInk,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1999,6 +1888,12 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     final progress = job.workersNeeded == 0
         ? 0.0
         : (job.confirmedWorkers / job.workersNeeded).clamp(0.0, 1.0);
+
+    // Bidirectional completion state
+    final awaitingOwnerAck = job.workerInitiatedCompletion; // worker went first
+    final awaitingWorkerAck = job.needsCompletionAcknowledgement; // owner went first
+    final initiating = _acknowledgingJobId == job.id;
+    final canComplete = job.canInitiateCompletion;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
@@ -2030,6 +1925,10 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 child: Text(
                   completed
                       ? 'Completed'
+                      : awaitingOwnerAck
+                      ? 'Awaiting Owner'
+                      : awaitingWorkerAck
+                      ? 'Awaiting You'
                       : accepted
                       ? 'Accepted'
                       : applied
@@ -2273,6 +2172,70 @@ class _WorkerDashboardState extends State<WorkerDashboard>
               style: TextStyle(color: _workerMuted, fontSize: 12),
             ),
           ],
+          // ── Bidirectional completion row ──────────────────────────────
+          if (accepted && !completed) ...[
+            const SizedBox(height: 8),
+            if (awaitingWorkerAck) ...[
+              // Owner already initiated — worker needs to acknowledge
+              SizedBox(
+                width: double.infinity,
+                height: 42,
+                child: FilledButton.icon(
+                  onPressed: initiating
+                      ? null
+                      : () => _showCompletionAcknowledgement(job),
+                  icon: const Icon(Icons.check_circle_outline, size: 18),
+                  label: const Text('Acknowledge Completion'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF256B45),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(21),
+                    ),
+                  ),
+                ),
+              ),
+            ] else if (awaitingOwnerAck) ...[
+              // Worker already initiated — waiting for owner
+              SizedBox(
+                width: double.infinity,
+                height: 42,
+                child: OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.hourglass_top_rounded, size: 18),
+                  label: const Text('Waiting for land owner…'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF9A6B12),
+                    side: const BorderSide(color: Color(0xFF9A6B12), width: 1.5),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(21),
+                    ),
+                  ),
+                ),
+              ),
+            ] else if (canComplete) ...[
+              // Worker can initiate completion
+              SizedBox(
+                width: double.infinity,
+                height: 42,
+                child: FilledButton.icon(
+                  onPressed: initiating ? null : () => _initiateCompletion(job),
+                  icon: const Icon(Icons.task_alt_rounded, size: 18),
+                  label: initiating
+                      ? const Text('Submitting…')
+                      : const Text('Complete Job'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF256B45),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(21),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );
@@ -2396,6 +2359,63 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         ],
       ),
     );
+  }
+
+  Future<void> _initiateCompletion(WorkerJob job) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Complete this job?'),
+        content: Text(
+          'You are marking the ${job.category} job on '
+          '${_formatJobDate(job.requiredDate)} as completed.\n\n'
+          'The land owner will be asked to confirm before the job is closed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF256B45),
+            ),
+            child: const Text('Complete Job'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _acknowledgingJobId = job.id);
+    try {
+      await WorkerService.initiateJobCompletion(job.id);
+      if (!mounted) return;
+      setState(() {
+        _acknowledgingJobId = null;
+        _jobs = WorkerService.getAvailableJobs();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Completion request sent. Waiting for the land owner to confirm.',
+          ),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _acknowledgingJobId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _acknowledgingJobId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not submit completion request.')),
+      );
+    }
   }
 
   Future<void> _declineJob(WorkerJob job) async {
