@@ -142,24 +142,6 @@ class FertilizerDemoAuth {
       latitude: 8.0350,
       longitude: 79.8300,
     ),
-    FertDemoAccount(
-      id: 904,
-      name: 'Regional Manager',
-      phone: '0702000001',
-      password: passwordHint,
-      role: 'REGIONAL_MANAGER',
-      roleLabel: 'Regional Manager',
-      blurb: 'Regional monitoring',
-    ),
-    FertDemoAccount(
-      id: 905,
-      name: 'Board Chairman',
-      phone: '0703000001',
-      password: passwordHint,
-      role: 'CHAIRMAN',
-      roleLabel: 'Chairman',
-      blurb: 'Board overview',
-    ),
   ];
 
   static FertDemoAccount? byRole(String role) {

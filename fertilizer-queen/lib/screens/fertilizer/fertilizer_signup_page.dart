@@ -9,11 +9,12 @@ import '../auth_gate.dart';
 import '../location_picker_page.dart';
 import '../signup_role_sections.dart';
 
-/// Create Account for one fertilizer role — includes supplier / CDO extras.
+/// Create Account — pick Estate Owner / Supplier / CDO (and oversight roles).
 class FertilizerSignupPage extends StatefulWidget {
-  const FertilizerSignupPage({super.key, required this.lockedRole});
+  const FertilizerSignupPage({super.key, this.lockedRole});
 
-  final FertDemoAccount lockedRole;
+  /// When set (old role-card flow), signup stays on that role only.
+  final FertDemoAccount? lockedRole;
 
   @override
   State<FertilizerSignupPage> createState() => _FertilizerSignupPageState();
@@ -32,6 +33,25 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _loading = false;
+  late FertDemoAccount _selectedRole;
+
+  /// One template per signup role (Estate / Supplier / CDO only).
+  static List<FertDemoAccount> get _signupRoles {
+    const allowed = {'ESTATE_OWNER', 'FERTILIZER_SUPPLIER', 'CDO'};
+    final seen = <String>{};
+    final out = <FertDemoAccount>[];
+    for (final a in FertilizerDemoAuth.accounts) {
+      if (!allowed.contains(a.role)) continue;
+      if (seen.add(a.role)) out.add(a);
+    }
+    return out;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRole = widget.lockedRole ?? _signupRoles.first;
+  }
 
   @override
   void dispose() {
@@ -77,7 +97,7 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
     FocusScope.of(context).unfocus();
     setState(() => _loading = true);
 
-    final role = widget.lockedRole.role;
+    final role = _selectedRole.role;
     final isSupplier = role == 'FERTILIZER_SUPPLIER';
     final isCdo = role == 'CDO';
 
@@ -163,7 +183,7 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
   }
 
   Widget _roleExtras() {
-    switch (widget.lockedRole.role) {
+    switch (_selectedRole.role) {
       case 'FERTILIZER_SUPPLIER':
         return SupplierSignupSection(
           extras: _extras,
@@ -184,7 +204,8 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
 
   @override
   Widget build(BuildContext context) {
-    final role = widget.lockedRole;
+    final role = _selectedRole;
+    final locked = widget.lockedRole != null;
     final minPassword =
         role.role == 'FERTILIZER_SUPPLIER' || role.role == 'CDO' ? 8 : 6;
 
@@ -200,7 +221,9 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
         ),
         AuthHeading(
           title: 'Create Account',
-          subtitle: 'Register as ${role.roleLabel} · ${role.blurb}',
+          subtitle: locked
+              ? 'Register as ${role.roleLabel} · ${role.blurb}'
+              : 'Choose your role, then fill the form',
         ),
         const SizedBox(height: 20),
         AuthCard(
@@ -251,12 +274,23 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _RoleChip(role.roleLabel, true),
+                    for (final option in (locked ? [role] : _signupRoles))
+                      GestureDetector(
+                        onTap: locked
+                            ? null
+                            : () => setState(() => _selectedRole = option),
+                        child: _RoleChip(
+                          option.roleLabel,
+                          option.role == role.role,
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'This signup is locked to ${role.roleLabel}.',
+                  locked
+                      ? 'This signup is locked to ${role.roleLabel}.'
+                      : 'Pick Estate Owner, Supplier Agent, or CDO.',
                   style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
                 ),
                 // Why: avoid AnimatedSize/Switcher overlays that steal taps
