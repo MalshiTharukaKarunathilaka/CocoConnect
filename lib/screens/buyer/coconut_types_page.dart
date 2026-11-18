@@ -27,90 +27,59 @@ class CoconutTypesPage extends StatelessWidget {
         current: AppTab.dashboard,
         chatScope: ChatScope.coconut,
       ),
-      body: Column(
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 16),
         children: [
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    size: 20,
-                    color: Color(0xFF2E7D32),
-                  ),
-                ),
-                const SizedBox(width: 5),
-                const Text(
+          Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.maybePop(context),
+                icon: const Icon(Icons.arrow_back, color: kBuyerGreen),
+              ),
+              const Expanded(
+                child: Text(
                   'KapConnect',
                   style: TextStyle(
-                    color: Color(0xFF2E7D32),
+                    color: kBuyerGreen,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const Spacer(),
-                const LanguageSelector(),
-              ],
-            ),
+              ),
+              const Flexible(child: LanguageSelector()),
+            ],
           ),
           const SizedBox(height: 20),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Choose Coconut Category',
-                    style: TextStyle(
-                      fontSize: 17,
-                      color: Color(0xFF1B5E20),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Select the type of coconut product that you are looking to '
-                    'source from our verified suppliers.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF777777),
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  for (final CoconutType type in CoconutType.all) ...[
-                    Expanded(
-                      child: CoconutProductCard(
-                        title: type.label,
-                        imageUrl: '',
-                        imageAsset: _photos[type.code],
-                        unitLabel: rupees(type.pricePerNut),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => MarketplacePage(type: type),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  const Text(
-                    'Prices shown are the typical offer per nut across nearby '
-                    'estates.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: kBuyerGrey,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
+          const Text(
+            'Choose Coconut Category',
+            style: TextStyle(
+              fontSize: 17,
+              color: Color(0xFF1B5E20),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Select the type of coconut product that you are looking to source from our verified suppliers.',
+            style: TextStyle(fontSize: 11, color: kBuyerGrey, height: 1.4),
+          ),
+          const SizedBox(height: 20),
+          for (final type in CoconutType.all) ...[
+            CoconutProductCard(
+              title: type.label,
+              imageUrl: '',
+              imageAsset: _photos[type.code],
+              unitLabel: rupees(type.pricePerNut),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => MarketplacePage(type: type)),
               ),
             ),
+            const SizedBox(height: 12),
+          ],
+          const Text(
+            'Prices shown are the typical offer per nut across nearby lands.',
+            style: TextStyle(fontSize: 11, color: kBuyerGrey, height: 1.4),
           ),
         ],
       ),

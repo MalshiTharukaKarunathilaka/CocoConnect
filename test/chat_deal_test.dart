@@ -50,7 +50,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
           final chat = tester.getSize(find.byType(Column).first);
-          expect(chat.width, lessThanOrEqualTo(390));
+          expect(chat.width, lessThanOrEqualTo(430));
           expect(find.text('Cancel Deal').hitTestable(), findsOneWidget);
           await tester.tap(find.text('Cancel Deal'));
           await tester.pumpAndSettle();

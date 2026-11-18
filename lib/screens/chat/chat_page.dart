@@ -1,3 +1,4 @@
+import '../../widgets/deal_cancellation_dialog.dart';
 import '../../widgets/app_bottom_nav.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -129,6 +130,7 @@ class _ChatPageState extends State<ChatPage> {
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: Text(title),
         content: Text(body),
         actions: [
@@ -234,16 +236,9 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _cancelDeal() async {
-    if (!await _confirm(
-      'Cancel this deal?',
-      'This cancels the accepted deal with ${_chat!.counterpartName}. '
-          'They will be notified and the cancellation will appear in this chat.',
-      'Cancel Deal',
-      _red,
-    )) {
-      return;
-    }
-    await _run(() => ChatService.cancelDeal(widget.chatId), 'Deal cancelled');
+    final details = await showDealCancellationDialog(context, type: DealCancellationType.coconut);
+    if (details == null || !mounted) return;
+    await _run(() => ChatService.cancelDeal(widget.chatId, details), 'Deal cancelled');
   }
 
   Future<void> _confirmReceipt() async {
@@ -251,7 +246,7 @@ class _ChatPageState extends State<ChatPage> {
       'Mark nuts as received?',
       'Confirm that you collected the nuts at ${_chat!.counterpartName}. '
           'This completes the deal and enables ratings for both sides.',
-      'Mark Nuts Received',
+      'Confirm Goods Received',
       _green,
     )) {
       return;
@@ -385,11 +380,11 @@ class _ChatPageState extends State<ChatPage> {
               chat.isCompleted
                   ? 'Transaction complete. You can now rate each other.'
                   : chat.awaitingReceipt
-                  ? 'Transaction marked complete by the estate owner. Awaiting buyer confirmation that the nuts have been received.'
+                  ? 'Transaction marked complete by the land owner. Awaiting buyer confirmation that the nuts have been received.'
                   : chat.iAmBuyer
                   ? 'Collect the nuts at ${chat.counterpartName}. After the seller '
-                        'records collection, tap Mark Nuts Received to complete the deal.'
-                  : 'After ${chat.counterpartName} collects the nuts from your estate, '
+                        'records collection, tap Confirm Goods Received to complete the deal.'
+                  : 'After ${chat.counterpartName} collects the nuts from your land, '
                         'use Complete Transaction to record the quantity collected. '
                         'The transaction ends once the buyer marks the nuts as received.',
               good: true,
@@ -465,14 +460,14 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             if (chat.iAmBuyer)
               OwnerPrimaryButton(
-                label: 'Mark Nuts Received',
+                label: 'Confirm Goods Received',
                 onPressed: _busy ? null : _confirmReceipt,
               )
             else
               const Padding(
                 padding: EdgeInsets.all(8),
                 child: Text(
-                  'Waiting for the buyer to mark the nuts as received',
+                  'Waiting for the buyer to confirm the goods were received',
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -509,7 +504,7 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             if (!chat.iAmBuyer)
               OwnerPrimaryButton(
-                label: 'Complete Transaction',
+                label: 'Mark goods handed over',
                 arrow: true,
                 onPressed: _busy ? null : _complete,
               ),
@@ -556,7 +551,7 @@ class _ChatHeader extends StatelessWidget {
     final String subtitle = chat == null
         ? ''
         : [
-            if (chat.iAmBuyer) 'Estate' else 'Buyer',
+            if (chat.iAmBuyer) 'Land' else 'Buyer',
             if ((chat.counterpartLocation ?? '').isNotEmpty)
               chat.counterpartLocation!,
           ].join('  ·  ');

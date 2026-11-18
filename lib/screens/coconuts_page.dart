@@ -55,7 +55,7 @@ class CoconutsPage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const LanguageSelector(),
+                      const Flexible(child: LanguageSelector()),
                     ],
                   ),
                 ),

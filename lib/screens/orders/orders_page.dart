@@ -80,6 +80,7 @@ class _OrdersPageState extends State<OrdersPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: const Text('Mark nuts as received?'),
         content: Text(
           'Confirm that you collected ${withCommas(order.deliveredQuantity ?? order.quantity)} nuts at ${order.counterpartName}. This completes the deal and enables ratings for both sides.',
@@ -91,7 +92,7 @@ class _OrdersPageState extends State<OrdersPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Mark Nuts Received'),
+            child: const Text('Confirm Goods Received'),
           ),
         ],
       ),
@@ -509,16 +510,18 @@ class _TotalRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      spacing: 12,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: kOwnerInk,
-            ),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: kOwnerInk,
           ),
         ),
         Text(
@@ -707,7 +710,7 @@ class _DealCard extends StatelessWidget {
           const SizedBox(height: 14),
           if (deal.iAmBuyer && deal.awaitingReceipt)
             OwnerPrimaryButton(
-              label: 'Mark Nuts Received',
+              label: 'Confirm Goods Received',
               onPressed: onConfirmReceipt,
             )
           else if (onComplete != null)

@@ -48,7 +48,7 @@ class BuyerCategoriesPage extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: 12),
-                LanguageSelector(),
+                Flexible(child: LanguageSelector()),
               ],
             ),
 

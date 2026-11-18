@@ -1,3 +1,4 @@
+import '../../widgets/mobile_sheet.dart';
 import '../../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -192,30 +193,34 @@ class _MarketplacePageState extends State<MarketplacePage> {
       return;
     }
     final ListingSort? picked = await showModalBottomSheet<ListingSort>(
+      isScrollControlled: true,
+      useSafeArea: true,
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Sort listings',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      builder: mobileSheetBuilder(
+        (context) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Sort listings',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
-            ),
-            for (final sort in ListingSort.values)
-              ListTile(
-                title: Text(sort.label),
-                trailing: sort == _sort
-                    ? const Icon(Icons.check, color: kBuyerGreen)
-                    : null,
-                onTap: () => Navigator.pop(context, sort),
-              ),
-          ],
+              for (final sort in ListingSort.values)
+                ListTile(
+                  title: Text(sort.label),
+                  trailing: sort == _sort
+                      ? const Icon(Icons.check, color: kBuyerGreen)
+                      : null,
+                  onTap: () => Navigator.pop(context, sort),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -382,28 +387,32 @@ class _MarketplacePageState extends State<MarketplacePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Icon(
-                        Icons.arrow_back,
-                        size: 22,
-                        color: Color(0xFF3A3A3A),
+                Expanded(
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: const Icon(
+                          Icons.arrow_back,
+                          size: 22,
+                          color: Color(0xFF3A3A3A),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'KapConnect',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: kBuyerGreen,
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: const Text(
+                          'KapConnect',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: kBuyerGreen,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const LanguageSelector(),
+                const Flexible(child: LanguageSelector()),
               ],
             ),
 

@@ -1,3 +1,4 @@
+import '../theme/app_theme.dart';
 import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
@@ -164,12 +165,14 @@ class _SellRequestPageState extends State<SellRequestPage> {
                         ),
                       ),
                       const SizedBox(width: 14),
-                      const Text(
-                        'Send Sell Request',
-                        style: TextStyle(
-                          color: Color(0xFF1B5E20),
-                          fontSize: 21,
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: const Text(
+                          'Send Sell Request',
+                          style: TextStyle(
+                            color: Color(0xFF1B5E20),
+                            fontSize: 21,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -331,12 +334,14 @@ class _SellRequestPageState extends State<SellRequestPage> {
                         color: Color(0xFF6B6B6B),
                       ),
                       SizedBox(width: 6),
-                      Text(
-                        'Automatically filled from the buyer request',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF6B6B6B),
-                          fontWeight: FontWeight.w500,
+                      Expanded(
+                        child: Text(
+                          'Automatically filled from the buyer request',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF6B6B6B),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
@@ -356,7 +361,7 @@ class _SellRequestPageState extends State<SellRequestPage> {
                           'Quantity Requested (${usesUnits ? 'Units' : 'Nuts'})',
                       floatingLabelBehavior: FloatingLabelBehavior.always,
                       filled: true,
-                      fillColor: const Color(0xFFE3E1DC),
+                      fillColor: AppColors.autoFilledBackground,
                       suffixIcon: const Icon(
                         Icons.lock,
                         size: 17,
@@ -391,7 +396,7 @@ class _SellRequestPageState extends State<SellRequestPage> {
                       floatingLabelBehavior: FloatingLabelBehavior.always,
                       prefixText: 'Rs. ',
                       filled: true,
-                      fillColor: const Color(0xFFE3E1DC),
+                      fillColor: AppColors.autoFilledBackground,
                       suffixIcon: const Icon(
                         Icons.lock,
                         size: 17,
@@ -414,6 +419,7 @@ class _SellRequestPageState extends State<SellRequestPage> {
                   const SizedBox(height: 24),
 
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: paymentMethod,
                     hint: const Text('Select Payment Method'),
                     decoration: InputDecoration(

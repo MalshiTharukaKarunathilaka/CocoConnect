@@ -194,7 +194,7 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
               ),
               const SizedBox(height: 3),
               const Text(
-                'Enter the quantity collected by the buyer at your estate and the final settled price',
+                'Enter the quantity collected by the buyer at your land and the final settled price',
                 style: TextStyle(fontSize: 12.5, color: kOwnerMuted),
               ),
               const SizedBox(height: 16),

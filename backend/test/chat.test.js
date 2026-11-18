@@ -261,9 +261,9 @@ test('either participant can cancel an accepted deal, but strangers and retries 
   for (const canceller of [buyer, owner]) {
     const id = await open(await list(300, day(2), 130));
     const accepted = await call('POST', `/api/chats/${id}/accept-listing`, {token: buyer.token});
-    const denied = await call('POST', `/api/chats/${id}/cancel-deal`, {token: stranger.token});
+    const denied = await call('POST', `/api/chats/${id}/cancel-deal`, {token: stranger.token, body: {reason: "Schedule changed"}});
     assert.equal(denied.status, 404);
-    const result = await call('POST', `/api/chats/${id}/cancel-deal`, {token: canceller.token});
+    const result = await call('POST', `/api/chats/${id}/cancel-deal`, {token: canceller.token, body: {reason: "Schedule changed"}});
     assert.equal(result.status, 200);
     assert.equal(result.data.order.status, 'CANCELLED');
     const other = canceller === buyer ? owner : buyer;
@@ -275,7 +275,7 @@ test('either participant can cancel an accepted deal, but strangers and retries 
     assert.ok(view.messages.some(m => m.message?.startsWith('Deal cancelled by ')));
     const activity = (await call('GET', '/api/activity', {token: other.token})).data;
     assert.ok(!activity.deals.some(o => o.id === accepted.data.order.id));
-    assert.equal((await call('POST', `/api/chats/${id}/cancel-deal`, {token: canceller.token})).status, 409);
+    assert.equal((await call('POST', `/api/chats/${id}/cancel-deal`, {token: canceller.token, body: {reason: "Schedule changed"}})).status, 409);
     assert.equal((await call('POST', `/api/owner/orders/${accepted.data.order.id}/complete`, {
       token: owner.token, body: {deliveredQuantity: 300, finalPricePerUnit: 130}
     })).status, 409);
@@ -284,7 +284,7 @@ test('either participant can cancel an accepted deal, but strangers and retries 
 
 test('open negotiations and completed deals cannot be cancelled', async () => {
   const id = await open(await list(300, day(2), 130));
-  assert.equal((await call('POST', `/api/chats/${id}/cancel-deal`, {token: buyer.token})).status, 409);
+  assert.equal((await call('POST', `/api/chats/${id}/cancel-deal`, {token: buyer.token, body: {reason: "Schedule changed"}})).status, 409);
   const accepted = await call('POST', `/api/chats/${id}/accept-listing`, {token: buyer.token});
   assert.equal((await call('POST', `/api/owner/orders/${accepted.data.order.id}/complete`, {
     token: owner.token, body: {deliveredQuantity: 300, finalPricePerUnit: 130}
@@ -293,7 +293,7 @@ test('open negotiations and completed deals cannot be cancelled', async () => {
   assert.equal((await chatOf(buyer, id)).order_status, 'AWAITING_RECEIPT');
   assert.equal((await call('PATCH', `/api/buyer/orders/${accepted.data.order.id}/confirm-receipt`, {token: buyer.token})).status, 200);
   assert.equal((await chatOf(buyer, id)).order_status, 'COMPLETED');
-  assert.equal((await call('POST', `/api/chats/${id}/cancel-deal`, {token: buyer.token})).status, 409);
+  assert.equal((await call('POST', `/api/chats/${id}/cancel-deal`, {token: buyer.token, body: {reason: "Schedule changed"}})).status, 409);
 });
 
 
@@ -301,7 +301,7 @@ test('legacy delivery system messages display as collection in chat, previews an
   const id = await open(await list(100, day(2), 125));
   await say(owner, id, {message: 'Delivery marked complete by Nimal Owner. Waiting for the buyer to confirm receipt.'});
   const preview = await summaryOf(buyer, id);
-  assert.equal(preview.last_message.text, 'Transaction marked complete by Nimal Owner (estate owner). Awaiting buyer confirmation that the nuts have been received.');
+  assert.equal(preview.last_message.text, 'Transaction marked complete by Nimal Owner (land owner). Awaiting buyer confirmation that the nuts have been received.');
   const alerts = (await call('GET', '/api/notifications', {token: buyer.token})).data;
   assert.ok(alerts.some(n => n.negotiation_id === id && n.title.includes('marked transaction complete')));
   await say(buyer, id, {message: 'Receipt confirmed by Lanka Mills. The deal is complete. Both participants can now leave a rating.'});

@@ -282,7 +282,7 @@ test("an offer on a buyer request starts a chat; accepting it there closes the r
   );
   assert.equal(deal.due_date, "2026-12-01", "due on the buyer's required date");
   assert.equal(deal.counterpart_name, "Kelani Palms");
-  const cancelled = await call('POST', `/api/chats/${chatId}/cancel-deal`, {token: owner.token});
+  const cancelled = await call('POST', `/api/chats/${chatId}/cancel-deal`, {token: owner.token, body: {reason: "Schedule changed"}});
   assert.equal(cancelled.status, 200);
   const afterCancel = (await call('GET', '/api/buyer/requests', {token: buyer.token})).data;
   assert.equal(afterCancel.find(r => r.id === request.id).status, 'CANCELLED');
@@ -362,6 +362,7 @@ test('receipt confirmation is buyer-only, follows seller completion, and enables
     assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: buyer.token, body: {rating}})).status, 400);
   }
   assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: outsider.token, body: {rating: 5}})).status, 404);
+  const beforeRating = (await call('GET', '/api/owner/summary', {token: owner.token})).data;
   assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: buyer.token, body: {rating: 5}})).status, 200);
   assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: owner.token, body: {rating: 4}})).status, 200);
   assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: buyer.token, body: {rating: 3}})).status, 409);
@@ -371,6 +372,9 @@ test('receipt confirmation is buyer-only, follows seller completion, and enables
   assert.equal(mine.counterpart_rating, 4);
   assert.equal(theirs.my_rating, 4);
   assert.equal(theirs.counterpart_rating, 5);
+  const afterRating = (await call('GET', '/api/owner/summary', {token: owner.token})).data;
+  assert.equal(afterRating.rating_count, beforeRating.rating_count + 1);
+  assert.equal(afterRating.average_rating, 5);
 });
 
 
@@ -381,7 +385,43 @@ test('cancelling while awaiting receipt prevents confirmation and ratings', asyn
   const chat = (await call('POST', '/api/buyer/negotiations', {token: buyer.token, body: {listingId: listing.id}})).data;
   const order = (await call('POST', `/api/chats/${chat.id}/accept-listing`, {token: buyer.token})).data.order;
   assert.equal((await call('POST', `/api/owner/orders/${order.id}/complete`, {token: owner.token, body: {deliveredQuantity: 100, finalPricePerUnit: 120}})).status, 200);
-  assert.equal((await call('POST', `/api/chats/${chat.id}/cancel-deal`, {token: buyer.token})).status, 200);
+  assert.equal((await call('POST', `/api/chats/${chat.id}/cancel-deal`, {token: buyer.token, body: {reason: "Schedule changed"}})).status, 200);
   assert.equal((await call('PATCH', `/api/buyer/orders/${order.id}/confirm-receipt`, {token: buyer.token})).status, 409);
   assert.equal((await call('PUT', `/api/orders/${order.id}/rating`, {token: buyer.token, body: {rating: 5}})).status, 409);
+});
+
+
+test('profile averages only received buyer ratings on completed orders across both sales flows', async () => {
+  const ratedOwner = await signup('Rated land owner', '0770000091', 'ESTATE_OWNER');
+  const summary = async () => {
+    const result = await call('GET', '/api/owner/summary', {token: ratedOwner.token});
+    assert.equal(result.status, 200);
+    return result.data;
+  };
+  const empty = await summary();
+  assert.equal(empty.average_rating, null);
+  assert.equal(empty.rating_count, 0);
+  const pool = require('../config/db');
+  const estateId = empty.estate.id;
+  const listing = (await call('POST', '/api/owner/listings', {token: ratedOwner.token, body: {
+    productType: 'RAW_COCONUT', quantity: 100, availableDate: '2026-12-10', offerPricePerUnit: 120
+  }})).data.listing;
+  const request = (await call('POST', '/api/buyer/requests', {token: buyer.token, body: {
+    productType: 'RAW_COCONUT', requestedQuantity: 100, requiredDate: '2026-12-10', biddingPricePerUnit: 120
+  }})).data.buyerRequest;
+  await pool.query(`INSERT INTO sell_requests
+    (estate_owner_id, buyer_request_id, product_type, quantity, seller_price_per_unit, status)
+    VALUES ($1, $2, 'RAW_COCONUT', 100, 120, 'accepted')`, [estateId, request.id]);
+  await pool.query(`INSERT INTO orders (listing_id, buyer_request_id, status, buyer_rating, owner_rating)
+    VALUES ($1, $2, 'COMPLETED', 5, 1)`, [listing.id, request.id]);
+  await pool.query(`INSERT INTO orders (buyer_request_id, status, buyer_rating)
+    VALUES ($1, 'COMPLETED', 3)`, [request.id]);
+  for (const [status, rating] of [['COMPLETED', null], ['CANCELLED', 1], ['AWAITING_RECEIPT', 1]]) {
+    await pool.query('INSERT INTO orders (listing_id, status, buyer_rating) VALUES ($1, $2, $3)',
+      [listing.id, status, rating]);
+  }
+  const result = await summary();
+  assert.equal(result.average_rating, 4);
+  assert.equal(result.rating_count, 2, 'each rated order counts once; owner-given ratings do not count');
+  assert.notEqual(result.estate.id, (await call('GET', '/api/owner/summary', {token: owner.token})).data.estate.id);
 });

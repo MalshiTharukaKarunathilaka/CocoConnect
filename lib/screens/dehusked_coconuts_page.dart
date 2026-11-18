@@ -349,7 +349,7 @@ class _DehuskedCoconutsPageState extends State<DehuskedCoconutsPage> {
                             ),
                           ),
 
-                          const LanguageSelector(),
+                          const Flexible(child: LanguageSelector()),
                         ],
                       ),
                     ],
@@ -407,12 +407,14 @@ class _DehuskedCoconutsPageState extends State<DehuskedCoconutsPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Interested Buyers',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF263238),
+                          Expanded(
+                            child: const Text(
+                              'Interested Buyers',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF263238),
+                              ),
                             ),
                           ),
 
@@ -463,20 +465,20 @@ class _DehuskedCoconutsPageState extends State<DehuskedCoconutsPage> {
 
                       const SizedBox(height: 10),
 
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           FilterChipButton(
                             text: 'Best Price',
                             isActive: buyerSort == 'price',
                             onTap: () => sortBuyers('price'),
                           ),
-                          const SizedBox(width: 8),
                           FilterChipButton(
                             text: 'Earliest Pickup Date',
                             isActive: buyerSort == 'date',
                             onTap: () => sortBuyers('date'),
                           ),
-                          const SizedBox(width: 8),
                           FilterChipButton(
                             text: 'Nearest Location',
                             isActive: buyerSort == 'nearest',
@@ -642,12 +644,14 @@ class _DehuskedCoconutsPageState extends State<DehuskedCoconutsPage> {
                 color: Color(0xFF2E7D32),
               ),
               const SizedBox(width: 8),
-              Text(
-                'Sell ${widget.title}',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF263238),
+              Expanded(
+                child: Text(
+                  'Sell ${widget.title}',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF263238),
+                  ),
                 ),
               ),
             ],

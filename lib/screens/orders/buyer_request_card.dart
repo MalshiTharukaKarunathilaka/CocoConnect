@@ -1,3 +1,4 @@
+import '../../widgets/mobile_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_client.dart';
@@ -58,9 +59,10 @@ class BuyerRequestCard extends StatelessWidget {
 
   Future<void> _showOffers(BuildContext context) async {
     final bool? accepted = await showModalBottomSheet<bool>(
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
-      builder: (context) => _OffersSheet(request: request),
+      builder: mobileSheetBuilder((context) => _OffersSheet(request: request)),
     );
     if (accepted == true && context.mounted) {
       _showSnack(context, 'Offer accepted. It is now under Deals.');
@@ -72,6 +74,7 @@ class BuyerRequestCard extends StatelessWidget {
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('Delete request?'),
         content: Text(
           'Your request for ${withCommas(request.quantity)} nuts will be '
@@ -220,6 +223,7 @@ class _OffersSheetState extends State<_OffersSheet> {
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: const Text('Accept this offer?'),
         content: Text(
           '${offer.estateName}: ${withCommas(offer.quantity)} nuts at '

@@ -86,7 +86,7 @@ const collectionMessage = (text) => {
   if (typeof text !== 'string') return text;
   if (text.startsWith('Delivery marked complete by ') || text.startsWith('Collection recorded by ')) {
     return text.replace(/^(?:Delivery marked complete by |Collection recorded by )(.+?)\. Waiting for.*$/,
-      'Transaction marked complete by $1 (estate owner). Awaiting buyer confirmation that the nuts have been received.');
+      'Transaction marked complete by $1 (land owner). Awaiting buyer confirmation that the nuts have been received.');
   }
   if (text.startsWith('Receipt confirmed by ') || text.startsWith('Collection confirmed by ')) {
     return text.replace(/^(?:Receipt confirmed by |Collection confirmed by )(.+?)\. (?:The deal is complete|Transaction complete)\..*$/,
@@ -174,7 +174,7 @@ const postOrderEvent = async (db, orderId, userId, action) => {
   const chats = await db.query('SELECT id FROM negotiations WHERE order_id = $1', [orderId]);
   const actor = (await db.query('SELECT name FROM users WHERE id = $1', [userId])).rows[0];
   const text = action === 'collected'
-    ? `Transaction marked complete by ${actor?.name || 'the estate owner'} (estate owner). Awaiting buyer confirmation that the nuts have been received.`
+    ? `Transaction marked complete by ${actor?.name || 'the land owner'} (land owner). Awaiting buyer confirmation that the nuts have been received.`
     : `Nuts marked as received by ${actor?.name || 'the buyer'}. Transaction complete. You can now rate each other.`;
   for (const chat of chats.rows) await postMessage(db, chat.id, userId, text, null);
 };
@@ -613,6 +613,11 @@ const acceptListing = async (req, res) => {
 
 /** Either participant may cancel an accepted, uncompleted deal. */
 const cancelDeal = async (req, res) => {
+  const {reason, note = ''} = req.body ?? {};
+  if (typeof reason !== 'string' || !reason.trim() || reason.length > 200 ||
+      typeof note !== 'string' || note.length > 500) {
+    return res.status(400).json({message: 'Choose a cancellation reason and enter an optional note'});
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -627,8 +632,10 @@ const cancelDeal = async (req, res) => {
     }
     // Conditional update serializes cancellation against completion and retries.
     const result = await client.query(
-      "UPDATE orders SET status = 'CANCELLED' WHERE id = $1 AND status IN ('ACCEPTED', 'AWAITING_RECEIPT') RETURNING *",
-      [chat.order_id]);
+      `UPDATE orders SET status = 'CANCELLED', cancel_reason = $2, cancel_note = $3,
+         cancelled_by = $4, cancelled_at = $5
+       WHERE id = $1 AND status IN ('ACCEPTED', 'AWAITING_RECEIPT') RETURNING *`,
+      [chat.order_id, reason.trim(), note.trim() || null, req.user.id, new Date()]);
     if (!result.rows.length) {
       await client.query('ROLLBACK');
       return res.status(409).json({message: 'This deal is already completed or cancelled'});

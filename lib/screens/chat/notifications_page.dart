@@ -60,7 +60,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         );
         if (mounted) _reload();
       case NotificationType.sellOffer:
-        // The buyer's request with the estate's offer: Pending Orders.
+        // The buyer's request with the land's offer: Pending Orders.
         openTab(context, AppTab.orders, ordersTab: 0);
       case NotificationType.jobCompletionAck:
         final role = AuthService.currentUser?.role;

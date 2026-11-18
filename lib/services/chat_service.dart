@@ -282,8 +282,8 @@ class ChatService {
   static Future<void> acceptListing(int chatId) =>
       ApiClient.post('/api/chats/$chatId/accept-listing');
 
-  static Future<void> cancelDeal(int chatId) =>
-      ApiClient.post('/api/chats/$chatId/cancel-deal');
+  static Future<void> cancelDeal(int chatId, Map<String, String> details) =>
+      ApiClient.post('/api/chats/$chatId/cancel-deal', details);
 
   static Future<void> close(int chatId) =>
       ApiClient.post('/api/chats/$chatId/close');
