@@ -4,6 +4,7 @@ import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../services/fertilizer_api.dart';
 import '../../widgets/land_owner_rating_dialog.dart';
+import '../../widgets/deal_cancellation_dialog.dart';
 import '../../widgets/owner_widgets.dart';
 
 /// An order is sent to the real supplier selected here, never a demo account.
@@ -86,9 +87,18 @@ class _LiveFertilizerOrdersPageState extends State<LiveFertilizerOrdersPage> {
   Future<void> _act(Map<String, dynamic> order, String action) async {
     if (_busy) return;
     int? rating;
+    Map<String, String>? cancellation;
     if (action == 'rating') {
-      rating = await showLandOwnerRatingDialog(context);
+      rating = await showLandOwnerRatingDialog(
+        context,
+        party: order['owner_user_id'] == AuthService.currentUser?.id
+            ? 'supplier'
+            : 'land owner',
+      );
       if (rating == null || !mounted) return;
+    } else if (action == 'cancel') {
+      cancellation = await showDealCancellationDialog(context, type: DealCancellationType.fertilizer);
+      if (cancellation == null || !mounted) return;
     } else {
       final confirmed = await showDialog<bool>(
         context: context,
@@ -99,7 +109,7 @@ class _LiveFertilizerOrdersPageState extends State<LiveFertilizerOrdersPage> {
                 ? 'Mark delivered'
                 : action == 'accept'
                 ? 'Accept order'
-                : 'Cancel order'}?',
+                : 'Confirm receipt'}?',
           ),
           content: Text('${order['product']} ? ${order['quantity']} bags'),
           actions: [
@@ -121,7 +131,7 @@ class _LiveFertilizerOrdersPageState extends State<LiveFertilizerOrdersPage> {
       if (action == 'rating') {
         await FertilizerApi.rateOwner(order['id'] as int, rating!);
       } else {
-        await FertilizerApi.act(order['id'] as int, action);
+        await FertilizerApi.act(order['id'] as int, action, cancellation);
       }
       if (mounted) await _reload();
     } on ApiException catch (error) {
@@ -261,12 +271,17 @@ class _LiveFertilizerOrdersPageState extends State<LiveFertilizerOrdersPage> {
   Widget _card(Map<String, dynamic> order) {
     final supplier = order['supplier_user_id'] == AuthService.currentUser?.id;
     final status = '${order['status']}';
+    final statusLabel = status == 'DELIVERED'
+        ? (order['receipt_confirmed_at'] == null
+              ? 'Awaiting receipt confirmation'
+              : 'Completed')
+        : status.toLowerCase();
     return OwnerCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'FO-${order['id']} ? ${status.toLowerCase()}',
+            'FO-${order['id']} ? $statusLabel',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           Text('${order['product']}'),
@@ -300,15 +315,28 @@ class _LiveFertilizerOrdersPageState extends State<LiveFertilizerOrdersPage> {
                   onPressed: _busy ? null : () => _act(order, 'deliver'),
                   child: const Text('Mark delivered'),
                 ),
-              if (supplier &&
+              if (!supplier &&
                   status == 'DELIVERED' &&
-                  order['land_owner_rating'] == null)
+                  order['receipt_confirmed_at'] == null)
+                FilledButton(
+                  onPressed: _busy
+                      ? null
+                      : () => _act(order, 'confirm-receipt'),
+                  child: const Text('Confirm receipt'),
+                ),
+              if (status == 'DELIVERED' &&
+                  order['receipt_confirmed_at'] != null &&
+                  order[supplier ? 'land_owner_rating' : 'supplier_rating'] ==
+                      null)
                 FilledButton.icon(
                   onPressed: _busy ? null : () => _act(order, 'rating'),
                   icon: const Icon(Icons.star_outline),
-                  label: const Text('Rate land owner'),
+                  label: Text(supplier ? 'Rate land owner' : 'Rate supplier'),
                 ),
-              if (status == 'PENDING' || status == 'ACCEPTED')
+              if (status == 'PENDING' ||
+                  status == 'ACCEPTED' ||
+                  (status == 'DELIVERED' &&
+                      order['receipt_confirmed_at'] == null))
                 TextButton(
                   onPressed: _busy ? null : () => _act(order, 'cancel'),
                   child: const Text('Cancel order'),

@@ -28,7 +28,7 @@ test('fertilizer orders require a real supplier, valid data and owner authorizat
  assert.ok((await call('GET','/api/fertilizer/orders',supplier)).data.some(o=>o.id===order.id));
  assert.equal((await call('GET','/api/fertilizer/orders',outsider)).data.length,0);
 });
-test('only the assigned supplier can rate after delivery and only once',async()=>{
+test('both fertilizer participants can rate once after receipt confirmation',async()=>{
  const ratingPath=`/api/fertilizer/orders/${order.id}/rating`;
  assert.equal((await call('PUT',ratingPath,supplier,{rating:5})).status,409);
  assert.equal((await call('POST',`/api/fertilizer/orders/${order.id}/accept`,owner)).status,403);
@@ -37,13 +37,17 @@ test('only the assigned supplier can rate after delivery and only once',async()=
  assert.equal((await call('POST',`/api/fertilizer/orders/${order.id}/accept`,supplier)).status,200);
  assert.equal((await call('POST',`/api/fertilizer/orders/${order.id}/deliver`,supplier)).status,200);
  for(const rating of [0,6,2.5,'5',null]) assert.equal((await call('PUT',ratingPath,supplier,{rating})).status,400);
- assert.equal((await call('PUT',ratingPath,owner,{rating:1})).status,404);
+ assert.equal((await call('PUT',ratingPath,owner,{rating:1})).status,409);
+ assert.equal((await call('PUT',ratingPath,supplier,{rating:5})).status,409);
+ assert.equal((await call('POST',`/api/fertilizer/orders/${order.id}/confirm-receipt`,supplier)).status,403);
+ assert.equal((await call('POST',`/api/fertilizer/orders/${order.id}/confirm-receipt`,owner)).status,200);
+ assert.equal((await call('PUT',ratingPath,owner,{rating:4})).data.supplier_rating,4);
  assert.equal((await call('PUT',ratingPath,outsider,{rating:1})).status,404);
  assert.equal((await call('PUT',ratingPath,supplier,{rating:5})).status,200);
  assert.equal((await call('PUT',ratingPath,supplier,{rating:1})).status,409);
  const saved=(await call('GET','/api/fertilizer/orders',owner)).data.find(o=>o.id===order.id);
  assert.equal(saved.land_owner_rating,5);assert.ok(saved.delivered_at);assert.ok(saved.rated_at);
- assert.equal((await call('POST',`/api/fertilizer/orders/${order.id}/cancel`,owner)).status,409);
+ assert.equal((await call('POST',`/api/fertilizer/orders/${order.id}/cancel`,owner,{reason:'Schedule changed'})).status,409);
 });
 test('government orders persist their application only for participants',async()=>{
  assert.equal((await call('POST','/api/fertilizer/orders',owner,{...payload(),supplier_id:cdo.user.id})).status,400);

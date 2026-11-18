@@ -1,5 +1,6 @@
 import '../../widgets/mobile_sheet.dart';
 import 'package:flutter/material.dart';
+import 'fertilizer_cancel_reasons.dart';
 import 'fertilizer_chrome.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
@@ -828,10 +829,16 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                               foregroundColor: AppColors.dangerText,
                               backgroundColor: AppColors.dangerSoft,
                             ),
-                            onPressed: () {
+                            onPressed: () async {
+                              final note = await showFertCancelReasons(
+                                context,
+                                title: 'Cancel Fertilizer Request',
+                                forCdo: true,
+                              );
+                              if (note == null || !mounted) return;
                               _store.cancelGovRequest(
                                 r.id,
-                                note: 'Cancelled by land',
+                                note: note,
                                 byCdo: false,
                               );
                               setState(() {});

@@ -20,8 +20,12 @@ class FertilizerApi {
       Map<String, dynamic>.from(
         await ApiClient.post('$base/orders', body) as Map,
       );
-  static Future<void> act(int id, String action) async {
-    await ApiClient.post('$base/orders/$id/$action');
+  static Future<void> act(
+    int id,
+    String action, [
+    Map<String, String>? details,
+  ]) async {
+    await ApiClient.post('$base/orders/$id/$action', details);
   }
 
   static Future<void> rateOwner(int id, int rating) async {

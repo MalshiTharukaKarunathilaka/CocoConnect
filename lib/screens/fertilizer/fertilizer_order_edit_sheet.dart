@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'fertilizer_cancel_reasons.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
@@ -82,10 +83,12 @@ class _FertilizerOrderEditSheetState extends State<FertilizerOrderEditSheet> {
     Navigator.pop(context, true);
   }
 
-  void _cancelOrder() {
+  Future<void> _cancelOrder() async {
+    final note = await showFertCancelReasons(context, title: 'Cancel Fertilizer Order');
+    if (note == null || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final id = o.id;
-    FertilizerStore.instance.cancelOrder(id);
+    FertilizerStore.instance.cancelOrder(id, note: note);
     Navigator.pop(context, true);
     messenger.showSnackBar(SnackBar(content: Text('$id cancelled')));
   }

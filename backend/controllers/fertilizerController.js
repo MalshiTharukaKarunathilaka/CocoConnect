@@ -49,8 +49,25 @@ exports.transition = wrap(async (req,res) => {
     return res.status(404).json({message:'Order not found'});
   const action=req.params.action;
   const isSupplier=order.supplier_user_id===req.user.id&&supplierRoles.includes(req.user.role);
-  if(!['accept','deliver','cancel'].includes(action)) return res.status(400).json({message:'Unknown order action'});
-  if(action!=='cancel'&&!isSupplier) return res.status(403).json({message:'Only the assigned supplier can update delivery'});
+  if(action==='confirm-receipt') {
+    if(order.owner_user_id!==req.user.id) return res.status(403).json({message:'Only the land owner can confirm receipt'});
+    const result=await pool.query(`UPDATE fertilizer_orders SET receipt_confirmed_at=$2
+      WHERE id=$1 AND status='DELIVERED' AND receipt_confirmed_at IS NULL RETURNING *`,[order.id,new Date()]);
+    if(!result.rows.length) return res.status(409).json({message:'The order must be delivered and awaiting receipt'});
+    return res.json(result.rows[0]);
+  }
+  if(action==='cancel') {
+    const {reason,note=''}=req.body;
+    if(typeof reason!=='string'||!reason.trim()||reason.length>200||typeof note!=='string'||note.length>500)
+      return res.status(400).json({message:'Choose a cancellation reason and enter an optional note'});
+    const result=await pool.query(`UPDATE fertilizer_orders SET status='CANCELLED',cancel_reason=$2,cancel_note=$3,
+      cancelled_by=$4,cancelled_at=$5 WHERE id=$1 AND status IN ('PENDING','ACCEPTED','DELIVERED')
+      AND receipt_confirmed_at IS NULL RETURNING *`,[order.id,reason.trim(),note.trim()||null,req.user.id,new Date()]);
+    if(!result.rows.length) return res.status(409).json({message:'This order cannot be cancelled'});
+    return res.json(result.rows[0]);
+  }
+  if(!['accept','deliver'].includes(action)) return res.status(400).json({message:'Unknown order action'});
+  if(!isSupplier) return res.status(403).json({message:'Only the assigned supplier can update delivery'});
   const next={accept:'ACCEPTED',deliver:'DELIVERED',cancel:'CANCELLED'}[action];
   const allowed=action==='deliver'?['ACCEPTED']:action==='accept'?['PENDING']:['PENDING','ACCEPTED'];
   if(!allowed.includes(order.status)) return res.status(409).json({message:'The order has changed. Refresh before responding.'});
@@ -62,13 +79,15 @@ exports.transition = wrap(async (req,res) => {
 exports.rateOwner = wrap(async (req,res) => {
   const rating=req.body.rating;
   if(!Number.isInteger(rating)||rating<1||rating>5) return res.status(400).json({message:'Choose a rating from 1 to 5 stars'});
-  const order=(await pool.query('SELECT * FROM fertilizer_orders WHERE id=$1 AND supplier_user_id=$2',[req.params.id,req.user.id])).rows[0];
+  const order=(await pool.query('SELECT * FROM fertilizer_orders WHERE id=$1 AND (supplier_user_id=$2 OR owner_user_id=$2)',[req.params.id,req.user.id])).rows[0];
   if(!order) return res.status(404).json({message:'Order not found'});
-  if(!supplierRoles.includes(req.user.role)||order.owner_user_id===req.user.id)
-    return res.status(403).json({message:'Only the assigned supplier can rate the land owner'});
-  if(order.status!=='DELIVERED') return res.status(409).json({message:'Ratings are available after delivery'});
-  const result=await pool.query(`UPDATE fertilizer_orders SET land_owner_rating=$2,rated_at=$3
-    WHERE id=$1 AND status='DELIVERED' AND land_owner_rating IS NULL RETURNING *`,[order.id,rating,new Date()]);
+  const column=order.owner_user_id===req.user.id?'supplier_rating':'land_owner_rating';
+  if(order.status!=='DELIVERED'||!order.receipt_confirmed_at)
+    return res.status(409).json({message:'Ratings are available after receipt is confirmed'});
+  const ratedAt=column==='land_owner_rating'?',rated_at=$3':'';
+  const params=column==='land_owner_rating'?[order.id,rating,new Date()]:[order.id,rating];
+  const result=await pool.query(`UPDATE fertilizer_orders SET ${column}=$2${ratedAt}
+    WHERE id=$1 AND status='DELIVERED' AND receipt_confirmed_at IS NOT NULL AND ${column} IS NULL RETURNING *`,params);
   if(!result.rows.length) return res.status(409).json({message:'This order has already been rated'});
   res.json(result.rows[0]);
 });
