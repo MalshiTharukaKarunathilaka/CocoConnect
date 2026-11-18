@@ -61,6 +61,21 @@ db.public.none(`
     ('Nadeesha Perera', '0771112233', '${hash("demo123")}', 'FERTILIZER_SUPPLIER', 'Kurunegala', 7.4980, 80.3560),
     ('CDO Mawathagama', '0372223344', '${hash("demo123")}', 'CDO', 'Kurunegala', 7.5400, 80.4000),
     ('Demo Buyer', '0771000001', '${hash("demo123")}', 'BUYER', 'Colombo', 6.9271, 79.8612);
+
+  INSERT INTO fertilizer_suppliers
+    (user_id, shop_name, identity_number, email, district, radius_km, willing_far, shop_type, brands, coverage_note)
+  SELECT id, 'Nadeesha Stores', '851234567V', 'nadeesha@stores.lk', 'Kurunegala', 5, false,
+         'Physical shop', 'CIC, Baurs', 'Delivers within 2 km of Mawathagama.'
+  FROM users WHERE phone = '0771112233';
+
+  INSERT INTO cdo_officers
+    (user_id, identity_number, email, employee_id, designation, regional_office,
+     assigned_district, assigned_divisional_areas, id_card_filename, employment_doc_filename)
+  SELECT id, '801234567V', 'cdo.mawathagama@ccb.gov.lk', 'CCB-KUR-0142',
+         'Coconut Development Officer', 'Kurunegala Regional Office', 'Kurunegala',
+         'Mawathagama, Kuliyapitiya, Narammala, Polgahawela, Ibbagamuwa, Wariyapola, Pannala, Alawwa',
+         'ccb_id_card.pdf', 'appointment_letter.pdf'
+  FROM users WHERE phone = '0372223344';
 `);
 
 const { Pool } = db.adapters.createPg();

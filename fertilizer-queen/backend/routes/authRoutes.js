@@ -1,6 +1,15 @@
 const express = require("express");
 
-const { signup, login, me, updateMe } = require("../controllers/authController");
+const {
+  signup,
+  login,
+  me,
+  updateMe,
+  getSupplierProfile,
+  updateSupplierProfile,
+  getCdoProfile,
+  listCdoDistrictMeta,
+} = require("../controllers/authController");
 const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
@@ -90,5 +99,10 @@ router.get("/me", requireAuth, me);
  *         description: Name is required
  */
 router.patch("/me", requireAuth, updateMe);
+
+router.get("/me/supplier", requireAuth, getSupplierProfile);
+router.patch("/me/supplier", requireAuth, updateSupplierProfile);
+router.get("/me/cdo", requireAuth, getCdoProfile);
+router.get("/cdo-districts", listCdoDistrictMeta);
 
 module.exports = router;

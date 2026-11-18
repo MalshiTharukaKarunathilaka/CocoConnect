@@ -578,6 +578,7 @@ class FertilizerStore {
     }
     if (user.role == 'CDO') {
       homeMode = FertHomeMode.cdo;
+      _ensureRegisteredCdoPlace(user);
       final match = places.where(
         (p) => p.kind == 'cdo' && _last9(p.phone) == key,
       );
@@ -589,12 +590,116 @@ class FertilizerStore {
     }
 
     homeMode = FertHomeMode.supplier;
+    if (user.role == 'FERTILIZER_SUPPLIER') {
+      _ensureRegisteredSupplierPlace(user);
+    }
     final match = places.where(
       (p) => p.kind == 'shop' && _last9(p.phone) == key,
     );
     agentShopId = match.isNotEmpty
         ? match.first.id
         : places.firstWhere((p) => p.kind == 'shop').id;
+  }
+
+  /// New supplier accounts from the API get their own map pin + profile.
+  void _ensureRegisteredSupplierPlace(AppUser user) {
+    final key = _last9(user.phone);
+    final existing = places.where(
+      (p) => p.kind == 'shop' && _last9(p.phone) == key,
+    );
+    final profile = AuthService.fertilizerSupplierProfile;
+    if (existing.isNotEmpty) {
+      final p = existing.first;
+      if (profile != null) {
+        p.who = user.name;
+        p.phone = user.phone;
+        p.willingFar = profile['willing_far'] == true;
+        p.coverageNote = '${profile['coverage_note'] ?? ''}';
+      }
+      return;
+    }
+    if (profile == null) return;
+    final brands = '${profile['brands'] ?? ''}'
+        .split(RegExp(r'[,+/]| and '))
+        .map((b) => b.trim())
+        .where((b) => b.isNotEmpty)
+        .toList();
+    final radius = (profile['radius_km'] as num?)?.toDouble() ?? 5;
+    places.add(
+      FertPlace(
+        id: 'PL-U-${user.id}',
+        company: '${profile['shop_name'] ?? user.name}',
+        who: user.name,
+        kind: 'shop',
+        physical: profile['shop_type'] != 'Delivery-only',
+        willingFar: profile['willing_far'] == true,
+        brands: brands.isEmpty ? const ['CIC'] : brands,
+        distanceKm: radius,
+        dLat: 0.01,
+        dLng: -0.01,
+        phone: user.phone,
+        coverageNote: '${profile['coverage_note'] ?? ''}',
+        items: [
+          FertItem(
+            name: '${brands.isEmpty ? 'CIC' : brands.first} Urea',
+            brand: brands.isEmpty ? 'CIC' : brands.first,
+            type: 'Urea',
+            price: 5900,
+            unit: '50 kg bag',
+            stock: 20,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// New CDO accounts from the API get a single CCB desk pin.
+  void _ensureRegisteredCdoPlace(AppUser user) {
+    final key = _last9(user.phone);
+    final existing = places.where(
+      (p) => p.kind == 'cdo' && _last9(p.phone) == key,
+    );
+    final profile = AuthService.cdoProfile;
+    if (existing.isNotEmpty) {
+      final p = existing.first;
+      if (profile != null) {
+        final district = '${profile['assigned_district'] ?? ''}';
+        p.who = district.isEmpty
+            ? user.name
+            : 'CDO - ${district.split(',').first.trim()}';
+        p.phone = user.phone;
+      }
+      return;
+    }
+    if (profile == null) return;
+    final district = '${profile['assigned_district'] ?? 'Kurunegala'}';
+    final who = 'CDO - $district';
+    places.add(
+      FertPlace(
+        id: 'PL-CDO-${user.id}',
+        company: 'CCB',
+        who: who,
+        kind: 'cdo',
+        physical: true,
+        willingFar: false,
+        brands: const ['CCB'],
+        distanceKm: 4,
+        dLat: -0.02,
+        dLng: 0.015,
+        phone: user.phone,
+        items: [
+          FertItem(
+            name: 'ERP Coconut Fertilizer',
+            brand: 'CCB',
+            type: 'Government',
+            price: 6000,
+            unit: '50 kg bag',
+            stock: 100,
+          ),
+        ],
+      ),
+    );
+    cdoPlaceId = 'PL-CDO-${user.id}';
   }
 
   final List<FertPlace> places = [
@@ -661,162 +766,7 @@ class FertilizerStore {
         ),
       ],
     ),
-    FertPlace(
-      id: 'PL0c',
-      company: 'CCB',
-      who: 'Government outlet',
-      kind: 'cdo',
-      physical: true,
-      willingFar: false,
-      brands: const ['CCB'],
-      distanceKm: 0.9,
-      dLat: -0.006,
-      dLng: 0.005,
-      phone: '037 222 1100',
-      items: [
-        FertItem(
-          name: 'ERP Coconut Fertilizer',
-          brand: 'CCB',
-          type: 'Government',
-          price: 6000,
-          unit: '50 kg bag',
-          stock: 90,
-        ),
-        FertItem(
-          name: 'Urea subsidy',
-          brand: 'CCB',
-          type: 'Urea',
-          price: 4200,
-          unit: '50 kg bag',
-          stock: 60,
-        ),
-      ],
-    ),
-    // more government outlets around the estate
-    FertPlace(
-      id: 'PL0d',
-      company: 'CCB',
-      who: 'Government outlet',
-      kind: 'cdo',
-      physical: true,
-      willingFar: false,
-      brands: const ['CCB'],
-      distanceKm: 1.2,
-      dLat: 0.008,
-      dLng: -0.011,
-      phone: '037 222 2301',
-      items: [
-        FertItem(
-          name: 'ERP Coconut Fertilizer',
-          brand: 'CCB',
-          type: 'Government',
-          price: 5900,
-          unit: '50 kg bag',
-          stock: 120,
-        ),
-        FertItem(
-          name: 'MOP subsidy',
-          brand: 'CCB',
-          type: 'MOP',
-          price: 5400,
-          unit: '50 kg bag',
-          stock: 70,
-        ),
-      ],
-    ),
-    FertPlace(
-      id: 'PL0e',
-      company: 'CCB',
-      who: 'Government outlet',
-      kind: 'cdo',
-      physical: true,
-      willingFar: false,
-      brands: const ['CCB'],
-      distanceKm: 2.1,
-      dLat: -0.012,
-      dLng: -0.014,
-      phone: '037 222 3345',
-      items: [
-        FertItem(
-          name: 'TSP subsidy',
-          brand: 'CCB',
-          type: 'TSP',
-          price: 5600,
-          unit: '50 kg bag',
-          stock: 55,
-        ),
-        FertItem(
-          name: 'Dolomite subsidy',
-          brand: 'CCB',
-          type: 'Dolomite',
-          price: 1900,
-          unit: '50 kg bag',
-          stock: 100,
-        ),
-      ],
-    ),
-    FertPlace(
-      id: 'PL0f',
-      company: 'CCB',
-      who: 'Government outlet',
-      kind: 'cdo',
-      physical: true,
-      willingFar: false,
-      brands: const ['CCB'],
-      distanceKm: 3.4,
-      dLat: 0.02,
-      dLng: 0.016,
-      phone: '037 222 4410',
-      items: [
-        FertItem(
-          name: 'Urea subsidy',
-          brand: 'CCB',
-          type: 'Urea',
-          price: 4300,
-          unit: '50 kg bag',
-          stock: 80,
-        ),
-        FertItem(
-          name: 'ERP Coconut Fertilizer',
-          brand: 'CCB',
-          type: 'Government',
-          price: 6100,
-          unit: '50 kg bag',
-          stock: 60,
-        ),
-      ],
-    ),
-    FertPlace(
-      id: 'PL0g',
-      company: 'CCB',
-      who: 'Government outlet',
-      kind: 'cdo',
-      physical: true,
-      willingFar: false,
-      brands: const ['CCB'],
-      distanceKm: 7.5,
-      dLat: -0.04,
-      dLng: 0.03,
-      phone: '037 222 5522',
-      items: [
-        FertItem(
-          name: 'YPM subsidy',
-          brand: 'CCB',
-          type: 'YPM',
-          price: 5800,
-          unit: '50 kg bag',
-          stock: 45,
-        ),
-        FertItem(
-          name: 'APM subsidy',
-          brand: 'CCB',
-          type: 'APM',
-          price: 5700,
-          unit: '50 kg bag',
-          stock: 45,
-        ),
-      ],
-    ),
+    // Why: only one CCB pin on the estate map (PL5 below).
     FertPlace(
       id: 'PL4',
       company: 'Nadeesha Stores',
@@ -971,12 +921,12 @@ class FertilizerStore {
       who: 'CDO - Mawathagama',
       kind: 'cdo',
       physical: true,
-      // Why: government programme only lists CCB near the estate — not far willing-to-travel offices.
+      // Why: government programme only lists one CCB near the estate.
       willingFar: false,
       brands: const ['CCB'],
-      distanceKm: 10,
-      dLat: 0.055,
-      dLng: 0.04,
+      distanceKm: 3.2,
+      dLat: -0.018,
+      dLng: 0.012,
       phone: '037 222 3344',
       items: [
         FertItem(
@@ -994,6 +944,22 @@ class FertilizerStore {
           price: 4200,
           unit: '50 kg bag',
           stock: 80,
+        ),
+        FertItem(
+          name: 'MOP subsidy',
+          brand: 'CCB',
+          type: 'MOP',
+          price: 5400,
+          unit: '50 kg bag',
+          stock: 70,
+        ),
+        FertItem(
+          name: 'TSP subsidy',
+          brand: 'CCB',
+          type: 'TSP',
+          price: 5600,
+          unit: '50 kg bag',
+          stock: 55,
         ),
       ],
     ),

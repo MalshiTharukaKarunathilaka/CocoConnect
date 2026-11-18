@@ -22,6 +22,8 @@ class _SignupPageState extends State<SignupPage> {
     'Buyer',
     'Service Provider',
     'Worker',
+    'Supplier',
+    'CDO',
   ];
 
   final _formKey = GlobalKey<FormState>();
@@ -81,6 +83,8 @@ class _SignupPageState extends State<SignupPage> {
 
     FocusScope.of(context).unfocus();
     final bool isProvider = _selectedRole == 'Service Provider';
+    final bool isSupplier = _selectedRole == 'Supplier';
+    final bool isCdo = _selectedRole == 'CDO';
     setState(() => _loading = true);
 
     try {
@@ -100,6 +104,35 @@ class _SignupPageState extends State<SignupPage> {
                 'district': _extras.district,
                 'address': _extras.address.text.trim(),
                 'radius_km': _extras.radius,
+                'terms_accepted': _extras.agreed,
+              }
+            : null,
+        fertilizerSupplier: isSupplier
+            ? {
+                'shop_name': _extras.shopName.text.trim(),
+                'identity_number': _extras.nic.text.trim(),
+                'email': _extras.email.text.trim(),
+                'district': _extras.district,
+                'radius_km': _extras.supplierRadius,
+                'willing_far': _extras.willingFar,
+                'shop_type': _extras.shopType,
+                'brands': _extras.brands.text.trim(),
+                'coverage_note': _extras.coverageNote.text.trim(),
+                'terms_accepted': _extras.agreed,
+              }
+            : null,
+        cdo: isCdo
+            ? {
+                'identity_number': _extras.nic.text.trim(),
+                'email': _extras.email.text.trim(),
+                'employee_id': _extras.employeeId.text.trim(),
+                'designation': _extras.designation.text.trim(),
+                'regional_office': _extras.regionalOffice,
+                'assigned_district': _extras.assignedDistrict,
+                'assigned_divisional_areas':
+                    _extras.divisionalAreas.text.trim(),
+                'id_card_filename': _extras.idCardFilename,
+                'employment_doc_filename': _extras.employmentDocFilename,
                 'terms_accepted': _extras.agreed,
               }
             : null,
@@ -141,6 +174,17 @@ class _SignupPageState extends State<SignupPage> {
           location: _location,
           onChanged: () => setState(() {}),
         );
+      case 'Supplier':
+        return SupplierSignupSection(
+          extras: _extras,
+          location: _location,
+          onChanged: () => setState(() {}),
+        );
+      case 'CDO':
+        return CdoSignupSection(
+          extras: _extras,
+          onChanged: () => setState(() {}),
+        );
       case 'Estate Owner':
         return EstateOwnerSignupSection(extras: _extras);
       case 'Estate Manager':
@@ -148,6 +192,12 @@ class _SignupPageState extends State<SignupPage> {
           icon: Icons.assignment_ind_outlined,
           title: 'Estate manager',
           text: 'Run day-to-day sales and bookings for your estate.',
+        );
+      case 'Worker':
+        return const RoleNoteSection(
+          icon: Icons.engineering_outlined,
+          title: 'Worker',
+          text: 'Find day jobs posted by nearby estates.',
         );
       default:
         return const RoleNoteSection(
@@ -279,7 +329,10 @@ class _SignupPageState extends State<SignupPage> {
                     if ((value ?? '').isEmpty) {
                       return 'Password is required';
                     }
-                    final int least = _selectedRole == 'Service Provider'
+                    final int least =
+                        (_selectedRole == 'Service Provider' ||
+                            _selectedRole == 'Supplier' ||
+                            _selectedRole == 'CDO')
                         ? 8
                         : 6;
                     if ((value ?? '').length < least) {

@@ -32,6 +32,20 @@ void main() {
       expect(find.text('Machinery provider details'), findsNothing);
       expect(find.text('Buyer'), findsWidgets);
       expect(find.textContaining('I confirm my details'), findsOneWidget);
+
+      await tester.tap(find.text('Supplier'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(find.text('Supplier details'), findsOneWidget);
+      expect(find.text('Willing to deliver far'), findsOneWidget);
+      expect(find.text('1 km'), findsOneWidget);
+
+      await tester.tap(find.text('CDO'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(find.textContaining('CDO / government details'), findsOneWidget);
+      expect(find.text('Assigned District'), findsOneWidget);
+      expect(find.textContaining('SECTION 01'), findsOneWidget);
     },
   );
 }

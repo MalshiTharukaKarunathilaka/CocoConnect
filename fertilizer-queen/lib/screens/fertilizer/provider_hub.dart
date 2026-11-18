@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../services/api_client.dart';
+import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_cancel_reasons.dart';
@@ -30,6 +32,9 @@ class _ProviderHubState extends State<ProviderHub> {
   String? _msgFocusId;
 
   bool get _isCdo => widget.mode == FertHomeMode.cdo;
+
+  Map<String, dynamic>? _cdoProfile = AuthService.cdoProfile;
+  bool _cdoProfileLoading = false;
 
   FertPlace get _shop => _store.myShop;
 
@@ -83,10 +88,27 @@ class _ProviderHubState extends State<ProviderHub> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_isCdo) {
         _store.ensureCdoDemoAlerts();
+        _loadCdoProfile();
       } else {
         _store.checkLowStock(_shop);
       }
     });
+  }
+
+  Future<void> _loadCdoProfile() async {
+    if (_cdoProfile != null || _cdoProfileLoading) return;
+    setState(() => _cdoProfileLoading = true);
+    try {
+      final profile = await AuthService.fetchCdoProfile();
+      if (!mounted) return;
+      setState(() {
+        _cdoProfile = profile;
+        _cdoProfileLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _cdoProfileLoading = false);
+    }
   }
 
   @override
@@ -98,6 +120,7 @@ class _ProviderHubState extends State<ProviderHub> {
             (Icons.map_outlined, 'Area'),
             (Icons.warehouse_outlined, 'Stock'),
             (Icons.chat_bubble_outline, 'Messages'),
+            (Icons.person_outline, 'Profile'),
           ]
         : const [
             (Icons.calendar_month, 'Calendar'),
@@ -128,7 +151,8 @@ class _ProviderHubState extends State<ProviderHub> {
         current: _tab,
         onTap: (i) => setState(() {
               _tab = i;
-              if (i != 4) _msgFocusId = null;
+              if (_isCdo && i != 4) _msgFocusId = null;
+              if (_isCdo && i == 5) _loadCdoProfile();
             }),
       ),
       child: _body(),
@@ -149,6 +173,8 @@ class _ProviderHubState extends State<ProviderHub> {
           return const FertilizerCdoStockPage();
         case 4:
           return FertilizerCdoMessagesPage(focusRequestId: _msgFocusId);
+        case 5:
+          return _cdoProfilePage();
       }
     } else {
       switch (_tab) {
@@ -1077,11 +1103,30 @@ class _ProviderHubState extends State<ProviderHub> {
               ),
               const SizedBox(height: 14),
               ElevatedButton(
-                onPressed: () {
-                  setState(() {});
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Profile saved')),
-                  );
+                onPressed: () async {
+                  try {
+                    await AuthService.saveSupplierProfile(
+                      agentName: p.who,
+                      phone: p.phone,
+                      willingFar: p.willingFar,
+                      coverageNote: p.coverageNote.isEmpty
+                          ? defaultNote
+                          : p.coverageNote,
+                    );
+                    if (!mounted) return;
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Profile saved')),
+                    );
+                  } on ApiException catch (error) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(error.message),
+                        backgroundColor: const Color(0xFFC62828),
+                      ),
+                    );
+                  }
                 },
                 child: const Text('Save profile'),
               ),
@@ -1089,6 +1134,143 @@ class _ProviderHubState extends State<ProviderHub> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _cdoProfilePage() {
+    final user = AuthService.currentUser;
+    final profile = _cdoProfile;
+    if (_cdoProfileLoading && profile == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text(
+          'Profile',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Official CDO details from registration. Contact admin to change employment records.',
+          style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+        ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.line),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: AppColors.greenSoft,
+                    child: Text(
+                      (user?.name.isNotEmpty == true)
+                          ? user!.name[0].toUpperCase()
+                          : 'C',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.green,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.name ?? _shop.who,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17,
+                          ),
+                        ),
+                        const Text(
+                          'CDO · Coconut Cultivation Board',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+              _cdoInfoRow('Full name', user?.name ?? '—'),
+              _cdoInfoRow('Phone', user?.phone ?? _shop.phone),
+              _cdoInfoRow('Location', user?.location ?? '—'),
+              _cdoInfoRow(
+                'NIC number',
+                '${profile?['identity_number'] ?? '—'}',
+              ),
+              _cdoInfoRow(
+                'Official email',
+                '${profile?['email'] ?? '—'}',
+              ),
+              _cdoInfoRow(
+                'Employee ID',
+                '${profile?['employee_id'] ?? '—'}',
+              ),
+              _cdoInfoRow(
+                'Designation',
+                '${profile?['designation'] ?? 'Coconut Development Officer'}',
+              ),
+              _cdoInfoRow(
+                'Regional office',
+                '${profile?['regional_office'] ?? '—'}',
+              ),
+              _cdoInfoRow(
+                'Assigned district',
+                '${profile?['assigned_district'] ?? '—'}',
+              ),
+              _cdoInfoRow(
+                'Assigned divisional areas',
+                '${profile?['assigned_divisional_areas'] ?? '—'}',
+              ),
+              _cdoInfoRow(
+                'CCB ID card',
+                '${profile?['id_card_filename'] ?? '—'}',
+              ),
+              _cdoInfoRow(
+                'Employment document',
+                '${profile?['employment_doc_filename'] ?? '—'}',
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _cdoInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              color: AppColors.muted,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(value, style: const TextStyle(fontSize: 14.5, height: 1.35)),
+        ],
+      ),
     );
   }
 

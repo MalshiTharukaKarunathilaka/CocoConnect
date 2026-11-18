@@ -128,11 +128,24 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
       return p.willingFar;
     }).toList()
       ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
-    // Why: Government map shows one shop named CCB — not Kurunegala / Mawathagama labels.
-    if (channel == 'gov' && list.isNotEmpty) {
-      return [list.first];
+    // Why: the estate map must show only one CCB pin (Hub + Government).
+    return _withSingleCcb(list);
+  }
+
+  /// Keep private shops as-is, but collapse every CCB/government outlet to the nearest one.
+  List<FertPlace> _withSingleCcb(List<FertPlace> list) {
+    FertPlace? ccb;
+    final others = <FertPlace>[];
+    for (final p in list) {
+      if (_isCcbOutlet(p)) {
+        ccb ??= p; // already sorted by distance — first is nearest
+      } else {
+        others.add(p);
+      }
     }
-    return list;
+    if (ccb != null) others.add(ccb);
+    others.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+    return others;
   }
 
   /// Group shops that sit on the same pin (like the HTML cluster).
