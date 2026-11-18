@@ -1,0 +1,4 @@
+- `[x]` Update `WorkerService.declineJob` to accept optional `reason` and `note` (`lib/services/worker_service.dart`)
+- `[x]` Implement rich cancellation dialog in `WorkerDashboard._declineJob` matching the user's design (`lib/screens/worker_dashboard.dart`)
+- `[x]` Run static analysis on modified files
+- `[x]` Create walkthrough documentation

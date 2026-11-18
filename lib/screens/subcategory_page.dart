@@ -84,26 +84,38 @@ class SubcategoryPage extends StatelessWidget {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(6, 10, 18, 0),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      IconButton(
-                        tooltip: 'Back',
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.arrow_back),
-                        color: const Color(0xFF2E7D32),
-                      ),
-                      const Expanded(
-                        child: Text(
-                          'KapConnect',
-                          style: TextStyle(
-                            color: Color(0xFF2E7D32),
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            children: [
+                              GestureDetector(
+                                onTap: () => Navigator.pop(context),
+                                child: const Icon(
+                                  Icons.arrow_back,
+                                  size: 20,
+                                  color: Color(0xFF2E7D32),
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              const Text(
+                                'KapConnect',
+                                style: TextStyle(
+                                  color: Color(0xFF2E7D32),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      const Flexible(child: LanguageSelector()),
+                      const SizedBox(width: 12),
+                      const LanguageSelector(),
                     ],
                   ),
                 ),

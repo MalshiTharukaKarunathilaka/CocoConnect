@@ -550,12 +550,21 @@ class EstateListingCard extends StatelessWidget {
           ),
 
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: BuyerInfoPair(label: 'QUANTITY', value: quantity),
               ),
               Expanded(
                 child: BuyerInfoPair(label: 'AVAILABLE', value: availableDate),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: Color(0xFF9E9E9E),
+                ),
               ),
             ],
           ),

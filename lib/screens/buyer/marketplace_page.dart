@@ -116,13 +116,11 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
     String? error;
     if (nuts == null || nuts <= 0) {
-      error = _usesUnits
-          ? 'Enter the number of units you need'
-          : 'Enter the number of nuts you need';
+      error = 'Enter the number of units you need';
     } else if (_requiredDate == null) {
       error = 'Pick the date you need them by';
     } else if (price == null || price <= 0) {
-      error = 'Enter your bidding price per nut';
+      error = 'Enter your bidding price per unit';
     }
 
     if (error != null) {
@@ -157,6 +155,35 @@ class _MarketplacePageState extends State<MarketplacePage> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  Widget _sortChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? kBuyerGreen : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? kBuyerGreen : const Color(0xFFDADADA),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.bold,
+            color: selected ? Colors.white : const Color(0xFF5A5A5A),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _openFilter() async {
@@ -444,11 +471,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
                   const SizedBox(height: 20),
 
-                  BuyerFieldLabel(
-                    text: _usesUnits
-                        ? 'Number of Units Required'
-                        : 'Number of Nuts Required',
-                  ),
+                  const BuyerFieldLabel(text: 'Number of Units Required'),
                   const SizedBox(height: 7),
                   BuyerInputField(
                     controller: _nutsController,
@@ -488,7 +511,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
                   const SizedBox(height: 14),
 
-                  const BuyerFieldLabel(text: 'Bidding Price (Rs. per nut)'),
+                  const BuyerFieldLabel(text: 'Bidding Price (Rs. per unit)'),
                   const SizedBox(height: 7),
                   BuyerInputField(
                     controller: _priceController,
@@ -563,6 +586,48 @@ class _MarketplacePageState extends State<MarketplacePage> {
                 _reloadListings();
               },
               onLocationChanged: _reloadListings,
+            ),
+
+            const SizedBox(height: 8),
+
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _sortChip(
+                    label: 'Best Price',
+                    selected: _sort == ListingSort.priceLow || _sort == ListingSort.priceHigh,
+                    onTap: () {
+                      setState(() {
+                        _sort = ListingSort.priceLow;
+                        _reloadListings();
+                      });
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _sortChip(
+                    label: 'Earliest Pickup Date',
+                    selected: _sort == ListingSort.newest,
+                    onTap: () {
+                      setState(() {
+                        _sort = ListingSort.newest;
+                        _reloadListings();
+                      });
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _sortChip(
+                    label: 'Nearest Location',
+                    selected: _sort == ListingSort.nearest,
+                    onTap: () {
+                      setState(() {
+                        _sort = ListingSort.nearest;
+                        _reloadListings();
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
 
             const SizedBox(height: 10),

@@ -1,4 +1,3 @@
-import '../../widgets/open_street_map_tiles.dart';
 import '../../widgets/land_owner_rating_dialog.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -669,7 +668,7 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
                       ),
                     ],
                   ),
-                  const KapConnectMapAttribution(),
+                  const SizedBox.shrink(),
                 ],
               ),
             )

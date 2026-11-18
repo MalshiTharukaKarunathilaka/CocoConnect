@@ -45,8 +45,8 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
   bool showSummary = false;
 
   bool get usesUnits => widget.productType.toUpperCase() == 'COCONUT_HUSK';
-  String get quantityPlural => usesUnits ? 'units' : 'nuts';
-  String get priceUnit => usesUnits ? 'unit' : 'nut';
+  String get quantityPlural => 'units';
+  String get priceUnit => 'unit';
 
   // Open raw-coconut buyer requests, reloaded after sending an offer.
   late Future<List<OpenBuyerRequest>> buyersFuture;
@@ -660,11 +660,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const SizedBox(height: 16),
 
-          FormLabel(
-            text: widget.productType == 'COCONUT_HUSK'
-                ? 'NUMBER OF UNITS'
-                : 'NUMBER OF NUTS',
-          ),
+          const FormLabel(text: 'NUMBER OF UNITS'),
           CustomInputField(
             controller: quantityController,
             icon: null,
@@ -683,7 +679,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const SizedBox(height: 12),
 
-          FormLabel(text: 'OFFER PRICE PER ${priceUnit.toUpperCase()}'),
+          const FormLabel(text: 'OFFER PRICE PER UNIT'),
           CustomInputField(
             controller: priceController,
             icon: null,

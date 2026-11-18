@@ -30,6 +30,11 @@ class AppColors {
   static const Color warningSoft = Color(0xFFF7EFDF);
   static const Color info = Color(0xFF2F7396);
   static const Color infoSoft = Color(0xFFE4EFF5);
+
+  // Auto-filled field tokens
+  static const Color autoFilledBackground = Color(0xFFE8F3EA);
+  static const Color autoFilledInk = Color(0xFF1E2A22);
+  static const Color autoFilledBorder = Color(0xFFC5DFCB);
 }
 
 class AppRadius {

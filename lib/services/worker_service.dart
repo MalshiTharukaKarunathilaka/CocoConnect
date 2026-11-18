@@ -257,8 +257,11 @@ class WorkerService {
     await ApiClient.post('/api/worker/jobs/$jobId/apply');
   }
 
-  static Future<void> declineJob(int jobId) async {
-    await ApiClient.post('/api/worker/jobs/$jobId/decline');
+  static Future<void> declineJob(int jobId, {String? reason, String? note}) async {
+    await ApiClient.post('/api/worker/jobs/$jobId/decline', {
+      if (reason != null) 'reason': reason,
+      if (note != null) 'note': note,
+    });
   }
 
   static Future<void> initiateJobCompletion(int jobId) async {

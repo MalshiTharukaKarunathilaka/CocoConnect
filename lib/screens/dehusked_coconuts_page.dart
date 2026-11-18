@@ -44,6 +44,9 @@ class _DehuskedCoconutsPageState extends State<DehuskedCoconutsPage> {
 
   bool showSummary = false;
 
+  String get quantityPlural => 'units';
+  String get priceUnit => 'unit';
+
   // Open raw-coconut buyer requests, reloaded after sending an offer.
   late Future<List<OpenBuyerRequest>> buyersFuture;
 
@@ -652,7 +655,7 @@ class _DehuskedCoconutsPageState extends State<DehuskedCoconutsPage> {
 
           const SizedBox(height: 16),
 
-          const FormLabel(text: 'NUMBER OF NUTS'),
+          const FormLabel(text: 'NUMBER OF UNITS'),
           CustomInputField(
             controller: quantityController,
             icon: null,
@@ -671,7 +674,7 @@ class _DehuskedCoconutsPageState extends State<DehuskedCoconutsPage> {
 
           const SizedBox(height: 12),
 
-          const FormLabel(text: 'OFFER PRICE PER NUT'),
+          const FormLabel(text: 'OFFER PRICE PER UNIT'),
           CustomInputField(
             controller: priceController,
             icon: null,
