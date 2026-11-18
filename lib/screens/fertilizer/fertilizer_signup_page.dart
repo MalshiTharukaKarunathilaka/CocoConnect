@@ -111,9 +111,9 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
       case 'CDO':
         return 'CDO';
       case 'REGIONAL_MANAGER':
-        return 'Estate Manager';
+        return 'Land Manager';
       case 'CHAIRMAN':
-        return 'Estate Manager';
+        return 'Land Manager';
       default:
         return 'Land Owner';
     }
@@ -187,7 +187,10 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
                 const SizedBox(height: 6),
                 Text(
                   'This signup is locked to ${role.roleLabel} for the fertilizer demo.',
-                  style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.muted,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 const AuthLabel(text: 'Password'),

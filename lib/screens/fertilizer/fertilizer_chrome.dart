@@ -30,14 +30,18 @@ class FertPage extends StatelessWidget {
   final bool showLogout;
   final bool showBack;
 
-  /// Estate-owner bell for supplier accept / cancel / negotiate alerts.
+  /// Land-owner bell for supplier accept / cancel / negotiate alerts.
   final bool showAlerts;
+
   /// Supplier bell for new orders / disputes / low stock.
   final bool supplierAlerts;
-  /// CDO bell for estate cancel / dispute / low warehouse stock.
+
+  /// CDO bell for land cancel / dispute / low warehouse stock.
   final bool cdoAlerts;
+
   /// Notification Show → Stock tab.
   final VoidCallback? onOpenStock;
+
   /// Notification Show → Orders (or Messages for CDO) tab.
   final VoidCallback? onOpenOrders;
 
@@ -181,8 +185,9 @@ class FertTabBar extends StatelessWidget {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color:
-                                i == current ? _greenSoft : Colors.transparent,
+                            color: i == current
+                                ? _greenSoft
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Icon(

@@ -2,14 +2,22 @@ import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import '../../services/auth_service.dart';
 
-/// Demo fertilizer catalogue + orders for the estate-owner / supplier flow.
+/// Demo fertilizer catalogue + orders for the land-owner / supplier flow.
 /// Same logic as the HTML demo: 50 kg base unit, Pending Ack, one shop login.
 
 /// Which home calendar to show after login.
 enum FertHomeMode { supplier, cdo }
 
 /// The standard fertilizer types people search by.
-const List<String> kFertKinds = ['APM', 'YPM', 'MOP', 'ERP', 'TSP', 'Urea', 'Dolomite'];
+const List<String> kFertKinds = [
+  'APM',
+  'YPM',
+  'MOP',
+  'ERP',
+  'TSP',
+  'Urea',
+  'Dolomite',
+];
 
 /// Brand filter chips on the map (same idea as Distance / Fertilizer).
 /// Private-brand filter only (CCB stays under Government supplier filter).
@@ -83,6 +91,7 @@ class FertPlace {
   final double dLng;
   final List<FertItem> items;
   String phone;
+
   /// Free-text coverage note the supplier can edit on Profile.
   String coverageNote;
 
@@ -132,16 +141,20 @@ class FertOrder {
   int price;
   DateTime preferredDate;
   String slot;
+
   /// Pending Ack | Accepted | Cancelled | Negotiating | Delivered | Completed | Disputed
   String status;
   String message;
-  /// Chat notes between estate and supplier on this order.
+
+  /// Chat notes between land and supplier on this order.
   final List<FertChat> negotiation;
   DateTime? deliveredAt;
   DateTime? confirmedAt;
-  /// Estate rates the supplier (1–5) after completion.
+
+  /// Land rates the supplier (1–5) after completion.
   int? ratingFromOwner;
-  /// Supplier rates the estate (1–5) after completion.
+
+  /// Supplier rates the land (1–5) after completion.
   int? ratingFromProvider;
 
   bool get awaitsOwnerConfirm =>
@@ -149,11 +162,9 @@ class FertOrder {
 
   bool get isCompleted => status == 'Completed';
 
-  bool get ownerCanRate =>
-      isCompleted && ratingFromOwner == null;
+  bool get ownerCanRate => isCompleted && ratingFromOwner == null;
 
-  bool get providerCanRate =>
-      isCompleted && ratingFromProvider == null;
+  bool get providerCanRate => isCompleted && ratingFromProvider == null;
 
   /// Why: cancelled / disputed / finished jobs leave the supplier calendar.
   bool get showsOnCalendar =>
@@ -163,8 +174,7 @@ class FertOrder {
       status != 'Delivered' &&
       status != 'Completed';
 
-  bool get isPendingAck =>
-      status == 'Pending Ack' || status == 'Submitted';
+  bool get isPendingAck => status == 'Pending Ack' || status == 'Submitted';
 
   bool get isNegotiating => status == 'Negotiating';
 
@@ -189,7 +199,7 @@ class FertChat {
   final String time;
 }
 
-/// Alert for the estate owner when a supplier accepts, cancels, negotiates, etc.
+/// Alert for the land owner when a supplier accepts, cancels, negotiates, etc.
 class FertOwnerAlert {
   FertOwnerAlert({
     required this.id,
@@ -204,6 +214,7 @@ class FertOwnerAlert {
   final String id;
   final String title;
   final String body;
+
   /// new_order | cancelled | estate_dispute | low_stock | (legacy kinds ignored for supplier bell)
   final String kind;
   final DateTime at;
@@ -245,8 +256,8 @@ class GovOrderDraft {
       lines.map((l) => '${l.item.name} \u00d7 ${l.qty50}').join(', ');
 }
 
-/// Logged-in owner's estate card used to auto-fill the CCB fertilizer form.
-/// Why: Annex 01 estate/size fields come from the account — owners cannot type them.
+/// Logged-in owner's land card used to auto-fill the CCB fertilizer form.
+/// Why: Annex 01 land/size fields come from the account — owners cannot type them.
 class FertOwnerProfile {
   const FertOwnerProfile({
     required this.fullName,
@@ -262,7 +273,7 @@ class FertOwnerProfile {
     required this.coconutSaplings,
     required this.annualHarvestNuts,
     this.district = 'Kurunegala',
-    this.estateName = 'Your Estate',
+    this.estateName = 'Your Land',
   });
 
   final String fullName;
@@ -334,12 +345,14 @@ class FertGovRequest {
   final String district;
   int approved;
   int distributed;
-  /// Planned / confirmed delivery moment shown in CDO ↔ estate chat.
+
+  /// Planned / confirmed delivery moment shown in CDO ↔ land chat.
   DateTime? deliveryAt;
   DateTime? confirmedAt;
   int? ratingFromOwner;
   int? ratingFromProvider;
-  /// CDO ↔ estate messages for this government application.
+
+  /// CDO ↔ land messages for this government application.
   final List<FertChat> chat;
 
   bool get awaitsOwnerConfirm =>
@@ -355,7 +368,8 @@ class FertGovRequest {
   final String estateName;
   final double acres;
   final String nicCopy; // file name of the attached NIC copy
-  final String landTitleCopy; // file name of the attached land title / deed copy
+  final String
+  landTitleCopy; // file name of the attached land title / deed copy
   final String outlet; // the government outlet it was ordered from
   final String preferred; // preferred date and time slot
   final String beneficiaryName;
@@ -379,8 +393,7 @@ class FertGovRequest {
       status != 'Completed' &&
       distributed == 0;
 
-  bool get isPendingAck =>
-      status == 'Pending Ack' || status == 'Submitted';
+  bool get isPendingAck => status == 'Pending Ack' || status == 'Submitted';
 
   bool get isAcceptedOnCalendar =>
       status == 'Accepted' || status == 'Receipt Confirmed';
@@ -394,7 +407,7 @@ class FertComplaint {
     required this.status,
     required this.date,
     required this.description,
-    this.owner = 'Your Estate',
+    this.owner = 'Your Land',
     this.district = 'Kurunegala',
   });
 
@@ -421,13 +434,13 @@ class FertilizerStore {
 
   FertHomeMode homeMode = FertHomeMode.supplier;
 
-  /// Estate-owner alerts (supplier accept / cancel / negotiate…).
+  /// Land-owner alerts (supplier accept / cancel / negotiate…).
   final List<FertOwnerAlert> ownerAlerts = [];
 
   /// Supplier alerts (new order, dispute, low stock…).
   final List<FertOwnerAlert> supplierAlerts = [];
 
-  /// CDO desk alerts (estate cancel / dispute, low warehouse stock, new request).
+  /// CDO desk alerts (land cancel / dispute, low warehouse stock, new request).
   final List<FertOwnerAlert> cdoAlerts = [];
 
   /// Bumps whenever a new alert arrives so the hub bell can refresh.
@@ -436,6 +449,7 @@ class FertilizerStore {
   final ValueNotifier<int> cdoAlertTick = ValueNotifier<int>(0);
 
   int get unreadOwnerAlerts => ownerAlerts.where((a) => !a.read).length;
+
   /// Only attention-needed alerts for the supplier bell.
   List<FertOwnerAlert> get importantSupplierAlerts =>
       supplierAlerts.where((a) => a.isImportantForSupplier).toList();
@@ -537,9 +551,7 @@ class FertilizerStore {
       if (item.stock50 > 0 && item.stock50 <= lowStockBags) {
         final title = 'Low stock · ${item.name}';
         // Why: avoid flooding the bell every time the Stock tab opens.
-        final already = supplierAlerts.any(
-          (a) => a.title == title && !a.read,
-        );
+        final already = supplierAlerts.any((a) => a.title == title && !a.read);
         if (already) continue;
         notifySupplier(
           title: title,
@@ -568,13 +580,13 @@ class FertilizerStore {
     }
   }
 
-  /// Auto-filled CCB form details for the logged-in estate owner (demo values).
+  /// Auto-filled CCB form details for the logged-in land owner (demo values).
   FertOwnerProfile ownerProfile = const FertOwnerProfile(
-    fullName: 'Demo Estate Owner',
+    fullName: 'Demo Land Owner',
     address: 'No. 12, Temple Road, Mawathagama',
     phone: '0711000001',
     nicNumber: '198512345678',
-    landAddress: 'Your Estate, Mawathagama, Kurunegala',
+    landAddress: 'Your Land, Mawathagama, Kurunegala',
     deedNumber: 'KUR/MWT/2018/0456',
     acres: 8,
     roods: 0,
@@ -583,7 +595,7 @@ class FertilizerStore {
     coconutSaplings: 80,
     annualHarvestNuts: 42000,
     district: 'Kurunegala',
-    estateName: 'Your Estate',
+    estateName: 'Your Land',
   );
 
   static String _last9(String phone) {
@@ -639,10 +651,10 @@ class FertilizerStore {
   }
 
   final List<FertPlace> places = [
-    // three suppliers right next to the estate, so the 1 km view is never empty
+    // three suppliers right next to the land, so the 1 km view is never empty
     FertPlace(
       id: 'PL0a',
-      company: 'Estate Gate Agro',
+      company: 'Land Gate Agro',
       who: 'Saman Kumara',
       kind: 'shop',
       physical: true,
@@ -733,7 +745,7 @@ class FertilizerStore {
         ),
       ],
     ),
-    // more government outlets around the estate
+    // more government outlets around the land
     FertPlace(
       id: 'PL0d',
       company: 'CCB',
@@ -1012,7 +1024,7 @@ class FertilizerStore {
       who: 'CDO - Mawathagama',
       kind: 'cdo',
       physical: true,
-      // Why: government programme only lists CCB near the estate — not far willing-to-travel offices.
+      // Why: government programme only lists CCB near the land — not far willing-to-travel offices.
       willingFar: false,
       brands: const ['CCB'],
       distanceKm: 10,
@@ -1068,7 +1080,7 @@ class FertilizerStore {
       placeId: 'PL4',
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
-      owner: 'Your Estate',
+      owner: 'Your Land',
       product: 'CIC Urea (50 kg)',
       items: [
         CartLine(
@@ -1088,7 +1100,7 @@ class FertilizerStore {
       placeId: 'PL4',
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
-      owner: 'Green Palm Estate',
+      owner: 'Green Palm Land',
       product: 'Baurs Coconut Blend (50 kg)',
       items: [
         CartLine(
@@ -1104,7 +1116,7 @@ class FertilizerStore {
       message: 'Can you deliver Friday afternoon?',
       negotiation: const [
         FertChat(
-          'Green Palm Estate',
+          'Green Palm Land',
           'Can you do Friday afternoon and confirm Baurs bag size?',
           '10:05',
         ),
@@ -1120,7 +1132,7 @@ class FertilizerStore {
       placeId: 'PL4',
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
-      owner: 'Estate A',
+      owner: 'Land A',
       product: 'CIC Urea (50 kg), Baurs Coconut Blend (50 kg)',
       items: [
         CartLine(
@@ -1137,14 +1149,14 @@ class FertilizerStore {
       preferredDate: DateTime(2026, 11, 9),
       slot: 'Morning 8–11',
       status: 'Pending Ack',
-      message: 'Mixed cart for 8-acre estate.',
+      message: 'Mixed cart for 8-acre land.',
     ),
     FertOrder(
       id: 'PO-413',
       placeId: 'PL4',
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
-      owner: 'Estate F',
+      owner: 'Land F',
       product: 'CIC Urea (50 kg)',
       items: [
         CartLine(
@@ -1164,7 +1176,7 @@ class FertilizerStore {
       placeId: 'PL4',
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
-      owner: 'Your Estate',
+      owner: 'Your Land',
       product: 'CIC Urea (50 kg)',
       items: [
         CartLine(
@@ -1205,7 +1217,7 @@ class FertilizerStore {
       placeId: 'PL5',
       company: 'CCB',
       agent: 'CDO - Mawathagama',
-      owner: 'Estate Co-op',
+      owner: 'Land Co-op',
       product: 'Urea subsidy (50 kg)',
       items: [
         CartLine(
@@ -1247,25 +1259,25 @@ class FertilizerStore {
   final List<FertGovRequest> govRequests = [
     FertGovRequest(
       id: 'FR-1099',
-      owner: 'Your Estate',
+      owner: 'Your Land',
       fertilizer: 'ERP Coconut Fertilizer (50 kg)',
       requested: 12,
       status: 'Pending Ack',
       cdo: 'CDO - Mawathagama',
       date: DateTime(2026, 11, 8),
       district: 'Kurunegala',
-      // Why: CDO View must show the filled Annex 01 form the estate uploaded.
-      estateName: 'Your Estate',
+      // Why: CDO View must show the filled Annex 01 form the land uploaded.
+      estateName: 'Your Land',
       acres: 8,
       nicCopy: 'nic_demo_owner.jpg',
       landTitleCopy: 'deed_KUR_MWT_2018_0456.pdf',
       outlet: 'CCB',
       preferred: '08 Nov 2026 · Morning',
-      beneficiaryName: 'Demo Estate Owner',
+      beneficiaryName: 'Demo Land Owner',
       address: 'No. 12, Temple Road, Mawathagama',
       phone: '0711000001',
       nicNumber: '198512345678',
-      landAddress: 'Your Estate, Mawathagama, Kurunegala',
+      landAddress: 'Your Land, Mawathagama, Kurunegala',
       deedNumber: 'KUR/MWT/2018/0456',
       coconutTrees: 640,
       coconutSaplings: 80,
@@ -1273,7 +1285,7 @@ class FertilizerStore {
       deliveryAt: DateTime(2026, 11, 18, 10, 30),
       chat: const [
         FertChat(
-          'Your Estate',
+          'Your Land',
           'We submitted Annex 01 for 12 bags of ERP.',
           '08 Nov · 09:12',
         ),
@@ -1286,7 +1298,7 @@ class FertilizerStore {
     ),
     FertGovRequest(
       id: 'FR-1100',
-      owner: 'Estate A',
+      owner: 'Land A',
       fertilizer: 'ERP Coconut Fertilizer (50 kg)',
       requested: 20,
       approved: 20,
@@ -1295,17 +1307,17 @@ class FertilizerStore {
       cdo: 'CDO - Mawathagama',
       date: DateTime(2026, 10, 12),
       district: 'Kurunegala',
-      estateName: 'Estate A',
+      estateName: 'Land A',
       acres: 12,
       nicCopy: 'nic_nimal.jpg',
       landTitleCopy: 'deed_estate_a.pdf',
       outlet: 'CCB',
       preferred: '12 Oct 2026 · Morning',
       beneficiaryName: 'Nimal Perera',
-      address: 'Estate A road, Mawathagama',
+      address: 'Land A road, Mawathagama',
       phone: '0712233445',
       nicNumber: '197812345V',
-      landAddress: 'Estate A, Mawathagama',
+      landAddress: 'Land A, Mawathagama',
       deedNumber: 'KUR/MWT/2015/0211',
       coconutTrees: 900,
       coconutSaplings: 40,
@@ -1313,8 +1325,8 @@ class FertilizerStore {
       deliveryAt: DateTime(2026, 10, 20, 14, 0),
       chat: const [
         FertChat(
-          'Estate A',
-          'Please confirm morning delivery near the estate gate.',
+          'Land A',
+          'Please confirm morning delivery near the land gate.',
           '12 Oct · 08:20',
         ),
         FertChat(
@@ -1322,23 +1334,19 @@ class FertilizerStore {
           'Confirmed. Delivery set for 20 Oct at 2:00 PM.',
           '13 Oct · 16:05',
         ),
-        FertChat(
-          'Estate A',
-          'Bags received. Thank you.',
-          '20 Oct · 14:40',
-        ),
+        FertChat('Land A', 'Bags received. Thank you.', '20 Oct · 14:40'),
       ],
     ),
     FertGovRequest(
       id: 'FR-1101',
-      owner: 'Estate A',
+      owner: 'Land A',
       fertilizer: 'Urea subsidy (50 kg)',
       requested: 8,
       status: 'Pending Ack',
       cdo: 'CDO - Mawathagama',
       date: DateTime(2026, 11, 10),
       district: 'Kurunegala',
-      estateName: 'Estate A',
+      estateName: 'Land A',
       acres: 12,
       nicCopy: 'nic_nimal.jpg',
       landTitleCopy: 'deed_estate_a.pdf',
@@ -1349,7 +1357,7 @@ class FertilizerStore {
       deliveryAt: DateTime(2026, 11, 22, 9, 0),
       chat: const [
         FertChat(
-          'Estate A',
+          'Land A',
           'New urea request for 8 bags. Documents already on file.',
           '10 Nov · 15:02',
         ),
@@ -1357,14 +1365,14 @@ class FertilizerStore {
     ),
     FertGovRequest(
       id: 'FR-1102',
-      owner: 'Estate F',
+      owner: 'Land F',
       fertilizer: 'ERP Coconut Fertilizer (50 kg)',
       requested: 10,
       status: 'Cancelled',
       cdo: 'CDO - Mawathagama',
       date: DateTime(2026, 9, 22),
       district: 'Kurunegala',
-      estateName: 'Estate F',
+      estateName: 'Land F',
       acres: 6,
       outlet: 'CCB',
       preferred: '22 Sep 2026 · Morning',
@@ -1380,7 +1388,7 @@ class FertilizerStore {
     ),
     FertGovRequest(
       id: 'FR-1103',
-      owner: 'River Bend Estate',
+      owner: 'River Bend Land',
       fertilizer: 'ERP Coconut Fertilizer (50 kg)',
       requested: 15,
       approved: 15,
@@ -1389,7 +1397,7 @@ class FertilizerStore {
       cdo: 'CDO - Mawathagama',
       date: DateTime(2026, 11, 5),
       district: 'Kurunegala',
-      estateName: 'River Bend Estate',
+      estateName: 'River Bend Land',
       acres: 9,
       nicCopy: 'nic_ranjith.jpg',
       landTitleCopy: 'deed_river_bend.pdf',
@@ -1400,7 +1408,7 @@ class FertilizerStore {
       deliveryAt: DateTime(2026, 11, 19, 11, 0),
       chat: const [
         FertChat(
-          'River Bend Estate',
+          'River Bend Land',
           'When can we collect the 15 bags?',
           '05 Nov · 09:30',
         ),
@@ -1413,7 +1421,7 @@ class FertilizerStore {
     ),
     FertGovRequest(
       id: 'FR-N-1001',
-      owner: 'Northern Estate J',
+      owner: 'Northern Land J',
       fertilizer: 'ERP Coconut Fertilizer',
       requested: 18,
       approved: 18,
@@ -1425,7 +1433,7 @@ class FertilizerStore {
     ),
     FertGovRequest(
       id: 'FR-N-1002',
-      owner: 'Northern Estate M',
+      owner: 'Northern Land M',
       fertilizer: 'ERP Coconut Fertilizer',
       requested: 24,
       approved: 20,
@@ -1437,7 +1445,7 @@ class FertilizerStore {
     ),
     FertGovRequest(
       id: 'FR-N-1003',
-      owner: 'Northern Estate ML',
+      owner: 'Northern Land ML',
       fertilizer: 'ERP Coconut Fertilizer',
       requested: 15,
       approved: 15,
@@ -1457,7 +1465,7 @@ class FertilizerStore {
       status: 'Submitted',
       date: DateTime(2026, 10, 16),
       description: 'Sample complaint for demonstration.',
-      owner: 'Your Estate',
+      owner: 'Your Land',
       district: 'Kurunegala',
     ),
     FertComplaint(
@@ -1467,7 +1475,7 @@ class FertilizerStore {
       status: 'Submitted',
       date: DateTime(2026, 10, 18),
       description: 'Sample Northern-region complaint.',
-      owner: 'Northern Estate J',
+      owner: 'Northern Land J',
       district: 'Jaffna',
     ),
     FertComplaint(
@@ -1477,16 +1485,16 @@ class FertilizerStore {
       status: 'Under Review',
       date: DateTime(2026, 10, 19),
       description: 'Sample Northern-region complaint.',
-      owner: 'Northern Estate M',
+      owner: 'Northern Land M',
       district: 'Mannar',
     ),
   ];
 
   static const estateGeo = {
-    'Your Estate': LatLng(7.4863, 80.3647),
-    'Green Palm Estate': LatLng(7.5010, 80.3520),
-    'Estate A': LatLng(7.4720, 80.3810),
-    'Estate F': LatLng(7.4550, 80.3480),
+    'Your Land': LatLng(7.4863, 80.3647),
+    'Green Palm Land': LatLng(7.5010, 80.3520),
+    'Land A': LatLng(7.4720, 80.3810),
+    'Land F': LatLng(7.4550, 80.3480),
   };
 
   FertPlace? placeById(String id) {
@@ -1521,7 +1529,7 @@ class FertilizerStore {
 
   void placeOrder(FertOrder order) {
     orders.insert(0, order);
-    // Why: estate hub banner shows “processing” right after Order now.
+    // Why: land hub banner shows “processing” right after Order now.
     notifyOwner(
       title: 'Order placed · processing',
       body: '${order.id} sent to ${order.company}. Waiting for accept.',
@@ -1542,20 +1550,16 @@ class FertilizerStore {
       if (o.id == id &&
           (o.status == 'Pending Ack' || o.status == 'Negotiating')) {
         o.status = 'Cancelled';
-        // Why: estate My orders must show who cancelled — supplier or owner.
+        // Why: land My orders must show who cancelled — supplier or owner.
         o.message = bySupplier
             ? (note?.trim().isNotEmpty == true
-                ? 'Cancelled by supplier · ${note!.trim()}'
-                : 'Cancelled by supplier')
+                  ? 'Cancelled by supplier · ${note!.trim()}'
+                  : 'Cancelled by supplier')
             : (note?.trim().isNotEmpty == true
-                ? 'Cancelled by estate · ${note!.trim()}'
-                : 'Cancelled by estate');
+                  ? 'Cancelled by land · ${note!.trim()}'
+                  : 'Cancelled by land');
         o.negotiation.add(
-          FertChat(
-            bySupplier ? o.agent : o.owner,
-            o.message,
-            _nowStamp(),
-          ),
+          FertChat(bySupplier ? o.agent : o.owner, o.message, _nowStamp()),
         );
         if (bySupplier) {
           notifyOwner(
@@ -1565,9 +1569,9 @@ class FertilizerStore {
             orderId: o.id,
           );
         } else {
-          // Why: supplier must hear when the estate cancels — that needs attention.
+          // Why: supplier must hear when the land cancels — that needs attention.
           notifySupplier(
-            title: 'Estate cancelled ${o.id}',
+            title: 'Land cancelled ${o.id}',
             body: '${o.owner} · ${o.product}. ${o.message}',
             kind: 'cancelled',
             orderId: o.id,
@@ -1584,12 +1588,11 @@ class FertilizerStore {
           (o.status == 'Pending Ack' || o.status == 'Negotiating')) {
         o.status = 'Accepted';
         o.message = 'Accepted by supplier · awaiting delivery';
-        o.negotiation.add(
-          FertChat(o.agent, 'Order accepted.', _nowStamp()),
-        );
+        o.negotiation.add(FertChat(o.agent, 'Order accepted.', _nowStamp()));
         notifyOwner(
           title: '${o.company} accepted your order',
-          body: '${o.id} · ${o.product} · ${o.qty50} bags. Payment is after delivery setup.',
+          body:
+              '${o.id} · ${o.product} · ${o.qty50} bags. Payment is after delivery setup.',
           kind: 'accepted',
           orderId: o.id,
         );
@@ -1598,7 +1601,7 @@ class FertilizerStore {
     }
   }
 
-  /// Supplier opens a price / date talk — estate sees Negotiating.
+  /// Supplier opens a price / date talk — land sees Negotiating.
   void startNegotiation(String id, {String? note}) {
     for (final o in orders) {
       if (o.id == id &&
@@ -1649,7 +1652,7 @@ class FertilizerStore {
     }
   }
 
-  /// Estate confirms bags arrived → order completed → both can rate.
+  /// Land confirms bags arrived → order completed → both can rate.
   void confirmOrderReceipt(String id) {
     for (final o in orders) {
       if (o.id == id && o.awaitsOwnerConfirm) {
@@ -1666,7 +1669,7 @@ class FertilizerStore {
           orderId: o.id,
         );
         notifySupplier(
-          title: 'Estate confirmed · ${o.id}',
+          title: 'Land confirmed · ${o.id}',
           body: '${o.owner} received the goods. You can rate them.',
           kind: 'delivered',
           orderId: o.id,
@@ -1705,7 +1708,7 @@ class FertilizerStore {
 
   void placeGovRequest(FertGovRequest request) {
     govRequests.insert(0, request);
-    // Why: CDO bell should light up when an estate sends a new board request.
+    // Why: CDO bell should light up when an land sends a new board request.
     notifyCdo(
       title: 'New request ${request.id}',
       body:
@@ -1735,7 +1738,8 @@ class FertilizerStore {
         r.status = 'Accepted';
         r.approved = r.requested;
         final fallback = DateTime.now().add(const Duration(days: 7));
-        r.deliveryAt = deliveryAt ??
+        r.deliveryAt =
+            deliveryAt ??
             DateTime(fallback.year, fallback.month, fallback.day, 10, 0);
         r.chat.add(
           FertChat(
@@ -1760,7 +1764,9 @@ class FertilizerStore {
       if (r.id == id &&
           (r.status == 'Pending Ack' || r.status == 'Submitted')) {
         r.status = 'Cancelled';
-        final who = byCdo ? r.cdo : (r.estateName.isNotEmpty ? r.estateName : r.owner);
+        final who = byCdo
+            ? r.cdo
+            : (r.estateName.isNotEmpty ? r.estateName : r.owner);
         final why = note?.trim().isNotEmpty == true
             ? note!.trim()
             : 'Cancelled by $who';
@@ -1773,9 +1779,9 @@ class FertilizerStore {
             orderId: r.id,
           );
         } else {
-          // Why: CDO must hear when the estate pulls a pending application.
+          // Why: CDO must hear when the land pulls a pending application.
           notifyCdo(
-            title: 'Estate cancelled ${r.id}',
+            title: 'Land cancelled ${r.id}',
             body: '$who · ${r.fertilizer}. $why',
             kind: 'cancelled',
             orderId: r.id,
@@ -1795,7 +1801,11 @@ class FertilizerStore {
         r.distributed = r.approved > 0 ? r.approved : r.requested;
         r.deliveryAt ??= DateTime.now();
         r.chat.add(
-          FertChat(r.cdo, 'Marked delivered by CDO. Please confirm receipt.', _nowStamp()),
+          FertChat(
+            r.cdo,
+            'Marked delivered by CDO. Please confirm receipt.',
+            _nowStamp(),
+          ),
         );
         notifyOwner(
           title: 'Confirm delivery · ${r.id}',
@@ -1830,8 +1840,8 @@ class FertilizerStore {
           orderId: r.id,
         );
         notifyCdo(
-          title: 'Estate confirmed · ${r.id}',
-          body: 'Delivery confirmed. You can rate the estate.',
+          title: 'Land confirmed · ${r.id}',
+          body: 'Delivery confirmed. You can rate the land.',
           kind: 'delivered',
           orderId: r.id,
         );
@@ -1848,7 +1858,7 @@ class FertilizerStore {
         if (r.ratingFromOwner != null) return;
         r.ratingFromOwner = s;
         notifyCdo(
-          title: 'You got $s★ from estate',
+          title: 'You got $s★ from land',
           body: '${r.id} · ${r.fertilizer}',
           kind: 'info',
           orderId: r.id,
@@ -1867,7 +1877,7 @@ class FertilizerStore {
     }
   }
 
-  /// Why: CDO or estate can dispute; the other side gets a bell alert.
+  /// Why: CDO or land can dispute; the other side gets a bell alert.
   void disputeGovRequest(
     String id, {
     required String reason,
@@ -1909,7 +1919,7 @@ class FertilizerStore {
           );
         } else {
           notifyCdo(
-            title: 'Estate disputed ${r.id}',
+            title: 'Land disputed ${r.id}',
             body: '$who · ${r.fertilizer}. $why',
             kind: 'estate_dispute',
             orderId: r.id,
@@ -1942,7 +1952,11 @@ class FertilizerStore {
 
   /// CDO warehouse stock (bags). Receiving stock increases these counts.
   final List<FertCdoStockLine> cdoStock = [
-    FertCdoStockLine(type: 'ERP Coconut Fertilizer', bags: 120, packPrice: 6200),
+    FertCdoStockLine(
+      type: 'ERP Coconut Fertilizer',
+      bags: 120,
+      packPrice: 6200,
+    ),
     FertCdoStockLine(type: 'Urea subsidy', bags: 8, packPrice: 5900),
     FertCdoStockLine(type: 'MOP', bags: 0, packPrice: 5400),
     FertCdoStockLine(type: 'Dolomite', bags: 45, packPrice: 2800),
@@ -1961,14 +1975,14 @@ class FertilizerStore {
     _cdoAlertsSeeded = true;
     if (cdoAlerts.isNotEmpty) return;
     notifyCdo(
-      title: 'Estate cancelled FR-1102',
-      body: 'Estate F · ERP Coconut Fertilizer. Land title copy was missing.',
+      title: 'Land cancelled FR-1102',
+      body: 'Land F · ERP Coconut Fertilizer. Land title copy was missing.',
       kind: 'cancelled',
       orderId: 'FR-1102',
     );
     notifyCdo(
-      title: 'Estate disputed FR-1101',
-      body: 'Estate A · Wrong bag count on delivery note.',
+      title: 'Land disputed FR-1101',
+      body: 'Land A · Wrong bag count on delivery note.',
       kind: 'estate_dispute',
       orderId: 'FR-1101',
     );
@@ -2024,11 +2038,11 @@ class FertilizerStore {
   ];
 
   static const eligibleEstates = [
-    ('Your Estate', '8 acres', 'Mawathagama', true),
-    ('Estate A', '12 acres', 'Mawathagama', true),
-    ('Estate F', '6 acres', 'Kuliyapitiya', true),
-    ('Green Palm Estate', '5 acres', 'Narammala', true),
-    ('Sunrise Estate', '3 acres', 'Gampaha', false),
+    ('Your Land', '8 acres', 'Mawathagama', true),
+    ('Land A', '12 acres', 'Mawathagama', true),
+    ('Land F', '6 acres', 'Kuliyapitiya', true),
+    ('Green Palm Land', '5 acres', 'Narammala', true),
+    ('Sunrise Land', '3 acres', 'Gampaha', false),
   ];
 
   /// Areas under each CDO desk — used by the Area tab.
@@ -2041,13 +2055,13 @@ class FertilizerStore {
       cdoWho: 'CDO - Mawathagama',
       estates: [
         FertCdoEstate(
-          name: 'Your Estate',
+          name: 'Your Land',
           acresLabel: '8 acres',
-          ownerName: 'Demo Estate Owner',
+          ownerName: 'Demo Land Owner',
           phone: '0711000001',
         ),
         FertCdoEstate(
-          name: 'Estate A',
+          name: 'Land A',
           acresLabel: '12 acres',
           ownerName: 'Nimal Perera',
           phone: '0712233445',
@@ -2068,13 +2082,13 @@ class FertilizerStore {
       cdoWho: 'CDO - Mawathagama',
       estates: [
         FertCdoEstate(
-          name: 'Estate F',
+          name: 'Land F',
           acresLabel: '6 acres',
           ownerName: 'Sunil Fernando',
           phone: '0715566778',
         ),
         FertCdoEstate(
-          name: 'River Bend Estate',
+          name: 'River Bend Land',
           acresLabel: '9 acres',
           ownerName: 'Ranjith Jayasuriya',
           phone: '0761122334',
@@ -2089,7 +2103,7 @@ class FertilizerStore {
       cdoWho: 'CDO - Mawathagama',
       estates: [
         FertCdoEstate(
-          name: 'Green Palm Estate',
+          name: 'Green Palm Land',
           acresLabel: '5 acres',
           ownerName: 'Anusha Wijesinghe',
           phone: '0709988776',
@@ -2104,7 +2118,7 @@ class FertilizerStore {
     return cdoAreas.where((a) => a.cdoWho == who).toList();
   }
 
-  /// All government requests for one estate under this CDO.
+  /// All government requests for one land under this CDO.
   List<FertGovRequest> requestsForEstate(String estateName) {
     final who = myShop.who;
     return govRequests
@@ -2209,6 +2223,7 @@ class FertCdoStockLine {
 
   final String type;
   int bags;
+
   /// Board pack price shown read-only on the CDO stock card.
   final int packPrice;
 

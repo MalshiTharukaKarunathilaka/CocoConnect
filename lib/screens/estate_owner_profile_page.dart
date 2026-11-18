@@ -6,7 +6,6 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/owner_service.dart';
 import 'account_dialogs.dart';
-import 'auth_gate.dart';
 import '../theme/app_theme.dart';
 
 const Color _darkGreen = Color(0xFF1F6B3D);
@@ -78,7 +77,9 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
           if (snapshot.hasError) {
             final error = snapshot.error!;
             return _ErrorView(
-              message: error is ApiException ? error.message : 'Could not load your profile',
+              message: error is ApiException
+                  ? error.message
+                  : 'Could not load your profile',
               onRetry: _reload,
             );
           }
@@ -143,63 +144,47 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
         ],
         const SizedBox(height: 10),
 
-        // Trust score
         _Card(
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const CircleAvatar(
-                radius: 20,
-                backgroundColor: Color(0xFFFFB175),
-                child: Icon(Icons.star, color: Color(0xFF6B3B1C), size: 22),
+              const Text(
+                'Trust Score',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 8),
+              Text(
+                summary.averageRating == null
+                    ? 'Not rated yet'
+                    : '${summary.averageRating!.toStringAsFixed(1)} / 5.0',
+                style: const TextStyle(
+                  fontSize: 24,
+                  color: _darkGreen,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                '${summary.ratingCount} received rating${summary.ratingCount == 1 ? '' : 's'} across completed workflows',
+                style: const TextStyle(fontSize: 12, color: _muted),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Every received rating counts equally. Unrated work does not lower your score.',
+                style: TextStyle(fontSize: 12, color: _muted),
+              ),
+              for (final source in summary.ratingSources) ...[
+                const SizedBox(height: 8),
+                Row(
                   children: [
-                    const Text(
-                      'Trust Score',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: _ink,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
+                    Expanded(child: Text(source.label)),
                     Text(
-                      estate.trustScore == null
-                          ? 'Builds up as buyers complete orders with you'
-                          : 'From buyers who completed orders',
-                      style: const TextStyle(fontSize: 11, color: _muted),
+                      source.averageRating == null
+                          ? 'Not rated yet'
+                          : '${source.averageRating!.toStringAsFixed(1)} / 5 (${source.ratingCount})',
                     ),
                   ],
                 ),
-              ),
-              estate.trustScore == null
-                  ? const Text(
-                      'New',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Color(0xFFB26A2C),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : Column(
-                      children: [
-                        Text(
-                          estate.trustScore!.toStringAsFixed(1),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            color: Color(0xFFB26A2C),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Text(
-                          '/ 5.0',
-                          style: TextStyle(fontSize: 11, color: _muted),
-                        ),
-                      ],
-                    ),
+              ],
             ],
           ),
         ),
@@ -214,7 +199,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                 children: [
                   const Expanded(
                     child: Text(
-                      'Estate Details',
+                      'Land Details',
                       style: TextStyle(
                         color: _ink,
                         fontSize: 16,
@@ -238,7 +223,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
               const Divider(height: 20),
               EstateDetailItem(
                 icon: Icons.storefront_outlined,
-                title: 'Estate Name',
+                title: 'Land Name',
                 value: estate.estateName,
                 onTap: () => _editEstate(estate, focus: EstateField.name),
               ),
@@ -255,7 +240,7 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                         (AuthService.currentUser?.location ?? '')
                             .trim()
                             .isNotEmpty
-                    ? 'from your account. Tap to save it on your estate'
+                    ? 'from your account. Tap to save it on your land'
                     : null,
                 onTap: () => _editEstate(estate, focus: EstateField.location),
               ),
@@ -272,13 +257,6 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                 title: 'Primary Crop',
                 value: estate.primaryCrop ?? '',
                 onTap: () => _editEstate(estate, focus: EstateField.crop),
-              ),
-              const SizedBox(height: 12),
-              EstateDetailItem(
-                icon: Icons.calendar_month_outlined,
-                title: 'Year Established',
-                value: estate.yearEstablished?.toString() ?? '',
-                onTap: () => _editEstate(estate, focus: EstateField.year),
               ),
             ],
           ),
@@ -387,7 +365,7 @@ class _ErrorView extends StatelessWidget {
         // Never leave the user stuck on an account that can't load.
         Center(
           child: TextButton.icon(
-            onPressed: () => logOut(context),
+            onPressed: () => confirmLogOut(context),
             icon: const Icon(Icons.logout, size: 18),
             label: const Text('Log out'),
             style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),

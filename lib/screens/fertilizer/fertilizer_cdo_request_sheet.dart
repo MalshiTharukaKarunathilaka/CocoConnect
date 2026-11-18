@@ -4,7 +4,7 @@ import '../buyer/buyer_format.dart';
 import 'fertilizer_cancel_reasons.dart';
 import 'fertilizer_data.dart';
 
-/// CDO reads the estate Annex 01 application.
+/// CDO reads the land Annex 01 application.
 /// Pending → Accept / Cancel. Accepted → Delivered / Dispute.
 class FertilizerCdoRequestSheet extends StatelessWidget {
   const FertilizerCdoRequestSheet({super.key, required this.request});
@@ -73,10 +73,10 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       _canDecide
-                          ? 'Estate application form · review, then accept or cancel'
+                          ? 'Land application form · review, then accept or cancel'
                           : (_canDeliverOrDispute
-                              ? 'Accepted application · mark delivered or dispute'
-                              : 'Estate application form'),
+                                ? 'Accepted application · mark delivered or dispute'
+                                : 'Land application form'),
                       style: const TextStyle(
                         fontSize: 12.5,
                         color: AppColors.muted,
@@ -121,9 +121,7 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
                               if (!context.mounted) return;
                               Navigator.pop(context, true);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('${r.id} cancelled'),
-                                ),
+                                SnackBar(content: Text('${r.id} cancelled')),
                               );
                             },
                             child: const Text('Cancel'),
@@ -139,9 +137,7 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
                               FertilizerStore.instance.acceptGovRequest(r.id);
                               Navigator.pop(context, true);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('${r.id} accepted'),
-                                ),
+                                SnackBar(content: Text('${r.id} accepted')),
                               );
                             },
                             child: const Text('Accept'),
@@ -196,9 +192,7 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
                               if (!context.mounted) return;
                               Navigator.pop(context, true);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('${r.id} disputed'),
-                                ),
+                                SnackBar(content: Text('${r.id} disputed')),
                               );
                             },
                             child: const Text('Dispute'),
@@ -246,7 +240,10 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
                   color: AppColors.greenSoft,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.account_balance, color: AppColors.green),
+                child: const Icon(
+                  Icons.account_balance,
+                  color: AppColors.green,
+                ),
               ),
               const SizedBox(width: 10),
               const Expanded(
@@ -293,7 +290,7 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
           ),
           const SizedBox(height: 8),
-          _row('Estate', _orDash(r.estateName, r.owner)),
+          _row('Land', _orDash(r.estateName, r.owner)),
           _row('Land address', _orDash(r.landAddress)),
           _row('Deed number', _orDash(r.deedNumber)),
           _row('District', r.district),
@@ -401,7 +398,10 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13.5,
+              ),
             ),
           ),
         ],

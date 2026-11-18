@@ -132,3 +132,20 @@ test('service catalog and pricing units match each machinery type',async()=>{
  const hand=fleet.find(machine=>machine.category==='Hand Tractor');
  assert.equal((await call('PUT',`/provider/machines/${hand.id}/rates`,otherProvider.token,{name:'Weeding',unit:'acre',rate:1000})).status,400);
 });
+
+
+test('only the booked provider can complete past confirmed work and rate its owner once',async()=>{
+ const pool=require('../config/db');
+ const pending=(await ok('GET','/bookings',owner.token)).find(b=>b.status==='PENDING');
+ assert.equal((await call('POST',`/bookings/${pending.id}/complete-and-rate`,provider.token,{rating:5})).status,409);
+ const confirmed=(await ok('GET','/bookings',owner.token)).find(b=>b.status==='CONFIRMED');
+ const path=`/bookings/${confirmed.id}/complete-and-rate`;
+ assert.equal((await call('POST',path,provider.token,{rating:5})).status,409,'future work cannot be rated');
+ assert.equal((await call('POST',path,owner.token,{rating:5})).status,403);
+ assert.equal((await call('POST',path,otherProvider.token,{rating:5})).status,404);
+ await pool.query("UPDATE machinery_bookings SET starts_at='2020-01-01T00:00:00Z',ends_at='2020-01-01T01:00:00Z' WHERE id=$1",[confirmed.id]);
+ for(const rating of [0,6,2.5,'5',null]) assert.equal((await call('POST',path,provider.token,{rating})).status,400);
+ const saved=await ok('POST',path,provider.token,{rating:4});assert.equal(saved.land_owner_rating,4);assert.ok(saved.work_completed_at);
+ assert.equal((await call('POST',path,provider.token,{rating:1})).status,409);
+ assert.equal((await ok('GET',`/bookings/${confirmed.id}`,owner.token)).land_owner_rating,4);
+});

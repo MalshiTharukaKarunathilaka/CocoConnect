@@ -64,7 +64,8 @@ const details = async(db,bookingId,user) => {
   const owner=people.rows.find(u=>u.id===b.owner_user_id);const provider=people.rows.find(u=>u.id===m.provider_user_id);
   const items=(await db.query('SELECT * FROM machinery_booking_items WHERE booking_id=$1 ORDER BY id',[b.id])).rows;
   const messages=(await db.query('SELECT * FROM machinery_messages WHERE booking_id=$1 ORDER BY id',[b.id])).rows;
-  return {...b,machine_name:m.name,machinery:m.category,owner,provider,items,messages};
+  const feedback = (await db.query('SELECT rating,completed_at FROM machinery_booking_feedback WHERE booking_id=$1',[b.id])).rows[0];
+  return {...b,land_owner_rating:feedback?.rating ?? null,work_completed_at:feedback?.completed_at ?? null,machine_name:m.name,machinery:m.category,owner,provider,items,messages};
 };
 
 exports.catalog = wrap(async(_req,res)=>res.json(catalog));
@@ -129,7 +130,7 @@ exports.browse = wrap(async(_req,res)=>{
 exports.createBooking = wrap(async(req,res)=>{
   const start=new Date(req.body.starts_at);const end=new Date(req.body.ends_at);
   if(Number.isNaN(+start)||Number.isNaN(+end)||end<=start||start<=new Date()||end-start>31*86400000) fail(400,'Choose a future start time and a later end time (maximum 31 days)');
-  const estate=text(req.body.estate_name,'Estate name',160);const address=text(req.body.address,'Estate address');
+  const estate=text(req.body.estate_name,'Land name',160);const address=text(req.body.address,'Land address');
   const items=req.body.items;if(!Array.isArray(items)||!items.length||items.length>20) fail(400,'Select between 1 and 20 services');
   const result=await transaction(async db=>{
     const m=await machine(db,req.params.machineId,null,true);if(!m.active) fail(409,'This machinery is not accepting requests');
@@ -262,4 +263,22 @@ exports.cancel = wrap(async(req,res)=>{
     await db.query("UPDATE machinery_bookings SET status='CANCELLED',version=version+1 WHERE id=$1",[b.id]);
     await addMessage(db,b,req.user.id,'Booking cancelled by the land owner. Time slot released.');
   });res.json(await details(pool,req.params.bookingId,req.user));
+});
+
+
+exports.completeAndRateOwner = wrap(async(req,res) => {
+  const rating=req.body.rating;
+  if(!Number.isInteger(rating)||rating<1||rating>5) fail(400,'Choose a rating from 1 to 5 stars');
+  await transaction(async db => {
+    const b=await booking(db,req.params.bookingId,req.user,true);
+    if(b.provider_user_id!==req.user.id) fail(403,'Only the booked provider can rate the land owner');
+    if(b.owner_user_id===req.user.id) fail(403,'You cannot rate yourself');
+    if(b.status!=='CONFIRMED'||new Date(b.ends_at)>new Date()) fail(409,'Complete the confirmed booking after its scheduled end before rating');
+    if((await db.query('SELECT booking_id FROM machinery_booking_feedback WHERE booking_id=$1',[b.id])).rows.length) fail(409,'This booking has already been rated');
+    const result=await db.query(`INSERT INTO machinery_booking_feedback
+      (booking_id,owner_user_id,provider_user_id,rating) VALUES ($1,$2,$3,$4)
+      ON CONFLICT (booking_id) DO NOTHING RETURNING booking_id`,[b.id,b.owner_user_id,req.user.id,rating]);
+    if(!result.rows.length) fail(409,'This booking has already been rated');
+  });
+  res.json(await details(pool,req.params.bookingId,req.user));
 });

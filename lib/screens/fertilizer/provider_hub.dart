@@ -1,3 +1,5 @@
+import '../../widgets/mobile_sheet.dart';
+import 'live_fertilizer_orders_page.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
@@ -27,6 +29,7 @@ class _ProviderHubState extends State<ProviderHub> {
   final _store = FertilizerStore.instance;
   int _tab = 0;
   String _orderStatusFilter = 'all';
+
   /// Why: notification Show can open a specific CDO chat.
   String? _msgFocusId;
 
@@ -109,30 +112,45 @@ class _ProviderHubState extends State<ProviderHub> {
 
     return FertPage(
       title: tabs[_tab].$2,
-      subtitle:
-          '${_isCdo ? 'CDO' : 'SUPPLIER'} \u00b7 ${_shop.company}'.toUpperCase(),
+      subtitle: '${_isCdo ? 'CDO' : 'SUPPLIER'} \u00b7 ${_shop.company}'
+          .toUpperCase(),
       showLogout: true,
       supplierAlerts: !_isCdo,
       cdoAlerts: _isCdo,
       // Why: notification Show can jump to Stock, Orders, or CDO Messages.
       onOpenStock: () => setState(() => _tab = _isCdo ? 3 : 2),
       onOpenOrders: () => setState(() {
-            if (_isCdo) {
-              _msgFocusId = _store.consumePendingOpenGovId();
-              _tab = 4;
-            } else {
-              _tab = 1;
-            }
-          }),
+        if (_isCdo) {
+          _msgFocusId = _store.consumePendingOpenGovId();
+          _tab = 4;
+        } else {
+          _tab = 1;
+        }
+      }),
       bottom: FertTabBar(
         items: tabs,
         current: _tab,
         onTap: (i) => setState(() {
-              _tab = i;
-              if (i != 4) _msgFocusId = null;
-            }),
+          _tab = i;
+          if (i != 4) _msgFocusId = null;
+        }),
       ),
-      child: _body(),
+      child: Column(
+        children: [
+          if (_tab == 0)
+            TextButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const LiveFertilizerOrdersPage(),
+                ),
+              ),
+              icon: const Icon(Icons.receipt_long),
+              label: const Text('View fertilizer orders'),
+            ),
+          Expanded(child: _body()),
+        ],
+      ),
     );
   }
 
@@ -227,8 +245,10 @@ class _ProviderHubState extends State<ProviderHub> {
         ],
         const SizedBox(height: 12),
         if (list.isEmpty)
-          const Text('No orders in this filter.',
-              style: TextStyle(color: AppColors.muted))
+          const Text(
+            'No orders in this filter.',
+            style: TextStyle(color: AppColors.muted),
+          )
         else
           for (final o in list) _orderCard(o),
       ],
@@ -247,7 +267,7 @@ class _ProviderHubState extends State<ProviderHub> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Open View to read the estate form. Accept or cancel only — no negotiation.',
+          'Open View to read the land form. Accept or cancel only — no negotiation.',
           style: TextStyle(fontSize: 12.5, color: AppColors.muted),
         ),
         const SizedBox(height: 12),
@@ -308,8 +328,7 @@ class _ProviderHubState extends State<ProviderHub> {
   }
 
   Widget _cdoRequestCard(FertGovRequest r) {
-    final accepted =
-        r.status == 'Accepted' || r.status == 'Receipt Confirmed';
+    final accepted = r.status == 'Accepted' || r.status == 'Receipt Confirmed';
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -361,10 +380,13 @@ class _ProviderHubState extends State<ProviderHub> {
               OutlinedButton(
                 onPressed: () async {
                   final ok = await showModalBottomSheet<bool>(
+                    useSafeArea: true,
                     context: context,
                     isScrollControlled: true,
                     backgroundColor: Colors.transparent,
-                    builder: (_) => FertilizerCdoRequestSheet(request: r),
+                    builder: mobileSheetBuilder(
+                      (_) => FertilizerCdoRequestSheet(request: r),
+                    ),
                   );
                   if (ok == true && mounted) setState(() {});
                 },
@@ -391,17 +413,15 @@ class _ProviderHubState extends State<ProviderHub> {
                     _store.disputeGovRequest(r.id, reason: note);
                     setState(() {});
                     if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${r.id} disputed')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('${r.id} disputed')));
                   },
                   child: const Text('Dispute'),
                 ),
               ],
               if (!accepted &&
-                  (r.awaitsOwnerConfirm ||
-                      r.providerCanRate ||
-                      r.isCompleted))
+                  (r.awaitsOwnerConfirm || r.providerCanRate || r.isCompleted))
                 ...fertDeliveryActions(
                   context: context,
                   onChanged: () => setState(() {}),
@@ -417,13 +437,14 @@ class _ProviderHubState extends State<ProviderHub> {
 
   Widget _orderCard(FertOrder o) {
     final disputed = o.status == 'Disputed' || _store.isDisputed(o.id);
-    final canAck = !disputed &&
+    final canAck =
+        !disputed &&
         (o.status == 'Pending Ack' ||
             o.status == 'Negotiating' ||
             o.status == 'Submitted');
     // Why: after dispute, Mark delivered must go away.
-    final canDeliver = !disputed &&
-        (o.status == 'Accepted' || o.status == 'Stock Confirmed');
+    final canDeliver =
+        !disputed && (o.status == 'Accepted' || o.status == 'Stock Confirmed');
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -476,9 +497,9 @@ class _ProviderHubState extends State<ProviderHub> {
                   onPressed: () {
                     _store.acceptOrder(o.id);
                     setState(() {});
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${o.id} accepted')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('${o.id} accepted')));
                   },
                   child: const Text('Accept'),
                 ),
@@ -505,17 +526,12 @@ class _ProviderHubState extends State<ProviderHub> {
                       title: 'Cancel ${o.id}',
                     );
                     if (note == null) return;
-                    _store.cancelOrder(
-                      o.id,
-                      bySupplier: true,
-                      note: note,
-                    );
+                    _store.cancelOrder(o.id, bySupplier: true, note: note);
                     setState(() {});
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content:
-                            Text('${o.id} cancelled · estate will see this'),
+                        content: Text('${o.id} cancelled · land will see this'),
                       ),
                     );
                   },
@@ -535,12 +551,13 @@ class _ProviderHubState extends State<ProviderHub> {
                   ),
                   onPressed: () async {
                     final ok = await showModalBottomSheet<bool>(
+                      useSafeArea: true,
                       context: context,
                       isScrollControlled: true,
                       backgroundColor: Colors.transparent,
-                      builder: (_) => FertilizerDisputeSheet(
-                        order: o,
-                        bySupplier: true,
+                      builder: mobileSheetBuilder(
+                        (_) =>
+                            FertilizerDisputeSheet(order: o, bySupplier: true),
                       ),
                     );
                     if (ok == true && mounted) setState(() {});
@@ -549,9 +566,7 @@ class _ProviderHubState extends State<ProviderHub> {
                 ),
               ],
               if (!canDeliver &&
-                  (o.awaitsOwnerConfirm ||
-                      o.providerCanRate ||
-                      o.isCompleted))
+                  (o.awaitsOwnerConfirm || o.providerCanRate || o.isCompleted))
                 ...fertDeliveryActions(
                   context: context,
                   onChanged: () => setState(() {}),
@@ -647,14 +662,13 @@ class _ProviderHubState extends State<ProviderHub> {
     final nameCtrl = TextEditingController();
 
     final ok = await showModalBottomSheet<bool>(
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) {
+      builder: mobileSheetBuilder((ctx) {
         return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(ctx).bottom,
-          ),
+          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
           child: StatefulBuilder(
             builder: (ctx, setLocal) {
               return Align(
@@ -663,8 +677,9 @@ class _ProviderHubState extends State<ProviderHub> {
                   constraints: const BoxConstraints(maxWidth: 430),
                   child: Material(
                     color: AppColors.cream,
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(22)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(22),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
                       child: Column(
@@ -697,8 +712,7 @@ class _ProviderHubState extends State<ProviderHub> {
                               for (final t in kFertKinds)
                                 DropdownMenuItem(value: t, child: Text(t)),
                             ],
-                            onChanged: (v) =>
-                                setLocal(() => type = v ?? type),
+                            onChanged: (v) => setLocal(() => type = v ?? type),
                           ),
                           const SizedBox(height: 10),
                           DropdownButtonFormField<String>(
@@ -756,7 +770,7 @@ class _ProviderHubState extends State<ProviderHub> {
             },
           ),
         );
-      },
+      }),
     );
 
     final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
@@ -781,9 +795,9 @@ class _ProviderHubState extends State<ProviderHub> {
     });
     _store.checkLowStock(_shop);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Added $qty bags of $brand $type')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Added $qty bags of $brand $type')));
   }
 
   Widget _stockCard(FertItem item) {
@@ -826,19 +840,23 @@ class _ProviderHubState extends State<ProviderHub> {
             style: const TextStyle(fontSize: 12, color: AppColors.muted),
           ),
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 4,
             children: [
-              const Text('Bags (50 kg)', style: TextStyle(fontWeight: FontWeight.w600)),
-              const Spacer(),
+              const Text(
+                'Bags (50 kg)',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               IconButton(
                 onPressed: item.stock <= 0
                     ? null
                     : () => setState(() {
-                          item.stock = (item.stock - 1).clamp(0, 9999);
-                          if (item.stock50 <= FertilizerStore.lowStockBags) {
-                            _store.checkLowStock(_shop);
-                          }
-                        }),
+                        item.stock = (item.stock - 1).clamp(0, 9999);
+                        if (item.stock50 <= FertilizerStore.lowStockBags) {
+                          _store.checkLowStock(_shop);
+                        }
+                      }),
                 icon: const Icon(Icons.remove_circle_outline),
               ),
               Text(
@@ -897,6 +915,7 @@ class _ProviderHubState extends State<ProviderHub> {
     final result = await showDialog<(int, String)?>(
       context: context,
       builder: (ctx) => AlertDialog(
+        scrollable: true,
         title: Text('Price · ${item.name}'),
         content: Form(
           key: formKey,
@@ -1071,7 +1090,7 @@ class _ProviderHubState extends State<ProviderHub> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Willing to deliver far'),
                 subtitle: const Text(
-                  'Estates outside your usual ring can still order',
+                  'Lands outside your usual ring can still order',
                   style: TextStyle(fontSize: 12),
                 ),
                 value: p.willingFar,
@@ -1079,8 +1098,9 @@ class _ProviderHubState extends State<ProviderHub> {
                 onChanged: (v) => setState(() => p.willingFar = v),
               ),
               TextFormField(
-                initialValue:
-                    p.coverageNote.isEmpty ? defaultNote : p.coverageNote,
+                initialValue: p.coverageNote.isEmpty
+                    ? defaultNote
+                    : p.coverageNote,
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Coverage note',
@@ -1104,5 +1124,4 @@ class _ProviderHubState extends State<ProviderHub> {
       ],
     );
   }
-
 }

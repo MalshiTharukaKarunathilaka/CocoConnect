@@ -43,14 +43,14 @@ class _FertilizerComplaintSheetState extends State<FertilizerComplaintSheet> {
         status: 'Submitted',
         date: DateTime.now(),
         description: _desc.text.trim(),
-        owner: 'Your Estate',
+        owner: 'Your Land',
         district: 'Kurunegala',
       ),
     );
     Navigator.pop(context, true);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Complaint submitted')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Complaint submitted')));
   }
 
   @override
@@ -88,9 +88,13 @@ class _FertilizerComplaintSheetState extends State<FertilizerComplaintSheet> {
                 ),
               ],
             ),
-            const Text('Category', style: TextStyle(fontWeight: FontWeight.w700)),
+            const Text(
+              'Category',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _category,
               items: [
                 for (final c in _cats)
@@ -99,7 +103,10 @@ class _FertilizerComplaintSheetState extends State<FertilizerComplaintSheet> {
               onChanged: (v) => setState(() => _category = v ?? _category),
             ),
             const SizedBox(height: 12),
-            const Text('What happened?', style: TextStyle(fontWeight: FontWeight.w700)),
+            const Text(
+              'What happened?',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 6),
             TextField(
               controller: _desc,

@@ -104,6 +104,18 @@ class MachineryApi {
           await ApiClient.get('$base/bookings/$id') as Map,
         ),
       );
+  Future<ProviderBookingRequest> completeAndRateOwner(
+    String bookingId,
+    int rating,
+  ) async => ProviderBookingRequest.fromJson(
+    Map<String, dynamic>.from(
+      await ApiClient.post('$base/bookings/$bookingId/complete-and-rate', {
+            'rating': rating,
+          })
+          as Map,
+    ),
+  );
+
   Future<List<ProviderBookingRequest>> bookings() async =>
       (await ApiClient.get('$base/bookings') as List)
           .map(

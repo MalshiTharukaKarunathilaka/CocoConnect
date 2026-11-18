@@ -22,8 +22,7 @@ class _FertilizerOrderEditSheetState extends State<FertilizerOrderEditSheet> {
 
   FertOrder get o => widget.order;
 
-  bool get _canEdit =>
-      o.status == 'Pending Ack' || o.status == 'Negotiating';
+  bool get _canEdit => o.status == 'Pending Ack' || o.status == 'Negotiating';
 
   @override
   void initState() {
@@ -65,7 +64,9 @@ class _FertilizerOrderEditSheetState extends State<FertilizerOrderEditSheet> {
     }
     if (_qty.every((q) => q < 1)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Keep at least one bag, or cancel the order.')),
+        const SnackBar(
+          content: Text('Keep at least one bag, or cancel the order.'),
+        ),
       );
       return;
     }
@@ -106,8 +107,8 @@ class _FertilizerOrderEditSheetState extends State<FertilizerOrderEditSheet> {
             clipBehavior: Clip.antiAlias,
             child: SafeArea(
               top: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              child: ListView(
+                shrinkWrap: true,
                 children: [
                   const SizedBox(height: 8),
                   Center(
@@ -153,8 +154,10 @@ class _FertilizerOrderEditSheetState extends State<FertilizerOrderEditSheet> {
                       ),
                     ),
                   ),
-                  Flexible(
+                  Padding(
+                    padding: EdgeInsets.zero,
                     child: ListView(
+                      physics: const NeverScrollableScrollPhysics(),
                       shrinkWrap: true,
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                       children: [
@@ -164,8 +167,9 @@ class _FertilizerOrderEditSheetState extends State<FertilizerOrderEditSheet> {
                             padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.field),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.field,
+                              ),
                               border: Border.all(color: AppColors.line),
                             ),
                             child: Column(
@@ -215,9 +219,9 @@ class _FertilizerOrderEditSheetState extends State<FertilizerOrderEditSheet> {
                                     ),
                                     IconButton(
                                       visualDensity: VisualDensity.compact,
-                                      onPressed: !_canEdit ||
-                                              _qty[i] >=
-                                                  o.items[i].item.stock50
+                                      onPressed:
+                                          !_canEdit ||
+                                              _qty[i] >= o.items[i].item.stock50
                                           ? null
                                           : () => setState(() => _qty[i]++),
                                       icon: const Icon(
@@ -284,13 +288,16 @@ class _FertilizerOrderEditSheetState extends State<FertilizerOrderEditSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
                             const Text(
                               'Total',
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
-                            const Spacer(),
+
                             Text(
                               rupees(_total),
                               style: const TextStyle(

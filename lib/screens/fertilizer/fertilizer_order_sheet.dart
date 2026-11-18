@@ -1,3 +1,5 @@
+import '../../services/api_client.dart';
+import 'live_fertilizer_orders_page.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
@@ -61,7 +63,10 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
     if (d != null) setState(() => _date = d);
   }
 
-  void _submit() {
+  bool _sending = false;
+
+  Future<void> _submit() async {
+    if (_sending) return;
     final lines = <CartLine>[];
     for (var i = 0; i < widget.place.items.length; i++) {
       if (!_on[i] || _qty[i] < 1) continue;
@@ -80,29 +85,51 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
       );
       return;
     }
-    final store = FertilizerStore.instance;
-    final order = FertOrder(
-      id: store.nextId(),
-      placeId: widget.place.id,
-      company: widget.place.company,
-      agent: widget.place.who,
-      owner: 'Your Estate',
-      product:
-          lines.map((l) => '${l.item.brand} ${l.item.name} (50 kg)').join(', '),
-      items: lines,
-      qty50: lines.fold(0, (s, l) => s + l.qty50),
-      price: _total,
-      preferredDate: _date,
-      slot: _slot,
-      status: 'Pending Ack',
-      message: 'Cart order · awaiting provider acknowledgement',
-    );
-    store.placeOrder(order);
-    final messenger = ScaffoldMessenger.of(context);
-    Navigator.pop(context, order);
-    messenger.showSnackBar(
-      SnackBar(content: Text('${order.id} sent as Pending Ack')),
-    );
+    setState(() => _sending = true);
+    try {
+      final saved = await submitFertilizerOrder(
+        context,
+        product: lines
+            .map((l) => '${l.item.brand} ${l.item.name} (50 kg)')
+            .join(', '),
+        quantity: lines.fold(0, (s, l) => s + l.qty50),
+        total: _total,
+        date: _date,
+        slot: _slot,
+        government: false,
+      );
+      if (saved == null || !mounted) return;
+      final order = FertOrder(
+        id: 'FO-${saved['id']}',
+        placeId: widget.place.id,
+        company: '${saved['supplier_name']}',
+        agent: widget.place.who,
+        owner: 'Your Land',
+        product: lines
+            .map((l) => '${l.item.brand} ${l.item.name} (50 kg)')
+            .join(', '),
+        items: lines,
+        qty50: lines.fold(0, (s, l) => s + l.qty50),
+        price: _total,
+        preferredDate: _date,
+        slot: _slot,
+        status: 'Pending Ack',
+        message: 'Cart order · awaiting provider acknowledgement',
+      );
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context, order);
+      messenger.showSnackBar(
+        SnackBar(content: Text('${order.id} sent as Pending Ack')),
+      );
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   Widget _itemCard(int i) {
@@ -221,8 +248,8 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
             clipBehavior: Clip.antiAlias,
             child: SafeArea(
               top: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              child: ListView(
+                shrinkWrap: true,
                 children: [
                   const SizedBox(height: 8),
                   Center(
@@ -268,8 +295,10 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
                       ),
                     ),
                   ),
-                  Flexible(
+                  Padding(
+                    padding: EdgeInsets.zero,
                     child: ListView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                       shrinkWrap: true,
                       itemCount: p.items.length,
@@ -280,20 +309,21 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
                     decoration: const BoxDecoration(
                       color: Colors.white,
-                      border: Border(
-                        top: BorderSide(color: AppColors.line),
-                      ),
+                      border: Border(top: BorderSide(color: AppColors.line)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
                             const Text(
                               'Total',
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
-                            const Spacer(),
+
                             Text(
                               rupees(_total),
                               style: const TextStyle(
@@ -332,18 +362,24 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
                                 items: const [
                                   DropdownMenuItem(
                                     value: 'Morning 8–11',
-                                    child: Text('Morning 8–11',
-                                        overflow: TextOverflow.ellipsis),
+                                    child: Text(
+                                      'Morning 8–11',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                   DropdownMenuItem(
                                     value: 'Afternoon 12–3',
-                                    child: Text('Afternoon 12–3',
-                                        overflow: TextOverflow.ellipsis),
+                                    child: Text(
+                                      'Afternoon 12–3',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                   DropdownMenuItem(
                                     value: 'Evening 3–6',
-                                    child: Text('Evening 3–6',
-                                        overflow: TextOverflow.ellipsis),
+                                    child: Text(
+                                      'Evening 3–6',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                                 onChanged: (v) =>
@@ -355,7 +391,7 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
                         const SizedBox(height: 6),
                         Text(
                           widget.place.isGov
-                              ? 'Next: estate details + NIC / land title, then CDO approval.'
+                              ? 'Next: land details + NIC / land title, then CDO approval.'
                               : 'Stays Pending Ack until the provider accepts. Pay after that.',
                           style: const TextStyle(
                             fontSize: 11,

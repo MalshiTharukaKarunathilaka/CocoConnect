@@ -44,6 +44,8 @@ class ProviderRequestMessage {
 }
 
 class ProviderBookingRequest {
+  final int? landOwnerRating;
+  final DateTime? workCompletedAt;
   final String? machineName;
   final int version;
   final int? ownerUserId;
@@ -74,6 +76,8 @@ class ProviderBookingRequest {
   double? agreedRate;
 
   ProviderBookingRequest({
+    this.landOwnerRating,
+    this.workCompletedAt,
     this.machineName,
     this.version = 1,
     this.ownerUserId,
@@ -126,6 +130,10 @@ class ProviderBookingRequest {
     final one = items.length == 1;
     final quantity = one ? number(items.first['quantity']) : 1.0;
     final request = ProviderBookingRequest(
+      landOwnerRating: (json['land_owner_rating'] as num?)?.toInt(),
+      workCompletedAt: json['work_completed_at'] == null
+          ? null
+          : DateTime.parse('${json['work_completed_at']}'),
       machineName: json['machine_name'] as String?,
       id: '${json['id']}',
       machineId: '${json['machine_id']}',

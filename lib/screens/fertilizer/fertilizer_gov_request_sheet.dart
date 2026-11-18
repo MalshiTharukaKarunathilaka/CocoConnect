@@ -19,7 +19,7 @@ class _FertilizerGovRequestSheetState extends State<FertilizerGovRequestSheet> {
     store.placeGovRequest(
       FertGovRequest(
         id: 'FR-${1000 + store.govRequests.length + 1}',
-        owner: 'Your Estate',
+        owner: 'Your Land',
         fertilizer: 'ERP Coconut Fertilizer (50 kg)',
         requested: _qty,
         status: 'Pending Ack',
@@ -30,9 +30,7 @@ class _FertilizerGovRequestSheetState extends State<FertilizerGovRequestSheet> {
     );
     Navigator.pop(context, true);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Government request sent · Pending Ack'),
-      ),
+      const SnackBar(content: Text('Government request sent · Pending Ack')),
     );
   }
 
@@ -87,7 +85,10 @@ class _FertilizerGovRequestSheetState extends State<FertilizerGovRequestSheet> {
             style: const TextStyle(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 14),
-          const Text('Quantity (50 kg bags)', style: TextStyle(fontWeight: FontWeight.w700)),
+          const Text(
+            'Quantity (50 kg bags)',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
           Row(
             children: [
               IconButton(
@@ -96,7 +97,10 @@ class _FertilizerGovRequestSheetState extends State<FertilizerGovRequestSheet> {
               ),
               Text(
                 '$_qty',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               IconButton(
                 onPressed: () => setState(() => _qty++),

@@ -175,7 +175,7 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
                 const SizedBox(height: 12),
                 AuthSecondaryAction(
                   icon: Icons.flash_on_outlined,
-                  label: 'Quick estate demo login',
+                  label: 'Quick land demo login',
                   onTap: _loading
                       ? () {}
                       : () {
