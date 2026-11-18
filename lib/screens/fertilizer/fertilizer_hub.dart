@@ -5,6 +5,7 @@ import 'fertilizer_data.dart';
 import 'fertilizer_gov_order_form.dart';
 import 'fertilizer_map_page.dart';
 import 'fertilizer_requests_page.dart';
+import 'fertilizer_talk_page.dart';
 
 /// Owner fertilizer shell — same tabs as the HTML demo bottom nav.
 class FertilizerHub extends StatefulWidget {
@@ -81,12 +82,26 @@ class _FertilizerHubState extends State<FertilizerHub> {
     if (_tab == 3) return const FertilizerRequestsPage(embedded: true);
     if (_tab == 4) return const FertilizerComplaintsPage(embedded: true);
     // Government = same map + list as demo, filtered to CDO pins only.
-    return FertilizerMapPage(
-      key: ValueKey('map-$_channel'),
-      channel: _channel,
-      embedded: true,
-      onGovRequestSent: _govSent,
-      onOrderPlaced: (_) => setState(() => _tab = 3),
+    return Column(
+      children: [
+        if (_tab != 2)
+          TextButton.icon(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => const FertilizerMessagesPage(),
+            )),
+            icon: const Icon(Icons.chat_bubble_outline),
+            label: const Text('Fertilizer Messages'),
+          ),
+        Expanded(
+          child: FertilizerMapPage(
+            key: ValueKey('map-$_channel'),
+            channel: _channel,
+            embedded: true,
+            onGovRequestSent: _govSent,
+            onOrderPlaced: (_) => setState(() => _tab = 3),
+          ),
+        ),
+      ],
     );
   }
 }

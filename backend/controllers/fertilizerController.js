@@ -9,8 +9,58 @@ const wrap = fn => async (req,res) => {
 const supplierRoles = ['FERTILIZER_SUPPLIER','CDO'];
 exports.suppliers = wrap(async (req,res) => {
   const role = req.query.government === 'true' ? 'CDO' : 'FERTILIZER_SUPPLIER';
-  const result = await pool.query('SELECT id,name,location FROM users WHERE role=$1 ORDER BY name',[role]);
+  const result = await pool.query('SELECT id,name,location,phone FROM users WHERE role=$1 ORDER BY name',[role]);
   res.json(result.rows);
+});
+
+const chatRoles = ['ESTATE_OWNER', 'FERTILIZER_SUPPLIER'];
+
+async function chatParticipants(req, res) {
+  const id = Number(req.params.counterparty);
+  if (!Number.isSafeInteger(id) || id < 1 || id === req.user.id) {
+    res.status(400).json({message: 'Choose a valid chat contact'});
+    return null;
+  }
+  const owner = req.user.role === 'ESTATE_OWNER';
+  const result = await pool.query('SELECT id, name FROM users WHERE id=$1 AND role=$2',
+    [id, owner ? 'FERTILIZER_SUPPLIER' : 'ESTATE_OWNER']);
+  if (!result.rows.length) {
+    res.status(404).json({message: 'Fertilizer chat contact not found'});
+    return null;
+  }
+  return {ids: owner ? [req.user.id, id] : [id, req.user.id], contact: result.rows[0]};
+}
+
+exports.chatThreads = wrap(async (req, res) => {
+  if (!chatRoles.includes(req.user.role)) return res.status(403).json({message: 'This account cannot use supplier chat'});
+  const owner = req.user.role === 'ESTATE_OWNER';
+  const ownColumn = owner ? 'owner_user_id' : 'supplier_user_id';
+  const contactColumn = owner ? 'supplier_user_id' : 'owner_user_id';
+  const {rows} = await pool.query(`SELECT u.id, u.name, MAX(m.id) AS latest_message_id
+    FROM fertilizer_supplier_messages m JOIN users u ON u.id=m.${contactColumn}
+    WHERE m.${ownColumn}=$1 GROUP BY u.id,u.name ORDER BY latest_message_id DESC`, [req.user.id]);
+  res.json(rows);
+});
+
+exports.chatMessages = wrap(async (req, res) => {
+  if (!chatRoles.includes(req.user.role)) return res.status(403).json({message: 'This account cannot use supplier chat'});
+  const pair = await chatParticipants(req, res);
+  if (!pair) return;
+  const {rows} = await pool.query(`SELECT * FROM fertilizer_supplier_messages
+    WHERE owner_user_id=$1 AND supplier_user_id=$2 ORDER BY id DESC LIMIT 200`, pair.ids);
+  res.json({contact: pair.contact, messages: rows.reverse()});
+});
+
+exports.sendChatMessage = wrap(async (req, res) => {
+  if (!chatRoles.includes(req.user.role)) return res.status(403).json({message: 'This account cannot use supplier chat'});
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+  if (!message || message.length > 2000) return res.status(400).json({message: 'Enter a message of up to 2,000 characters'});
+  const pair = await chatParticipants(req, res);
+  if (!pair) return;
+  const {rows} = await pool.query(`INSERT INTO fertilizer_supplier_messages
+    (owner_user_id,supplier_user_id,sender_user_id,message) VALUES ($1,$2,$3,$4) RETURNING *`,
+    [...pair.ids, req.user.id, message]);
+  res.status(201).json(rows[0]);
 });
 exports.create = wrap(async (req,res) => {
   const {supplier_id,product,quantity,proposed_total,preferred_date,time_slot} = req.body;

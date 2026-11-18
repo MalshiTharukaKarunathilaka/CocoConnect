@@ -13,6 +13,7 @@ import 'fertilizer_data.dart';
 import 'fertilizer_dispute_sheet.dart';
 import 'fertilizer_receipt_rating.dart';
 import 'fertilizer_supplier_chat_page.dart';
+import 'fertilizer_talk_page.dart';
 import 'supplier_calendar_page.dart';
 
 /// Supplier Agent / CDO shell with demo-style bottom tabs.
@@ -107,6 +108,7 @@ class _ProviderHubState extends State<ProviderHub> {
             (Icons.calendar_month, 'Calendar'),
             (Icons.inbox_outlined, 'Orders'),
             (Icons.inventory_2_outlined, 'Stock'),
+            (Icons.chat_bubble_outline, 'Messages'),
             (Icons.person_outline, 'Profile'),
           ];
 
@@ -176,6 +178,8 @@ class _ProviderHubState extends State<ProviderHub> {
         case 2:
           return _supplierStockPage();
         case 3:
+          return const FertilizerMessagesPage(embedded: true);
+        case 4:
           return _profilePage();
       }
     }

@@ -7,6 +7,9 @@ router.param('id', (req,res,next,value) => {
   next();
 });
 router.get('/suppliers',requireRole('ESTATE_OWNER'),c.suppliers);
+router.get('/chats',c.chatThreads);
+router.get('/chats/:counterparty',c.chatMessages);
+router.post('/chats/:counterparty',c.sendChatMessage);
 router.post('/orders',requireRole('ESTATE_OWNER'),c.create);
 router.get('/orders',c.list);
 router.put('/orders/:id/rating',c.rateOwner);

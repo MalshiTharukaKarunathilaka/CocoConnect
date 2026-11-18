@@ -17,6 +17,20 @@ before(async()=>{const http=require('node:http');const listen=http.Server.protot
  cdo=await signup('CDO','0772000103','CDO');outsider=await signup('Other supplier','0772000104','FERTILIZER_SUPPLIER');worker=await signup('Worker','0772000105','WORKER');
 });
 after(()=>server.close());
+test('land owners and suppliers share a persistent chat scoped to its two participants', async()=>{
+ const supplierPath=`/api/fertilizer/chats/${supplier.user.id}`;
+ const ownerPath=`/api/fertilizer/chats/${owner.user.id}`;
+ assert.equal((await call('POST',supplierPath,worker,{message:'Hello'})).status,403);
+ assert.equal((await call('POST',supplierPath,owner,{message:'   '})).status,400);
+ assert.equal((await call('POST',supplierPath,owner,{message:'Do you deliver on Friday?'})).status,201);
+ assert.equal((await call('POST',ownerPath,supplier,{message:'Yes, we can deliver.'})).status,201);
+ const read=await call('GET',supplierPath,owner);
+ assert.deepEqual(read.data.messages.map(row=>row.message),['Do you deliver on Friday?','Yes, we can deliver.']);
+ assert.equal((await call('GET',ownerPath,supplier)).data.messages.length,2);
+ assert.deepEqual((await call('GET',ownerPath,outsider)).data.messages,[]);
+ assert.deepEqual((await call('GET','/api/fertilizer/chats',supplier)).data.map(row=>row.id),[owner.user.id]);
+ assert.deepEqual((await call('GET','/api/fertilizer/chats',outsider)).data,[]);
+});
 test('fertilizer orders require a real supplier, valid data and owner authorization',async()=>{
  assert.equal((await call('GET','/api/fertilizer/orders')).status,401);
  assert.equal((await call('POST','/api/fertilizer/orders',supplier,payload())).status,403);

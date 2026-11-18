@@ -2,6 +2,17 @@ import 'api_client.dart';
 
 class FertilizerApi {
   static const base = '/api/fertilizer';
+  static Future<List<Map<String, dynamic>>> chats() async =>
+      (await ApiClient.get('$base/chats') as List)
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+
+  static Future<Map<String, dynamic>> messages(int contactId) async =>
+      Map<String, dynamic>.from(await ApiClient.get('$base/chats/$contactId') as Map);
+
+  static Future<void> sendMessage(int contactId, String message) async {
+    await ApiClient.post('$base/chats/$contactId', {'message': message});
+  }
   static Future<List<Map<String, dynamic>>> suppliers({
     required bool government,
   }) async =>
