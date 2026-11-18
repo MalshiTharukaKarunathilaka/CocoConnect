@@ -194,6 +194,13 @@ InputDecoration _dropDecoration(String hint, IconData icon) => InputDecoration(
   ),
 );
 
+
+void _afterMenuClose(VoidCallback onChanged) {
+  // Why: rebuilding while the dropdown menu overlay is still dismissing can
+  // leave a stuck ModalBarrier on Flutter web that eats all later taps.
+  WidgetsBinding.instance.addPostFrameCallback((_) => onChanged());
+}
+
 Icon _icon(IconData i) => Icon(i, size: 20, color: kAuthGreen);
 
 /// Machinery provider details, shown under the shared fields.
@@ -255,7 +262,7 @@ class ProviderSignupSection extends StatelessWidget {
         _labelled(
           'Operating district',
           DropdownButtonFormField<String>(
-            key: ValueKey('district-${extras.district}'),
+            key: const ValueKey('signup-district'),
             initialValue: extras.district,
             isExpanded: true,
             style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
@@ -270,7 +277,7 @@ class ProviderSignupSection extends StatelessWidget {
             ],
             onChanged: (v) {
               extras.district = v;
-              onChanged();
+              _afterMenuClose(onChanged);
             },
             validator: (v) =>
                 v == null ? 'Select your operating district' : null,
@@ -395,38 +402,34 @@ class SupplierSignupSection extends StatelessWidget {
                   padding: EdgeInsets.only(
                     right: type == 'Physical shop' ? 8 : 0,
                   ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () {
-                        extras.shopType = type;
-                        onChanged();
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      extras.shopType = type;
+                      onChanged();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: extras.shopType == type
+                            ? kAuthGreen
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
                           color: extras.shopType == type
                               ? kAuthGreen
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: extras.shopType == type
-                                ? kAuthGreen
-                                : kAuthBorder,
-                          ),
+                              : kAuthBorder,
                         ),
-                        child: Text(
-                          type,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: extras.shopType == type
-                                ? Colors.white
-                                : kAuthGrey,
-                          ),
+                      ),
+                      child: Text(
+                        type,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: extras.shopType == type
+                              ? Colors.white
+                              : kAuthGrey,
                         ),
                       ),
                     ),
@@ -465,7 +468,7 @@ class SupplierSignupSection extends StatelessWidget {
         _labelled(
           'Operating district',
           DropdownButtonFormField<String>(
-            key: ValueKey('district-${extras.district}'),
+            key: const ValueKey('signup-district'),
             initialValue: extras.district,
             isExpanded: true,
             style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
@@ -480,7 +483,7 @@ class SupplierSignupSection extends StatelessWidget {
             ],
             onChanged: (v) {
               extras.district = v;
-              onChanged();
+              _afterMenuClose(onChanged);
             },
             validator: (v) =>
                 v == null ? 'Select your operating district' : null,
@@ -617,7 +620,7 @@ class CdoSignupSection extends StatelessWidget {
         _labelled(
           'Regional Office',
           DropdownButtonFormField<String>(
-            key: ValueKey('office-${extras.regionalOffice}'),
+            key: const ValueKey('signup-office'),
             initialValue: extras.regionalOffice,
             isExpanded: true,
             style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
@@ -632,7 +635,7 @@ class CdoSignupSection extends StatelessWidget {
             ],
             onChanged: (v) {
               extras.regionalOffice = v;
-              onChanged();
+              _afterMenuClose(onChanged);
             },
             validator: (v) => v == null ? 'Select your regional office' : null,
           ),
@@ -640,7 +643,7 @@ class CdoSignupSection extends StatelessWidget {
         _labelled(
           'Assigned District',
           DropdownButtonFormField<String>(
-            key: ValueKey('assigned-${extras.assignedDistrict}'),
+            key: const ValueKey('signup-assigned-district'),
             initialValue: extras.assignedDistrict,
             isExpanded: true,
             style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
@@ -657,7 +660,7 @@ class CdoSignupSection extends StatelessWidget {
               extras.assignedDistrict = v;
               // Why: picking a district fills every divisional area under it.
               extras.divisionalAreas.text = formatCdoAreas(v);
-              onChanged();
+              _afterMenuClose(onChanged);
             },
             validator: (v) =>
                 v == null ? 'Select your assigned district' : null,
@@ -936,7 +939,9 @@ class _SupplierRadius extends StatelessWidget {
       distance.offset(centre, metres, 180),
       distance.offset(centre, metres, 270),
     ]);
-    return FlutterMap(
+    // Why: map tiles can still absorb taps on web even with InteractiveFlag.none.
+    return IgnorePointer(
+      child: FlutterMap(
       key: ValueKey('supplier-${place.latitude},${place.longitude},$radius'),
       options: MapOptions(
         initialCameraFit: CameraFit.bounds(
@@ -973,6 +978,7 @@ class _SupplierRadius extends StatelessWidget {
           ],
         ),
       ],
+    ),
     );
   }
 }
@@ -1119,46 +1125,50 @@ class _ServiceRadius extends StatelessWidget {
       distance.offset(centre, metres, 180),
       distance.offset(centre, metres, 270),
     ]);
-    return FlutterMap(
-      key: ValueKey('${place.latitude},${place.longitude},$radius'),
-      options: MapOptions(
-        initialCameraFit: CameraFit.bounds(
-          bounds: bounds,
-          padding: const EdgeInsets.all(24),
+    // Why: map tiles can still absorb taps on web even with InteractiveFlag.none.
+    return IgnorePointer(
+      child: FlutterMap(
+        key: ValueKey('${place.latitude},${place.longitude},$radius'),
+        options: MapOptions(
+          initialCameraFit: CameraFit.bounds(
+            bounds: bounds,
+            padding: const EdgeInsets.all(24),
+          ),
+          interactionOptions: const InteractionOptions(
+            flags: InteractiveFlag.none,
+          ),
         ),
-        interactionOptions: const InteractionOptions(
-          flags: InteractiveFlag.none,
-        ),
+        children: [
+          TileLayer(
+            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.example.kapconnect_mobile',
+          ),
+          CircleLayer(
+            circles: [
+              CircleMarker(
+                point: centre,
+                radius: metres,
+                useRadiusInMeter: true,
+                color: kAuthGreen.withAlpha(45),
+                borderColor: kAuthGreen.withAlpha(120),
+                borderStrokeWidth: 2,
+              ),
+            ],
+          ),
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: centre,
+                child:
+                    const Icon(Icons.location_on, color: kAuthGreen, size: 36),
+              ),
+            ],
+          ),
+          const SimpleAttributionWidget(
+            source: Text('OpenStreetMap contributors'),
+          ),
+        ],
       ),
-      children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.example.kapconnect_mobile',
-        ),
-        CircleLayer(
-          circles: [
-            CircleMarker(
-              point: centre,
-              radius: metres,
-              useRadiusInMeter: true,
-              color: kAuthGreen.withAlpha(45),
-              borderColor: kAuthGreen.withAlpha(120),
-              borderStrokeWidth: 2,
-            ),
-          ],
-        ),
-        MarkerLayer(
-          markers: [
-            Marker(
-              point: centre,
-              child: const Icon(Icons.location_on, color: kAuthGreen, size: 36),
-            ),
-          ],
-        ),
-        const SimpleAttributionWidget(
-          source: Text('OpenStreetMap contributors'),
-        ),
-      ],
     );
   }
 }

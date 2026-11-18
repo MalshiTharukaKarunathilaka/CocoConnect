@@ -292,17 +292,11 @@ class _SignupPageState extends State<SignupPage> {
                   }).toList(),
                 ),
 
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                  alignment: Alignment.topCenter,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: KeyedSubtree(
-                      key: ValueKey(_selectedRole),
-                      child: _roleSection(),
-                    ),
-                  ),
+                // Why: AnimatedSwitcher stacks the old role section during the
+                // fade and can leave an invisible hit-target that eats taps.
+                KeyedSubtree(
+                  key: ValueKey(_selectedRole),
+                  child: _roleSection(),
                 ),
 
                 const SizedBox(height: 18),

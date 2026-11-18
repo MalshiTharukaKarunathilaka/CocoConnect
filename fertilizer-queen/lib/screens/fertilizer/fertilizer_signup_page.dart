@@ -259,12 +259,9 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
                   'This signup is locked to ${role.roleLabel}.',
                   style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
                 ),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  alignment: Alignment.topCenter,
-                  child: _roleExtras(),
-                ),
+                // Why: avoid AnimatedSize/Switcher overlays that steal taps
+                // after a few clicks on Flutter web.
+                _roleExtras(),
                 const SizedBox(height: 16),
                 const AuthLabel(text: 'Password'),
                 const SizedBox(height: 8),
