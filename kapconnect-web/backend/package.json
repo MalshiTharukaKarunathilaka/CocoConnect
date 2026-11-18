@@ -1,0 +1,32 @@
+{
+  "name": "kapconnect-api",
+  "version": "1.0.0",
+  "description": "KapConnect REST API — Node.js + Express",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "db:push": "prisma db push",
+    "db:seed": "node prisma/seed.js",
+    "setup": "prisma generate && prisma db push && node prisma/seed.js"
+  },
+  "keywords": [
+    "kapconnect",
+    "express"
+  ],
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^11.1.0",
+    "zod": "^4.0.17"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10",
+    "prisma": "5.22.0"
+  }
+}

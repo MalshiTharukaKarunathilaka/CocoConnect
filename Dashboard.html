@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CocoConnect - Estate Manager</title>
+
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- ================= HEADER ================= -->
+    <header class="top-header">
+
+        <button class="back-button" onclick="goBack()">
+            <i data-lucide="arrow-left"></i>
+        </button>
+
+        <div class="brand">
+            CocoConnect
+        </div>
+
+        <div class="languages">
+            <span>EN</span>
+            <span>|</span>
+            <span>SI</span>
+            <span>|</span>
+            <span>TA</span>
+        </div>
+
+    </header>
+
+
+    <!-- ================= VIEW ONLY BAR ================= -->
+    <div class="view-only">
+        <i data-lucide="eye"></i>
+        <span>ESTATE MANAGER · VIEW ONLY</span>
+    </div>
+
+
+    <!-- ================= MAIN CONTENT ================= -->
+    <main class="content">
+
+        <section class="dashboard-heading">
+            <h1>Estate Manager Dashboard</h1>
+
+            <p>
+                Assigned to: <strong>Green Valley Estate</strong>
+            </p>
+        </section>
+
+
+        <!-- CATEGORY HEADINGS -->
+        <div class="category-heading">
+
+            <div>
+                <h2>Selling<br>Categories</h2>
+                <p>List products</p>
+            </div>
+
+            <div>
+                <h2>Provider<br>Services</h2>
+                <p>Essential resources</p>
+            </div>
+
+        </div>
+
+
+        <!-- ================= CARDS ================= -->
+        <section class="cards">
+
+            <!-- Coconuts -->
+            <div class="card" onclick="openCategory('Coconuts')">
+
+                <div class="card-top">
+                    <div class="icon-circle green">
+                        <i data-lucide="tree-pine"></i>
+                    </div>
+
+                    <i class="lock" data-lucide="lock-keyhole"></i>
+                </div>
+
+                <h3>Coconuts</h3>
+                <p>List harvest</p>
+
+            </div>
+
+
+            <!-- Fertilizer -->
+            <div class="card" onclick="openCategory('Fertilizer')">
+
+                <div class="card-top">
+                    <div class="icon-circle blue">
+                        <i data-lucide="leaf"></i>
+                    </div>
+
+                    <i class="lock" data-lucide="lock-keyhole"></i>
+                </div>
+
+                <h3>Fertilizer</h3>
+                <p>Quality nutrients</p>
+
+            </div>
+
+
+            <!-- Vegetables -->
+            <div class="card" onclick="openCategory('Vegetables')">
+
+                <div class="card-top">
+                    <div class="icon-circle orange">
+                        <i data-lucide="wheat"></i>
+                    </div>
+
+                    <i class="lock" data-lucide="lock-keyhole"></i>
+                </div>
+
+                <h3>Vegetables</h3>
+                <p>Fresh produce</p>
+
+            </div>
+
+
+            <!-- Machinery -->
+            <div class="card" onclick="openCategory('Machinery')">
+
+                <div class="card-top">
+                    <div class="icon-circle orange">
+                        <i data-lucide="tractor"></i>
+                    </div>
+
+                    <i class="lock" data-lucide="lock-keyhole"></i>
+                </div>
+
+                <h3>Machinery</h3>
+                <p>Rent or buy</p>
+
+            </div>
+
+
+            <!-- Livestock -->
+            <div class="card" onclick="openCategory('Livestock')">
+
+                <div class="card-top">
+                    <div class="icon-circle gray">
+                        <i data-lucide="paw-print"></i>
+                    </div>
+
+                    <i class="lock" data-lucide="lock-keyhole"></i>
+                </div>
+
+                <h3>Livestock</h3>
+                <p>Animal products</p>
+
+            </div>
+
+
+            <!-- Labour -->
+            <div class="card" onclick="openCategory('Labour')">
+
+                <div class="card-top">
+                    <div class="icon-circle gray">
+                        <i data-lucide="users"></i>
+                    </div>
+
+                    <i class="lock" data-lucide="lock-keyhole"></i>
+                </div>
+
+                <h3>Labour</h3>
+                <p>Hire workers</p>
+
+            </div>
+
+
+            <!-- Other Goods -->
+            <div class="card" onclick="openCategory('Other Goods')">
+
+                <div class="card-top">
+                    <div class="icon-circle gray">
+                        <i data-lucide="archive"></i>
+                    </div>
+
+                    <i class="lock" data-lucide="lock-keyhole"></i>
+                </div>
+
+                <h3>Other Goods</h3>
+                <p>Farm goods</p>
+
+            </div>
+
+
+            <!-- Miscellaneous -->
+            <div class="card" onclick="openCategory('Miscellaneous')">
+
+                <div class="card-top">
+                    <div class="icon-circle gray">
+                        <i data-lucide="shapes"></i>
+                    </div>
+
+                    <i class="lock" data-lucide="lock-keyhole"></i>
+                </div>
+
+                <h3>Miscellaneous</h3>
+                <p>Other services</p>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- ================= BOTTOM NAVIGATION ================= -->
+    <nav class="bottom-nav">
+
+        <button class="nav-item active" onclick="navigate('home')">
+            <i data-lucide="layout-grid"></i>
+            <span>Home</span>
+        </button>
+
+        <button class="nav-item" onclick="navigate('market')">
+            <i data-lucide="store"></i>
+            <span>Market</span>
+        </button>
+
+        <button class="nav-item" onclick="navigate('orders')">
+            <i data-lucide="clipboard-list"></i>
+            <span>Orders</span>
+        </button>
+
+        <button class="nav-item" onclick="navigate('profile')">
+            <i data-lucide="user-round"></i>
+            <span>Profile</span>
+        </button>
+
+    </nav>
+
+</div>
+
+
+<script src="script.js"></script>
+
+</body>
+</html>

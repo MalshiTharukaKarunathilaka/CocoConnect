@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KapConnect — Admin Wireframes (Client Pack)</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #1b2420;
+    --muted: #5f6c65;
+    --line: #cfd6d1;
+    --green: #1a5f38;
+    --paper: #fff;
+    --frame: #f4f6f5;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Sora', 'Segoe UI', sans-serif;
+    background: #e7ebe8;
+    color: var(--ink);
+    line-height: 1.45;
+  }
+  @media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .page { break-after: page; box-shadow: none; margin: 0 0 18px; border: 1px solid #bbb; }
+  }
+
+  .hero {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 36px 20px 18px;
+  }
+  .hero h1 {
+    font-size: 1.7rem;
+    font-weight: 700;
+    letter-spacing: -.03em;
+    color: var(--green);
+  }
+  .hero p {
+    margin-top: 8px;
+    max-width: 740px;
+    color: var(--muted);
+    font-size: .95rem;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .meta span {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+  .actions a, .actions button {
+    background: var(--green);
+    color: #fff;
+    border: 0;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font: inherit;
+    font-size: .82rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .actions a.secondary {
+    background: #fff;
+    color: var(--green);
+    border: 1px solid var(--line);
+  }
+
+  .toc {
+    max-width: 1080px;
+    margin: 0 auto 20px;
+    padding: 0 20px;
+  }
+  .toc ol {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 16px 16px 36px;
+    columns: 2;
+    gap: 24px;
+  }
+  .toc a {
+    color: var(--ink);
+    text-decoration: none;
+    font-size: .86rem;
+    font-weight: 500;
+  }
+  .toc a:hover { color: var(--green); }
+
+  .page {
+    max-width: 1080px;
+    margin: 0 auto 22px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 10px 24px rgba(20, 35, 28, .06);
+  }
+  .page-head {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: baseline;
+    background: #fafbfa;
+  }
+  .page-head h2 {
+    font-size: 1.05rem;
+    font-weight: 650;
+  }
+  .page-head span {
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .page-body { padding: 18px 20px 22px; }
+  .note {
+    margin-bottom: 14px;
+    color: var(--muted);
+    font-size: .84rem;
+  }
+  .note strong { color: var(--ink); font-weight: 600; }
+
+  .frame {
+    border: 1.5px solid #9aa59e;
+    background: var(--frame);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .chrome {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    min-height: 420px;
+  }
+  .side {
+    background: #2a3330;
+    color: #d7ddd9;
+    padding: 14px 10px;
+  }
+  .side .logo {
+    font-size: .82rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 14px;
+    padding: 0 6px 10px;
+    border-bottom: 1px solid #3d4743;
+  }
+  .side .group {
+    font-size: .58rem;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: #8b9590;
+    margin: 10px 6px 4px;
+  }
+  .side .item {
+    font-size: .74rem;
+    padding: 7px 8px;
+    border-radius: 4px;
+    margin-bottom: 2px;
+  }
+  .side .item.on {
+    background: rgba(255,255,255,.1);
+    box-shadow: inset 2px 0 0 #5faf7f;
+    color: #fff;
+  }
+  .workspace { background: #fff; display: flex; flex-direction: column; }
+  .bar {
+    border-bottom: 1px solid var(--line);
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .bar .t { font-size: .9rem; font-weight: 650; }
+  .bar .search {
+    border: 1px dashed #aeb7b1;
+    color: #7a867f;
+    font-size: .72rem;
+    padding: 6px 10px;
+    border-radius: 4px;
+    min-width: 140px;
+  }
+  .area { padding: 14px; }
+  .boxes {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .box {
+    border: 1px dashed #9aa59e;
+    background: #f8faf9;
+    min-height: 64px;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: .68rem;
+    color: #59655e;
+  }
+  .box b { display: block; color: var(--ink); font-size: .78rem; margin-bottom: 4px; }
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .panel {
+    border: 1px dashed #9aa59e;
+    border-radius: 4px;
+    min-height: 160px;
+    padding: 10px;
+    background: #f8faf9;
+    font-size: .72rem;
+    color: #59655e;
+  }
+  .panel b { display: block; color: var(--ink); margin-bottom: 6px; font-size: .78rem; }
+  .row {
+    border: 1px dashed #b4beb8;
+    background: #fff;
+    border-radius: 3px;
+    padding: 8px;
+    margin-bottom: 6px;
+    font-size: .7rem;
+    color: #59655e;
+  }
+  .filters {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .filters span {
+    border: 1px dashed #9aa59e;
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: .68rem;
+    color: #59655e;
+    background: #fff;
+  }
+  .filters span.on {
+    border-style: solid;
+    background: #e8f2ec;
+    color: var(--green);
+    font-weight: 600;
+  }
+  .table {
+    border: 1px dashed #9aa59e;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .table .th, .table .td {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr auto;
+    gap: 8px;
+    padding: 8px 10px;
+    font-size: .68rem;
+  }
+  .table .th {
+    background: #eef2f0;
+    color: #59655e;
+    font-weight: 650;
+    border-bottom: 1px solid #d5dcd7;
+  }
+  .table .td {
+    border-bottom: 1px dashed #d8dfda;
+    color: #4d5953;
+  }
+  .table .td:last-child { border-bottom: 0; }
+  .cta {
+    display: inline-block;
+    border: 1px solid #7f8b84;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: .64rem;
+    color: #3f4a44;
+  }
+  .ann {
+    margin-top: 14px;
+    border-left: 3px solid var(--green);
+    padding: 8px 12px;
+    background: #f3f7f4;
+    font-size: .8rem;
+    color: var(--muted);
+  }
+  .ann strong { color: var(--ink); }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .field {
+    border: 1px dashed #9aa59e;
+    border-radius: 4px;
+    min-height: 54px;
+    padding: 8px;
+    background: #fff;
+    font-size: .7rem;
+    color: #59655e;
+  }
+  .field b { display: block; color: var(--ink); margin-bottom: 4px; }
+
+  @media (max-width: 800px) {
+    .toc ol { columns: 1; }
+    .chrome { grid-template-columns: 1fr; }
+    .side { display: none; }
+    .boxes, .split, .form-grid, .table .th, .table .td { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+  <header class="hero">
+    <h1>KapConnect Admin — Wireframes</h1>
+    <p>
+      Low-fidelity screen layouts for client review. These show structure and admin functions only —
+      not final visual design. Use with the interactive admin demo for clickable flow.
+    </p>
+    <div class="meta">
+      <span>Product: KapConnect</span>
+      <span>Scope: Admin console</span>
+      <span>Format: Wireframes</span>
+      <span>Version: Client pack</span>
+    </div>
+    <div class="actions no-print">
+      <a href="./KapConnect_Admin.html">Open interactive admin HTML</a>
+      <button class="secondary" onclick="window.print()">Print / Save PDF</button>
+    </div>
+  </header>
+
+  <nav class="toc no-print">
+    <ol>
+      <li><a href="#wf-shell">Admin shell &amp; navigation</a></li>
+      <li><a href="#wf-dashboard">Dashboard</a></li>
+      <li><a href="#wf-users">Users</a></li>
+      <li><a href="#wf-verify">Verification queue</a></li>
+      <li><a href="#wf-requests">Buy requests</a></li>
+      <li><a href="#wf-listings">Sell listings</a></li>
+      <li><a href="#wf-orders">Orders</a></li>
+      <li><a href="#wf-disputes">Disputes</a></li>
+      <li><a href="#wf-regions">Regions &amp; prices</a></li>
+      <li><a href="#wf-reports">Reports</a></li>
+      <li><a href="#wf-settings">Settings</a></li>
+    </ol>
+  </nav>
+
+  <!-- SHELL -->
+  <article class="page" id="wf-shell">
+    <div class="page-head"><h2>Admin shell &amp; navigation</h2><span>WF-A01</span></div>
+    <div class="page-body">
+      <p class="note"><strong>Purpose:</strong> Shared layout for all admin screens. Left navigation, top page title, content area.</p>
+      <div class="frame">
+        <div class="chrome">
+          <aside class="side">
+            <div class="logo">KapConnect Admin</div>
+            <div class="group">Overview</div>
+            <div class="item on">Dashboard</div>
+            <div class="group">People</div>
+            <div class="item">Users</div>
+            <div class="item">Verification</div>
+            <div class="group">Marketplace</div>
+            <div class="item">Buy requests</div>
+            <div class="item">Sell listings</div>
+            <div class="item">Orders</div>
+            <div class="item">Disputes</div>
+            <div class="group">System</div>
+            <div class="item">Regions &amp; prices</div>
+            <div class="item">Reports</div>
+            <div class="item">Settings</div>
+          </aside>
+          <div class="workspace">
+            <div class="bar"><div class="t">Page title</div><div class="search">Search</div></div>
+            <div class="area"><div class="panel" style="min-height:280px"><b>Main content area</b>Tables, forms, and metrics render here based on selected menu item.</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="ann"><strong>Notes:</strong> Text-only navigation (no decorative icons). Badge counts may appear on Verification and Disputes when items need attention.</div>
+    </div>
+  </article>
+
+  <!-- DASHBOARD -->
+  <article class="page" id="wf-dashboard">
+    <div class="page-head"><h2>Dashboard</h2><span>WF-A02</span></div>
+    <div class="page-body">
+      <p class="note"><strong>Purpose:</strong> Quick health view of users, demand, supply, GMV, alerts, and recent orders.</p>
+      <div class="frame">
+        <div class="chrome">
+          <aside class="side">
+            <div class="logo">KapConnect Admin</div>
+            <div class="group">Overview</div>
+            <div class="item on">Dashboard</div>
+            <div class="group">People</div>
+            <div class="item">Users</div>
+            <div class="item">Verification</div>
+          </aside>
+          <div class="workspace">
+            <div class="bar"><div class="t">Dashboard</div><div class="search">Search</div></div>
+            <div class="area">
+              <div class="boxes">
+                <div class="box"><b>Users</b>Total + pending verify</div>
+                <div class="box"><b>Open requests</b>Active demand</div>
+                <div class="box"><b>Active listings</b>Live supply</div>
+                <div class="box"><b>Completed GMV</b>Value + deals in progress</div>
+              </div>
+              <div class="split">
+                <div class="panel"><b>Alerts</b><div class="row">Dispute alert → open disputes</div><div class="row">Verification queue alert → open queue</div></div>
+                <div class="panel"><b>Recent orders</b><div class="row">Code · Qty · Price · Status</div><div class="row">Code · Qty · Price · Status</div><div class="row">Link: View all</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ann"><strong>Actions:</strong> Jump to Disputes / Verification / Orders from alerts and recent list.</div>
+    </div>
+  </article>
+
+  <!-- USERS -->
+  <article class="page" id="wf-users">
+    <div class="page-head"><h2>Users</h2><span>WF-A03</span></div>
+    <div class="page-body">
+      <p class="note"><strong>Purpose:</strong> Manage buyer and estate accounts. Filter, verify, suspend, restore.</p>
+      <div class="frame">
+        <div class="chrome">
+          <aside class="side"><div class="logo">KapConnect Admin</div><div class="group">People</div><div class="item on">Users</div><div class="item">Verification</div></aside>
+          <div class="workspace">
+            <div class="bar"><div class="t">Users</div><div class="search">Search name / phone</div></div>
+            <div class="area">
+              <div class="filters"><span class="on">All</span><span>Buyer</span><span>Estate</span><span>Suspended</span></div>
+              <div class="table">
+                <div class="th"><span>User</span><span>Phone</span><span>Role</span><span>District</span><span>Status</span><span>Actions</span></div>
+                <div class="td"><span>Name</span><span>07…</span><span>BUYER</span><span>District</span><span>Verified</span><span class="cta">Suspend</span></div>
+                <div class="td"><span>Name</span><span>07…</span><span>ESTATE</span><span>District</span><span>Pending</span><span class="cta">Verify</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ann"><strong>Actions:</strong> Verify · Suspend · Restore.</div>
+    </div>
+  </article>
+
+  <!-- VERIFY -->
+  <article class="page" id="wf-verify">
+    <div class="page-head"><h2>Verification queue</h2><span>WF-A04</span></div>
+    <div class="page-body">
+      <p class="note"><strong>Purpose:</strong> Approve or reject pending applicants before Verified status shows in the app.</p>
+      <div class="frame">
+        <div class="chrome">
+          <aside class="side"><div class="logo">KapConnect Admin</div><div class="group">People</div><div class="item">Users</div><div class="item on">Verification</div></aside>
+          <div class="workspace">
+            <div class="bar"><div class="t">Verification queue</div><div class="search">Search</div></div>
+            <div class="area">
+              <div class="panel" style="min-height:auto;margin-bottom:10px"><b>Helper text</b>Approve documents → Verified status appears in mobile app.</div>
+              <div class="table">
+                <div class="th" style="grid-template-columns:1.4fr 1fr 1fr 1fr auto"><span>Applicant</span><span>Phone</span><span>Role</span><span>District</span><span>Action</span></div>
+                <div class="td" style="grid-template-columns:1.4fr 1fr 1fr 1fr auto"><span>Estate name</span><span>07…</span><span>ESTATE</span><span>District</span><span class="cta">Approve / Reject</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ann"><strong>Empty state:</strong> “Verification queue empty” when no pending users.</div>
+    </div>
+  </article>
+
+  <!-- REQUESTS -->
+  <article class="page" id="wf-requests">
+    <div class="page-head"><h2>Buy requests</h2><span>WF-A05</span></div>
+    <div class="page-body">
+      <p class="note"><strong>Purpose:</strong> Moderate buyer demand posts. Hide unsuitable requests from marketplace.</p>
+      <div class="frame">
+        <div class="chrome">
+          <aside class="side"><div class="logo">KapConnect Admin</div><div class="group">Marketplace</div><div class="item on">Buy requests</div></aside>
+          <div class="workspace">
+            <div class="bar"><div class="t">Buy requests</div><div class="search">Search district / location</div></div>
+            <div class="area">
+              <div class="table">
+                <div class="th" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr auto"><span>Category</span><span>Qty</span><span>Bid</span><span>Need date</span><span>District</span><span>Status</span><span></span></div>
+                <div class="td" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr auto"><span>RAW</span><span>1,200</span><span>Rs.</span><span>Date</span><span>District</span><span>Open</span><span class="cta">Hide</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- LISTINGS -->
+  <article class="page" id="wf-listings">
+    <div class="page-head"><h2>Sell listings</h2><span>WF-A06</span></div>
+    <div class="page-body">
+      <p class="note"><strong>Purpose:</strong> Moderate estate supply. Verify listings and hide if needed.</p>
+      <div class="frame">
+        <div class="chrome">
+          <aside class="side"><div class="logo">KapConnect Admin</div><div class="group">Marketplace</div><div class="item on">Sell listings</div></aside>
+          <div class="workspace">
+            <div class="bar"><div class="t">Sell listings</div><div class="search">Search</div></div>
+            <div class="area">
+              <div class="table">
+                <div class="th" style="grid-template-columns:1.2fr 1fr 1fr 1fr 1fr 1fr auto"><span>Category</span><span>Qty</span><span>Offer</span><span>Available</span><span>District</span><span>Status</span><span>Actions</span></div>
+                <div class="td" style="grid-template-columns:1.2fr 1fr 1fr 1fr 1fr 1fr auto"><span>RAW + Verified</span><span>Qty</span><span>Rs.</span><span>Date</span><span>District</span><span>Active</span><span class="cta">Verify / Hide</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ann"><strong>Actions:</strong> Verify / Unverify · Hide.</div>
+    </div>
+  </article>
+
+  <!-- ORDERS -->
+  <article class="page" id="wf-orders">
+    <div class="page-head"><h2>Orders &amp; transactions</h2><span>WF-A07</span></div>
+    <div class="page-body">
+      <p class="note"><strong>Purpose:</strong> Monitor negotiations. Open order chat trail and create disputes when needed.</p>
+      <div class="frame">
+        <div class="chrome">
+          <aside class="side"><div class="logo">KapConnect Admin</div><div class="group">Marketplace</div><div class="item on">Orders</div></aside>
+          <div class="workspace">
+            <div class="bar"><div class="t">Orders &amp; transactions</div><div class="search">Search code</div></div>
+            <div class="area">
+              <div class="filters"><span class="on">All</span><span>Negotiating</span><span>Accepted</span><span>Completed</span><span>Disputed</span></div>
+              <div class="table">
+                <div class="th" style="grid-template-columns:1.3fr 1fr 1fr 1fr 1fr auto"><span>Order</span><span>Category</span><span>Qty</span><span>Unit price</span><span>Status</span><span>Actions</span></div>
+                <div class="td" style="grid-template-columns:1.3fr 1fr 1fr 1fr 1fr auto"><span>CR-####</span><span>RAW</span><span>Qty</span><span>Rs.</span><span>Status</span><span class="cta">Open / Dispute</span></div>
+              </div>
+              <div class="panel" style="margin-top:10px"><b>Order detail panel (when Open)</b>Status · Qty · Price · Category · Message / offer history</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- DISPUTES -->
+  <article class="page" id="wf-disputes">
+    <div class="page-head"><h2>Disputes &amp; flags</h2><span>WF-A08</span></div>
+    <div class="page-body">
+      <p class="note"><strong>Purpose:</strong> Resolve conflicts between buyers and sellers.</p>
+      <div class="frame">
+        <div class="chrome">
+          <aside class="side"><div class="logo">KapConnect Admin</div><div class="group">Marketplace</div><div class="item on">Disputes</div></aside>
+          <div class="workspace">
+            <div class="bar"><div class="t">Disputes &amp; flags</div><div class="search">Search</div></div>
+            <div class="area">
+              <div class="panel">
+                <b>Dispute card</b>
+                <div class="row">Severity tag · Title · Order id · Status</div>
+                <div class="row">Description text</div>
+                <div class="row"><span class="cta">Resolve · refund</span> <span class="cta">Warn parties</span> <span class="cta">Close</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ann"><strong>Resolution options:</strong> Refund · Warn · Close.</div>
+    </div>
+  </article>
+
+  <!-- REGIONS -->
+  <article class="page" id="wf-regions">
+    <div class="page-head"><h2>Regions &amp; prices</h2><span>WF-A09</span></div>
+    <div class="page-body">
+      <p class="note"><strong>Purpose:</strong> Review district activity and publish suggested price bands to the app.</p>
+      <div class="frame">
+        <div class="chrome">
+          <aside class="side"><div class="logo">KapConnect Admin</div><div class="group">System</div><div class="item on">Regions &amp; prices</div></aside>
+          <div class="workspace">
+            <div class="bar"><div class="t">Regions &amp; prices</div><div class="search">Search</div></div>
+            <div class="area">
+              <div class="split">
+                <div class="panel"><b>Active districts</b><div class="row">District · Buyers · Estates · Radius</div></div>
+                <div class="panel"><b>Suggested price bands</b><div class="row">District · Rs. range</div><div class="row"><span class="cta">Publish bands</span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- REPORTS -->
+  <article class="page" id="wf-reports">
+    <div class="page-head"><h2>Reports</h2><span>WF-A10</span></div>
+    <div class="page-body">
+      <p class="note"><strong>Purpose:</strong> High-level marketplace metrics and data export.</p>
+      <div class="frame">
+        <div class="chrome">
+          <aside class="side"><div class="logo">KapConnect Admin</div><div class="group">System</div><div class="item on">Reports</div></aside>
+          <div class="workspace">
+            <div class="bar"><div class="t">Reports</div><div class="search">Search</div></div>
+            <div class="area">
+              <div class="boxes">
+                <div class="box"><b>Avg deal price</b></div>
+                <div class="box"><b>Total orders</b></div>
+                <div class="box"><b>Open disputes</b></div>
+                <div class="box"><b>Verified estates</b></div>
+              </div>
+              <div class="panel" style="min-height:auto"><b>Export</b><span class="cta">Download admin JSON</span> <span class="cta">Refresh data</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- SETTINGS -->
+  <article class="page" id="wf-settings">
+    <div class="page-head"><h2>Settings</h2><span>WF-A11</span></div>
+    <div class="page-body">
+      <p class="note"><strong>Purpose:</strong> Configure platform fee, search radius, language, payment hold, and support contact.</p>
+      <div class="frame">
+        <div class="chrome">
+          <aside class="side"><div class="logo">KapConnect Admin</div><div class="group">System</div><div class="item on">Settings</div></aside>
+          <div class="workspace">
+            <div class="bar"><div class="t">Settings</div><div class="search">Search</div></div>
+            <div class="area">
+              <div class="panel">
+                <b>Platform settings</b>
+                <div class="form-grid">
+                  <div class="field"><b>Platform fee (%)</b>Input</div>
+                  <div class="field"><b>Default search radius (km)</b>Input</div>
+                  <div class="field"><b>Default language</b>Select</div>
+                  <div class="field"><b>Payment hold (hours)</b>Input</div>
+                </div>
+                <div class="field" style="margin-top:8px"><b>Support contact</b>Input</div>
+                <div style="margin-top:10px"><span class="cta">Save settings</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ann"><strong>Client approval ask:</strong> Confirm these admin screens and actions cover the required admin scope.</div>
+    </div>
+  </article>
+</body>
+</html>

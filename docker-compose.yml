@@ -1,0 +1,19 @@
+# Why: your proposal needs PostgreSQL. Docker runs Postgres without a manual install.
+# Start: docker compose up -d
+# Then run API with: mvn spring-boot:run -Dspring-boot.run.profiles=postgres
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kapconnect-postgres
+    environment:
+      POSTGRES_DB: kapconnect
+      POSTGRES_USER: kapconnect
+      POSTGRES_PASSWORD: kapconnect
+    ports:
+      - "5432:5432"
+    volumes:
+      - kapconnect_pg:/var/lib/postgresql/data
+
+volumes:
+  kapconnect_pg:
