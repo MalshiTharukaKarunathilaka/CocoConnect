@@ -363,29 +363,40 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         _myJobsOnly ||
         _selectedEstate != null;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 14, 22, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          if (showBackButton) ...[
-            GestureDetector(
-              onTap: _handleBack,
-              child: const Icon(Icons.arrow_back, size: 31, color: _workerInk),
-            ),
-            const SizedBox(width: 14),
-          ],
-          const Flexible(
-            child: Text(
-              'KapConnect',
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: _workerGreen,
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                children: [
+                  if (showBackButton) ...[
+                    GestureDetector(
+                      onTap: _handleBack,
+                      child: const Icon(
+                        Icons.arrow_back,
+                        size: 20,
+                        color: _workerGreen,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                  ],
+                  const Text(
+                    'KapConnect',
+                    style: TextStyle(
+                      color: _workerGreen,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          const Spacer(),
-          const Flexible(child: LanguageSelector()),
+          const SizedBox(width: 12),
+          const LanguageSelector(),
         ],
       ),
     );
@@ -2095,8 +2106,8 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                           ? !canDecline
                                 ? 'Job in progress'
                                 : declining
-                                ? 'Declining...'
-                                : 'Decline job'
+                                ? 'Cancelling...'
+                                : 'Cancel job'
                           : 'Accept job',
                     ),
                   ),
@@ -2427,31 +2438,175 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   }
 
   Future<void> _declineJob(WorkerJob job) async {
-    final confirmed = await showDialog<bool>(
+    String selectedReason = 'Job is not needed now';
+    final TextEditingController noteController = TextEditingController();
+
+    final result = await showDialog<Map<String, String>?>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        scrollable: true,
-        title: const Text('Decline this job?'),
-        content: Text(
-          'Your place on the ${job.category} job will become available to another worker.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Keep job'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Decline job'),
-          ),
-        ],
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final reasons = [
+            'Job is not needed now',
+            'Bad weather or site problem',
+            'Not enough workers',
+            'Workers are not available',
+            'Job was posted by mistake',
+            'Other',
+          ];
+
+          return AlertDialog(
+            scrollable: true,
+            backgroundColor: const Color(0xFFFCF8EF),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+            title: Row(
+              children: const [
+                Icon(Icons.cancel_outlined, color: Color(0xFFC62828), size: 28),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Cancel Job Completion',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E2A22),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Select why you are not confirming completion:',
+                  style: TextStyle(
+                    color: Color(0xFF6B7280),
+                    fontSize: 13.5,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                for (final reason in reasons)
+                  RadioListTile<String>(
+                    title: Text(
+                      reason,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF1E2A22),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    value: reason,
+                    groupValue: selectedReason,
+                    activeColor: const Color(0xFFC62828),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => selectedReason = val);
+                      }
+                    },
+                  ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Optional note:',
+                  style: TextStyle(
+                    color: Color(0xFF6B7280),
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: noteController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: 'Add comments or instructions for the worker...',
+                    hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFC62828), width: 1.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(dialogContext, null),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF6B7280),
+                          side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                        ),
+                        child: const Text(
+                          'Back',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(dialogContext, {
+                          'reason': selectedReason,
+                          'note': noteController.text.trim(),
+                        }),
+                        child: const Text(
+                          'Submit',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFA32820),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
-    if (confirmed != true || !mounted) return;
+
+    noteController.dispose();
+    if (result == null || !mounted) return;
 
     setState(() => _decliningJobId = job.id);
     try {
-      await WorkerService.declineJob(job.id);
+      await WorkerService.declineJob(
+        job.id,
+        reason: result['reason'],
+        note: result['note'],
+      );
       if (!mounted) return;
       setState(() {
         _decliningJobId = null;
@@ -2459,7 +2614,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Job declined. Your place is now available.'),
+          content: Text('Job cancelled. Your place is now available.'),
         ),
       );
     } on ApiException catch (error) {
