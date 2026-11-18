@@ -6,6 +6,7 @@ import 'fertilizer_data.dart';
 import 'fertilizer_dispute_sheet.dart';
 import 'fertilizer_order_edit_sheet.dart';
 import 'fertilizer_processing_banner.dart';
+import 'fertilizer_rating_sheet.dart';
 
 /// My orders: private supplier orders and government requests, newest first.
 class FertilizerRequestsPage extends StatefulWidget {
@@ -33,7 +34,7 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
       case 'cancelled':
         return o.status == 'Cancelled';
       case 'delivered':
-        return o.status == 'Distributed';
+        return o.status == 'Distributed' || o.status == 'Completed';
       case 'disputed':
         return o.status == 'Disputed' ||
             _store.complaints.any((c) => c.description.contains(o.id));
@@ -48,12 +49,13 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
         return r.status == 'Pending Ack' || r.status == 'Negotiation';
       case 'accepted':
         return r.status == 'Accepted' ||
-            r.status == 'Receipt Confirmed' ||
             (r.status == 'Distributed' && r.distributed == 0);
       case 'cancelled':
         return r.status == 'Cancelled' || r.status == 'Rejected';
       case 'delivered':
-        return r.distributed > 0 || r.status == 'Distributed';
+        return r.distributed > 0 ||
+            r.status == 'Distributed' ||
+            r.status == 'Receipt Confirmed';
       case 'disputed':
         return _store.complaints.any((c) => c.description.contains(r.id));
       default:
@@ -636,8 +638,55 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                               },
                               child: const Text('Dispute'),
                             ),
+                          if (o.status == 'Distributed')
+                            TextButton(
+                              onPressed: () {
+                                _store.confirmReceived(o.id);
+                                setState(() {});
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      '${o.id} completed · please rate ${o.company}',
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: const Text('Confirm received'),
+                            ),
+                          if (o.status == 'Completed' && o.ownerStars == null)
+                            TextButton(
+                              onPressed: () async {
+                                final ok = await showFertilizerRatingSheet(
+                                  context,
+                                  title: 'Rate ${o.company}',
+                                  subtitle: 'How was this delivery for ${o.id}?',
+                                  onSubmit: (stars, note) {
+                                    _store.rateOrder(
+                                      o.id,
+                                      byOwner: true,
+                                      stars: stars,
+                                      note: note,
+                                    );
+                                  },
+                                );
+                                if (ok == true && mounted) setState(() {});
+                              },
+                              child: const Text('Rate supplier'),
+                            ),
                         ],
                       ),
+                      if (o.ownerStars != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            'You rated ${o.company} ${o.ownerStars}/5'
+                            '${o.supplierStars != null ? ' · they rated you ${o.supplierStars}/5' : ''}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -827,6 +876,24 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                               );
                             },
                             child: const Text('Dispute'),
+                          ),
+                        ),
+                      ],
+                      if (r.status == 'Distributed') ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              _store.confirmGovReceipt(r.id);
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${r.id} receipt confirmed'),
+                                ),
+                              );
+                            },
+                            child: const Text('Confirm received'),
                           ),
                         ),
                       ],

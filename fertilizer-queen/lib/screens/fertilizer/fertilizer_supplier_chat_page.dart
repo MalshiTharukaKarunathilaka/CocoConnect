@@ -60,19 +60,19 @@ class _FertilizerSupplierChatPageState
   void _send([String? preset]) {
     final text = (preset ?? _ctrl.text).trim();
     if (text.isEmpty) return;
-    o.negotiation.add(
-      FertChat(o.agent, text, TimeOfDay.now().format(context)),
+    // Why: same transcript the estate sees on Negotiation / supplier Messages.
+    _store.sendShopChat(
+      o.placeId,
+      from: o.company,
+      text: text,
+      fromOwner: false,
+      ownerKey: o.owner,
     );
-    if (o.status == 'Pending Ack') {
-      o.status = 'Negotiating';
+    if (o.negotiation.isEmpty || o.negotiation.last.text != text) {
+      o.negotiation.add(
+        FertChat(o.agent, text, TimeOfDay.now().format(context)),
+      );
     }
-    o.message = text;
-    _store.notifyOwner(
-      title: '${o.company} sent a message',
-      body: '${o.id} · $text',
-      kind: 'negotiating',
-      orderId: o.id,
-    );
     _ctrl.clear();
     setState(() {});
     _toEnd();

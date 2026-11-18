@@ -128,11 +128,14 @@ class FertTabBar extends StatelessWidget {
     required this.items,
     required this.current,
     required this.onTap,
+    this.badges = const {},
   });
 
   final List<(IconData, String)> items;
   final int current;
   final ValueChanged<int> onTap;
+  /// Tab index → unread count shown on the icon.
+  final Map<int, int> badges;
 
   static const Color _green = Color(0xFF256B45);
   static const Color _greenSoft = Color(0xFFDDEEE0);
@@ -168,10 +171,38 @@ class FertTabBar extends StatelessWidget {
                         color: i == current ? _greenSoft : Colors.transparent,
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Icon(
-                        items[i].$1,
-                        size: 22,
-                        color: i == current ? _green : _grey,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(
+                            items[i].$1,
+                            size: 22,
+                            color: i == current ? _green : _grey,
+                          ),
+                          if ((badges[i] ?? 0) > 0)
+                            Positioned(
+                              right: -8,
+                              top: -4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFC62828),
+                                  borderRadius: BorderRadius.circular(99),
+                                ),
+                                child: Text(
+                                  '${badges[i]}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 3),

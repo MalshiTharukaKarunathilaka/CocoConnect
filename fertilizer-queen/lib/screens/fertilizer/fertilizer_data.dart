@@ -107,6 +107,18 @@ class CartLine {
   int get lineTotal => item.price50 * qty50;
 }
 
+/// One row in the supplier Messages inbox.
+class FertSupplierThread {
+  const FertSupplierThread({
+    required this.owner,
+    required this.preview,
+    required this.unread,
+  });
+  final String owner;
+  final String preview;
+  final int unread;
+}
+
 class FertOrder {
   FertOrder({
     required this.id,
@@ -123,6 +135,10 @@ class FertOrder {
     required this.status,
     required this.message,
     List<FertChat>? negotiation,
+    this.ownerStars,
+    this.supplierStars,
+    this.ownerRateNote = '',
+    this.supplierRateNote = '',
   }) : negotiation = List<FertChat>.from(negotiation ?? const []);
 
   final String id;
@@ -136,16 +152,24 @@ class FertOrder {
   int price;
   DateTime preferredDate;
   String slot;
-  String status; // Pending Ack | Accepted | Cancelled | Negotiating | Disputed
+  /// Pending Ack | Negotiating | Accepted | Distributed | Completed | Cancelled | Disputed
+  String status;
   String message;
   /// Chat notes between estate and supplier on this order.
   final List<FertChat> negotiation;
+  /// Owner rates the supplier after completion (1–5).
+  int? ownerStars;
+  /// Supplier rates the estate owner after completion (1–5).
+  int? supplierStars;
+  String ownerRateNote;
+  String supplierRateNote;
 
-  /// Why: cancelled / disputed / delivered jobs leave the supplier calendar.
+  /// Why: cancelled / disputed / delivered / completed jobs leave the calendar.
   bool get showsOnCalendar =>
       status != 'Cancelled' &&
       status != 'Disputed' &&
-      status != 'Distributed';
+      status != 'Distributed' &&
+      status != 'Completed';
 
   bool get isPendingAck =>
       status == 'Pending Ack' || status == 'Submitted';
@@ -154,6 +178,10 @@ class FertOrder {
 
   bool get isAcceptedOnCalendar =>
       status == 'Accepted' || status == 'Stock Confirmed';
+
+  bool get awaitingOwnerConfirm => status == 'Distributed';
+
+  bool get isCompleted => status == 'Completed';
 
   /// Why: after the owner changes bag counts, total bags and price must match the lines.
   void refreshTotals() {
@@ -1575,6 +1603,139 @@ class FertilizerStore {
       status: 'Pending Ack',
       message: 'Please confirm pickup window.',
     ),
+    // --- Rich demo: Nushrath (Colombo) ↔ Colombo Agro Mart ---
+    FertOrder(
+      id: 'PO-610',
+      placeId: 'PL-CMB-1',
+      company: 'Colombo Agro Mart',
+      agent: 'Ravi Jayasuriya',
+      owner: 'Colombo Palm Estate',
+      product: 'CIC Urea (50 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL-CMB-1').items.first,
+          qty50: 8,
+        ),
+      ],
+      qty50: 8,
+      price: 47600,
+      preferredDate: DateTime(2026, 11, 19),
+      slot: 'Morning 8–11',
+      status: 'Pending Ack',
+      message: 'Need urea for the Kaduwela block this week.',
+    ),
+    FertOrder(
+      id: 'PO-611',
+      placeId: 'PL-CMB-1',
+      company: 'Colombo Agro Mart',
+      agent: 'Ravi Jayasuriya',
+      owner: 'Colombo Palm Estate',
+      product: 'Baurs YPM (50 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL-CMB-1').items[1],
+          qty50: 5,
+        ),
+      ],
+      qty50: 5,
+      price: 34500,
+      preferredDate: DateTime(2026, 11, 20),
+      slot: 'Afternoon 12–3',
+      status: 'Negotiating',
+      message: 'Can you do a better price for 5 bags?',
+      negotiation: const [
+        FertChat('You', 'Can you do Rs. 6,500 / bag for Baurs YPM?', '10:05'),
+        FertChat(
+          'Colombo Agro Mart',
+          'I can do Rs. 6,700 if you take 5 bags this week.',
+          '10:12',
+        ),
+      ],
+    ),
+    FertOrder(
+      id: 'PO-612',
+      placeId: 'PL-CMB-1',
+      company: 'Colombo Agro Mart',
+      agent: 'Ravi Jayasuriya',
+      owner: 'Colombo Palm Estate',
+      product: 'CIC Urea (50 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL-CMB-1').items.first,
+          qty50: 4,
+        ),
+      ],
+      qty50: 4,
+      price: 23800,
+      preferredDate: DateTime(2026, 11, 18),
+      slot: 'Morning 8–11',
+      status: 'Accepted',
+      message: 'Accepted · awaiting delivery',
+    ),
+    FertOrder(
+      id: 'PO-613',
+      placeId: 'PL-CMB-1',
+      company: 'Colombo Agro Mart',
+      agent: 'Ravi Jayasuriya',
+      owner: 'Colombo Palm Estate',
+      product: 'Baurs YPM (50 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL-CMB-1').items[1],
+          qty50: 3,
+        ),
+      ],
+      qty50: 3,
+      price: 20700,
+      preferredDate: DateTime(2026, 11, 15),
+      slot: 'Morning 8–11',
+      status: 'Distributed',
+      message: 'Marked delivered · waiting for owner to confirm',
+    ),
+    FertOrder(
+      id: 'PO-614',
+      placeId: 'PL-CMB-1',
+      company: 'Colombo Agro Mart',
+      agent: 'Ravi Jayasuriya',
+      owner: 'Colombo Palm Estate',
+      product: 'CIC Urea (50 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL-CMB-1').items.first,
+          qty50: 10,
+        ),
+      ],
+      qty50: 10,
+      price: 59500,
+      preferredDate: DateTime(2026, 11, 10),
+      slot: 'Afternoon 12–3',
+      status: 'Completed',
+      message: 'Owner confirmed receipt · order completed',
+      ownerStars: 5,
+      supplierStars: 4,
+      ownerRateNote: 'On time and bags were sealed.',
+      supplierRateNote: 'Clear instructions and easy access.',
+    ),
+    FertOrder(
+      id: 'PO-615',
+      placeId: 'PL-CMB-2',
+      company: 'Green Leaf Colombo',
+      agent: 'Sithara Perera',
+      owner: 'Colombo Palm Estate',
+      product: 'Hayleys Organic (25 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL-CMB-2').items.first,
+          qty50: 6,
+        ),
+      ],
+      qty50: 6,
+      price: 31200,
+      preferredDate: DateTime(2026, 11, 22),
+      slot: 'Morning 8–11',
+      status: 'Cancelled',
+      message: 'Cancelled by estate · changed plan',
+    ),
   ];
 
   /// dateKey yyyy-MM-dd -> itemKey placeId::name -> availability
@@ -1592,6 +1753,33 @@ class FertilizerStore {
         'Nadeesha Stores',
         'Green and white bags. Call 077 111 2233.',
         '9:18',
+      ),
+    ],
+    'PL-CMB-1': [
+      const FertChat(
+        'You',
+        'Hi Ravi — what colour are the CIC bags, and your phone number?',
+        '9:40',
+      ),
+      const FertChat(
+        'Colombo Agro Mart',
+        'Green and white bags. Call 077 210 0001 anytime.',
+        '9:45',
+      ),
+      const FertChat(
+        'You',
+        'Can you deliver 8 × CIC Urea on 19 Nov morning?',
+        '9:50',
+      ),
+      const FertChat(
+        'Colombo Agro Mart',
+        'Yes — I can confirm after you place the order.',
+        '9:55',
+      ),
+      const FertChat(
+        'You',
+        'Also looking at Baurs YPM — can you do a better price for 5 bags?',
+        '10:05',
       ),
     ],
   };
@@ -1802,6 +1990,184 @@ class FertilizerStore {
       date: DateTime(2026, 10, 20),
       district: 'Mullaitivu',
     ),
+    // --- Rich demo: Nushrath ↔ CDO Colombo ---
+    FertGovRequest(
+      id: 'FR-COL-2001',
+      owner: 'Colombo Palm Estate',
+      fertilizer: 'ERP Coconut Fertilizer (50 kg)',
+      requested: 10,
+      status: 'Pending Ack',
+      cdo: 'CDO - Colombo',
+      date: DateTime(2026, 11, 17),
+      district: 'Colombo',
+      estateName: 'Colombo Palm Estate',
+      acres: 6,
+      nicCopy: 'nic_nushrath.jpg',
+      landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
+      outlet: 'CCB',
+      preferred: '17 Nov 2026 · Morning',
+      beneficiaryName: 'Nushrath Silva',
+      address: '42 Marine Drive, Colombo 03',
+      phone: '0712000011',
+      nicNumber: '199012345678',
+      landAddress: 'Colombo Palm Estate, Kaduwela, Colombo',
+      deedNumber: 'COL/KDW/2020/1188',
+      coconutTrees: 480,
+      coconutSaplings: 60,
+      annualHarvestNuts: 28000,
+      deliveryAt: DateTime(2026, 11, 25, 10, 0),
+      chat: const [
+        FertChat(
+          'Colombo Palm Estate',
+          'Submitted Annex 01 for 10 bags of ERP for Kaduwela block.',
+          '17 Nov · 09:05',
+        ),
+      ],
+    ),
+    FertGovRequest(
+      id: 'FR-COL-2002',
+      owner: 'Colombo Palm Estate',
+      fertilizer: 'Urea subsidy (50 kg)',
+      requested: 6,
+      approved: 6,
+      status: 'Negotiation',
+      cdo: 'CDO - Colombo',
+      date: DateTime(2026, 11, 14),
+      district: 'Colombo',
+      estateName: 'Colombo Palm Estate',
+      acres: 6,
+      nicCopy: 'nic_nushrath.jpg',
+      landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
+      outlet: 'CCB',
+      preferred: '14 Nov 2026 · Afternoon',
+      beneficiaryName: 'Nushrath Silva',
+      phone: '0712000011',
+      deliveryAt: DateTime(2026, 11, 21, 14, 0),
+      chat: const [
+        FertChat(
+          'Colombo Palm Estate',
+          'Can we collect urea on 21 Nov afternoon?',
+          '14 Nov · 11:20',
+        ),
+        FertChat(
+          'CDO - Colombo',
+          'Checking stock at CCB. Can you take morning instead?',
+          '14 Nov · 15:40',
+        ),
+        FertChat(
+          'Colombo Palm Estate',
+          'Morning also works if afternoon is tight.',
+          '14 Nov · 16:05',
+        ),
+      ],
+    ),
+    FertGovRequest(
+      id: 'FR-COL-2003',
+      owner: 'Colombo Palm Estate',
+      fertilizer: 'ERP Coconut Fertilizer (50 kg)',
+      requested: 8,
+      approved: 8,
+      distributed: 0,
+      status: 'Accepted',
+      cdo: 'CDO - Colombo',
+      date: DateTime(2026, 11, 8),
+      district: 'Colombo',
+      estateName: 'Colombo Palm Estate',
+      acres: 6,
+      nicCopy: 'nic_nushrath.jpg',
+      landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
+      outlet: 'CCB',
+      preferred: '08 Nov 2026 · Morning',
+      beneficiaryName: 'Nushrath Silva',
+      phone: '0712000011',
+      deliveryAt: DateTime(2026, 11, 19, 10, 30),
+      chat: const [
+        FertChat(
+          'CDO - Colombo',
+          'Accepted. Delivery on 19 Nov at 10:30 AM.',
+          '09 Nov · 10:12',
+        ),
+      ],
+    ),
+    FertGovRequest(
+      id: 'FR-COL-2004',
+      owner: 'Colombo Palm Estate',
+      fertilizer: 'ERP Coconut Fertilizer (50 kg)',
+      requested: 12,
+      approved: 12,
+      distributed: 12,
+      status: 'Distributed',
+      cdo: 'CDO - Colombo',
+      date: DateTime(2026, 10, 28),
+      district: 'Colombo',
+      estateName: 'Colombo Palm Estate',
+      acres: 6,
+      nicCopy: 'nic_nushrath.jpg',
+      landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
+      outlet: 'CCB',
+      preferred: '28 Oct 2026 · Morning',
+      beneficiaryName: 'Nushrath Silva',
+      phone: '0712000011',
+      deliveryAt: DateTime(2026, 11, 5, 11, 0),
+      chat: const [
+        FertChat(
+          'CDO - Colombo',
+          'Marked as delivered · please confirm you received the 12 bags.',
+          '05 Nov · 11:20',
+        ),
+      ],
+    ),
+    FertGovRequest(
+      id: 'FR-COL-2005',
+      owner: 'Colombo Palm Estate',
+      fertilizer: 'Urea subsidy (50 kg)',
+      requested: 5,
+      approved: 5,
+      distributed: 5,
+      status: 'Receipt Confirmed',
+      cdo: 'CDO - Colombo',
+      date: DateTime(2026, 10, 5),
+      district: 'Colombo',
+      estateName: 'Colombo Palm Estate',
+      acres: 6,
+      nicCopy: 'nic_nushrath.jpg',
+      landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
+      outlet: 'CCB',
+      preferred: '05 Oct 2026 · Morning',
+      beneficiaryName: 'Nushrath Silva',
+      phone: '0712000011',
+      deliveryAt: DateTime(2026, 10, 12, 9, 30),
+      chat: const [
+        FertChat(
+          'Colombo Palm Estate',
+          'Bags received in good condition. Thank you.',
+          '12 Oct · 10:05',
+        ),
+      ],
+    ),
+    FertGovRequest(
+      id: 'FR-COL-2006',
+      owner: 'Colombo Palm Estate',
+      fertilizer: 'ERP Coconut Fertilizer (50 kg)',
+      requested: 4,
+      status: 'Cancelled',
+      cdo: 'CDO - Colombo',
+      date: DateTime(2026, 9, 18),
+      district: 'Colombo',
+      estateName: 'Colombo Palm Estate',
+      acres: 6,
+      outlet: 'CCB',
+      preferred: '18 Sep 2026 · Afternoon',
+      beneficiaryName: 'Nushrath Silva',
+      phone: '0712000011',
+      chat: const [
+        FertChat(
+          'CDO - Colombo',
+          'Cancelled · land title scan was unclear. Please re-upload.',
+          '19 Sep · 09:40',
+        ),
+      ],
+    ),
   ];
 
   final List<FertComplaint> complaints = [
@@ -1834,6 +2200,16 @@ class FertilizerStore {
       description: 'Sample Northern-region complaint.',
       owner: 'Northern Estate M',
       district: 'Mannar',
+    ),
+    FertComplaint(
+      id: 'QC-COL-301',
+      category: 'Product quality',
+      product: 'CIC Urea (50 kg)',
+      status: 'Submitted',
+      date: DateTime(2026, 11, 12),
+      description: 'One bag from PO-614 had a torn seal. Rest were fine.',
+      owner: 'Colombo Palm Estate',
+      district: 'Colombo',
     ),
   ];
 
@@ -2008,16 +2384,201 @@ class FertilizerStore {
       if (o.id == id &&
           (o.status == 'Accepted' || o.status == 'Stock Confirmed')) {
         o.status = 'Distributed';
-        o.message = 'Marked delivered by supplier';
+        o.message = 'Marked delivered by supplier · waiting for owner to confirm';
         notifyOwner(
           title: '${o.company} marked delivered',
-          body: '${o.id} · ${o.product} is on the way / delivered.',
+          body: '${o.id} · Confirm when you receive the bags.',
           kind: 'delivered',
           orderId: o.id,
         );
         return;
       }
     }
+  }
+
+  /// Estate owner confirms bags arrived → order is completed.
+  void confirmReceived(String id) {
+    for (final o in orders) {
+      if (o.id == id && o.status == 'Distributed') {
+        o.status = 'Completed';
+        o.message = 'Owner confirmed receipt · order completed';
+        notifySupplier(
+          title: '${o.owner} confirmed receipt',
+          body: '${o.id} · completed. Please rate each other.',
+          kind: 'accepted',
+          orderId: o.id,
+        );
+        notifyOwner(
+          title: 'Order ${o.id} completed',
+          body: 'You confirmed receipt. Rate ${o.company}.',
+          kind: 'accepted',
+          orderId: o.id,
+        );
+        return;
+      }
+    }
+  }
+
+  /// Either side rates the other after completion.
+  void rateOrder(
+    String id, {
+    required bool byOwner,
+    required int stars,
+    String note = '',
+  }) {
+    final s = stars.clamp(1, 5);
+    for (final o in orders) {
+      if (o.id != id || o.status != 'Completed') continue;
+      if (byOwner) {
+        o.ownerStars = s;
+        o.ownerRateNote = note;
+      } else {
+        o.supplierStars = s;
+        o.supplierRateNote = note;
+      }
+      return;
+    }
+  }
+
+  /// CDO marks government bags delivered → owner must confirm.
+  void markGovDelivered(String id, {int? bags}) {
+    for (final r in govRequests) {
+      if (r.id == id &&
+          (r.status == 'Accepted' || r.status == 'Stock Confirmed')) {
+        r.status = 'Distributed';
+        r.distributed = bags ?? (r.approved > 0 ? r.approved : r.requested);
+        r.chat.add(
+          FertChat(
+            r.cdo,
+            'Marked delivered · ${r.distributed} bags. Please confirm receipt.',
+            _nowStamp(),
+          ),
+        );
+        notifyOwner(
+          title: '${r.cdo} marked delivered',
+          body: '${r.id} · Confirm when you receive the subsidy bags.',
+          kind: 'delivered',
+          orderId: r.id,
+        );
+        return;
+      }
+    }
+  }
+
+  /// Estate owner confirms government delivery.
+  void confirmGovReceipt(String id) {
+    for (final r in govRequests) {
+      if (r.id == id && r.status == 'Distributed') {
+        r.status = 'Receipt Confirmed';
+        r.chat.add(
+          FertChat(
+            r.estateName.isNotEmpty ? r.estateName : r.owner,
+            'Confirmed receipt of ${r.distributed} bags.',
+            _nowStamp(),
+          ),
+        );
+        notifyCdo(
+          title: '${r.owner} confirmed receipt',
+          body: '${r.id} · government order completed.',
+          kind: 'accepted',
+          orderId: r.id,
+        );
+        return;
+      }
+    }
+  }
+
+  // --- Shop chat (owner map negotiation ↔ supplier Messages) ---
+
+  /// Unread owner→supplier messages per placeId.
+  /// Why: Colombo Agro Mart starts with unread owner chat so the Messages badge shows.
+  final Map<String, int> shopTalkUnread = {
+    'PL-CMB-1': 2,
+  };
+
+  List<FertChat> shopMessages(String placeId) =>
+      List<FertChat>.from(shopTalks[placeId] ?? const []);
+
+  void sendShopChat(
+    String placeId, {
+    required String from,
+    required String text,
+    required bool fromOwner,
+    String? ownerKey,
+  }) {
+    final list = List<FertChat>.from(shopTalks[placeId] ?? const []);
+    list.add(FertChat(from, text, _nowStamp()));
+    shopTalks[placeId] = list;
+    if (fromOwner) {
+      shopTalkUnread[placeId] = (shopTalkUnread[placeId] ?? 0) + 1;
+      notifySupplier(
+        title: 'New message from ${ownerKey ?? boundOwnerKey}',
+        body: text,
+        kind: 'negotiating',
+      );
+      // Mirror into the latest open order with this shop, if any.
+      for (final o in myOrders) {
+        if (o.placeId == placeId &&
+            (o.status == 'Pending Ack' || o.status == 'Negotiating')) {
+          o.status = 'Negotiating';
+          o.negotiation.add(FertChat(from, text, _nowStamp()));
+          o.message = text;
+          break;
+        }
+      }
+    } else {
+      notifyOwner(
+        title: '$from replied',
+        body: text,
+        kind: 'negotiating',
+      );
+      for (final o in orders) {
+        if (o.placeId == placeId &&
+            o.owner == (ownerKey ?? boundOwnerKey) &&
+            (o.status == 'Pending Ack' || o.status == 'Negotiating')) {
+          o.status = 'Negotiating';
+          o.negotiation.add(FertChat(from, text, _nowStamp()));
+          o.message = text;
+          break;
+        }
+      }
+    }
+  }
+
+  void markShopTalkRead(String placeId, {String? owner}) {
+    shopTalkUnread[placeId] = 0;
+  }
+
+  int get unreadSupplierMessages => shopTalkUnread[agentShopId] ?? 0;
+
+  List<FertSupplierThread> supplierMessageThreads(String placeId) {
+    final msgs = shopTalks[placeId] ?? const <FertChat>[];
+    if (msgs.isEmpty &&
+        myShopOrders.every((o) => o.negotiation.isEmpty)) {
+      return const [];
+    }
+    // Group by owner from matching orders; fallback single thread.
+    final owners = <String>{};
+    for (final o in myShopOrders) {
+      owners.add(o.owner);
+    }
+    if (owners.isEmpty) {
+      owners.add('Estate owner');
+    }
+    final unread = shopTalkUnread[placeId] ?? 0;
+    final preview = msgs.isNotEmpty
+        ? msgs.last.text
+        : (myShopOrders.isNotEmpty && myShopOrders.first.negotiation.isNotEmpty
+            ? myShopOrders.first.negotiation.last.text
+            : 'Open to chat');
+    return [
+      for (final owner in owners)
+        FertSupplierThread(
+          owner: owner,
+          preview: preview,
+          unread: unread,
+        ),
+    ];
   }
 
   void placeGovRequest(FertGovRequest request) {
@@ -2098,26 +2659,6 @@ class FertilizerStore {
             orderId: r.id,
           );
         }
-        break;
-      }
-    }
-  }
-
-  /// Why: CDO marks bags as delivered so the request leaves the calendar.
-  void markGovDelivered(String id) {
-    for (final r in govRequests) {
-      if (r.id == id &&
-          (r.status == 'Accepted' || r.status == 'Receipt Confirmed')) {
-        r.status = 'Distributed';
-        r.distributed = r.approved > 0 ? r.approved : r.requested;
-        r.chat.add(
-          FertChat(r.cdo, 'Marked delivered by CDO.', _nowStamp()),
-        );
-        notifyOwner(
-          title: 'Government fertilizer delivered',
-          body: '${r.id} · ${r.fertilizer} · ${r.distributed} bags',
-          kind: 'delivered',
-        );
         break;
       }
     }

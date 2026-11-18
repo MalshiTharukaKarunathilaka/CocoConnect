@@ -83,6 +83,18 @@ class FertilizerDemoAuth {
       longitude: 80.3560,
     ),
     FertDemoAccount(
+      id: 921,
+      name: 'Ravi Jayasuriya',
+      phone: '0772100001',
+      password: passwordHint,
+      role: 'FERTILIZER_SUPPLIER',
+      roleLabel: 'Supplier Agent',
+      blurb: 'Colombo Agro Mart',
+      location: 'Colombo',
+      latitude: 6.9350,
+      longitude: 79.8700,
+    ),
+    FertDemoAccount(
       id: 903,
       name: 'CDO Mawathagama',
       phone: '0372223344',

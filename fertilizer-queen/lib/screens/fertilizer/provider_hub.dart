@@ -11,7 +11,9 @@ import 'fertilizer_cdo_stock_page.dart';
 import 'fertilizer_chrome.dart';
 import 'fertilizer_data.dart';
 import 'fertilizer_dispute_sheet.dart';
+import 'fertilizer_rating_sheet.dart';
 import 'fertilizer_supplier_chat_page.dart';
+import 'fertilizer_supplier_messages_page.dart';
 import 'supplier_calendar_page.dart';
 
 /// Supplier Agent / CDO shell with demo-style bottom tabs.
@@ -126,8 +128,11 @@ class _ProviderHubState extends State<ProviderHub> {
             (Icons.calendar_month, 'Calendar'),
             (Icons.inbox_outlined, 'Orders'),
             (Icons.inventory_2_outlined, 'Stock'),
+            (Icons.chat_bubble_outline, 'Messages'),
             (Icons.person_outline, 'Profile'),
           ];
+
+    final msgBadge = _isCdo ? 0 : _store.unreadSupplierMessages;
 
     return FertPage(
       title: tabs[_tab].$2,
@@ -149,10 +154,14 @@ class _ProviderHubState extends State<ProviderHub> {
       bottom: FertTabBar(
         items: tabs,
         current: _tab,
+        badges: {
+          if (!_isCdo && msgBadge > 0) 3: msgBadge,
+        },
         onTap: (i) => setState(() {
               _tab = i;
               if (_isCdo && i != 4) _msgFocusId = null;
               if (_isCdo && i == 5) _loadCdoProfile();
+              // Why: unread badge stays until the supplier opens a thread.
             }),
       ),
       child: _body(),
@@ -183,6 +192,10 @@ class _ProviderHubState extends State<ProviderHub> {
         case 2:
           return _supplierStockPage();
         case 3:
+          return FertilizerSupplierMessagesPage(
+            onUnreadChanged: () => setState(() {}),
+          );
+        case 4:
           return _profilePage();
       }
     }
@@ -547,7 +560,11 @@ class _ProviderHubState extends State<ProviderHub> {
                     _store.markDelivered(o.id);
                     setState(() {});
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${o.id} marked delivered')),
+                      SnackBar(
+                        content: Text(
+                          '${o.id} marked delivered · waiting for owner confirm',
+                        ),
+                      ),
                     );
                   },
                   child: const Text('Mark delivered'),
@@ -571,6 +588,34 @@ class _ProviderHubState extends State<ProviderHub> {
                   child: const Text('Dispute'),
                 ),
               ],
+              if (o.status == 'Completed' && o.supplierStars == null)
+                ElevatedButton(
+                  onPressed: () async {
+                    final ok = await showFertilizerRatingSheet(
+                      context,
+                      title: 'Rate ${o.owner}',
+                      subtitle: 'How was this estate for ${o.id}?',
+                      onSubmit: (stars, note) {
+                        _store.rateOrder(
+                          o.id,
+                          byOwner: false,
+                          stars: stars,
+                          note: note,
+                        );
+                      },
+                    );
+                    if (ok == true && mounted) setState(() {});
+                  },
+                  child: const Text('Rate estate'),
+                ),
+              if (o.supplierStars != null)
+                Text(
+                  'You rated this estate ${o.supplierStars}/5',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.muted,
+                  ),
+                ),
             ],
           ),
         ],
