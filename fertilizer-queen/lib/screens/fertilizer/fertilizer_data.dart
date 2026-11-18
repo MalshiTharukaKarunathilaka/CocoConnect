@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import '../../services/auth_service.dart';
+import '../../services/fertilizer_sync.dart';
 
-/// Demo fertilizer catalogue + orders for the estate-owner / supplier flow.
-/// Same logic as the HTML demo: 50 kg base unit, Pending Ack, one shop login.
+/// Fertilizer catalogue + live ops data (orders / chats / gov) synced via Supabase.
 
 /// Which home calendar to show after login.
 enum FertHomeMode { supplier, cdo }
@@ -403,10 +405,16 @@ class FertComplaint {
   final String district;
 }
 
-/// In-memory session store (demo only).
+/// Session store hydrated from Supabase (with local demo fallback).
 class FertilizerStore {
   FertilizerStore._();
   static final FertilizerStore instance = FertilizerStore._();
+
+  /// When true, mutations are written to Supabase and polled back.
+  bool cloudSync = true;
+  bool cloudHydrated = false;
+  final ValueNotifier<int> syncTick = ValueNotifier<int>(0);
+  Timer? _pollTimer;
 
   /// Logged-in supplier shop (one login = one shop).
   String agentShopId = 'PL4';
@@ -455,18 +463,17 @@ class FertilizerStore {
     required String kind,
     String orderId = '',
   }) {
-    ownerAlerts.insert(
-      0,
-      FertOwnerAlert(
-        id: 'AL-${ownerAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
-        title: title,
-        body: body,
-        kind: kind,
-        at: DateTime.now(),
-        orderId: orderId,
-      ),
+    final alert = FertOwnerAlert(
+      id: 'AL-${ownerAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
+      title: title,
+      body: body,
+      kind: kind,
+      at: DateTime.now(),
+      orderId: orderId,
     );
+    ownerAlerts.insert(0, alert);
     ownerAlertTick.value++;
+    _persistAlert(alert, 'owner');
   }
 
   void notifySupplier({
@@ -475,18 +482,17 @@ class FertilizerStore {
     required String kind,
     String orderId = '',
   }) {
-    supplierAlerts.insert(
-      0,
-      FertOwnerAlert(
-        id: 'SA-${supplierAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
-        title: title,
-        body: body,
-        kind: kind,
-        at: DateTime.now(),
-        orderId: orderId,
-      ),
+    final alert = FertOwnerAlert(
+      id: 'SA-${supplierAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
+      title: title,
+      body: body,
+      kind: kind,
+      at: DateTime.now(),
+      orderId: orderId,
     );
+    supplierAlerts.insert(0, alert);
     supplierAlertTick.value++;
+    _persistAlert(alert, 'supplier');
   }
 
   void notifyCdo({
@@ -495,18 +501,17 @@ class FertilizerStore {
     required String kind,
     String orderId = '',
   }) {
-    cdoAlerts.insert(
-      0,
-      FertOwnerAlert(
-        id: 'CA-${cdoAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
-        title: title,
-        body: body,
-        kind: kind,
-        at: DateTime.now(),
-        orderId: orderId,
-      ),
+    final alert = FertOwnerAlert(
+      id: 'CA-${cdoAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
+      title: title,
+      body: body,
+      kind: kind,
+      at: DateTime.now(),
+      orderId: orderId,
     );
+    cdoAlerts.insert(0, alert);
     cdoAlertTick.value++;
+    _persistAlert(alert, 'cdo');
   }
 
   void markOwnerAlertsRead() {
@@ -2286,6 +2291,7 @@ class FertilizerStore {
       kind: 'new_order',
       orderId: order.id,
     );
+    persistOrder(order);
   }
 
   void cancelOrder(String id, {bool bySupplier = false, String? note}) {
@@ -2324,6 +2330,7 @@ class FertilizerStore {
             orderId: o.id,
           );
         }
+        persistOrder(o);
         return;
       }
     }
@@ -2344,6 +2351,7 @@ class FertilizerStore {
           kind: 'accepted',
           orderId: o.id,
         );
+        persistOrder(o);
         return;
       }
     }
@@ -2366,6 +2374,7 @@ class FertilizerStore {
           kind: 'negotiating',
           orderId: o.id,
         );
+        persistOrder(o);
         return;
       }
     }
@@ -2391,6 +2400,7 @@ class FertilizerStore {
           kind: 'delivered',
           orderId: o.id,
         );
+        persistOrder(o);
         return;
       }
     }
@@ -2414,6 +2424,7 @@ class FertilizerStore {
           kind: 'accepted',
           orderId: o.id,
         );
+        persistOrder(o);
         return;
       }
     }
@@ -2436,6 +2447,7 @@ class FertilizerStore {
         o.supplierStars = s;
         o.supplierRateNote = note;
       }
+      persistOrder(o);
       return;
     }
   }
@@ -2460,6 +2472,7 @@ class FertilizerStore {
           kind: 'delivered',
           orderId: r.id,
         );
+        persistGov(r);
         return;
       }
     }
@@ -2483,6 +2496,7 @@ class FertilizerStore {
           kind: 'accepted',
           orderId: r.id,
         );
+        persistGov(r);
         return;
       }
     }
@@ -2539,14 +2553,27 @@ class FertilizerStore {
           o.status = 'Negotiating';
           o.negotiation.add(FertChat(from, text, _nowStamp()));
           o.message = text;
+          persistOrder(o);
           break;
         }
       }
     }
+    // Persist owner-side negotiation mirror too.
+    if (fromOwner) {
+      for (final o in myOrders) {
+        if (o.placeId == placeId &&
+            (o.status == 'Pending Ack' || o.status == 'Negotiating')) {
+          persistOrder(o);
+          break;
+        }
+      }
+    }
+    persistShopTalk(placeId, ownerKey: ownerKey ?? boundOwnerKey);
   }
 
   void markShopTalkRead(String placeId, {String? owner}) {
     shopTalkUnread[placeId] = 0;
+    persistShopTalk(placeId, ownerKey: owner ?? boundOwnerKey);
   }
 
   int get unreadSupplierMessages => shopTalkUnread[agentShopId] ?? 0;
@@ -2591,6 +2618,7 @@ class FertilizerStore {
       kind: 'new_order',
       orderId: request.id,
     );
+    persistGov(request);
   }
 
   /// Government requests for the logged-in CDO desk (matched by officer name).
@@ -2628,6 +2656,7 @@ class FertilizerStore {
               '${r.id} · delivery ${_formatDelivery(r.deliveryAt!)} · ${r.fertilizer}',
           kind: 'accepted',
         );
+        persistGov(r);
         break;
       }
     }
@@ -2659,6 +2688,7 @@ class FertilizerStore {
             orderId: r.id,
           );
         }
+        persistGov(r);
         break;
       }
     }
@@ -2710,6 +2740,7 @@ class FertilizerStore {
             orderId: r.id,
           );
         }
+        persistGov(r);
         break;
       }
     }
@@ -2721,6 +2752,7 @@ class FertilizerStore {
     for (final r in govRequests) {
       if (r.id == id) {
         r.chat.add(FertChat(from, t, _nowStamp()));
+        persistGov(r);
         return;
       }
     }
@@ -2798,7 +2830,10 @@ class FertilizerStore {
     }
   }
 
-  void addComplaint(FertComplaint complaint) => complaints.insert(0, complaint);
+  void addComplaint(FertComplaint complaint) {
+    complaints.insert(0, complaint);
+    persistComplaint(complaint);
+  }
 
   /// Demo CDO area stock summary (same idea as the HTML demo).
   final List<Map<String, dynamic>> areaStock = [
@@ -2970,6 +3005,315 @@ class FertilizerStore {
       cancelled: cancelled,
       bagsDistributed: bags,
     );
+  }
+
+  // --- Supabase sync -----------------------------------------------------
+
+  Future<void> ensureCloudSync() async {
+    if (!cloudSync) return;
+    await pullFromServer();
+    startSyncPolling();
+  }
+
+  void startSyncPolling() {
+    _pollTimer?.cancel();
+    if (!cloudSync) return;
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      unawaited(pullFromServer(silent: true));
+    });
+  }
+
+  void stopSyncPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+  }
+
+  DateTime _parseDate(dynamic value, [DateTime? fallback]) {
+    if (value == null) return fallback ?? DateTime.now();
+    if (value is DateTime) return value;
+    return DateTime.tryParse(value.toString()) ?? fallback ?? DateTime.now();
+  }
+
+  int _asInt(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse('$value') ?? 0;
+  }
+
+  List<FertChat> _parseChats(dynamic raw) {
+    if (raw is! List) return const [];
+    return [
+      for (final m in raw)
+        if (m is Map)
+          FertChat(
+            '${m['from'] ?? ''}',
+            '${m['text'] ?? ''}',
+            '${m['time'] ?? ''}',
+          ),
+    ];
+  }
+
+  List<CartLine> _parseItems(dynamic raw) {
+    if (raw is! List) return const [];
+    return [
+      for (final row in raw)
+        if (row is Map)
+          CartLine(
+            item: FertItem(
+              name: '${row['name'] ?? 'Item'}',
+              brand: '${row['brand'] ?? ''}',
+              type: '${row['type'] ?? ''}',
+              price: (row['price'] is num)
+                  ? (row['price'] as num).toInt()
+                  : int.tryParse('${row['price']}') ?? 0,
+              unit: '${row['unit'] ?? '50 kg bag'}',
+              stock: (row['stock'] is num)
+                  ? (row['stock'] as num).toInt()
+                  : int.tryParse('${row['stock']}') ?? 0,
+            ),
+            qty50: (row['qty50'] is num)
+                ? (row['qty50'] as num).toInt()
+                : int.tryParse('${row['qty50']}') ?? 0,
+          ),
+    ];
+  }
+
+  FertOrder _orderFromJson(Map raw) {
+    final items = _parseItems(raw['items']);
+    return FertOrder(
+      id: '${raw['id']}',
+      placeId: '${raw['place_id'] ?? raw['placeId'] ?? ''}',
+      company: '${raw['company'] ?? ''}',
+      agent: '${raw['agent'] ?? ''}',
+      owner: '${raw['owner'] ?? ''}',
+      product: '${raw['product'] ?? ''}',
+      items: items,
+      qty50: (raw['qty50'] is num)
+          ? (raw['qty50'] as num).toInt()
+          : int.tryParse('${raw['qty50']}') ?? 0,
+      price: (raw['price'] is num)
+          ? (raw['price'] as num).toInt()
+          : int.tryParse('${raw['price']}') ?? 0,
+      preferredDate: _parseDate(raw['preferred_date'] ?? raw['preferredDate']),
+      slot: '${raw['slot'] ?? ''}',
+      status: '${raw['status'] ?? 'Pending Ack'}',
+      message: '${raw['message'] ?? ''}',
+      negotiation: _parseChats(raw['negotiation']),
+      ownerStars: raw['owner_stars'] == null && raw['ownerStars'] == null
+          ? null
+          : (raw['owner_stars'] ?? raw['ownerStars'] as num?)?.toInt(),
+      supplierStars: raw['supplier_stars'] == null && raw['supplierStars'] == null
+          ? null
+          : (raw['supplier_stars'] ?? raw['supplierStars'] as num?)?.toInt(),
+      ownerRateNote: '${raw['owner_rate_note'] ?? raw['ownerRateNote'] ?? ''}',
+      supplierRateNote:
+          '${raw['supplier_rate_note'] ?? raw['supplierRateNote'] ?? ''}',
+    );
+  }
+
+  FertGovRequest _govFromJson(Map raw) {
+    return FertGovRequest(
+      id: '${raw['id']}',
+      owner: '${raw['owner'] ?? ''}',
+      fertilizer: '${raw['fertilizer'] ?? ''}',
+      requested: (raw['requested'] is num)
+          ? (raw['requested'] as num).toInt()
+          : int.tryParse('${raw['requested']}') ?? 0,
+      status: '${raw['status'] ?? 'Pending Ack'}',
+      cdo: '${raw['cdo'] ?? ''}',
+      date: _parseDate(raw['date'] ?? raw['request_date']),
+      district: '${raw['district'] ?? ''}',
+      approved: (raw['approved'] is num)
+          ? (raw['approved'] as num).toInt()
+          : int.tryParse('${raw['approved']}') ?? 0,
+      distributed: (raw['distributed'] is num)
+          ? (raw['distributed'] as num).toInt()
+          : int.tryParse('${raw['distributed']}') ?? 0,
+      estateName: '${raw['estate_name'] ?? raw['estateName'] ?? ''}',
+      acres: (raw['acres'] is num)
+          ? (raw['acres'] as num).toDouble()
+          : double.tryParse('${raw['acres']}') ?? 0,
+      nicCopy: '${raw['nic_copy'] ?? raw['nicCopy'] ?? ''}',
+      landTitleCopy: '${raw['land_title_copy'] ?? raw['landTitleCopy'] ?? ''}',
+      outlet: '${raw['outlet'] ?? 'CCB'}',
+      preferred: '${raw['preferred'] ?? ''}',
+      beneficiaryName:
+          '${raw['beneficiary_name'] ?? raw['beneficiaryName'] ?? ''}',
+      address: '${raw['address'] ?? ''}',
+      phone: '${raw['phone'] ?? ''}',
+      nicNumber: '${raw['nic_number'] ?? raw['nicNumber'] ?? ''}',
+      landAddress: '${raw['land_address'] ?? raw['landAddress'] ?? ''}',
+      deedNumber: '${raw['deed_number'] ?? raw['deedNumber'] ?? ''}',
+      coconutTrees: _asInt(raw['coconut_trees'] ?? raw['coconutTrees']),
+      coconutSaplings: _asInt(raw['coconut_saplings'] ?? raw['coconutSaplings']),
+      annualHarvestNuts:
+          _asInt(raw['annual_harvest_nuts'] ?? raw['annualHarvestNuts']),
+      deliveryAt: raw['delivery_at'] == null && raw['deliveryAt'] == null
+          ? null
+          : _parseDate(raw['delivery_at'] ?? raw['deliveryAt']),
+      chat: _parseChats(raw['chat']),
+    );
+  }
+
+  Future<void> pullFromServer({bool silent = false}) async {
+    if (!cloudSync) return;
+    final data = await FertilizerSync.bootstrap();
+    if (data == null) return;
+
+    final role = '${data['role'] ?? ''}';
+    final serverOrders = <FertOrder>[
+      for (final row in (data['orders'] as List? ?? const []))
+        if (row is Map) _orderFromJson(row),
+    ];
+    final serverGov = <FertGovRequest>[
+      for (final row in (data['gov_requests'] as List? ?? const []))
+        if (row is Map) _govFromJson(row),
+    ];
+    final serverComplaints = <FertComplaint>[
+      for (final row in (data['complaints'] as List? ?? const []))
+        if (row is Map)
+          FertComplaint(
+            id: '${row['id']}',
+            category: '${row['category'] ?? ''}',
+            product: '${row['product'] ?? ''}',
+            status: '${row['status'] ?? 'Submitted'}',
+            date: _parseDate(row['date']),
+            description: '${row['description'] ?? ''}',
+            owner: '${row['owner'] ?? ''}',
+            district: '${row['district'] ?? ''}',
+          ),
+    ];
+
+    if (role == 'ESTATE_OWNER') {
+      final key = '${data['owner_key'] ?? boundOwnerKey}';
+      boundOwnerKey = key;
+      orders.removeWhere((o) => o.owner == key);
+      orders.addAll(serverOrders);
+      govRequests.removeWhere(
+        (r) => r.owner == key || r.estateName == key,
+      );
+      govRequests.addAll(serverGov);
+      complaints.removeWhere((c) => c.owner == key);
+      complaints.addAll(serverComplaints);
+    } else if (role == 'FERTILIZER_SUPPLIER') {
+      final places = [
+        for (final p in (data['place_ids'] as List? ?? const [])) '$p',
+      ];
+      if (places.isNotEmpty) agentShopId = places.first;
+      orders.removeWhere(
+        (o) => places.contains(o.placeId) || o.placeId == agentShopId,
+      );
+      orders.addAll(serverOrders);
+    } else if (role == 'CDO') {
+      final label = '${data['cdo_label'] ?? myShop.who}';
+      govRequests.removeWhere((r) => r.cdo == label);
+      govRequests.addAll(serverGov);
+    }
+
+    for (final row in (data['shop_talks'] as List? ?? const [])) {
+      if (row is! Map) continue;
+      final placeId = '${row['place_id'] ?? ''}';
+      if (placeId.isEmpty) continue;
+      shopTalks[placeId] = _parseChats(row['messages']);
+      shopTalkUnread[placeId] =
+          (row['unread_supplier'] is num)
+              ? (row['unread_supplier'] as num).toInt()
+              : int.tryParse('${row['unread_supplier']}') ?? 0;
+    }
+
+    for (final row in (data['alerts'] as List? ?? const [])) {
+      if (row is! Map) continue;
+      final alert = FertOwnerAlert(
+        id: '${row['id']}',
+        title: '${row['title'] ?? ''}',
+        body: '${row['body'] ?? ''}',
+        kind: '${row['kind'] ?? 'info'}',
+        at: _parseDate(row['at']),
+        orderId: '${row['order_id'] ?? ''}',
+        read: row['read'] == true,
+      );
+      final audience = '${row['audience'] ?? ''}';
+      final list = audience == 'supplier'
+          ? supplierAlerts
+          : audience == 'cdo'
+              ? cdoAlerts
+              : ownerAlerts;
+      list.removeWhere((a) => a.id == alert.id);
+      list.add(alert);
+    }
+
+    cloudHydrated = true;
+    syncTick.value++;
+    ownerAlertTick.value++;
+    supplierAlertTick.value++;
+    cdoAlertTick.value++;
+    if (!silent) {
+      debugPrint('FertilizerStore hydrated from Supabase ($role)');
+    }
+  }
+
+  void _persistAlert(FertOwnerAlert alert, String audience) {
+    if (!cloudSync) return;
+    unawaited(() async {
+      try {
+        await FertilizerSync.upsertAlert(alert, audience);
+      } catch (e) {
+        debugPrint('persist alert failed: $e');
+      }
+    }());
+  }
+
+  void persistOrder(FertOrder order) {
+    if (!cloudSync) return;
+    syncTick.value++;
+    unawaited(() async {
+      try {
+        await FertilizerSync.upsertOrder(order);
+      } catch (e) {
+        debugPrint('persist order failed: $e');
+      }
+    }());
+  }
+
+  void persistGov(FertGovRequest request) {
+    if (!cloudSync) return;
+    syncTick.value++;
+    unawaited(() async {
+      try {
+        await FertilizerSync.upsertGov(request);
+      } catch (e) {
+        debugPrint('persist gov failed: $e');
+      }
+    }());
+  }
+
+  void persistShopTalk(String placeId, {String? ownerKey}) {
+    if (!cloudSync) return;
+    syncTick.value++;
+    final key = ownerKey ?? boundOwnerKey;
+    unawaited(() async {
+      try {
+        await FertilizerSync.upsertShopTalk(
+          placeId: placeId,
+          ownerKey: key,
+          messages: shopTalks[placeId] ?? const [],
+          unreadSupplier: shopTalkUnread[placeId] ?? 0,
+        );
+      } catch (e) {
+        debugPrint('persist shop talk failed: $e');
+      }
+    }());
+  }
+
+  void persistComplaint(FertComplaint complaint) {
+    if (!cloudSync) return;
+    syncTick.value++;
+    unawaited(() async {
+      try {
+        await FertilizerSync.upsertComplaint(complaint);
+      } catch (e) {
+        debugPrint('persist complaint failed: $e');
+      }
+    }());
   }
 }
 

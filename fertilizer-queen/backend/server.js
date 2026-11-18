@@ -33,6 +33,7 @@ app.get("/api/health", getHealth);
 
 app.use("/api/machinery", require("./routes/machineryRoutes"));
 app.use("/api/holidays", require("./routes/holidayRoutes"));
+app.use("/api/fertilizer", require("./routes/fertilizerOpsRoutes"));
 app.use("/api/listings", listingRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/buyer", buyerRoutes);

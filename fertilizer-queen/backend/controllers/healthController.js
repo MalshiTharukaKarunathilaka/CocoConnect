@@ -10,12 +10,21 @@ const getHealth = async (_req, res) => {
     await pool.query('SELECT id FROM public.users LIMIT 0');
     await pool.query('SELECT user_id FROM public.service_providers LIMIT 0');
     let fertilizerRolesReady = false;
+    let fertilizerOpsReady = false;
     try {
       await pool.query('SELECT user_id FROM public.fertilizer_suppliers LIMIT 0');
       await pool.query('SELECT user_id FROM public.cdo_officers LIMIT 0');
       fertilizerRolesReady = true;
     } catch (_) {
       fertilizerRolesReady = false;
+    }
+    try {
+      await pool.query('SELECT id FROM public.fertilizer_orders LIMIT 0');
+      await pool.query('SELECT id FROM public.fertilizer_gov_requests LIMIT 0');
+      await pool.query('SELECT place_id FROM public.fertilizer_shop_talks LIMIT 0');
+      fertilizerOpsReady = true;
+    } catch (_) {
+      fertilizerOpsReady = false;
     }
     let workflowReady = false;
     try {
@@ -37,11 +46,13 @@ const getHealth = async (_req, res) => {
       storage: storageInfo(),
       provider_registration_ready: true,
       fertilizer_roles_ready: fertilizerRolesReady,
+      fertilizer_ops_ready: fertilizerOpsReady,
       machinery_workflow_ready: workflowReady,
     });
   } catch (error) {
     return res.json({storage: storageInfo(), provider_registration_ready: false,
       fertilizer_roles_ready: false,
+      fertilizer_ops_ready: false,
       machinery_workflow_ready: false,
       message: error.code === '42P01'
         ? 'Provider registration database setup is incomplete. Contact the project administrator.'

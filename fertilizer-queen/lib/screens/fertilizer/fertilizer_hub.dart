@@ -18,11 +18,23 @@ class FertilizerHub extends StatefulWidget {
 
 class _FertilizerHubState extends State<FertilizerHub> {
   late int _tab;
+  final _store = FertilizerStore.instance;
 
   @override
   void initState() {
     super.initState();
     _tab = widget.initialTab.clamp(0, 4);
+    _store.syncTick.addListener(_onSync);
+  }
+
+  @override
+  void dispose() {
+    _store.syncTick.removeListener(_onSync);
+    super.dispose();
+  }
+
+  void _onSync() {
+    if (mounted) setState(() {});
   }
 
   /// Same as the HTML demo: Hub=all, Suppliers=shops, Government=CDO map.

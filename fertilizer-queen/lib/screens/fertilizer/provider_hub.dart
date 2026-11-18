@@ -87,6 +87,7 @@ class _ProviderHubState extends State<ProviderHub> {
   @override
   void initState() {
     super.initState();
+    _store.syncTick.addListener(_onSync);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_isCdo) {
         _store.ensureCdoDemoAlerts();
@@ -95,6 +96,16 @@ class _ProviderHubState extends State<ProviderHub> {
         _store.checkLowStock(_shop);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _store.syncTick.removeListener(_onSync);
+    super.dispose();
+  }
+
+  void _onSync() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadCdoProfile() async {
