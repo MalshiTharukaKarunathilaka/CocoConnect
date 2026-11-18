@@ -1,10 +1,10 @@
+import 'dart:async';
 import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../services/owner_service.dart';
 import '../services/chat_service.dart';
 import '../services/api_client.dart';
-import '../services/auth_service.dart';
 import '../services/holiday_service.dart';
 import '../widgets/holiday_widgets.dart';
 import 'post_day_job_page.dart';
@@ -26,9 +26,10 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _selectedDay;
   List<DayJob> _postedJobs = [];
-  Estate? _estate;
   int _notificationCount = 0;
   String? _categoryFilter;
+  Timer? _pollTimer;
+  final Set<int> _shownCompletionAcknowledgements = <int>{};
 
   static const List<String> _weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   static const List<String> _months = [
@@ -51,17 +52,18 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     super.initState();
     _loadPostedJobs();
     _loadNotificationCount();
-    _loadEstate();
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) {
+        _loadPostedJobs();
+        _loadNotificationCount();
+      }
+    });
   }
 
-  /// The signed-in owner's own estate, for the header.
-  Future<void> _loadEstate() async {
-    try {
-      final estate = await OwnerService.getEstate();
-      if (mounted) setState(() => _estate = estate);
-    } catch (_) {
-      // The header falls back to the account's own details.
-    }
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadNotificationCount() async {
@@ -79,10 +81,634 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
       final jobs = await OwnerService.getDayJobs();
       if (mounted) {
         setState(() => _postedJobs = jobs);
+        _scheduleCompletionAcknowledgement(jobs);
       }
     } catch (error) {
       debugPrint('Could not load posted jobs for calendar: $error');
     }
+  }
+
+  void _scheduleCompletionAcknowledgement(List<DayJob> jobs) {
+    DayJob? pending;
+    for (final job in jobs) {
+      if (job.status.toUpperCase() == 'AWAITING_OWNER_ACK' &&
+          !_shownCompletionAcknowledgements.contains(job.id)) {
+        pending = job;
+        break;
+      }
+    }
+    if (pending == null) return;
+    _shownCompletionAcknowledgements.add(pending.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showCompletionAcknowledgement(pending!);
+    });
+  }
+
+  Future<void> _showCompletionAcknowledgement(DayJob job) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return AlertDialog(
+          scrollable: true,
+          backgroundColor: const Color(0xFFFCF8EF),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.fact_check_outlined, color: _calendarGreen),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Job completion acknowledgement',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: _calendarInk,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20, color: Color(0xFF718096)),
+                onPressed: () => Navigator.pop(dialogContext),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3D8),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE7B64C)),
+                ),
+                child: Text(
+                  '${job.requiredDate.day.toString().padLeft(2, '0')}/'
+                  '${job.requiredDate.month.toString().padLeft(2, '0')}/'
+                  '${job.requiredDate.year}',
+                  style: const TextStyle(
+                    color: Color(0xFF845800),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'A worker has marked their work as finished on this day job. '
+                'Please confirm that the job is complete.',
+                style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              _ackDetail('Category', job.category),
+              _ackDetail('Location', job.location),
+              _ackDetail(
+                'Workers',
+                '${job.confirmedWorkers} of ${job.workersNeeded} confirmed',
+              ),
+              _ackDetail(
+                'Daily Rate',
+                'Rs. ${job.dailyRate.toStringAsFixed(0)} · ${job.paymentMethod}',
+              ),
+            ],
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(dialogContext);
+                        _showCancelCompletionDialog(job);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFA32820),
+                        side: const BorderSide(color: Color(0xFFA32820), width: 1.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: FilledButton(
+                      onPressed: () {
+                        Navigator.pop(dialogContext);
+                        _showRateWorkerCompletionDialog(job);
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _calendarGreen,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        'Confirm',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showRateWorkerCompletionDialog(DayJob job) async {
+    if (!mounted) return;
+    int selectedRating = 5;
+    bool submitting = false;
+    final workerName = job.acceptedWorkers.isNotEmpty
+        ? job.acceptedWorkers.first.name
+        : 'Worker';
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final ratingLabels = {
+            1: 'Poor',
+            2: 'Fair',
+            3: 'Good',
+            4: 'Very Good',
+            5: 'Excellent',
+          };
+
+          return AlertDialog(
+            scrollable: true,
+            backgroundColor: const Color(0xFFFCF8EF),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.star, color: Color(0xFFFFB300)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Rate Worker Performance',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: _calendarInk,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Confirm completion of ${job.category} by rating $workerName.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    for (int star = 1; star <= 5; star++)
+                      IconButton(
+                        onPressed: submitting
+                            ? null
+                            : () => setDialogState(() => selectedRating = star),
+                        icon: Icon(
+                          star <= selectedRating ? Icons.star : Icons.star_border,
+                          color: const Color(0xFFFFB300),
+                          size: 38,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$selectedRating / 5 · ${ratingLabels[selectedRating] ?? ''}',
+                  style: const TextStyle(
+                    color: _calendarGreen,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: submitting
+                            ? null
+                            : () {
+                                Navigator.pop(dialogContext);
+                                _showCompletionAcknowledgement(job);
+                              },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF6B7280),
+                          side: const BorderSide(color: Color(0xFFE5E7EB)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text('Back'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: FilledButton.icon(
+                        onPressed: submitting
+                            ? null
+                            : () async {
+                                setDialogState(() => submitting = true);
+                                try {
+                                  await OwnerService.completeDayJob(
+                                    job.id,
+                                    rating: selectedRating,
+                                  );
+                                  if (!mounted) return;
+                                  if (dialogContext.mounted) {
+                                    Navigator.pop(dialogContext);
+                                  }
+                                  _loadPostedJobs();
+                                  _loadNotificationCount();
+                                  ScaffoldMessenger.of(this.context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Job confirmed and worker rating submitted! Deal finished.',
+                                      ),
+                                    ),
+                                  );
+                                } on ApiException catch (error) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(this.context).showSnackBar(
+                                      SnackBar(content: Text(error.message)),
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setDialogState(() => submitting = false);
+                                  }
+                                }
+                              },
+                        icon: submitting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.check_circle_outline, size: 18),
+                        label: Text(submitting ? 'Saving…' : 'Submit'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _calendarGreen,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showCancelCompletionDialog(DayJob job) async {
+    if (!mounted) return;
+    const reasons = [
+      'Work not finished yet',
+      'Incomplete or poor quality work',
+      'Workers left early / did not show up',
+      'Payment or working hours dispute',
+      'Other',
+    ];
+    String selectedReason = reasons.first;
+    final noteController = TextEditingController();
+    bool submitting = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            scrollable: true,
+            backgroundColor: const Color(0xFFFCF8EF),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.cancel_outlined, color: Color(0xFFA32820)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Cancel Job Completion',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: _calendarInk,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Select why you are not confirming completion:',
+                  style: TextStyle(
+                    color: Color(0xFF6B7280),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                for (final reason in reasons)
+                  InkWell(
+                    onTap: submitting
+                        ? null
+                        : () => setDialogState(() => selectedReason = reason),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            selectedReason == reason
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            color: selectedReason == reason
+                                ? const Color(0xFFA32820)
+                                : const Color(0xFFCBD5E1),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              reason,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: selectedReason == reason
+                                    ? _calendarInk
+                                    : const Color(0xFF4A5568),
+                                fontWeight: selectedReason == reason
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Optional note:',
+                  style: TextStyle(
+                    color: Color(0xFF6B7280),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: noteController,
+                  maxLines: 3,
+                  enabled: !submitting,
+                  decoration: InputDecoration(
+                    hintText: 'Add comments or instructions for the worker...',
+                    hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFFA0AEC0)),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFA32820), width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.all(12),
+                  ),
+                ),
+              ],
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: submitting
+                            ? null
+                            : () {
+                                Navigator.pop(dialogContext);
+                                _showCompletionAcknowledgement(job);
+                              },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF6B7280),
+                          side: const BorderSide(color: Color(0xFFE5E7EB)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text('Back'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: FilledButton.icon(
+                        onPressed: submitting
+                            ? null
+                            : () async {
+                                setDialogState(() => submitting = true);
+                                try {
+                                  await OwnerService.cancelDayJobCompletion(
+                                    jobId: job.id,
+                                    reason: selectedReason,
+                                    note: noteController.text,
+                                  );
+                                  if (!mounted) return;
+                                  if (dialogContext.mounted) {
+                                    Navigator.pop(dialogContext);
+                                  }
+                                  _loadPostedJobs();
+                                  _loadNotificationCount();
+                                  ScaffoldMessenger.of(this.context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Job completion cancelled. Reason recorded.',
+                                      ),
+                                    ),
+                                  );
+                                } on ApiException catch (error) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(this.context).showSnackBar(
+                                      SnackBar(content: Text(error.message)),
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setDialogState(() => submitting = false);
+                                  }
+                                }
+                              },
+                        icon: submitting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.close, size: 18),
+                        label: Text(submitting ? 'Submitting…' : 'Submit Cancel'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFA32820),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _ackDetail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 12.5,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: _calendarInk,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _completionAcknowledgementBanner(List<DayJob> jobs) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3D8),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE7B64C)),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundColor: Color(0xFFFFE3A3),
+            foregroundColor: Color(0xFF845800),
+            child: Icon(Icons.fact_check_outlined),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${jobs.length} completion ${jobs.length == 1 ? 'acknowledgement' : 'acknowledgements'}',
+                  style: const TextStyle(
+                    color: _calendarInk,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'Worker marked job as completed. Review and confirm.',
+                  style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Review acknowledgement',
+            onPressed: () => _showCompletionAcknowledgement(jobs.first),
+            icon: const Icon(Icons.arrow_forward, color: _calendarGreen),
+          ),
+        ],
+      ),
+    );
   }
 
   void _changeMonth(int amount) {
@@ -113,6 +739,12 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
       selectedDay.day,
     );
     final isPast = selectedDate.isBefore(todayDate);
+    final pendingAckJob = _postedJobs.where((job) {
+      return job.requiredDate.year == selectedDate.year &&
+          job.requiredDate.month == selectedDate.month &&
+          job.requiredDate.day == selectedDate.day &&
+          job.status.toUpperCase() == 'AWAITING_OWNER_ACK';
+    }).firstOrNull;
 
     showModalBottomSheet<void>(
       context: context,
@@ -124,6 +756,12 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
       builder: (context) => _DayActionsSheet(
         date: selectedDay,
         showScheduleActions: !isPast,
+        pendingAckJob: pendingAckJob,
+        onAcknowledge: pendingAckJob != null
+            ? () {
+                _showCompletionAcknowledgement(pendingAckJob);
+              }
+            : null,
         onAddJob: () {
           Navigator.pop(context);
           Navigator.push(
@@ -169,8 +807,12 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                       18,
                     ),
                     children: [
-                      _estateSummary(compact: compactMobile),
-                      SizedBox(height: compactMobile ? 5 : 12),
+                      if (_postedJobs.any((j) => j.status.toUpperCase() == 'AWAITING_OWNER_ACK')) ...[
+                        _completionAcknowledgementBanner(
+                          _postedJobs.where((j) => j.status.toUpperCase() == 'AWAITING_OWNER_ACK').toList(),
+                        ),
+                        SizedBox(height: compactMobile ? 4 : 8),
+                      ],
                       _categoryCard(compact: compactMobile),
                       SizedBox(height: compactMobile ? 5 : 12),
                       HolidayListener(
@@ -232,84 +874,6 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
           const Spacer(),
           const LanguageSelector(),
           const SizedBox(width: 10),
-        ],
-      ),
-    );
-  }
-
-  Widget _estateSummary({required bool compact}) {
-    final String place =
-        (_estate?.location ?? AuthService.currentUser?.location ?? '').trim();
-    return Container(
-      padding: EdgeInsets.all(compact ? 5 : 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE9E2D9)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: compact ? 36 : 52,
-            height: compact ? 36 : 52,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF0EDE6),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.park,
-              size: compact ? 20 : 28,
-              color: _calendarGreen,
-            ),
-          ),
-          SizedBox(width: compact ? 8 : 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _estate?.estateName.isNotEmpty == true
-                      ? _estate!.estateName
-                      : (AuthService.currentUser?.name ?? 'Your estate'),
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _calendarInk,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (place.isNotEmpty)
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 10 : 12,
-                vertical: compact ? 6 : 8,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4F0E9),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.location_on_outlined,
-                    size: 17,
-                    color: Color(0xFF718096),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    place,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF3D4A5D),
-                    ),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );
@@ -554,6 +1118,9 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
         : jobsOnDay.every((job) => job.confirmedWorkers >= job.workersNeeded)
         ? _calendarGreen
         : const Color(0xFFF0A315);
+    final hasAwaitingAck = allJobsOnDay.any(
+      (job) => job.status.toUpperCase() == 'AWAITING_OWNER_ACK',
+    );
     final jobIcons = jobsOnDay
         .map((job) => _iconForJobCategory(job.category))
         .toSet()
@@ -590,7 +1157,21 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                 ),
               ),
             ),
-            if (statusColor != null)
+            if (hasAwaitingAck)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD9A441),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                ),
+              )
+            else if (statusColor != null)
               Positioned(
                 top: 1,
                 right: 1,
@@ -673,12 +1254,16 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
 class _DayActionsSheet extends StatelessWidget {
   final DateTime date;
   final bool showScheduleActions;
+  final DayJob? pendingAckJob;
+  final VoidCallback? onAcknowledge;
   final VoidCallback onAddJob;
   final VoidCallback onViewJobs;
 
   const _DayActionsSheet({
     required this.date,
     required this.showScheduleActions,
+    this.pendingAckJob,
+    this.onAcknowledge,
     required this.onAddJob,
     required this.onViewJobs,
   });
@@ -750,6 +1335,19 @@ class _DayActionsSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            if (pendingAckJob != null) ...[
+              _ActionButton(
+                icon: Icons.check_circle_outline,
+                label: 'Acknowledge Completion',
+                backgroundColor: const Color(0xFFD9A441),
+                foregroundColor: Colors.white,
+                onTap: () {
+                  Navigator.pop(context);
+                  onAcknowledge?.call();
+                },
+              ),
+              const SizedBox(height: 14),
+            ],
             if (isScheduleView) ...[
               _ActionButton(
                 icon: Icons.add,
