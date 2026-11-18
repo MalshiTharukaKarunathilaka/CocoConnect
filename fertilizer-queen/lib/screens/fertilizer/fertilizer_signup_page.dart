@@ -7,8 +7,9 @@ import '../../theme/app_theme.dart';
 import '../../widgets/auth_widgets.dart';
 import '../auth_gate.dart';
 import '../location_picker_page.dart';
+import '../signup_role_sections.dart';
 
-/// Create Account for one fertilizer role — matches the signup screenshot.
+/// Create Account for one fertilizer role — includes supplier / CDO extras.
 class FertilizerSignupPage extends StatefulWidget {
   const FertilizerSignupPage({super.key, required this.lockedRole});
 
@@ -25,6 +26,8 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   final _locationController = TextEditingController();
+  final SignupExtras _extras = SignupExtras();
+  final _scroll = ScrollController();
   PickedLocation? _location;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
@@ -37,6 +40,8 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
     _passwordController.dispose();
     _confirmController.dispose();
     _locationController.dispose();
+    _extras.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -51,7 +56,18 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
   }
 
   Future<void> _submit() async {
-    if (_loading || !_formKey.currentState!.validate()) return;
+    if (_loading) return;
+    if (!_formKey.currentState!.validate()) {
+      // Why: long forms hide the first error — scroll so the user can fix it.
+      if (_scroll.hasClients) {
+        await _scroll.animateTo(
+          0,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOut,
+        );
+      }
+      return;
+    }
     if (_location == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Pick your location on the map')),
@@ -61,6 +77,10 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
     FocusScope.of(context).unfocus();
     setState(() => _loading = true);
 
+    final role = widget.lockedRole.role;
+    final isSupplier = role == 'FERTILIZER_SUPPLIER';
+    final isCdo = role == 'CDO';
+
     try {
       AppUser user;
       try {
@@ -68,18 +88,46 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
           name: _nameController.text.trim(),
           phone: _phoneController.text,
           password: _passwordController.text,
-          role: _roleApiLabel(widget.lockedRole.role),
+          role: _roleApiLabel(role),
           location: _location!.name,
           latitude: _location!.latitude,
           longitude: _location!.longitude,
+          fertilizerSupplier: isSupplier
+              ? {
+                  'shop_name': _extras.shopName.text.trim(),
+                  'identity_number': _extras.nic.text.trim(),
+                  'email': _extras.email.text.trim(),
+                  'district': _extras.district,
+                  'radius_km': _extras.supplierRadius,
+                  'willing_far': _extras.willingFar,
+                  'shop_type': _extras.shopType,
+                  'brands': _extras.brands.text.trim(),
+                  'coverage_note': _extras.coverageNote.text.trim(),
+                  'terms_accepted': _extras.agreed,
+                }
+              : null,
+          cdo: isCdo
+              ? {
+                  'identity_number': _extras.nic.text.trim(),
+                  'email': _extras.email.text.trim(),
+                  'employee_id': _extras.employeeId.text.trim(),
+                  'designation': _extras.designation.text.trim(),
+                  'regional_office': _extras.regionalOffice,
+                  'assigned_district': _extras.assignedDistrict,
+                  'assigned_divisional_areas':
+                      _extras.divisionalAreas.text.trim(),
+                  'id_card_filename': _extras.idCardFilename,
+                  'employment_doc_filename': _extras.employmentDocFilename,
+                  'terms_accepted': _extras.agreed,
+                }
+              : null,
         );
       } on ApiException {
-        // Offline demo: create a local session with this role.
         user = AppUser(
           id: DateTime.now().millisecondsSinceEpoch % 100000,
           name: _nameController.text.trim(),
           phone: AuthService.normalisePhone(_phoneController.text),
-          role: widget.lockedRole.role,
+          role: role,
           location: _location!.name,
           latitude: _location!.latitude,
           longitude: _location!.longitude,
@@ -101,7 +149,6 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
     }
   }
 
-  /// Backend expects friendly labels like "Fertilizer Supplier".
   String _roleApiLabel(String code) {
     switch (code) {
       case 'ESTATE_OWNER':
@@ -110,19 +157,39 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
         return 'Fertilizer Supplier';
       case 'CDO':
         return 'CDO';
-      case 'REGIONAL_MANAGER':
-        return 'Estate Manager';
-      case 'CHAIRMAN':
-        return 'Estate Manager';
       default:
         return 'Estate Owner';
+    }
+  }
+
+  Widget _roleExtras() {
+    switch (widget.lockedRole.role) {
+      case 'FERTILIZER_SUPPLIER':
+        return SupplierSignupSection(
+          extras: _extras,
+          onChanged: () => setState(() {}),
+          location: _location,
+        );
+      case 'CDO':
+        return CdoSignupSection(
+          extras: _extras,
+          onChanged: () => setState(() {}),
+        );
+      case 'ESTATE_OWNER':
+        return EstateOwnerSignupSection(extras: _extras);
+      default:
+        return const SizedBox.shrink();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final role = widget.lockedRole;
+    final minPassword =
+        role.role == 'FERTILIZER_SUPPLIER' || role.role == 'CDO' ? 8 : 6;
+
     return AuthScaffold(
+      scrollController: _scroll,
       children: [
         Align(
           alignment: Alignment.centerLeft,
@@ -131,11 +198,11 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
             icon: const Icon(Icons.arrow_back, color: AppColors.ink),
           ),
         ),
-        const AuthHeading(
+        AuthHeading(
           title: 'Create Account',
-          subtitle: 'Enter your details to get started',
+          subtitle: 'Register as ${role.roleLabel} · ${role.blurb}',
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         AuthCard(
           child: Form(
             key: _formKey,
@@ -147,6 +214,8 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
                 AuthTextField(
                   controller: _nameController,
                   hint: 'Enter your full name',
+                  keyboardType: TextInputType.name,
+                  textInputAction: TextInputAction.next,
                   validator: (v) =>
                       (v ?? '').trim().isEmpty ? 'Name is required' : null,
                 ),
@@ -167,7 +236,11 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
                     color: AppColors.green,
                     size: 20,
                   ),
-                  suffixIcon: const Icon(Icons.map_outlined, size: 20),
+                  suffixIcon: IconButton(
+                    tooltip: 'Open map',
+                    icon: const Icon(Icons.map_outlined, size: 20),
+                    onPressed: _pickLocation,
+                  ),
                   validator: (v) =>
                       (v ?? '').isEmpty ? 'Location is required' : null,
                 ),
@@ -179,15 +252,18 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
                   runSpacing: 8,
                   children: [
                     _RoleChip(role.roleLabel, true),
-                    const _RoleChip('Estate Owner', false),
-                    const _RoleChip('Buyer', false),
-                    const _RoleChip('Service Provider', false),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'This signup is locked to ${role.roleLabel} for the fertilizer demo.',
+                  'This signup is locked to ${role.roleLabel}.',
                   style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: _roleExtras(),
                 ),
                 const SizedBox(height: 16),
                 const AuthLabel(text: 'Password'),
@@ -196,6 +272,7 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
                   controller: _passwordController,
                   hint: 'Enter your password',
                   obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.next,
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword
@@ -208,8 +285,8 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
                         setState(() => _obscurePassword = !_obscurePassword),
                   ),
                   validator: (v) {
-                    if ((v ?? '').length < 6) {
-                      return 'Use at least 6 characters';
+                    if ((v ?? '').length < minPassword) {
+                      return 'Use at least $minPassword characters';
                     }
                     return null;
                   },
@@ -221,6 +298,7 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
                   controller: _confirmController,
                   hint: 'Re-enter your password',
                   obscureText: _obscureConfirm,
+                  textInputAction: TextInputAction.done,
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscureConfirm
@@ -239,7 +317,12 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 14),
+                SignupAgreement(
+                  extras: _extras,
+                  onChanged: () => setState(() {}),
+                ),
+                const SizedBox(height: 16),
                 AuthPrimaryButton(
                   label: _loading ? 'Signing up...' : 'Sign Up',
                   onPressed: _loading ? null : _submit,
@@ -247,6 +330,12 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 20),
+        AuthBottomPrompt(
+          question: 'Already have an account? ',
+          action: 'Login',
+          onTap: () => Navigator.pop(context),
         ),
       ],
     );

@@ -1199,62 +1199,112 @@ class _ProviderHubState extends State<ProviderHub> {
     if (_cdoProfileLoading && profile == null) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    final name = user?.name ?? _shop.who;
+    final phone = user?.phone ?? _shop.phone;
+    final location = user?.location ?? '—';
+    final nic = '${profile?['identity_number'] ?? '—'}';
+    final email = '${profile?['email'] ?? '—'}';
+    final employeeId = '${profile?['employee_id'] ?? '—'}';
+    final designation =
+        '${profile?['designation'] ?? 'Coconut Development Officer'}';
+    final office = '${profile?['regional_office'] ?? '—'}';
+    final district = '${profile?['assigned_district'] ?? '—'}';
+    final areasRaw = '${profile?['assigned_divisional_areas'] ?? ''}';
+    final areas = areasRaw
+        .split(RegExp(r'[,·|]'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    final idCard = '${profile?['id_card_filename'] ?? ''}';
+    final employment = '${profile?['employment_doc_filename'] ?? ''}';
+
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       children: [
-        const Text(
-          'Profile',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Official CDO details from registration. Contact admin to change employment records.',
-          style: TextStyle(fontSize: 12.5, color: AppColors.muted),
-        ),
-        const SizedBox(height: 14),
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.line),
+            borderRadius: BorderRadius.circular(22),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF1F5F3D),
+                Color(0xFF2F7A52),
+                Color(0xFF3F8F63),
+              ],
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33256B45),
+                blurRadius: 18,
+                offset: Offset(0, 8),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: AppColors.greenSoft,
+                  Container(
+                    width: 64,
+                    height: 64,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.18),
+                      border: Border.all(color: Colors.white54),
+                    ),
                     child: Text(
-                      (user?.name.isNotEmpty == true)
-                          ? user!.name[0].toUpperCase()
-                          : 'C',
+                      name.isNotEmpty ? name[0].toUpperCase() : 'C',
                       style: const TextStyle(
-                        fontSize: 22,
+                        color: Colors.white,
+                        fontSize: 28,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.green,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          user?.name ?? _shop.who,
+                          name,
                           style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
                             fontWeight: FontWeight.w800,
-                            fontSize: 17,
+                            height: 1.15,
                           ),
                         ),
-                        const Text(
-                          'CDO · Coconut Cultivation Board',
+                        const SizedBox(height: 4),
+                        Text(
+                          designation,
                           style: TextStyle(
-                            fontSize: 11.5,
-                            color: AppColors.muted,
+                            color: Colors.white.withValues(alpha: 0.88),
+                            fontSize: 12.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: const Text(
+                            'Verified CCB officer',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ],
@@ -1262,69 +1312,272 @@ class _ProviderHubState extends State<ProviderHub> {
                   ),
                 ],
               ),
-              const Divider(height: 24),
-              _cdoInfoRow('Full name', user?.name ?? '—'),
-              _cdoInfoRow('Phone', user?.phone ?? _shop.phone),
-              _cdoInfoRow('Location', user?.location ?? '—'),
-              _cdoInfoRow(
-                'NIC number',
-                '${profile?['identity_number'] ?? '—'}',
-              ),
-              _cdoInfoRow(
-                'Official email',
-                '${profile?['email'] ?? '—'}',
-              ),
-              _cdoInfoRow(
-                'Employee ID',
-                '${profile?['employee_id'] ?? '—'}',
-              ),
-              _cdoInfoRow(
-                'Designation',
-                '${profile?['designation'] ?? 'Coconut Development Officer'}',
-              ),
-              _cdoInfoRow(
-                'Regional office',
-                '${profile?['regional_office'] ?? '—'}',
-              ),
-              _cdoInfoRow(
-                'Assigned district',
-                '${profile?['assigned_district'] ?? '—'}',
-              ),
-              _cdoInfoRow(
-                'Assigned divisional areas',
-                '${profile?['assigned_divisional_areas'] ?? '—'}',
-              ),
-              _cdoInfoRow(
-                'CCB ID card',
-                '${profile?['id_card_filename'] ?? '—'}',
-              ),
-              _cdoInfoRow(
-                'Employment document',
-                '${profile?['employment_doc_filename'] ?? '—'}',
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _cdoHeroStat(
+                      Icons.phone_outlined,
+                      phone,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _cdoHeroStat(
+                      Icons.place_outlined,
+                      location,
+                    ),
+                  ),
+                ],
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _cdoSectionCard(
+          title: 'Identity',
+          icon: Icons.badge_outlined,
+          children: [
+            _cdoInfoTile(Icons.person_outline, 'Full name', name),
+            _cdoInfoTile(Icons.credit_card_outlined, 'NIC number', nic),
+            _cdoInfoTile(Icons.mail_outline, 'Official email', email),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _cdoSectionCard(
+          title: 'Employment',
+          icon: Icons.work_outline,
+          children: [
+            _cdoInfoTile(Icons.tag_outlined, 'Employee ID', employeeId),
+            _cdoInfoTile(Icons.apartment_outlined, 'Regional office', office),
+            _cdoInfoTile(Icons.map_outlined, 'Assigned district', district),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _cdoSectionCard(
+          title: 'Coverage areas',
+          icon: Icons.holiday_village_outlined,
+          children: [
+            if (areas.isEmpty)
+              const Text(
+                'No divisional areas on file yet.',
+                style: TextStyle(color: AppColors.muted, fontSize: 13),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final a in areas)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.greenSoft,
+                        borderRadius: BorderRadius.circular(99),
+                        border: Border.all(color: const Color(0xFFC9DFD0)),
+                      ),
+                      child: Text(
+                        a,
+                        style: const TextStyle(
+                          color: AppColors.green,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _cdoSectionCard(
+          title: 'Documents',
+          icon: Icons.folder_open_outlined,
+          children: [
+            _cdoDocTile(
+              'CCB ID card',
+              idCard.isEmpty ? 'Not uploaded' : idCard,
+              uploaded: idCard.isNotEmpty,
+            ),
+            const SizedBox(height: 8),
+            _cdoDocTile(
+              'Employment document',
+              employment.isEmpty ? 'Not uploaded' : employment,
+              uploaded: employment.isNotEmpty,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Official records are managed by CCB admin. Contact your regional office to update employment details.',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.muted.withValues(alpha: 0.95),
+            height: 1.4,
           ),
         ),
       ],
     );
   }
 
-  Widget _cdoInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+  Widget _cdoHeroStat(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cdoSectionCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.line),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-              color: AppColors.muted,
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.greenSoft,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 18, color: AppColors.green),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _cdoInfoTile(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppColors.greenMid),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.muted,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontSize: 14.5, height: 1.35)),
+        ],
+      ),
+    );
+  }
+
+  Widget _cdoDocTile(String title, String subtitle, {required bool uploaded}) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: uploaded ? AppColors.greenSoft : const Color(0xFFF7F5F0),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: uploaded ? const Color(0xFFC9DFD0) : AppColors.line,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            uploaded ? Icons.check_circle : Icons.upload_file_outlined,
+            color: uploaded ? AppColors.green : AppColors.muted,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.5,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: uploaded ? AppColors.green : AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

@@ -129,8 +129,16 @@ async function supplierPlaceIds(userId) {
   // Known demo place ids by shop name / phone binding on the client.
   const byName = {
     "Colombo Agro Mart": ["PL-CMB-1"],
-    "Nadeesha Stores": ["PL4"],
     "Green Leaf Colombo": ["PL-CMB-2"],
+    "CIC Point Colombo": ["PL-CMB-3"],
+    "Baurs Depot Colombo": ["PL-CMB-4"],
+    "Hayleys Colombo Hub": ["PL-CMB-5"],
+    "Puttalam Fertilizer": ["PL-PUT-1"],
+    "Chilaw Agro": ["PL-PUT-2"],
+    "Coastline Supplies": ["PL-PUT-3"],
+    "Palm Care Puttalam": ["PL-PUT-4"],
+    "Wennappuwa Agro": ["PL-PUT-5"],
+    "Nadeesha Stores": ["PL4"],
   };
   if (byName[shopName]) return byName[shopName];
   return [`PL-U-${userId}`];

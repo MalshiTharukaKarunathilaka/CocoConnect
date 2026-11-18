@@ -9,24 +9,35 @@ const Color kAuthPrefixFill = Color(0xFFF8F6F1);
 
 class AuthScaffold extends StatelessWidget {
   final List<Widget> children;
+  final ScrollController? scrollController;
 
-  const AuthScaffold({super.key, required this.children});
+  const AuthScaffold({
+    super.key,
+    required this.children,
+    this.scrollController,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return Scaffold(
       backgroundColor: const Color(0xFFEFEFEF),
+      resizeToAvoidBottomInset: true,
       body: Center(
-        child: Container(
-          width: 390,
-          height: double.infinity,
-          color: Colors.white,
-          child: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: children,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 430),
+          child: Material(
+            color: Colors.white,
+            child: SafeArea(
+              child: SingleChildScrollView(
+                controller: scrollController,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(22, 24, 22, 24 + bottomInset),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: children,
+                ),
               ),
             ),
           ),
@@ -119,6 +130,7 @@ class AuthTextField extends StatelessWidget {
   final bool obscureText;
   final Widget? suffixIcon;
   final TextInputType keyboardType;
+  final TextInputAction? textInputAction;
   final String? Function(String?)? validator;
   final Widget? prefixIcon;
 
@@ -133,6 +145,7 @@ class AuthTextField extends StatelessWidget {
     this.obscureText = false,
     this.suffixIcon,
     this.keyboardType = TextInputType.text,
+    this.textInputAction,
     this.validator,
     this.prefixIcon,
     this.readOnly = false,
@@ -147,6 +160,8 @@ class AuthTextField extends StatelessWidget {
       onTap: onTap,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      enableInteractiveSelection: true,
       validator: validator,
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(

@@ -255,6 +255,7 @@ class ProviderSignupSection extends StatelessWidget {
         _labelled(
           'Operating district',
           DropdownButtonFormField<String>(
+            key: ValueKey('district-${extras.district}'),
             initialValue: extras.district,
             isExpanded: true,
             style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
@@ -394,34 +395,38 @@ class SupplierSignupSection extends StatelessWidget {
                   padding: EdgeInsets.only(
                     right: type == 'Physical shop' ? 8 : 0,
                   ),
-                  child: GestureDetector(
-                    onTap: () {
-                      extras.shopType = type;
-                      onChanged();
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: extras.shopType == type
-                            ? kAuthGreen
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        extras.shopType = type;
+                        onChanged();
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
                           color: extras.shopType == type
                               ? kAuthGreen
-                              : kAuthBorder,
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: extras.shopType == type
+                                ? kAuthGreen
+                                : kAuthBorder,
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        type,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: extras.shopType == type
-                              ? Colors.white
-                              : kAuthGrey,
+                        child: Text(
+                          type,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: extras.shopType == type
+                                ? Colors.white
+                                : kAuthGrey,
+                          ),
                         ),
                       ),
                     ),
@@ -460,6 +465,7 @@ class SupplierSignupSection extends StatelessWidget {
         _labelled(
           'Operating district',
           DropdownButtonFormField<String>(
+            key: ValueKey('district-${extras.district}'),
             initialValue: extras.district,
             isExpanded: true,
             style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
@@ -611,6 +617,7 @@ class CdoSignupSection extends StatelessWidget {
         _labelled(
           'Regional Office',
           DropdownButtonFormField<String>(
+            key: ValueKey('office-${extras.regionalOffice}'),
             initialValue: extras.regionalOffice,
             isExpanded: true,
             style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
@@ -633,6 +640,7 @@ class CdoSignupSection extends StatelessWidget {
         _labelled(
           'Assigned District',
           DropdownButtonFormField<String>(
+            key: ValueKey('assigned-${extras.assignedDistrict}'),
             initialValue: extras.assignedDistrict,
             isExpanded: true,
             style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
