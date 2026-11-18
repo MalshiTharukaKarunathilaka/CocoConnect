@@ -655,6 +655,85 @@ const declineJob = async (req, res) => {
   }
 };
 
+const initiateJobCompletion = async (req, res) => {
+  let client;
+  try {
+    const worker = await workerForUser(req.user.id);
+    const jobId = Number(req.params.id);
+    if (!worker || !Number.isInteger(jobId)) {
+      return res.status(400).json({ message: "Invalid worker or job" });
+    }
+
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    // Lock the job row
+    const jobRes = await client.query(
+      `SELECT dj.id, dj.status, dj.required_date, dj.workers_needed, dj.confirmed_workers
+       FROM day_jobs dj
+       WHERE dj.id = $1
+       FOR UPDATE`,
+      [jobId]
+    );
+    if (jobRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Job not found" });
+    }
+    const job = jobRes.rows[0];
+    const st = String(job.status).toUpperCase();
+
+    if (st === "COMPLETED") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "This job is already completed" });
+    }
+    if (st === "AWAITING_OWNER_ACK") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "Completion already sent to the land owner" });
+    }
+
+    // Worker must have an ACCEPTED application for this job
+    const appRes = await client.query(
+      `SELECT id FROM day_job_applications
+       WHERE day_job_id = $1 AND worker_id = $2 AND UPPER(status) = 'ACCEPTED'`,
+      [jobId, worker.id]
+    );
+    if (appRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ message: "You are not an accepted worker for this job" });
+    }
+
+    // Only allow for past or current day jobs
+    const requiredDay = dayOf(job.required_date);
+    if (requiredDay && requiredDay > localToday()) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "This is a future job. You cannot complete it yet." });
+    }
+
+    // If the owner has already sent AWAITING_WORKER_ACK, we can skip to that flow
+    if (st === "AWAITING_WORKER_ACK") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "The land owner already requested completion — please acknowledge it instead" });
+    }
+
+    await client.query(
+      `UPDATE day_jobs SET status = 'AWAITING_OWNER_ACK' WHERE id = $1`,
+      [jobId]
+    );
+    await client.query("COMMIT");
+    return res.status(200).json({
+      job_id: jobId,
+      status: "AWAITING_OWNER_ACK",
+      message: "Completion request sent to the land owner for acknowledgement",
+    });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    console.error("Initiate worker job completion error:", error);
+    return res.status(500).json({ message: "Server error" });
+  } finally {
+    client?.release();
+  }
+};
+
 const acknowledgeJobCompletion = async (req, res) => {
   let client;
   try {
@@ -763,5 +842,6 @@ module.exports = {
   rateEstateOwner,
   applyForJob,
   declineJob,
+  initiateJobCompletion,
   acknowledgeJobCompletion,
 };

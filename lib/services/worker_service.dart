@@ -131,6 +131,26 @@ class WorkerJob {
       applicationStatus?.toUpperCase() == 'ACCEPTED' &&
       status.toUpperCase() == 'AWAITING_WORKER_ACK' &&
       !completionAcknowledged;
+
+  /// Worker already sent completion — waiting for land owner to confirm.
+  bool get workerInitiatedCompletion =>
+      applicationStatus?.toUpperCase() == 'ACCEPTED' &&
+      status.toUpperCase() == 'AWAITING_OWNER_ACK';
+
+  /// Worker can click "Complete Job" for past/today accepted jobs that haven't
+  /// been completed or already initiated by either side.
+  bool get canInitiateCompletion {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final jobDay = DateTime(requiredDate.year, requiredDate.month, requiredDate.day);
+    final isPastOrToday = !jobDay.isAfter(today);
+    final st = status.toUpperCase();
+    return applicationStatus?.toUpperCase() == 'ACCEPTED' &&
+        isPastOrToday &&
+        st != 'COMPLETED' &&
+        st != 'AWAITING_WORKER_ACK' &&
+        st != 'AWAITING_OWNER_ACK';
+  }
 }
 
 class EstateOwnerWorkerProfile {
@@ -239,6 +259,10 @@ class WorkerService {
 
   static Future<void> declineJob(int jobId) async {
     await ApiClient.post('/api/worker/jobs/$jobId/decline');
+  }
+
+  static Future<void> initiateJobCompletion(int jobId) async {
+    await ApiClient.post('/api/worker/jobs/$jobId/initiate-complete');
   }
 
   static Future<void> acknowledgeJobCompletion({

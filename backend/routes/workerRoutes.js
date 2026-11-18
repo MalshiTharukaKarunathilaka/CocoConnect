@@ -10,6 +10,7 @@ const {
   rateEstateOwner,
   applyForJob,
   declineJob,
+  initiateJobCompletion,
   acknowledgeJobCompletion,
 } = require("../controllers/workerController");
 
@@ -25,6 +26,7 @@ router.get("/jobs/:id/estate-owner", getEstateOwnerProfile);
 router.put("/jobs/:id/estate-owner/rating", rateEstateOwner);
 router.post("/jobs/:id/apply", applyForJob);
 router.post("/jobs/:id/decline", declineJob);
+router.post("/jobs/:id/initiate-complete", initiateJobCompletion);
 router.patch("/jobs/:id/complete", acknowledgeJobCompletion);
 
 module.exports = router;

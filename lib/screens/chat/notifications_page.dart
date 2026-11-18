@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
+import '../../services/auth_service.dart';
 import '../../services/chat_service.dart';
 import '../../widgets/owner_widgets.dart';
 import '../../widgets/app_bottom_nav.dart';
 import 'chat_page.dart';
 import 'chats_page.dart';
+import '../estate_owner_calendar_page.dart';
+import '../worker_dashboard.dart';
 import '../worker_chat_page.dart';
 
 const Color _green = Color(0xFF256B45);
@@ -61,6 +64,24 @@ class _NotificationsPageState extends State<NotificationsPage> {
       case NotificationType.sellOffer:
         // The buyer's request with the estate's offer: Pending Orders.
         openTab(context, AppTab.orders, ordersTab: 0);
+      case NotificationType.jobCompletionAck:
+        final role = AuthService.currentUser?.role;
+        if (role == 'ESTATE_OWNER') {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const EstateOwnerCalendarPage(),
+            ),
+          );
+        } else if (role == 'WORKER') {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const WorkerDashboard(),
+            ),
+          );
+        }
+        if (mounted) _reload();
     }
   }
 
@@ -145,6 +166,11 @@ class _NotificationCard extends StatelessWidget {
       NotificationType.sellOffer => (Icons.storefront, _brown, 'Offer'),
       NotificationType.chat ||
       NotificationType.dayJobChat => (Icons.chat_bubble, _green, 'Message'),
+      NotificationType.jobCompletionAck => (
+        Icons.fact_check_outlined,
+        const Color(0xFFD9A441),
+        'Acknowledgement',
+      ),
     };
 
     return InkWell(

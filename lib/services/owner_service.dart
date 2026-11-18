@@ -58,6 +58,9 @@ class DayJob {
         .map((item) => AcceptedWorker.fromJson(item as Map<String, dynamic>))
         .toList(),
   );
+
+  bool get needsCompletionAcknowledgement =>
+      status.toUpperCase() == 'AWAITING_OWNER_ACK';
 }
 
 class AcceptedWorker {
@@ -335,8 +338,21 @@ class OwnerService {
         .toList();
   }
 
-  static Future<void> completeDayJob(int jobId) async {
-    await ApiClient.patch('/api/owner/day-jobs/$jobId/complete');
+  static Future<void> completeDayJob(int jobId, {int? rating}) async {
+    await ApiClient.patch('/api/owner/day-jobs/$jobId/complete', {
+      if (rating != null) 'rating': rating,
+    });
+  }
+
+  static Future<void> cancelDayJobCompletion({
+    required int jobId,
+    required String reason,
+    String? note,
+  }) async {
+    await ApiClient.patch('/api/owner/day-jobs/$jobId/cancel-completion', {
+      'reason': reason,
+      if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+    });
   }
 
   static Future<void> deleteDayJob(int jobId) async {

@@ -395,6 +395,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
   Widget _jobCard(DayJob job) {
     final completed = _isCompleted(job);
     final awaiting = job.status.toUpperCase() == 'AWAITING_WORKER_ACK';
+    final awaitingOwner = job.status.toUpperCase() == 'AWAITING_OWNER_ACK';
     final fullyStaffed = _isFullyStaffed(job);
     final required = job.workersNeeded;
     final confirmed = job.confirmedWorkers.clamp(0, required);
@@ -403,6 +404,8 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
         ? 'Completed'
         : awaiting
         ? 'Awaiting worker'
+        : awaitingOwner
+        ? 'Worker completed'
         : fullyStaffed
         ? 'Fulfilled'
         : 'Open';
@@ -522,24 +525,41 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
                     SizedBox(
                       width: double.infinity,
                       height: 44,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _openDetails(job),
-                        iconAlignment: IconAlignment.end,
-                        icon: const Icon(Icons.arrow_forward),
-                        label: const Text('View Details'),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: const Color(0xFFEEFBF4),
-                          foregroundColor: _green,
-                          side: const BorderSide(color: Color(0xFF9BE9C5)),
-                          textStyle: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
+                      child: awaitingOwner
+                          ? FilledButton.icon(
+                              onPressed: () => _openDetails(job),
+                              icon: const Icon(Icons.check_circle_outline),
+                              label: const Text('Review & Complete'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFFD9A441),
+                                foregroundColor: Colors.white,
+                                textStyle: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            )
+                          : OutlinedButton.icon(
+                              onPressed: () => _openDetails(job),
+                              iconAlignment: IconAlignment.end,
+                              icon: const Icon(Icons.arrow_forward),
+                              label: const Text('View Details'),
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: const Color(0xFFEEFBF4),
+                                foregroundColor: _green,
+                                side: const BorderSide(color: Color(0xFF9BE9C5)),
+                                textStyle: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -553,29 +573,50 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
 
   Widget _statusPill(String status) {
     final positive = status == 'Completed' || status == 'Fulfilled';
+    final isAwaitingOwner = status == 'Worker completed';
+    final bg = isAwaitingOwner
+        ? const Color(0xFFFFF3D8)
+        : positive
+        ? const Color(0xFFD4F8E5)
+        : const Color(0xFFFFE7D5);
+    final border = isAwaitingOwner
+        ? const Color(0xFFE7B64C)
+        : positive
+        ? const Color(0xFF92E8BA)
+        : const Color(0xFFF4C19B);
+    final fg = isAwaitingOwner
+        ? const Color(0xFF845800)
+        : positive
+        ? _green
+        : const Color(0xFF7B431B);
+    final iconColor = isAwaitingOwner
+        ? const Color(0xFFD9A441)
+        : positive
+        ? _greenBright
+        : const Color(0xFF9A5725);
+    final iconData = isAwaitingOwner
+        ? Icons.fact_check_outlined
+        : positive
+        ? Icons.check_circle
+        : Icons.schedule;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: positive ? const Color(0xFFD4F8E5) : const Color(0xFFFFE7D5),
+        color: bg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: positive ? const Color(0xFF92E8BA) : const Color(0xFFF4C19B),
-        ),
+        border: Border.all(color: border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            positive ? Icons.check_circle : Icons.schedule,
-            color: positive ? _greenBright : const Color(0xFF9A5725),
-            size: 15,
-          ),
+          Icon(iconData, color: iconColor, size: 15),
           const SizedBox(width: 6),
           Text(
             status,
             style: TextStyle(
               fontSize: 11,
-              color: positive ? _green : const Color(0xFF7B431B),
+              color: fg,
               fontWeight: FontWeight.w600,
             ),
           ),

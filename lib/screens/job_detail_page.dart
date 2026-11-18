@@ -22,6 +22,7 @@ class JobDetailPage extends StatefulWidget {
 class _JobDetailPageState extends State<JobDetailPage> {
   late bool _isCompleted;
   late bool _awaitingWorkerAcknowledgement;
+  late bool _awaitingOwnerAcknowledgement; // worker went first
   bool _completing = false;
   bool _deleting = false;
   late final Map<int, int?> _workerRatings;
@@ -46,6 +47,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
     _isCompleted = job.status.toUpperCase() == 'COMPLETED';
     _awaitingWorkerAcknowledgement =
         job.status.toUpperCase() == 'AWAITING_WORKER_ACK';
+    _awaitingOwnerAcknowledgement =
+        job.status.toUpperCase() == 'AWAITING_OWNER_ACK';
     _workerRatings = {
       for (final worker in job.acceptedWorkers) worker.id: worker.rating,
     };
@@ -85,7 +88,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                 _completionButton(),
               ],
               if (_isFuture) ...[const SizedBox(height: 10), _deleteButton()],
-              if (_isCompleted || _awaitingWorkerAcknowledgement) ...[
+              if (_isCompleted || _awaitingWorkerAcknowledgement || _awaitingOwnerAcknowledgement) ...[
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -238,6 +241,38 @@ class _JobDetailPageState extends State<JobDetailPage> {
   }
 
   Widget _completionButton() {
+    // Worker went first → owner sees a prominent "Confirm Completion" CTA
+    if (_awaitingOwnerAcknowledgement) {
+      return SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: FilledButton.icon(
+          onPressed: _completing ? null : _completeJob,
+          icon: _completing
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.check_circle_outline, size: 20),
+          label: Text(
+            _completing ? 'Confirming…' : 'Worker completed — Confirm',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF5FA47B), // greenMid — tonal
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       width: double.infinity,
       height: 50,
@@ -361,7 +396,9 @@ class _JobDetailPageState extends State<JobDetailPage> {
       );
       return;
     }
-    if (!_isFullyStaffed) {
+
+    // When confirming worker's initiation, skip the staffing check
+    if (!_awaitingOwnerAcknowledgement && !_isFullyStaffed) {
       _showMessage(
         context,
         'All required workers must be accepted before completion.',
@@ -373,11 +410,20 @@ class _JobDetailPageState extends State<JobDetailPage> {
     try {
       await OwnerService.completeDayJob(job.id);
       if (!mounted) return;
-      setState(() => _awaitingWorkerAcknowledgement = true);
-      _showMessage(
-        context,
-        'Completion sent. The job will be completed after the accepted workers acknowledge it.',
-      );
+      if (_awaitingOwnerAcknowledgement) {
+        // Worker had already initiated → now fully COMPLETED
+        setState(() {
+          _awaitingOwnerAcknowledgement = false;
+          _isCompleted = true;
+        });
+        _showMessage(context, 'Job completed! Both parties have confirmed.');
+      } else {
+        setState(() => _awaitingWorkerAcknowledgement = true);
+        _showMessage(
+          context,
+          'Completion sent. The job will be completed after the accepted workers acknowledge it.',
+        );
+      }
     } on ApiException catch (error) {
       if (mounted) _showMessage(context, error.message);
     } catch (_) {
@@ -396,6 +442,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
         ? 'COMPLETED'
         : _awaitingWorkerAcknowledgement
         ? 'AWAITING WORKER'
+        : _awaitingOwnerAcknowledgement
+        ? 'WORKER COMPLETED'
         : _isFullyStaffed
         ? 'IN PROGRESS'
         : 'OPEN';
@@ -602,7 +650,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                           jobCategory: job.category,
                           currentJobRating: rating,
                           canRate:
-                              _isCompleted || _awaitingWorkerAcknowledgement,
+                              _isCompleted || _awaitingWorkerAcknowledgement || _awaitingOwnerAcknowledgement,
                         ),
                       ),
                     );
@@ -616,7 +664,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
               Expanded(
                 child: _workerRatingButton(
                   rating: rating,
-                  onPressed: _isCompleted || _awaitingWorkerAcknowledgement
+                  onPressed: _isCompleted || _awaitingWorkerAcknowledgement || _awaitingOwnerAcknowledgement
                       ? () => _showRatingSheet(worker)
                       : null,
                 ),

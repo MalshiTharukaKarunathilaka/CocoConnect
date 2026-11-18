@@ -147,11 +147,67 @@ const dayJobChatItems = async (userId) => {
   });
 };
 
+const completionAckItems = async (userId) => {
+  try {
+    const ownerJobs = await pool.query(
+      `SELECT dj.id, dj.category, dj.required_date, dj.created_at
+       FROM day_jobs dj
+       JOIN estate_owners eo ON eo.id = dj.estate_owner_id
+       WHERE eo.user_id = $1 AND UPPER(COALESCE(dj.status, '')) = 'AWAITING_OWNER_ACK'
+       ORDER BY dj.required_date DESC, dj.id DESC`,
+      [userId]
+    );
+
+    const workerJobs = await pool.query(
+      `SELECT dj.id, dj.category, dj.required_date, dj.created_at
+       FROM day_jobs dj
+       JOIN day_job_applications dja ON dja.day_job_id = dj.id
+       JOIN worker w ON w.id = dja.worker_id
+       WHERE w.user_id = $1
+         AND UPPER(COALESCE(dja.status, '')) IN ('ACCEPTED', 'COMPLETED')
+         AND UPPER(COALESCE(dj.status, '')) = 'AWAITING_WORKER_ACK'
+         AND (dja.estate_owner_rating IS NULL OR UPPER(COALESCE(dja.status, '')) <> 'COMPLETED')
+       ORDER BY dj.required_date DESC, dj.id DESC`,
+      [userId]
+    );
+
+    const items = [];
+    for (const row of ownerJobs.rows) {
+      const dateStr = String(row.required_date).split("T")[0];
+      items.push({
+        key: `completion-ack-owner-${row.id}`,
+        type: "JOB_COMPLETION_ACK",
+        title: "Job completion acknowledgement",
+        body: `Worker marked ${row.category} on ${dateStr} as completed. Review and confirm.`,
+        at: row.created_at || new Date().toISOString(),
+        day_job_id: row.id,
+      });
+    }
+    for (const row of workerJobs.rows) {
+      const dateStr = String(row.required_date).split("T")[0];
+      items.push({
+        key: `completion-ack-worker-${row.id}`,
+        type: "JOB_COMPLETION_ACK",
+        title: "Job completion acknowledgement",
+        body: `Land owner marked ${row.category} on ${dateStr} as finished. Confirm to complete.`,
+        at: row.created_at || new Date().toISOString(),
+        day_job_id: row.id,
+      });
+    }
+    return items;
+  } catch (error) {
+    if (error.code === "42P01") return [];
+    console.error("completionAckItems error:", error);
+    return [];
+  }
+};
+
 const getNotifications = async (req, res) => {
   try {
     const items = [
       ...(await chatItems(req.user.id)),
       ...(await dayJobChatItems(req.user.id)),
+      ...(await completionAckItems(req.user.id)),
       ...(req.user.role === "BUYER" ? await sellOfferItems(req.user.id) : []),
     ];
     items.sort((a, b) => new Date(b.at) - new Date(a.at));
