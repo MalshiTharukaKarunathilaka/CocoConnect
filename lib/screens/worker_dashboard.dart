@@ -1154,7 +1154,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       return Icons.eco;
     }
     if (value.contains('holiday')) {
-      return Icons.star_border;
+      return Icons.star;
     }
     return Icons.build;
   }

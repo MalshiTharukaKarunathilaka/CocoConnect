@@ -3,6 +3,7 @@ import '../widgets/role_navigation_page.dart';
 import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../services/owner_service.dart';
+import '../services/api_client.dart';
 import '../services/holiday_service.dart';
 import '../widgets/holiday_widgets.dart';
 import 'post_day_job_page.dart';
@@ -358,10 +359,13 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                                       ),
                                     ),
                                   );
-                                } on ApiException catch (error) {
+                                } catch (error) {
                                   if (mounted) {
+                                    final message = error is ApiException
+                                        ? error.message
+                                        : error.toString();
                                     ScaffoldMessenger.of(this.context).showSnackBar(
-                                      SnackBar(content: Text(error.message)),
+                                      SnackBar(content: Text(message)),
                                     );
                                   }
                                 } finally {
@@ -575,10 +579,13 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                                       ),
                                     ),
                                   );
-                                } on ApiException catch (error) {
+                                } catch (error) {
                                   if (mounted) {
+                                    final message = error is ApiException
+                                        ? error.message
+                                        : error.toString();
                                     ScaffoldMessenger.of(this.context).showSnackBar(
-                                      SnackBar(content: Text(error.message)),
+                                      SnackBar(content: Text(message)),
                                     );
                                   }
                                 } finally {
@@ -865,6 +872,19 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
             ],
           ),
           const Spacer(),
+          IconButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('No new notifications')),
+              );
+            },
+            icon: const Icon(
+              Icons.notifications_none,
+              color: _calendarGreen,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 4),
           const LanguageSelector(),
           const SizedBox(width: 10),
         ],
@@ -1228,7 +1248,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
       return Icons.eco;
     }
     if (value.contains('holiday')) {
-      return Icons.star_border;
+      return Icons.star;
     }
     return Icons.build;
   }
