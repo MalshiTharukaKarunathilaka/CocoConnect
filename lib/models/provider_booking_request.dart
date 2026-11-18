@@ -6,6 +6,7 @@ enum ProviderRequestStatus { pending, confirmed, declined, cancelled }
 enum RequestSpeaker { owner, provider }
 
 class ProviderRequestMessage {
+  final int? id;
   final String text;
   final RequestSpeaker sender;
   final DateTime sentAt;
@@ -15,6 +16,7 @@ class ProviderRequestMessage {
   /// to 12:00 PM". The backend adds it to every offer.
   final String? serviceDate;
   const ProviderRequestMessage({
+    this.id,
     required this.text,
     required this.sender,
     required this.sentAt,
@@ -24,6 +26,7 @@ class ProviderRequestMessage {
 
   /// Splits the "Service date: ..." line off a message from the backend.
   static ProviderRequestMessage fromBackend({
+    int? id,
     required String raw,
     required RequestSpeaker sender,
     required DateTime sentAt,
@@ -34,6 +37,7 @@ class ProviderRequestMessage {
       dotAll: true,
     ).firstMatch(raw);
     return ProviderRequestMessage(
+      id: id,
       text: match == null ? raw : raw.substring(0, match.start),
       sender: sender,
       sentAt: sentAt,
@@ -46,6 +50,9 @@ class ProviderRequestMessage {
 class ProviderBookingRequest {
   final int? landOwnerRating;
   final DateTime? workCompletedAt;
+  final bool workFinished;
+  final bool workConfirmed;
+  final int? providerRating;
   final String? machineName;
   final int version;
   final int? ownerUserId;
@@ -78,6 +85,9 @@ class ProviderBookingRequest {
   ProviderBookingRequest({
     this.landOwnerRating,
     this.workCompletedAt,
+    this.workFinished = false,
+    this.workConfirmed = false,
+    this.providerRating,
     this.machineName,
     this.version = 1,
     this.ownerUserId,
@@ -131,6 +141,9 @@ class ProviderBookingRequest {
     final quantity = one ? number(items.first['quantity']) : 1.0;
     final request = ProviderBookingRequest(
       landOwnerRating: (json['land_owner_rating'] as num?)?.toInt(),
+      workFinished: json['work_finished_at'] != null,
+      workConfirmed: json['work_confirmed_at'] != null,
+      providerRating: (json['provider_rating'] as num?)?.toInt(),
       workCompletedAt: json['work_completed_at'] == null
           ? null
           : DateTime.parse('${json['work_completed_at']}'),
@@ -158,6 +171,7 @@ class ProviderBookingRequest {
       messages: (json['messages'] as List)
           .map(
             (m) => ProviderRequestMessage.fromBackend(
+              id: (m['id'] as num?)?.toInt(),
               raw: '${m['message']}',
               sender: m['sender_id'] == json['owner_user_id']
                   ? RequestSpeaker.owner

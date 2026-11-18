@@ -88,6 +88,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     chat: const [],
     machineAt: r.providerAt,
     estateAt: r.estateAt,
+    completionConfirmed: r.workConfirmed,
   );
   int _tab = 0; // 0 upcoming, 1 completed
   late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
@@ -106,7 +107,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         _day = null; // tap again to clear
       } else {
         _day = d;
-        _tab = d.isBefore(_today) ? 1 : 0;
+        final bookings = _records.where((record) => _key(record.startsAt) == _key(d));
+        _tab = bookings.isNotEmpty && bookings.every((record) => record.workConfirmed) ? 1 : 0;
       }
     });
   }
@@ -404,18 +406,20 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  '$n',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: today || selected || list.isNotEmpty
-                        ? FontWeight.bold
-                        : FontWeight.w500,
-                    color: selected
-                        ? Colors.white
-                        : past
-                        ? const Color(0xFF9AA0A6)
-                        : kOwnerInk,
+                FittedBox(
+                  child: Text(
+                    '$n',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: today || selected || list.isNotEmpty
+                          ? FontWeight.bold
+                          : FontWeight.w500,
+                      color: selected
+                          ? Colors.white
+                          : past
+                          ? const Color(0xFF9AA0A6)
+                          : kOwnerInk,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 3),

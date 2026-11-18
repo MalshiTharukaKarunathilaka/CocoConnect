@@ -112,6 +112,9 @@ void main() {
             });
           }
           expect(request.headers['Authorization'], 'Bearer real-test-token');
+          if (request.url.path.endsWith('/provider/bookings')) {
+            return jsonResponse([]);
+          }
           if (request.url.path.endsWith('/machines')) {
             return jsonResponse([machine]);
           }
@@ -402,6 +405,9 @@ void main() {
               },
             });
           }
+          if (request.url.path.endsWith('/provider/bookings')) {
+            return jsonResponse([]);
+          }
           if (request.url.path.endsWith('/machines')) {
             return jsonResponse([machine]);
           }
@@ -463,6 +469,9 @@ void main() {
             expect(body['day'], '2030-04-21');
             state = '${body['state']}';
             return jsonResponse({});
+          }
+          if (request.url.path.endsWith('/provider/bookings')) {
+            return jsonResponse([]);
           }
           if (request.url.path.endsWith('/machines')) {
             return jsonResponse([machine]);

@@ -1,6 +1,7 @@
 import '../../widgets/profile_widgets.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/provider_calendar.dart';
 import '../../models/provider_booking_request.dart';
 import 'provider_booking_inquiry.dart';
@@ -9,6 +10,8 @@ import '../../services/auth_service.dart';
 import '../../services/api_client.dart';
 import '../../services/provider_calendar_repository.dart';
 import '../../widgets/owner_widgets.dart';
+import '../../widgets/app_bottom_nav.dart';
+import 'provider_request_widgets.dart';
 import '../account_dialogs.dart';
 import '../auth_gate.dart';
 import '../buyer/buyer_format.dart';
@@ -71,7 +74,13 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
   late Future<ProviderCalendarMonth> _data;
   final Map<String, bool> _drafts = {};
   final Map<String, ProviderCalendarMonth> _cache = {};
-  int _tab = 1;
+  AppTab _tab = AppTab.dashboard;
+  List<ProviderBookingRequest>? _inbox;
+  ApiException? _inboxError;
+  bool _loadingInbox = false;
+  Set<String> _seenChats = {};
+  Set<String> _seenAlerts = {};
+  String get _seenKey => 'machinery_inbox_${AuthService.currentUser?.id}';
 
   @override
   void initState() {
@@ -81,11 +90,55 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
     _month = DateTime(date.year, date.month);
     _load();
     if (!_repository.isPreview) {
+      _loadInbox();
       _poll = Timer.periodic(
         const Duration(seconds: 20),
-        (_) => _pollCalendar(),
+        (_) {
+          _pollCalendar();
+          _loadInbox();
+        },
       );
     }
+  }
+
+  String _eventKey(ProviderBookingRequest request) {
+    final message = request.messages.where((m) => m.sender == RequestSpeaker.owner).lastOrNull;
+    return '${request.id}:${message?.id ?? message?.sentAt.toIso8601String() ?? 'request'}';
+  }
+
+  Future<void> _loadInbox() async {
+    final live = _live;
+    if (live == null || _loadingInbox) return;
+    _loadingInbox = true;
+    final key = _seenKey;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final bookings = await live.api.bookings(provider: true);
+      if (!mounted || key != _seenKey) return;
+      final chats = (prefs.getStringList('$key-chats') ?? const []).toSet();
+      final alerts = (prefs.getStringList('$key-alerts') ?? const []).toSet();
+      if (_tab == AppTab.alerts) {
+        alerts.addAll(bookings.where((request) => request.isPending).map(_eventKey));
+        await prefs.setStringList('$key-alerts', alerts.toList());
+      }
+      if (!mounted || key != _seenKey) return;
+      setState(() {
+        _inbox = bookings;
+        _inboxError = null;
+        _seenChats = chats;
+        _seenAlerts = alerts;
+      });
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _inboxError = error);
+    } finally {
+      _loadingInbox = false;
+    }
+  }
+
+  void _selectTab(AppTab tab) {
+    if (!mounted) return;
+    setState(() => _tab = tab);
+    if (tab == AppTab.alerts || tab == AppTab.chats) _loadInbox();
   }
 
   @override
@@ -150,7 +203,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
   Future<void> _openDate(DateTime date, ProviderCalendarMonth data) async {
     setState(() {
       _selected = date;
-      _tab = 1;
+      _tab = AppTab.dashboard;
     });
     final requests = data.requests
         .where(
@@ -170,13 +223,27 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
       isPreview: _repository.isPreview,
     );
     if (!mounted || selected == null) return;
+    await _openRequest(selected, data.requests);
+  }
+
+  Future<void> _openRequest(ProviderBookingRequest request, List<ProviderBookingRequest> bookings) async {
+    final key = _seenKey;
+    if (_live != null) {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted || key != _seenKey) return;
+      final event = _eventKey(request);
+      setState(() => _seenChats.add(event));
+      await prefs.setStringList('$key-chats', _seenChats.toList());
+    }
+    if (!mounted) return;
     await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => ProviderRequestPage(
-          request: selected,
-          bookings: data.requests,
+          request: request,
+          bookings: bookings,
           api: _live?.api,
+          onProviderTab: _selectTab,
         ),
       ),
     );
@@ -185,6 +252,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
         setState(() {});
       } else {
         _refresh();
+        _loadInbox();
       }
     }
   }
@@ -232,6 +300,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, change) => AlertDialog(
+          scrollable: true,
           title: const Text('Add your machinery'),
           content: Form(
             key: form,
@@ -331,6 +400,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
         context: context,
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, change) => AlertDialog(
+            scrollable: true,
             title: Text(
               rate == null ? 'Add Service Rate' : 'Edit Service Rate',
             ),
@@ -438,6 +508,7 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
     final yes = await showThemedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        scrollable: true,
         title: Text(remove ? 'Reopen date?' : 'Block date for maintenance?'),
         content: Text(
           '${_dateLabel(_selected)} will be ${remove ? 'available' : 'unavailable for the whole day'}. Confirmed bookings will not be overwritten.',
@@ -475,56 +546,54 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (live.machines.isNotEmpty) ...[
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final machine in live.machines)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        key: ValueKey('machine-type-${machine['id']}'),
-                        label: Text('${machine['category']}'),
-                        avatar: Icon(
-                          switch (machine['category']) {
-                            'Backhoe' => Icons.construction,
-                            'Hand Tractor' => Icons.grass,
-                            _ => Icons.agriculture,
-                          },
-                          size: 18,
-                          color: machine['id'] == live.selectedMachineId
-                              ? Colors.white
-                              : _green,
-                        ),
-                        selected: machine['id'] == live.selectedMachineId,
-                        showCheckmark: false,
-                        selectedColor: _green,
-                        backgroundColor: Colors.white,
-                        labelStyle: TextStyle(
-                          color: machine['id'] == live.selectedMachineId
-                              ? Colors.white
-                              : kOwnerInk,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        shape: const StadiumBorder(),
-                        onSelected: _saving
-                            ? null
-                            : (_) {
-                                if (_drafts.isNotEmpty) {
-                                  _notify(
-                                    'Save or reset availability changes first.',
-                                  );
-                                  return;
-                                }
-                                if (live.selectedMachineId == machine['id'])
-                                  return;
-                                live.selectedMachineId = machine['id'] as int;
-                                _refresh();
-                              },
+            Wrap(
+              runSpacing: 8,
+              children: [
+                for (final machine in live.machines)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      key: ValueKey('machine-type-${machine['id']}'),
+                      label: Text('${machine['category']}'),
+                      avatar: Icon(
+                        switch (machine['category']) {
+                          'Backhoe' => Icons.construction,
+                          'Hand Tractor' => Icons.grass,
+                          _ => Icons.agriculture,
+                        },
+                        size: 18,
+                        color: machine['id'] == live.selectedMachineId
+                            ? Colors.white
+                            : _green,
                       ),
+                      selected: machine['id'] == live.selectedMachineId,
+                      showCheckmark: false,
+                      selectedColor: _green,
+                      backgroundColor: Colors.white,
+                      labelStyle: TextStyle(
+                        color: machine['id'] == live.selectedMachineId
+                            ? Colors.white
+                            : kOwnerInk,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      shape: const StadiumBorder(),
+                      onSelected: _saving
+                          ? null
+                          : (_) {
+                              if (_drafts.isNotEmpty) {
+                                _notify(
+                                  'Save or reset availability changes first.',
+                                );
+                                return;
+                              }
+                              if (live.selectedMachineId == machine['id'])
+                                return;
+                              live.selectedMachineId = machine['id'] as int;
+                              _refresh();
+                            },
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
@@ -580,7 +649,11 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
                       ),
                     ),
                   Expanded(
-                    child: FutureBuilder<ProviderCalendarMonth>(
+                    child: _tab == AppTab.profile
+                        ? _profile()
+                        : (_tab == AppTab.chats || _tab == AppTab.alerts) && _live != null
+                        ? _inboxContent(_inbox)
+                        : FutureBuilder<ProviderCalendarMonth>(
                       future: _data,
                       builder: (context, snapshot) {
                         if (snapshot.connectionState != ConnectionState.done) {
@@ -630,43 +703,21 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
                           );
                         }
                         final data = snapshot.data!;
-                        return switch (_tab) {
-                          0 => _dashboard(data),
-                          2 => _requests(data),
-                          3 => _profile(),
-                          _ => _calendarContent(data),
-                        };
+                        return _tab == AppTab.dashboard
+                            ? _calendarContent(data)
+                            : _inboxContent(data.requests);
                       },
                     ),
                   ),
-                  NavigationBar(
-                    selectedIndex: _tab,
-                    onDestinationSelected: (value) =>
-                        setState(() => _tab = value),
-                    backgroundColor: AppColors.surface,
-                    indicatorColor: kOwnerGreenSoft,
-                    height: 70,
-                    labelTextStyle: const WidgetStatePropertyAll(
-                      TextStyle(fontSize: 11),
-                    ),
-                    destinations: const [
-                      NavigationDestination(
-                        icon: Icon(Icons.grid_view_outlined),
-                        label: 'Dashboard',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.calendar_month_outlined),
-                        label: 'Calendar',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.assignment_outlined),
-                        label: 'Requests',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.account_circle_outlined),
-                        label: 'Profile',
-                      ),
-                    ],
+                  AppBottomNav(
+                    current: _tab,
+                    onProviderTab: _selectTab,
+                    providerChatCount: (_inbox ?? []).where((request) =>
+                      request.messages.isNotEmpty && !_seenChats.contains(_eventKey(request)),
+                    ).length,
+                    providerAlertCount: (_inbox ?? []).where((request) =>
+                      request.isPending && !_seenAlerts.contains(_eventKey(request)),
+                    ).length,
                   ),
                 ],
               ),
@@ -677,39 +728,18 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
     );
   }
 
-  Widget _header() => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 10, 12, 8),
-    child: Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(5),
-          decoration: BoxDecoration(
-            color: _green,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(Icons.eco_outlined, size: 17, color: Colors.white),
+  Widget _header() => const Align(
+    alignment: Alignment.centerLeft,
+    child: Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 10),
+      child: Text(
+        'KapConnect',
+        style: TextStyle(
+          color: _green,
+          fontWeight: FontWeight.bold,
+          fontSize: 22,
         ),
-        const SizedBox(width: 6),
-        const Expanded(
-          child: Text(
-            'KapConnect',
-            style: TextStyle(
-              color: _green,
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-            ),
-          ),
-        ),
-        IconButton(
-          tooltip: 'Provider profile',
-          onPressed: () => setState(() => _tab = 3),
-          icon: const CircleAvatar(
-            radius: 16,
-            backgroundColor: _green,
-            child: Icon(Icons.person_outline, size: 19, color: Colors.white),
-          ),
-        ),
-      ],
+      ),
     ),
   );
 
@@ -1199,73 +1229,44 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
     );
   }
 
-  Widget _dashboard(ProviderCalendarMonth data) => ListView(
-    padding: const EdgeInsets.all(16),
-    children: [
-      const Text(
-        'Machinery Overview',
-        style: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: kOwnerInk,
-        ),
-      ),
-      const SizedBox(height: 16),
-      OwnerCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              '${_months[_month.month - 1]} ${_month.year}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '${data.dateKeys.fold(0, (sum, key) => sum + data.day(DateTime.parse(key)).confirmed)} confirmed bookings',
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${data.dateKeys.fold(0, (sum, key) => sum + data.day(DateTime.parse(key)).incoming)} incoming requests',
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => setState(() => _tab = 1),
-              style: FilledButton.styleFrom(backgroundColor: _green),
-              child: const Text('Open Availability Calendar'),
-            ),
-          ],
-        ),
-      ),
-    ],
-  );
-
-  Widget _requests(ProviderCalendarMonth data) {
-    final dates =
-        data.dateKeys
-            .map((key) => MapEntry(key, data.day(DateTime.parse(key))))
-            .where((entry) => data.day(DateTime.parse(entry.key)).incoming > 0)
-            .toList()
-          ..sort((a, b) => a.key.compareTo(b.key));
+  Widget _inboxContent(List<ProviderBookingRequest>? bookings) {
+    final alerts = _tab == AppTab.alerts;
+    final requests = bookings
+        ?.where((request) => !alerts || request.isPending)
+        .toList();
+    requests?.sort((a, b) {
+      final latestA = a.messages.lastOrNull?.sentAt ?? a.startsAt;
+      final latestB = b.messages.lastOrNull?.sentAt ?? b.startsAt;
+      return latestB.compareTo(latestA);
+    });
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
-          'Incoming Requests',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: kOwnerInk,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                alerts ? 'Alerts' : 'Machinery Chats',
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+            ),
+            if (_live != null)
+              IconButton(
+                tooltip: 'Refresh',
+                onPressed: _loadInbox,
+                icon: const Icon(Icons.refresh),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_inboxError != null) OwnerCard(child: Text(_inboxError!.message)),
+        if (requests == null && _inboxError == null)
+          const Center(child: CircularProgressIndicator())
+        else if (requests != null && requests.isEmpty)
+          OwnerCard(
+            child: Text(alerts ? 'No new booking requests.' : 'No machinery chats yet.'),
           ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          '${_months[_month.month - 1]} ${_month.year}',
-          style: const TextStyle(color: kOwnerMuted),
-        ),
-        const SizedBox(height: 16),
-        if (dates.isEmpty)
-          const OwnerCard(child: Text('No incoming requests this month.')),
-        for (final entry in dates)
+        for (final request in requests ?? const <ProviderBookingRequest>[])
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: OwnerCard(
@@ -1275,16 +1276,17 @@ class _ProviderCalendarPageState extends State<ProviderCalendarPage> {
                 borderRadius: BorderRadius.circular(12),
                 clipBehavior: Clip.antiAlias,
                 child: ListTile(
-                  leading: const Icon(Icons.event_note_outlined, color: _green),
-                  title: Text(
-                    _dateLabel(DateTime.parse(entry.key)),
-                    style: const TextStyle(fontSize: 13),
+                  leading: Icon(
+                    alerts ? Icons.notifications_outlined : Icons.chat_bubble_outline,
+                    color: _green,
                   ),
+                  title: Text(alerts ? 'Booking request from ${request.ownerName}' : request.ownerName),
                   subtitle: Text(
-                    '${data.day(DateTime.parse(entry.key)).incoming} incoming requests',
+                    '${request.machineName ?? request.machinery} · ${request.service}\n'
+                    '${requestDate(request.startsAt)} · ${requestStatusLabel(request)}',
                   ),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _openDate(DateTime.parse(entry.key), data),
+                  onTap: () => _openRequest(request, bookings!),
                 ),
               ),
             ),

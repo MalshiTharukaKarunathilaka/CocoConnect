@@ -116,8 +116,8 @@ class MachineryApi {
     ),
   );
 
-  Future<List<ProviderBookingRequest>> bookings() async =>
-      (await ApiClient.get('$base/bookings') as List)
+  Future<List<ProviderBookingRequest>> bookings({bool provider = false}) async =>
+      (await ApiClient.get('$base/${provider ? 'provider/bookings' : 'bookings'}') as List)
           .map(
             (e) => ProviderBookingRequest.fromJson(
               Map<String, dynamic>.from(e as Map),
@@ -129,10 +129,12 @@ class MachineryApi {
     String action, {
     String? message,
     double? rate,
+    Map<String, dynamic>? details,
   }) async => ProviderBookingRequest.fromJson(
     Map<String, dynamic>.from(
       await ApiClient.post('$base/bookings/${request.id}/$action', {
             'expected_version': request.version,
+            ...?details,
             'message': ?message,
             if (rate != null)
               'offer_total': double.parse(

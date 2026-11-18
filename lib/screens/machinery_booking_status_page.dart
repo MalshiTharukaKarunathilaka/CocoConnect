@@ -1,3 +1,4 @@
+import '../widgets/deal_cancellation_dialog.dart';
 import '../widgets/app_bottom_nav.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -21,30 +22,11 @@ class MachineryBookingStatusPage extends StatelessWidget {
   const MachineryBookingStatusPage({super.key, required this.booking});
 
   Future<void> _cancel(BuildContext context) async {
-    final bool? yes = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cancel this booking?'),
-        content: Text(
-          '${booking.service} on ${fullDate(booking.date)} will be cancelled '
-          'and the date becomes free again.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep booking'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Cancel booking',
-              style: TextStyle(color: kOwnerRed),
-            ),
-          ),
-        ],
-      ),
+    final details = await showDealCancellationDialog(
+      context,
+      type: DealCancellationType.machinery,
     );
-    if (yes != true || !context.mounted) return;
+    if (details == null || !context.mounted) return;
     machineBookings[booking.machineName]?.removeWhere(
       (x) => x.id == booking.id,
     );
@@ -171,7 +153,7 @@ class MachineryBookingStatusPage extends StatelessWidget {
       ('Provider Accepted', 'Price agreed with ${b.provider}', 1, Icons.sync),
       (
         'On the Way',
-        '${b.category} mobilization to estate',
+        '${b.category} mobilization to land',
         2,
         Icons.local_shipping_outlined,
       ),
@@ -681,7 +663,7 @@ class MachineryBookingStatusPage extends StatelessWidget {
                 child: Text(
                   b.isCompleted
                       ? 'This job was completed and signed off.'
-                      : 'The machine is moved to your estate for the booked date.',
+                      : 'The machine is moved to your land for the booked date.',
                   style: const TextStyle(fontSize: 12.5, color: kOwnerMuted),
                 ),
               ),
@@ -734,7 +716,7 @@ class MachineryBookingStatusPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          row(Icons.home_work_outlined, 'Estate', text(b.estate)),
+          row(Icons.home_work_outlined, 'Land', text(b.estate)),
           row(Icons.calendar_today_outlined, 'Date', text(fullDate(b.date))),
           row(Icons.schedule, 'Start time', text(b.time)),
           row(

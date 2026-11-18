@@ -226,6 +226,7 @@ void main() {
     await reveal(tester, find.text('Received Offer'));
     expect(find.textContaining('Service date: '), findsOneWidget);
     expect(r.messages.first.sender, RequestSpeaker.owner);
+    await reveal(tester, find.text('Please plough eight acres.'));
     expect(find.text('Please plough eight acres.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -240,9 +241,7 @@ void main() {
           repository: _Repository([r]),
         ),
       );
-      await tester.tap(find.text('Requests'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Thursday, January 6, 2028'));
+      await tester.tap(find.byKey(const Key('provider-day-2028-01-06')));
       await tester.pumpAndSettle();
       await reveal(tester, find.text('Review & Respond to Request'));
       await tester.tap(find.text('Review & Respond to Request'));

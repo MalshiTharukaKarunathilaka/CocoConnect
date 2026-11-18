@@ -128,11 +128,17 @@ void openTab(
 class AppBottomNav extends StatefulWidget {
   final AppTab current;
   final ChatScope chatScope;
+  final ValueChanged<AppTab>? onProviderTab;
+  final int providerChatCount;
+  final int providerAlertCount;
 
   const AppBottomNav({
     super.key,
     required this.current,
     this.chatScope = ChatScope.all,
+    this.onProviderTab,
+    this.providerChatCount = 0,
+    this.providerAlertCount = 0,
   });
 
   @override
@@ -143,26 +149,31 @@ class _AppBottomNavState extends State<AppBottomNav> {
   @override
   void initState() {
     super.initState();
-    Unread._attach();
+    if (widget.onProviderTab == null) Unread._attach();
   }
 
   @override
   void dispose() {
-    Unread._detach();
+    if (widget.onProviderTab == null) Unread._detach();
     super.dispose();
   }
 
   void _go(AppTab tab) {
-    openTab(context, tab, chatScope: widget.chatScope);
+    final onProviderTab = widget.onProviderTab;
+    if (onProviderTab == null) {
+      openTab(context, tab, chatScope: widget.chatScope);
+    } else {
+      onProviderTab(tab);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF8F4EB),
-        border: Border(top: BorderSide(color: Color(0xFFE8E2D6))),
+      decoration: BoxDecoration(
+        color: widget.onProviderTab == null ? const Color(0xFFF8F4EB) : Colors.white,
+        border: const Border(top: BorderSide(color: Color(0xFFE8E2D6))),
       ),
       child: ValueListenableBuilder(
         valueListenable: Unread.counts,
@@ -175,7 +186,7 @@ class _AppBottomNavState extends State<AppBottomNav> {
               Icons.dashboard,
               'Dashboard',
             ),
-            _item(
+            if (widget.onProviderTab == null) _item(
               AppTab.orders,
               Icons.receipt_long_outlined,
               Icons.receipt_long,
@@ -186,7 +197,7 @@ class _AppBottomNavState extends State<AppBottomNav> {
               Icons.chat_bubble_outline,
               Icons.chat_bubble,
               'Chats',
-              badge: switch (widget.chatScope) {
+              badge: widget.onProviderTab != null ? widget.providerChatCount : switch (widget.chatScope) {
                 ChatScope.coconut => counts.coconutChats,
                 ChatScope.dayJobs => counts.dayJobChats,
                 ChatScope.all => counts.chats,
@@ -197,12 +208,12 @@ class _AppBottomNavState extends State<AppBottomNav> {
               Icons.notifications_outlined,
               Icons.notifications,
               'Alerts',
-              badge: counts.alerts,
+              badge: widget.onProviderTab != null ? widget.providerAlertCount : counts.alerts,
             ),
             _item(
               AppTab.profile,
-              Icons.person_outline,
-              Icons.person,
+              widget.onProviderTab == null ? Icons.person_outline : Icons.account_circle_outlined,
+              widget.onProviderTab == null ? Icons.person : Icons.account_circle,
               'Profile',
             ),
           ],
@@ -231,14 +242,14 @@ class _AppBottomNavState extends State<AppBottomNav> {
               duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               decoration: BoxDecoration(
-                color: active ? _greenSoft : Colors.transparent,
+                color: active && widget.onProviderTab == null ? _greenSoft : Colors.transparent,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Badge(
                 isLabelVisible: badge > 0,
                 label: Text(badge > 99 ? '99+' : '$badge'),
                 backgroundColor: const Color(0xFFD32F2F),
-                child: Icon(active ? activeIcon : icon, size: 22, color: color),
+                child: Icon(active ? activeIcon : icon, size: widget.onProviderTab == null ? 22 : 26, color: color),
               ),
             ),
             const SizedBox(height: 3),
