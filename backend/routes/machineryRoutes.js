@@ -19,4 +19,5 @@ router.post('/bookings/:bookingId/revise',requireRole('ESTATE_OWNER'),c.revise);
 router.post('/bookings/:bookingId/accept',requireRole('SERVICE_PROVIDER'),c.accept);
 router.post('/bookings/:bookingId/cancel',requireRole('ESTATE_OWNER'),c.cancel);
 router.post('/bookings/:bookingId/decline',requireRole('SERVICE_PROVIDER'),c.decline);
+router.post('/bookings/:bookingId/complete-and-rate',requireRole('SERVICE_PROVIDER'),c.completeAndRateOwner);
 module.exports=router;

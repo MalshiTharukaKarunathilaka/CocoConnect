@@ -83,7 +83,7 @@ const updateEstate = async (req, res) => {
     const year = yearText === null ? null : Number(yearText);
 
     if (!estateName) {
-      return res.status(400).json({ message: "Estate name is required" });
+      return res.status(400).json({ message: "Land name is required" });
     }
     if (year !== null && !(Number.isInteger(year) && year >= 1800 && year <= 2100)) {
       return res.status(400).json({ message: "Enter a valid year, e.g. 2015" });
@@ -151,8 +151,44 @@ const getSummary = async (req, res) => {
       `SELECT COUNT(*) AS count ${myOrders} AND o.status = 'COMPLETED'`
     );
 
+    // Each received rating has equal weight; missing ratings are not zeroes.
+    const source = async (key, label, sql, params) => {
+      const row = (await pool.query(sql, params)).rows[0];
+      const count = Number(row.rating_count || 0);
+      const total = Number(row.rating_total || 0);
+      return {key, label, rating_count: count, rating_total: total,
+        average_rating: count ? total / count : null};
+    };
+    const ratingSources = await Promise.all([
+      source('coconut_sales', 'Coconut sales',
+        `SELECT SUM(o.buyer_rating) AS rating_total, COUNT(o.buyer_rating)::integer AS rating_count
+         FROM orders o WHERE o.status = 'COMPLETED' AND o.buyer_rating BETWEEN 1 AND 5
+         AND (o.listing_id IN (SELECT id FROM product_listings WHERE estate_owner_id = $1)
+           OR o.buyer_request_id IN (SELECT buyer_request_id FROM sell_requests
+             WHERE estate_owner_id = $1 AND status = 'accepted'))`, [estate.id]),
+      source('day_jobs', 'Day jobs',
+        `SELECT SUM(a.estate_owner_rating) AS rating_total, COUNT(a.estate_owner_rating)::integer AS rating_count
+         FROM day_job_applications a JOIN day_jobs j ON j.id = a.day_job_id
+         WHERE j.estate_owner_id = $1 AND UPPER(j.status) = 'COMPLETED'
+           AND UPPER(a.status) IN ('ACCEPTED', 'COMPLETED') AND a.estate_owner_rating BETWEEN 1 AND 5`, [estate.id]),
+      source('machinery', 'Machinery bookings',
+        `SELECT SUM(f.rating) AS rating_total, COUNT(f.rating)::integer AS rating_count
+         FROM machinery_booking_feedback f JOIN machinery_bookings b ON b.id = f.booking_id
+         WHERE f.owner_user_id = $1 AND b.status = 'CONFIRMED'`, [req.user.id]),
+      source('fertilizer', 'Fertilizer orders',
+        `SELECT SUM(land_owner_rating) AS rating_total, COUNT(land_owner_rating)::integer AS rating_count
+         FROM fertilizer_orders WHERE owner_user_id = $1 AND status = 'DELIVERED'
+           AND land_owner_rating BETWEEN 1 AND 5`, [req.user.id]),
+    ]);
+    const ratingCount = ratingSources.reduce((total, item) => total + item.rating_count, 0);
+    const ratingTotal = ratingSources.reduce((total, item) => total + item.rating_total, 0);
+    const averageRating = ratingCount ? ratingTotal / ratingCount : null;
+
     return res.status(200).json({
       estate,
+      average_rating: averageRating,
+      rating_count: ratingCount,
+      rating_sources: ratingSources,
       active_listings: activeListings,
       open_chats: openChats,
       offers_waiting: offersWaiting,

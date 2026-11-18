@@ -1,3 +1,5 @@
+import '../../widgets/open_street_map_tiles.dart';
+import '../../widgets/land_owner_rating_dialog.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -68,6 +70,26 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
     }
   }
 
+  Future<void> _completeAndRate() async {
+    final rating = await showLandOwnerRatingDialog(context);
+    if (rating == null || !mounted || _busy) return;
+    setState(() => _busy = true);
+    try {
+      final latest = await widget.api!.completeAndRateOwner(
+        _request.id,
+        rating,
+      );
+      if (mounted) {
+        setState(() => _request = latest);
+        _notify('Work completed and land owner rating saved');
+      }
+    } on ApiException catch (error) {
+      if (mounted) _notify(error.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<bool> _perform(
     String action, {
     String? message,
@@ -131,6 +153,7 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
     final yes = await showThemedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        scrollable: true,
         title: Text(
           accept
               ? (_preview
@@ -172,6 +195,7 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
     final yes = await showThemedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        scrollable: true,
         title: const Text('Cancel booking request?'),
         content: const Text(
           'The request will be cancelled and its reserved time slot released.',
@@ -228,6 +252,15 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
 
   Widget _page(BuildContext context) {
     final request = _request;
+    final utc = DateTime.now().toUtc().add(const Duration(minutes: 330));
+    final sriLankaNow = DateTime(
+      utc.year,
+      utc.month,
+      utc.day,
+      utc.hour,
+      utc.minute,
+      utc.second,
+    );
     final offerIsMine = widget.isOwner
         ? request.proposedBy == RequestSpeaker.owner
         : request.proposedBy == RequestSpeaker.provider;
@@ -269,6 +302,20 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
                     OutlinedButton(
                       onPressed: _cancelOwner,
                       child: const Text('Cancel Booking Request'),
+                    ),
+                  if (request.landOwnerRating != null)
+                    Text(
+                      'Completed work ? Land owner rating: ${request.landOwnerRating} / 5',
+                    ),
+                  if (!_preview &&
+                      !widget.isOwner &&
+                      request.landOwnerRating == null &&
+                      request.status == ProviderRequestStatus.confirmed &&
+                      !request.endsAt.isAfter(sriLankaNow))
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _completeAndRate,
+                      icon: const Icon(Icons.star_outline),
+                      label: const Text('Complete work & rate land owner'),
                     ),
                   _location(),
                   const SizedBox(height: 16),
@@ -622,9 +669,7 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
                       ),
                     ],
                   ),
-                  const SimpleAttributionWidget(
-                    source: Text('OpenStreetMap contributors'),
-                  ),
+                  const KapConnectMapAttribution(),
                 ],
               ),
             )

@@ -152,6 +152,23 @@ class Estate {
   );
 }
 
+class OwnerRatingSource {
+  final String label;
+  final double? averageRating;
+  final int ratingCount;
+  const OwnerRatingSource({
+    required this.label,
+    this.averageRating,
+    required this.ratingCount,
+  });
+  factory OwnerRatingSource.fromJson(Map<String, dynamic> json) =>
+      OwnerRatingSource(
+        label: json['label'] as String,
+        averageRating: _rating(json['average_rating']),
+        ratingCount: (json['rating_count'] as num).toInt(),
+      );
+}
+
 /// Everything the land owner profile page shows.
 class OwnerSummary {
   final Estate estate;
@@ -159,7 +176,10 @@ class OwnerSummary {
   final int openChats;
   final int offersWaiting;
   final int ordersActive;
+  final List<OwnerRatingSource> ratingSources;
   final int ordersCompleted;
+  final double? averageRating;
+  final int ratingCount;
 
   const OwnerSummary({
     required this.estate,
@@ -168,6 +188,9 @@ class OwnerSummary {
     required this.offersWaiting,
     required this.ordersActive,
     required this.ordersCompleted,
+    this.averageRating,
+    this.ratingSources = const [],
+    this.ratingCount = 0,
   });
 
   factory OwnerSummary.fromJson(Map<String, dynamic> json) => OwnerSummary(
@@ -177,6 +200,15 @@ class OwnerSummary {
     offersWaiting: (json['offers_waiting'] as num).toInt(),
     ordersActive: (json['orders_active'] as num).toInt(),
     ordersCompleted: (json['orders_completed'] as num).toInt(),
+    averageRating: _rating(json['average_rating']),
+    ratingCount: (json['rating_count'] as num?)?.toInt() ?? 0,
+    ratingSources: (json['rating_sources'] as List? ?? const [])
+        .map(
+          (item) => OwnerRatingSource.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+        )
+        .toList(),
   );
 }
 

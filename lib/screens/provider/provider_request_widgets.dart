@@ -43,6 +43,7 @@ Future<void> showCustomerContact(
 }) => showThemedDialog<void>(
   context: context,
   builder: (ctx) => AlertDialog(
+    scrollable: true,
     title: Text(
       ownerView ? (request.providerName ?? 'Provider') : request.ownerName,
     ),
