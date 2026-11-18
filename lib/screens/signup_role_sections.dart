@@ -45,7 +45,7 @@ class SignupExtras {
   int radius = 5;
   bool agreed = false;
 
-  // Estate owner
+  // Land owner
   final estateName = TextEditingController();
   final estateArea = TextEditingController();
   final estateCrop = TextEditingController(text: 'Coconut');
@@ -184,7 +184,7 @@ class ProviderSignupSection extends StatelessWidget {
     return RoleSectionCard(
       icon: Icons.agriculture_outlined,
       title: 'Machinery provider details',
-      subtitle: 'Estate owners find and book you from the map',
+      subtitle: 'Land owners find and book you from the map',
       children: [
         _labelled(
           'NIC Number',

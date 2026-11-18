@@ -1,3 +1,4 @@
+import '../widgets/app_bottom_nav.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -58,6 +59,7 @@ class MachineryBookingStatusPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final MachineBooking b = booking;
     return OwnerPage(
+      currentTab: AppTab.orders,
       child: Column(
         children: [
           const OwnerHeader(title: 'Booking Status'),
@@ -882,6 +884,7 @@ class _MachineryChatPageState extends State<MachineryChatPage> {
   Widget build(BuildContext context) {
     final MachineBooking b = widget.booking;
     return OwnerPage(
+      currentTab: AppTab.orders,
       bottom: Container(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
         decoration: const BoxDecoration(

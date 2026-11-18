@@ -17,6 +17,10 @@ enum AppTab { dashboard, orders, chats, alerts, profile }
 
 enum ChatScope { all, coconut, dayJobs }
 
+bool get supportsMainNavigation =>
+    AuthService.currentUser?.role == 'BUYER' ||
+    AuthService.currentUser?.role == 'ESTATE_OWNER';
+
 /// Unread chat messages and unseen notifications, shared by every bottom
 /// bar on screen and refreshed while one is showing.
 class Unread {
@@ -107,7 +111,7 @@ void openTab(
       SnackBar(
         content: Text(
           'There is no profile screen for ${role ?? 'this'} accounts yet. '
-          'Log in with a Buyer or Estate Owner account.',
+          'Log in with a Buyer or Land Owner account.',
         ),
       ),
     );
@@ -120,7 +124,7 @@ void openTab(
 }
 
 /// Dashboard · Orders · Chats · Alerts · Profile - the same on the buyer and
-/// estate owner sides.
+/// land owner sides.
 class AppBottomNav extends StatefulWidget {
   final AppTab current;
   final ChatScope chatScope;
@@ -149,7 +153,6 @@ class _AppBottomNavState extends State<AppBottomNav> {
   }
 
   void _go(AppTab tab) {
-    if (tab == widget.current) return;
     openTab(context, tab, chatScope: widget.chatScope);
   }
 

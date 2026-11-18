@@ -33,10 +33,10 @@ const options = {
       },
       {
         name: "Chats",
-        description: "Negotiation chats and notifications for buyers and estate owners",
+        description: "Negotiation chats and notifications for buyers and land owners",
       },
       {
-        name: "Estate Owner",
+        name: "Land Owner",
         description: "Estate, listings, offers to buyers, chats and orders",
       },
     ],

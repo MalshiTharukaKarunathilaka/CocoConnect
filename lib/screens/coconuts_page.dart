@@ -4,6 +4,7 @@ import '../widgets/reusable_widgets.dart';
 import '../widgets/app_bottom_nav.dart';
 import 'raw_coconuts_page.dart';
 import 'coconut_husks_page.dart';
+import 'dehusked_coconuts_page.dart';
 
 class CoconutsPage extends StatelessWidget {
   const CoconutsPage({super.key});
@@ -93,8 +94,8 @@ class CoconutsPage extends StatelessWidget {
                           child: CoconutProductCard(
                             title: 'Raw Coconuts(with husks)',
                             unitLabel: '1 unit = 1 nut',
-                            imageUrl:
-                                'https://commons.wikimedia.org/wiki/Special:FilePath/Coconut_green.JPG?width=800',
+                            imageUrl: '',
+                            imageAsset: 'assets/images/raw_coconuts_green.jpg',
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -108,15 +109,22 @@ class CoconutsPage extends StatelessWidget {
 
                         const SizedBox(height: 10),
 
-                        const Expanded(
+                        Expanded(
                           child: CoconutProductCard(
                             title: 'Dehusked Coconuts',
-                            unitLabel: '1 unit = 1 kg',
-                            imageUrl:
-                                'https://images.pexels.com/photos/7543134/pexels-photo-7543134.jpeg?auto=compress&cs=tinysrgb&w=800',
+                            unitLabel: '1 unit = 1 nut',
+                            imageUrl: '',
+                            imageAsset: 'assets/images/dehusked_coconuts.jpg',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const DehuskedCoconutsPage(),
+                                ),
+                              );
+                            },
                           ),
                         ),
-
                         const SizedBox(height: 10),
 
                         Expanded(
@@ -124,8 +132,7 @@ class CoconutsPage extends StatelessWidget {
                             title: 'Only Husks',
                             unitLabel: '1 unit = 1 nut',
                             imageUrl: '',
-                            imageAsset:
-                                'assets/images/coconut_husks_per_nut.png',
+                            imageAsset: 'assets/images/only_husks.jpg',
                             onTap: () {
                               Navigator.push(
                                 context,

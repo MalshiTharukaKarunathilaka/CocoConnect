@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'nearby_filter.dart';
 import 'owner_widgets.dart';
 
-/// What the estate owner's Interested Buyers list shows.
+/// What the land owner's Interested Buyers list shows.
 typedef BuyerFilter = ({String sort, int? radiusKm, bool matchHarvest});
 
 /// Sort, distance and "match my harvest" in one sheet. Returns the new

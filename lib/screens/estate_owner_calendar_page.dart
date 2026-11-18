@@ -1,10 +1,8 @@
 import 'dart:async';
+import '../widgets/role_navigation_page.dart';
 import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
-import '../widgets/app_bottom_nav.dart';
 import '../services/owner_service.dart';
-import '../services/chat_service.dart';
-import '../services/api_client.dart';
 import '../services/holiday_service.dart';
 import '../widgets/holiday_widgets.dart';
 import 'post_day_job_page.dart';
@@ -26,7 +24,6 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _selectedDay;
   List<DayJob> _postedJobs = [];
-  int _notificationCount = 0;
   String? _categoryFilter;
   Timer? _pollTimer;
   final Set<int> _shownCompletionAcknowledgements = <int>{};
@@ -51,11 +48,9 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   void initState() {
     super.initState();
     _loadPostedJobs();
-    _loadNotificationCount();
     _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (mounted) {
         _loadPostedJobs();
-        _loadNotificationCount();
       }
     });
   }
@@ -66,15 +61,6 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     super.dispose();
   }
 
-  Future<void> _loadNotificationCount() async {
-    try {
-      final items = await ChatService.getNotifications();
-      final count = await ChatService.unseenCount(items);
-      if (mounted) setState(() => _notificationCount = count);
-    } on ApiException {
-      // Keep the calendar usable if notifications are unavailable.
-    }
-  }
 
   Future<void> _loadPostedJobs() async {
     try {
@@ -365,7 +351,6 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                                     Navigator.pop(dialogContext);
                                   }
                                   _loadPostedJobs();
-                                  _loadNotificationCount();
                                   ScaffoldMessenger.of(this.context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
@@ -583,7 +568,6 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                                     Navigator.pop(dialogContext);
                                   }
                                   _loadPostedJobs();
-                                  _loadNotificationCount();
                                   ScaffoldMessenger.of(this.context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
@@ -787,47 +771,56 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   @override
   Widget build(BuildContext context) {
     final compactMobile = MediaQuery.sizeOf(context).height <= 850;
-    return Scaffold(
-      backgroundColor: const Color(0xFFEFEFEF),
-      body: Center(
-        child: Container(
-          width: 390,
-          constraints: const BoxConstraints(maxWidth: 430),
-          color: _calendarBackground,
-          child: SafeArea(
-            child: Column(
-              children: [
-                _header(compact: compactMobile),
-                Expanded(
-                  child: ListView(
-                    padding: EdgeInsets.fromLTRB(
-                      14,
-                      compactMobile ? 0 : 10,
-                      14,
-                      18,
-                    ),
-                    children: [
-                      if (_postedJobs.any((j) => j.status.toUpperCase() == 'AWAITING_OWNER_ACK')) ...[
-                        _completionAcknowledgementBanner(
-                          _postedJobs.where((j) => j.status.toUpperCase() == 'AWAITING_OWNER_ACK').toList(),
-                        ),
-                        SizedBox(height: compactMobile ? 4 : 8),
-                      ],
-                      _categoryCard(compact: compactMobile),
-                      SizedBox(height: compactMobile ? 5 : 12),
-                      HolidayListener(
-                        years: [_month.year],
-                        builder: (_) => _calendarCard(
-                          compact: compactMobile,
-                        ),
+    return RoleNavigationPage(
+      chatScope: ChatScope.dayJobs,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFEFEFEF),
+        body: Center(
+          child: Container(
+            width: 390,
+            constraints: const BoxConstraints(maxWidth: 430),
+            color: _calendarBackground,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _header(compact: compactMobile),
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.fromLTRB(
+                        14,
+                        compactMobile ? 0 : 10,
+                        14,
+                        18,
                       ),
-                    ],
+                      children: [
+                        if (_postedJobs.any(
+                          (job) =>
+                              job.status.toUpperCase() == 'AWAITING_OWNER_ACK',
+                        )) ...[
+                          _completionAcknowledgementBanner(
+                            _postedJobs
+                                .where(
+                                  (job) =>
+                                      job.status.toUpperCase() ==
+                                      'AWAITING_OWNER_ACK',
+                                )
+                                .toList(),
+                          ),
+                          SizedBox(height: compactMobile ? 4 : 8),
+                        ],
+                        _categoryCard(compact: compactMobile),
+                        SizedBox(height: compactMobile ? 5 : 12),
+                        HolidayListener(
+                          years: [_month.year],
+                          builder: (_) => _calendarCard(
+                            compact: compactMobile,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                _CalendarBottomNavigation(
-                  notificationCount: _notificationCount,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -886,7 +879,12 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     final calendarCellCount = ((leadingDays + daysInMonth + 6) ~/ 7) * 7;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(16, compact ? 12 : 20, 16, compact ? 10 : 16),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        compact ? 12 : 20,
+        16,
+        compact ? 10 : 16,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
@@ -1562,104 +1560,6 @@ class _CategoryChip extends StatelessWidget {
                 const Icon(Icons.check, size: 16, color: _calendarGreen),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CalendarBottomNavigation extends StatelessWidget {
-  final int notificationCount;
-
-  const _CalendarBottomNavigation({this.notificationCount = 0});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE8E2D6))),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _item(
-            context,
-            Icons.dashboard_outlined,
-            'Dashboard',
-            onTap: () => openTab(context, AppTab.dashboard),
-          ),
-          _item(context, Icons.calendar_month, 'Calendar', active: true),
-          _item(
-            context,
-            Icons.chat_bubble_outline,
-            'Chats',
-            onTap: () =>
-                openTab(context, AppTab.chats, chatScope: ChatScope.dayJobs),
-          ),
-          _item(
-            context,
-            Icons.notifications_none,
-            'Alerts',
-            badge: notificationCount,
-            onTap: () => openTab(context, AppTab.alerts),
-          ),
-          _item(
-            context,
-            Icons.person_outline,
-            'Profile',
-            onTap: () => openTab(context, AppTab.profile),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _item(
-    BuildContext context,
-    IconData icon,
-    String label, {
-    VoidCallback? onTap,
-    bool active = false,
-    int badge = 0,
-  }) {
-    final color = active ? _calendarGreen : const Color(0xFF66615D);
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(
-                color: active ? const Color(0xFFDDEEE0) : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Badge(
-                isLabelVisible: badge > 0,
-                label: Text(badge > 99 ? '99+' : '$badge'),
-                backgroundColor: Colors.red,
-                child: Icon(
-                  active ? Icons.calendar_month : icon,
-                  size: 22,
-                  color: color,
-                ),
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: active ? FontWeight.bold : FontWeight.w600,
-                color: color,
-              ),
-            ),
-          ],
         ),
       ),
     );

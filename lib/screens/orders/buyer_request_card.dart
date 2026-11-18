@@ -33,7 +33,7 @@ BuyerPill _statusPill(String text, {bool good = false, bool bad = false}) {
   );
 }
 
-/// One of the buyer's own requests: edit, delete, and see estate owners'
+/// One of the buyer's own requests: edit, delete, and see land owners'
 /// offers on it (accept one to make a deal).
 class BuyerRequestCard extends StatelessWidget {
   final BuyerRequest request;
@@ -75,7 +75,7 @@ class BuyerRequestCard extends StatelessWidget {
         title: const Text('Delete request?'),
         content: Text(
           'Your request for ${withCommas(request.quantity)} nuts will be '
-          'removed and estate owners will no longer see it.',
+          'removed and land owners will no longer see it.',
         ),
         actions: [
           TextButton(
@@ -163,8 +163,8 @@ class BuyerRequestCard extends StatelessWidget {
                         Flexible(
                           child: Text(
                             request.responseCount == 1
-                                ? '1 estate owner responded  ·  View offer'
-                                : '${request.responseCount} estate owners '
+                                ? '1 land owner responded  ·  View offer'
+                                : '${request.responseCount} land owners '
                                       'responded  ·  View offers',
                             style: const TextStyle(
                               fontSize: 12.5,
@@ -200,7 +200,7 @@ class BuyerRequestCard extends StatelessWidget {
   }
 }
 
-/// Estate owners' offers on one request, cheapest first, with Accept.
+/// Land owners' offers on one request, cheapest first, with Accept.
 class _OffersSheet extends StatefulWidget {
   final BuyerRequest request;
 
@@ -268,7 +268,7 @@ class _OffersSheetState extends State<_OffersSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Offers from estate owners',
+                'Offers from land owners',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),

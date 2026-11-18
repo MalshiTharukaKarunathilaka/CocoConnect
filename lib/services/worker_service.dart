@@ -109,7 +109,7 @@ class WorkerJob {
     status:
         json['worker_status'] as String? ?? json['status'] as String? ?? 'OPEN',
     estateName: json['estate_name'] as String? ?? 'Estate',
-    estateOwnerName: json['estate_owner_name'] as String? ?? 'Estate owner',
+    estateOwnerName: json['estate_owner_name'] as String? ?? 'Land owner',
     estateLocation:
         json['estate_location'] as String? ?? json['location'] as String? ?? '',
     latitude: (json['estate_latitude'] as num?)?.toDouble(),

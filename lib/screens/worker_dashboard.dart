@@ -7,8 +7,9 @@ import '../services/chat_service.dart';
 import '../services/day_job_chat_service.dart';
 import '../services/holiday_service.dart';
 import '../services/worker_service.dart';
+import '../widgets/profile_widgets.dart';
+import '../widgets/buyer_widgets.dart';
 import '../widgets/holiday_widgets.dart';
-import 'auth_gate.dart';
 import 'worker_chat_page.dart';
 import 'estate_jobs_map_page.dart';
 import 'day_job_chats_list.dart';
@@ -95,12 +96,16 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   void _reloadJobs() {
     if (!mounted) return;
-    setState(() => _jobs = WorkerService.getAvailableJobs());
+    setState(() {
+      _jobs = WorkerService.getAvailableJobs();
+    });
   }
 
   void _reloadProfile() {
     if (!mounted) return;
-    setState(() => _profileSummary = _fetchProfile());
+    setState(() {
+      _profileSummary = _fetchProfile();
+    });
   }
 
   Future<WorkerProfileSummary> _fetchProfile() async {
@@ -145,7 +150,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       await _showJobConfirmation(job);
 
       final refreshedJobs = WorkerService.getAvailableJobs();
-      setState(() => _jobs = refreshedJobs);
+      setState(() {
+        _jobs = refreshedJobs;
+      });
     } on ApiException catch (error) {
       if (!mounted) return;
       if (error.message.toLowerCase().contains('already accepted')) {
@@ -2684,67 +2691,51 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         ? 'Available for nearby jobs'
         : '${profile.activeJobs} active ${profile.activeJobs == 1 ? 'job' : 'jobs'}';
     return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
+        const ProfileTitle(),
+        const SizedBox(height: 16),
+        ProfileIdentityCard(
+          name: profile.name,
+          role: 'Day Job Worker',
+          phone: profile.phone,
+          location: profile.location,
+        ),
+        const SizedBox(height: 18),
+        const ProfileSectionLabel('MY ACTIVITY'),
         const SizedBox(height: 8),
-        const CircleAvatar(
-          radius: 40,
-          backgroundColor: Color(0xFFE9E6DC),
-          child: Icon(Icons.person, color: _workerGreen, size: 44),
+        ProfileStatsGrid(
+          children: [
+            ProfileStatTile(
+              value: '${profile.completedJobs}',
+              label: 'Completed jobs',
+              icon: Icons.check_circle_outline,
+            ),
+            ProfileStatTile(
+              value: '${profile.acceptedJobs}',
+              label: 'Accepted jobs',
+              icon: Icons.work_outline,
+            ),
+            ProfileStatTile(
+              value: ratingLabel,
+              label: 'Average rating',
+              icon: Icons.star_outline,
+            ),
+          ],
         ),
-        const SizedBox(height: 6),
-        Center(
+        const SizedBox(height: 18),
+        const ProfileSectionLabel('WORK DETAILS'),
+        const SizedBox(height: 8),
+        BuyerCard(
           child: Column(
             children: [
-              Text(
-                profile.name,
-                style: const TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              OutlinedButton.icon(
-                onPressed: _editWorkerProfile,
-                icon: const Icon(Icons.edit, size: 16),
-                label: const Text('Edit profile'),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 6),
-        Center(
-          child: Text(
-            profile.phone,
-            style: const TextStyle(color: _workerMuted),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: _cardDecoration(),
-          child: Column(
-            children: [
-              const _WorkerProfileDetail(
-                icon: Icons.badge_outlined,
-                title: 'Worker type',
-                value: 'Day Job Worker',
-              ),
-              const Divider(height: 16),
               _WorkerProfileDetail(
                 icon: Icons.work_outline,
                 title: 'Work categories',
                 value: categories,
               ),
-              const Divider(height: 16),
-              _WorkerProfileDetail(
-                icon: Icons.location_on_outlined,
-                title: 'Location',
-                value: profile.location.isEmpty
-                    ? 'Not provided'
-                    : profile.location,
-              ),
-              const Divider(height: 16),
+              const Divider(height: 24),
               _WorkerProfileDetail(
                 icon: Icons.check_circle_outline,
                 title: 'Availability',
@@ -2753,45 +2744,10 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             ],
           ),
         ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: _cardDecoration(),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _WorkerProfileStat(
-                      value: '${profile.completedJobs}',
-                      label: 'Completed',
-                    ),
-                  ),
-                  Expanded(
-                    child: _WorkerProfileStat(
-                      value: '${profile.acceptedJobs}',
-                      label: 'Accepted',
-                    ),
-                  ),
-                  Expanded(child: _WorkerProfileRatingStat(value: ratingLabel)),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: () => logOut(context),
-          icon: const Icon(Icons.logout, color: Colors.red),
-          label: const Text('Log out', style: TextStyle(color: Colors.red)),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.red,
-            side: const BorderSide(color: Colors.red, width: 1.5),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(26),
-            ),
-          ),
-        ),
+        const SizedBox(height: 18),
+        const ProfileSectionLabel('ACCOUNT'),
+        const SizedBox(height: 8),
+        ProfileAccountCard(onEdit: _editWorkerProfile),
       ],
     );
   }
@@ -2969,71 +2925,6 @@ class _WorkerProfileDetail extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _WorkerProfileStat extends StatelessWidget {
-  final String value;
-  final String label;
-
-  const _WorkerProfileStat({required this.value, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            color: _workerGreen,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: _workerMuted, fontSize: 12),
-        ),
-      ],
-    );
-  }
-}
-
-class _WorkerProfileRatingStat extends StatelessWidget {
-  final String value;
-
-  const _WorkerProfileRatingStat({required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.star, color: Color(0xFFE3A008), size: 22),
-            const SizedBox(width: 5),
-            Text(
-              value == 'New' ? value : '$value / 5',
-              style: const TextStyle(
-                color: _workerGreen,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Rating',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: _workerMuted, fontSize: 12),
         ),
       ],
     );

@@ -7,7 +7,7 @@ const {
   dayOf,
   addDays,
 } = require("../utils/geo");
-const { postMessage, settleRequest } = require("./chatController");
+const { postMessage, settleRequest, postDealEvent, openOfferChat, postOrderEvent } = require("./chatController");
 
 const serverError = (res, label, error) => {
   console.error(`${label} error:`, error);
@@ -227,7 +227,7 @@ const getMyRequests = async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| ESTATE OWNERS' OFFERS ON MY REQUEST
+| LAND OWNERS' OFFERS ON MY REQUEST
 |--------------------------------------------------------------------------
 */
 const getRequestResponses = async (req, res) => {
@@ -262,7 +262,7 @@ const getRequestResponses = async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| ACCEPT AN ESTATE OWNER'S OFFER -> creates an order
+| ACCEPT AN LAND OWNER'S OFFER -> creates an order
 |--------------------------------------------------------------------------
 | Closes the request: the chosen offer is accepted, the others declined.
 */
@@ -305,7 +305,12 @@ const acceptResponse = async (req, res) => {
       "SELECT id FROM negotiations WHERE sell_request_id = $1 AND status = 'OPEN'",
       [sellRequest.id]
     );
-    const chatId = chat.rows[0]?.id ?? null;
+    let chatId = chat.rows[0]?.id ?? null;
+    if (!chatId) {
+      const estate = (await client.query('SELECT user_id FROM estate_owners WHERE id = $1', [sellRequest.estate_owner_id])).rows[0];
+      const request = (await client.query('SELECT * FROM buyer_requests WHERE id = $1', [sellRequest.buyer_request_id])).rows[0];
+      chatId = await openOfferChat(client, {estateId: sellRequest.estate_owner_id, ownerUserId: estate.user_id, offer: sellRequest, request});
+    }
     if (chatId) {
       await client.query(
         "UPDATE negotiations SET status = 'ACCEPTED', order_id = $2 WHERE id = $1",
@@ -324,6 +329,7 @@ const acceptResponse = async (req, res) => {
       );
     }
     await settleRequest(client, sellRequest, price, chatId);
+    await postDealEvent(client, chatId, req.user.id, 'accepted', price);
 
     await client.query("COMMIT");
 
@@ -359,7 +365,7 @@ const getSummary = async (req, res) => {
     );
     const ordersActive = await count(
       `SELECT COUNT(*) AS count FROM orders
-       WHERE buyer_id = $1 AND status = 'ACCEPTED'`
+       WHERE buyer_id = $1 AND status IN ('ACCEPTED', 'AWAITING_RECEIPT')`
     );
     const ordersCompleted = await count(
       `SELECT COUNT(*) AS count FROM orders
@@ -421,7 +427,7 @@ const updateRequest = async (req, res) => {
 |--------------------------------------------------------------------------
 | DELETE MY REQUEST
 |--------------------------------------------------------------------------
-| Refused once an estate owner has responded with a sell request or an order
+| Refused once a land owner has responded with a sell request or an order
 | refers to it, so their records are never left pointing at nothing.
 */
 const deleteRequest = async (req, res) => {
@@ -443,7 +449,7 @@ const deleteRequest = async (req, res) => {
     const { sells, orders } = responses.rows[0];
     if (Number(sells) > 0 || Number(orders) > 0) {
       return res.status(409).json({
-        message: "Estate owners have already responded to this request, so it can't be deleted",
+        message: "Land owners have already responded to this request, so it can't be deleted",
       });
     }
 
@@ -638,7 +644,7 @@ const sendMessage = async (req, res) => {
 |--------------------------------------------------------------------------
 | ACCEPT DEAL -> creates an order
 |--------------------------------------------------------------------------
-| The buyer accepts the estate owner's latest counter-offer, or the listed
+| The buyer accepts the land owner's latest counter-offer, or the listed
 | price if the owner has not countered.
 */
 const acceptNegotiation = async (req, res) => {
@@ -688,6 +694,7 @@ const acceptNegotiation = async (req, res) => {
       [negotiation.id, order.rows[0].id]
     );
 
+    await postDealEvent(client, negotiation.id, req.user.id, 'accepted', finalPrice);
     await client.query("COMMIT");
 
     return res.status(201).json({
@@ -760,28 +767,32 @@ const getMyOrders = async (req, res) => {
   }
 };
 
+// The buyer closes the order only after the seller records collection at the estate.
 const completeOrder = async (req, res) => {
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
-      `UPDATE orders
-       SET status = 'COMPLETED'
-       WHERE id = $1 AND buyer_id = $2 AND status = 'ACCEPTED'
-       RETURNING *`,
-      [req.params.id, req.user.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "No accepted order found to complete",
-      });
+    await client.query('BEGIN');
+    const owned = await client.query('SELECT id FROM orders WHERE id = $1 AND buyer_id = $2', [req.params.id, req.user.id]);
+    if (!owned.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({message: 'Order not found'});
     }
-
-    return res.status(200).json({
-      message: "Transaction completed",
-      order: result.rows[0],
-    });
+    const result = await client.query(
+      `UPDATE orders SET status = 'COMPLETED', completed_at = $3, buyer_confirmed_at = $3
+       WHERE id = $1 AND buyer_id = $2 AND status = 'AWAITING_RECEIPT' RETURNING *`,
+      [req.params.id, req.user.id, new Date()]);
+    if (!result.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({message: 'Collection can only be confirmed after the seller records completion'});
+    }
+    await postOrderEvent(client, result.rows[0].id, req.user.id, 'confirmed');
+    await client.query('COMMIT');
+    return res.json({message: 'Collection confirmed. The deal is complete.', order: result.rows[0]});
   } catch (error) {
-    return serverError(res, "Complete order", error);
+    await client.query('ROLLBACK');
+    return serverError(res, 'Confirm collection', error);
+  } finally {
+    client.release();
   }
 };
 

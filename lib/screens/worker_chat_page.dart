@@ -1,3 +1,4 @@
+import '../widgets/role_navigation_page.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
@@ -91,16 +92,19 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
   @override
   Widget build(BuildContext context) {
     final chat = _chat;
-    return Scaffold(
-      backgroundColor: _workerChatBackground,
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Column(
-          children: [
-            _header(context, chat),
-            Expanded(child: _messages(chat)),
-            _composer(),
-          ],
+    return RoleNavigationPage(
+      current: AppTab.chats,
+      child: Scaffold(
+        backgroundColor: _workerChatBackground,
+        body: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Column(
+            children: [
+              _header(context, chat),
+              Expanded(child: _messages(chat)),
+              _composer(),
+            ],
+          ),
         ),
       ),
     );

@@ -311,11 +311,18 @@ class StatusPill extends StatelessWidget {
   factory StatusPill.forStatus(String status) {
     switch (status) {
       case 'Pending Ack':
+      case 'Processing':
+        return const StatusPill(
+          'Processing',
+          fg: AppColors.warning,
+          bg: AppColors.warningSoft,
+        );
       case 'Negotiating':
       case 'Negotiation':
+      case 'In talk':
       case 'Submitted':
         return StatusPill(
-          status,
+          status == 'Negotiating' ? 'In talk' : status,
           fg: AppColors.warning,
           bg: AppColors.warningSoft,
         );
@@ -328,8 +335,17 @@ class StatusPill extends StatelessWidget {
         );
       case 'Accepted':
       case 'Receipt Confirmed':
-      case 'Distributed':
+      case 'Stock Confirmed':
         return const StatusPill('Accepted');
+      case 'Delivered':
+      case 'Distributed':
+        return const StatusPill(
+          'Delivered',
+          fg: AppColors.info,
+          bg: AppColors.infoSoft,
+        );
+      case 'Completed':
+        return const StatusPill('Completed');
       default:
         return StatusPill(
           status,

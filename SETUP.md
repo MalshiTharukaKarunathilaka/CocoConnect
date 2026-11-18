@@ -145,3 +145,9 @@ If opening an accepted worker's chat says that day-job chat is not configured,
 run [`backend/sql/010_day_job_chats.sql`](backend/sql/010_day_job_chats.sql) in
 the Supabase SQL Editor once, then restart the backend. This creates the
 persistent worker-owner chat tables.
+
+## Buyer collection confirmation and deal ratings
+
+Run `backend/sql/013_order_receipt_and_ratings.sql` once in the configured database before starting this version. It adds nullable confirmation timestamps and one 1-5 star rating per participant. Existing completed orders stay completed.
+
+For new deals, the buyer collects the nuts at the estate and the seller records collection using **Complete Transaction**. The order stays in Deals until the buyer chooses **Confirm Collection**. Both participants can then rate each other under Transactions or in the deal chat.

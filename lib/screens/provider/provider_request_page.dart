@@ -120,7 +120,7 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
     }
   }
 
-  /// The estate owner offers a different price or changes the request.
+  /// The land owner offers a different price or changes the request.
   Future<void> _changeRequest() async {
     final body = await showReviseRequestDialog(context, _request);
     if (body == null || !mounted) return;
@@ -293,7 +293,7 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
                             ? 'Booking confirmed.'
                             : widget.isOwner
                             ? 'Waiting for the provider to accept or decline. You can change the price or the request below.'
-                            : 'Accept or decline this request. Only the estate owner can change the price or the request.',
+                            : 'Accept or decline this request. Only the land owner can change the price or the request.',
                         style: const TextStyle(
                           fontSize: 12,
                           color: kOwnerGreen,

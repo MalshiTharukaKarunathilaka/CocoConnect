@@ -105,7 +105,7 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
   String _roleApiLabel(String code) {
     switch (code) {
       case 'ESTATE_OWNER':
-        return 'Estate Owner';
+        return 'Land Owner';
       case 'FERTILIZER_SUPPLIER':
         return 'Fertilizer Supplier';
       case 'CDO':
@@ -115,7 +115,7 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
       case 'CHAIRMAN':
         return 'Estate Manager';
       default:
-        return 'Estate Owner';
+        return 'Land Owner';
     }
   }
 
@@ -179,7 +179,7 @@ class _FertilizerSignupPageState extends State<FertilizerSignupPage> {
                   runSpacing: 8,
                   children: [
                     _RoleChip(role.roleLabel, true),
-                    const _RoleChip('Estate Owner', false),
+                    const _RoleChip('Land Owner', false),
                     const _RoleChip('Buyer', false),
                     const _RoleChip('Service Provider', false),
                   ],

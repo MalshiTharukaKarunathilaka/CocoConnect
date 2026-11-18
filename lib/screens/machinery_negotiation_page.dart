@@ -1,3 +1,4 @@
+import '../widgets/app_bottom_nav.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
@@ -68,7 +69,7 @@ String describeItems(List<BookingItem> items) {
   return '${parts.sublist(0, parts.length - 1).join(', ')} and ${parts.last}';
 }
 
-/// A machinery booking the estate owner agreed with a provider. It can hold
+/// A machinery booking the land owner agreed with a provider. It can hold
 /// several services; [agreedTotal] is the price agreed for all of them.
 class MachineBooking {
   final String id;
@@ -546,6 +547,7 @@ class _MachineryNegotiationPageState extends State<MachineryNegotiationPage> {
   @override
   Widget build(BuildContext context) {
     return OwnerPage(
+      currentTab: AppTab.chats,
       bottom: _inputBar(),
       child: Column(
         children: [
@@ -900,6 +902,7 @@ class BookingConfirmedPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final MachineBooking b = booking;
     return OwnerPage(
+      currentTab: AppTab.chats,
       child: Column(
         children: [
           const OwnerHeader(title: 'BOOKING CONFIRMED'),

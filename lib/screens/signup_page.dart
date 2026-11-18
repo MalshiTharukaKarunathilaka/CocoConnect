@@ -17,7 +17,7 @@ class SignupPage extends StatefulWidget {
 
 class _SignupPageState extends State<SignupPage> {
   static const List<String> _roles = [
-    'Estate Owner',
+    'Land Owner',
     'Estate Manager',
     'Buyer',
     'Service Provider',
@@ -104,7 +104,7 @@ class _SignupPageState extends State<SignupPage> {
               }
             : null,
       );
-      if (_selectedRole == 'Estate Owner' &&
+      if (_selectedRole == 'Land Owner' &&
           _extras.estateName.text.trim().isNotEmpty) {
         try {
           await OwnerService.updateEstate(
@@ -141,7 +141,7 @@ class _SignupPageState extends State<SignupPage> {
           location: _location,
           onChanged: () => setState(() {}),
         );
-      case 'Estate Owner':
+      case 'Land Owner':
         return EstateOwnerSignupSection(extras: _extras);
       case 'Estate Manager':
         return const RoleNoteSection(

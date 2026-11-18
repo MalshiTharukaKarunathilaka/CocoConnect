@@ -1,4 +1,4 @@
-// Chats shared by buyers and estate owners: offers answered on their own
+// Chats shared by buyers and land owners: offers answered on their own
 // card by the other side, unread counts, notifications and the day's
 // average price. Run with: npm test
 const { test, before, after } = require("node:test");
@@ -237,4 +237,76 @@ test("average price is for orders the customers need on that day", async () => {
   assert.equal(stats.avg_day_order_count, 2);
   assert.equal(stats.avg_day_price, 122);
   assert.ok(stats.last_deal.quantity > 0);
+});
+
+
+test('acceptance is recorded in chat and alerts the specific counterpart', async () => {
+  for (const acceptor of [buyer, owner]) {
+    const id = await open(await list(300, day(2), 130));
+    const other = acceptor === buyer ? owner : buyer;
+    const sent = await say(other, id, {offerPricePerUnit: 129});
+    const result = await call('POST', `/api/chats/${id}/offers/${sent.data.id}/accept`, {token: acceptor.token});
+    assert.equal(result.status, 201);
+    const alerts = (await call('GET', '/api/notifications', {token: other.token})).data;
+    const notice = alerts.find(n => n.negotiation_id === id);
+    assert.ok(notice);
+    assert.match(notice.title, /accepted your deal/);
+    assert.match(notice.body, acceptor === buyer ? /Lanka Mills/ : /Nimal Owner/);
+    const view = await chatOf(other, id);
+    assert.ok(view.messages.some(m => m.message?.startsWith('Deal accepted by ')));
+  }
+});
+
+test('either participant can cancel an accepted deal, but strangers and retries cannot', async () => {
+  for (const canceller of [buyer, owner]) {
+    const id = await open(await list(300, day(2), 130));
+    const accepted = await call('POST', `/api/chats/${id}/accept-listing`, {token: buyer.token});
+    const denied = await call('POST', `/api/chats/${id}/cancel-deal`, {token: stranger.token});
+    assert.equal(denied.status, 404);
+    const result = await call('POST', `/api/chats/${id}/cancel-deal`, {token: canceller.token});
+    assert.equal(result.status, 200);
+    assert.equal(result.data.order.status, 'CANCELLED');
+    const other = canceller === buyer ? owner : buyer;
+    const alerts = (await call('GET', '/api/notifications', {token: other.token})).data;
+    assert.ok(alerts.some(n => n.negotiation_id === id && n.title.includes('cancelled')));
+    const view = await chatOf(other, id);
+    assert.equal(view.status, 'CANCELLED');
+    assert.equal(view.order_status, 'CANCELLED');
+    assert.ok(view.messages.some(m => m.message?.startsWith('Deal cancelled by ')));
+    const activity = (await call('GET', '/api/activity', {token: other.token})).data;
+    assert.ok(!activity.deals.some(o => o.id === accepted.data.order.id));
+    assert.equal((await call('POST', `/api/chats/${id}/cancel-deal`, {token: canceller.token})).status, 409);
+    assert.equal((await call('POST', `/api/owner/orders/${accepted.data.order.id}/complete`, {
+      token: owner.token, body: {deliveredQuantity: 300, finalPricePerUnit: 130}
+    })).status, 409);
+  }
+});
+
+test('open negotiations and completed deals cannot be cancelled', async () => {
+  const id = await open(await list(300, day(2), 130));
+  assert.equal((await call('POST', `/api/chats/${id}/cancel-deal`, {token: buyer.token})).status, 409);
+  const accepted = await call('POST', `/api/chats/${id}/accept-listing`, {token: buyer.token});
+  assert.equal((await call('POST', `/api/owner/orders/${accepted.data.order.id}/complete`, {
+    token: owner.token, body: {deliveredQuantity: 300, finalPricePerUnit: 130}
+  })).status, 200);
+
+  assert.equal((await chatOf(buyer, id)).order_status, 'AWAITING_RECEIPT');
+  assert.equal((await call('PATCH', `/api/buyer/orders/${accepted.data.order.id}/confirm-receipt`, {token: buyer.token})).status, 200);
+  assert.equal((await chatOf(buyer, id)).order_status, 'COMPLETED');
+  assert.equal((await call('POST', `/api/chats/${id}/cancel-deal`, {token: buyer.token})).status, 409);
+});
+
+
+test('legacy delivery system messages display as collection in chat, previews and alerts', async () => {
+  const id = await open(await list(100, day(2), 125));
+  await say(owner, id, {message: 'Delivery marked complete by Nimal Owner. Waiting for the buyer to confirm receipt.'});
+  const preview = await summaryOf(buyer, id);
+  assert.equal(preview.last_message.text, 'Transaction marked complete by Nimal Owner (estate owner). Awaiting buyer confirmation that the nuts have been received.');
+  const alerts = (await call('GET', '/api/notifications', {token: buyer.token})).data;
+  assert.ok(alerts.some(n => n.negotiation_id === id && n.title.includes('marked transaction complete')));
+  await say(buyer, id, {message: 'Receipt confirmed by Lanka Mills. The deal is complete. Both participants can now leave a rating.'});
+  const history = await chatOf(owner, id);
+  assert.ok(history.messages.some(m => m.message?.startsWith('Transaction marked complete by ')));
+  assert.ok(history.messages.some(m => m.message?.startsWith('Nuts marked as received by ')));
+  assert.ok(history.messages.every(m => !m.message?.startsWith('Delivery marked complete by ') && !m.message?.startsWith('Receipt confirmed by ')));
 });

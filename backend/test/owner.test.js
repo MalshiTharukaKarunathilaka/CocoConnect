@@ -1,4 +1,4 @@
-// End-to-end checks of the estate owner routes and how they connect with
+// End-to-end checks of the land owner routes and how they connect with
 // the buyer side, against the in-memory database. Run with: npm test
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -49,8 +49,8 @@ let otherOwner;
 let buyer;
 let listingId;
 
-test("owner routes need an estate owner login", async () => {
-  owner = await signup("Nimal Owner", "0711111111", "Estate Owner", "Kurunegala");
+test("owner routes need a land owner login", async () => {
+  owner = await signup("Nimal Owner", "0711111111", "Land Owner", "Kurunegala");
   otherOwner = await signup("Kamal Owner", "0712222222", "ESTATE_OWNER", "Puttalam");
   buyer = await signup("Senuji Test", "0771234567", "BUYER", "Colombo");
 
@@ -290,6 +290,66 @@ test("buyer request -> owner offers -> buyer accepts one", async () => {
   assert.equal(buyerSide.quantity, 500);
 });
 
+test("dehusked buyer request -> owner offer -> buyer order", async () => {
+  const request = (await call("POST", "/api/buyer/requests", {
+    token: buyer.token,
+    body: {
+      productType: "DEHUSKED_COCONUT",
+      requestedQuantity: 350,
+      requiredDate: "2026-12-22",
+      biddingPricePerUnit: 160,
+    },
+  })).data.buyerRequest;
+
+  const husks = await call("GET", "/api/owner/buyer-requests?type=COCONUT_HUSK", {
+    token: owner.token,
+  });
+  assert.ok(!husks.data.some((r) => r.id === request.id));
+
+  const dehusked = await call(
+    "GET",
+    "/api/owner/buyer-requests?type=DEHUSKED_COCONUT",
+    { token: owner.token }
+  );
+  const seen = dehusked.data.find((r) => r.id === request.id);
+  assert.ok(seen);
+  assert.equal(seen.product_type, "DEHUSKED_COCONUT");
+  assert.equal(seen.my_offer_id, null);
+
+  const offer = await call("POST", "/api/owner/sell-requests", {
+    token: owner.token,
+    body: {
+      buyerRequestId: request.id,
+      quantity: 350,
+      sellerPricePerUnit: 165,
+    },
+  });
+  assert.equal(offer.status, 201);
+  assert.equal(offer.data.sellRequest.product_type, "DEHUSKED_COCONUT");
+
+  const responses = await call(
+    "GET",
+    `/api/buyer/requests/${request.id}/responses`,
+    { token: buyer.token }
+  );
+  assert.equal(responses.data.length, 1);
+  const accepted = await call(
+    "POST",
+    `/api/buyer/responses/${responses.data[0].id}/accept`,
+    { token: buyer.token }
+  );
+  assert.equal(accepted.status, 201);
+  assert.equal(Number(accepted.data.order.total_value), 165 * 350);
+
+  const ownerOrders = await call("GET", "/api/owner/orders", {
+    token: owner.token,
+  });
+  assert.equal(
+    ownerOrders.data.find((o) => o.buyer_request_id === request.id).product_type,
+    "DEHUSKED_COCONUT"
+  );
+});
+
 test("profile: estate details and summary counts", async () => {
   const bad = await call("PATCH", "/api/owner/estate", {
     token: owner.token,
@@ -311,19 +371,19 @@ test("profile: estate details and summary counts", async () => {
   assert.equal(saved.data.total_land_area, "25 acres");
   assert.equal(saved.data.year_established, 2015);
 
-  // Earlier tests left: 1 active listing, 1 open chat (declined one closed),
-  // 1 accepted order from the chat and 1 from an accepted offer.
+  // Earlier tests left: 1 active listing, no open chats, 1 accepted chat order,
+  // and 2 accepted buyer-request offers.
   const summary = await call("GET", "/api/owner/summary", { token: owner.token });
   assert.equal(summary.status, 200);
   assert.equal(summary.data.estate.primary_crop, "Coconut");
   assert.equal(summary.data.active_listings, 1);
   assert.equal(summary.data.open_chats, 0);
-  assert.equal(summary.data.orders_active, 2);
+  assert.equal(summary.data.orders_active, 3);
   assert.equal(summary.data.orders_completed, 0);
 
   const buyerSummary = await call("GET", "/api/buyer/summary", { token: buyer.token });
   assert.equal(buyerSummary.status, 200);
-  assert.equal(buyerSummary.data.orders_active, 2);
+  assert.equal(buyerSummary.data.orders_active, 3);
   assert.equal(buyerSummary.data.open_requests, 0);
 });
 
@@ -388,10 +448,11 @@ test("deals: owner accepts buyer's offer, completes with actual figures", async 
     body: { deliveredQuantity: 1950, finalPricePerUnit: 128 },
   });
   assert.equal(done.status, 200);
-  assert.equal(done.data.order.status, "COMPLETED");
+  assert.equal(done.data.order.status, "AWAITING_RECEIPT");
   assert.equal(done.data.order.delivered_quantity, 1950);
   assert.equal(Number(done.data.order.final_price_per_unit), 128, "agreed price kept");
-  assert.ok(done.data.order.completed_at);
+  assert.ok(done.data.order.seller_completed_at);
+  assert.equal(done.data.order.completed_at, null);
 
   const twice = await call("POST", `/api/owner/orders/${orderId}/complete`, {
     token: owner.token,
@@ -399,6 +460,7 @@ test("deals: owner accepts buyer's offer, completes with actual figures", async 
   });
   assert.equal(twice.status, 409);
 
+  assert.equal((await call('PATCH', `/api/buyer/orders/${orderId}/confirm-receipt`, {token: buyer.token})).status, 200);
   const buyerOrders = await call("GET", "/api/buyer/orders", { token: buyer.token });
   assert.equal(buyerOrders.data.find((o) => o.id === orderId).status, "COMPLETED");
 
@@ -419,7 +481,7 @@ test("deals: owner accepts buyer's offer, completes with actual figures", async 
   assert.equal(acceptedOffer.order_status, "ACCEPTED");
 });
 
-test("worker acceptance appears in the estate owner's job details", async () => {
+test("worker acceptance appears in the land owner's job details", async () => {
   const worker = await signup(
     "Day Worker",
     "0719999999",

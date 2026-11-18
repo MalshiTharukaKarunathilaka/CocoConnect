@@ -4,10 +4,10 @@ const { withDueDate, DUE_DATE_COLUMNS } = require("../utils/geo");
 
 /*
 |--------------------------------------------------------------------------
-| ORDERS TAB - one overview for buyers and estate owners
+| ORDERS TAB - one overview for buyers and land owners
 |--------------------------------------------------------------------------
 |   pending       offers I put out that wait for the other side:
-|                 my price offers in chats, and (estate owners) my offers
+|                 my price offers in chats, and (land owners) my offers
 |                 on buyer requests. Buyers' own requests come from
 |                 /api/buyer/requests.
 |   negotiations  chats still open
@@ -20,7 +20,7 @@ const serverError = (res, label, error) => {
   return res.status(500).json({ message: "Server error", error: error.message });
 };
 
-/** Every order I'm the buyer or the estate owner of. */
+/** Every order I'm the buyer or the land owner of. */
 const myOrders = async (userId) => {
   const result = await pool.query(
     `SELECT
@@ -62,6 +62,8 @@ const myOrders = async (userId) => {
     } = row;
     return {
       ...order,
+      my_rating: iAmBuyer ? row.buyer_rating : row.owner_rating,
+      counterpart_rating: iAmBuyer ? row.owner_rating : row.buyer_rating,
       my_role: iAmBuyer ? "BUYER" : "ESTATE_OWNER",
       counterpart_name: iAmBuyer
         ? listing_estate || offer_estate || "Estate"
@@ -131,7 +133,7 @@ const getActivity = async (req, res) => {
       ),
       negotiations: chats.filter((chat) => chat.status === "OPEN"),
       deals: orders
-        .filter((order) => order.status === "ACCEPTED")
+        .filter((order) => ["ACCEPTED", "AWAITING_RECEIPT"].includes(order.status))
         .sort((a, b) =>
           String(a.due_date ?? "9999").localeCompare(String(b.due_date ?? "9999"))
         ),

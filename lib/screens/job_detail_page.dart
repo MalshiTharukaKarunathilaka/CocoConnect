@@ -1,7 +1,7 @@
+import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/owner_service.dart';
-import '../widgets/app_bottom_nav.dart';
 import '../widgets/owner_widgets.dart';
 import 'accepted_workers_page.dart';
 import 'worker_profile_page.dart';
@@ -65,10 +65,21 @@ class _JobDetailPageState extends State<JobDetailPage> {
     );
     final showCompletedLayout = _isCompleted || selectedDate.isBefore(today);
 
-    return OwnerPage(
-      child: showCompletedLayout
-          ? _pastJobLayout(context)
-          : _upcomingJobLayout(context),
+    return RoleNavigationPage(
+      chatScope: ChatScope.dayJobs,
+      child: Scaffold(
+        backgroundColor: _detailBackground,
+        body: SizedBox.expand(
+          child: Container(
+            color: _detailBackground,
+            child: SafeArea(
+              child: showCompletedLayout
+                  ? _pastJobLayout(context)
+                  : _upcomingJobLayout(context),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -129,7 +140,6 @@ class _JobDetailPageState extends State<JobDetailPage> {
             ],
           ),
         ),
-        _bottomNavigation(),
       ],
     );
   }
@@ -178,7 +188,6 @@ class _JobDetailPageState extends State<JobDetailPage> {
             ],
           ),
         ),
-        _bottomNavigation(),
       ],
     );
   }
@@ -789,84 +798,6 @@ class _JobDetailPageState extends State<JobDetailPage> {
     } catch (_) {
       if (mounted) _showMessage(context, 'Could not save this rating.');
     }
-  }
-
-  Widget _bottomNavigation() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-      decoration: const BoxDecoration(
-        color: _detailBackground,
-        border: Border(top: BorderSide(color: Color(0xFFE4DED4))),
-      ),
-      child: Row(
-        children: [
-          _NavItem(
-            Icons.dashboard_outlined,
-            'Dashboard',
-            onTap: () => openTab(context, AppTab.dashboard),
-          ),
-          const _NavItem(Icons.calendar_month, 'Calendar', active: true),
-          _NavItem(
-            Icons.chat_bubble_outline,
-            'Chats',
-            onTap: () =>
-                openTab(context, AppTab.chats, chatScope: ChatScope.dayJobs),
-          ),
-          _NavItem(
-            Icons.notifications_none,
-            'Alerts',
-            onTap: () => openTab(context, AppTab.alerts),
-          ),
-          _NavItem(
-            Icons.person_outline,
-            'Profile',
-            onTap: () => openTab(context, AppTab.profile),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback? onTap;
-
-  const _NavItem(this.icon, this.label, {this.active = false, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? _detailGreen : const Color(0xFF65766C);
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(
-                color: active ? const Color(0xFFDDEEE0) : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 10.5,
-                fontWeight: active ? FontWeight.bold : FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

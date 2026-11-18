@@ -68,7 +68,7 @@ class _EstateOwnerRequestPageState extends State<EstateOwnerRequestPage> {
                 ),
                 const SizedBox(width: 12),
                 const Text(
-                  'Estate Owner Request',
+                  'Land Owner Request',
                   style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.bold,

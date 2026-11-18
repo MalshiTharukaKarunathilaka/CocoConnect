@@ -7,6 +7,7 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/worker_service.dart';
 import '../widgets/open_street_map_tiles.dart';
+import '../widgets/role_navigation_page.dart';
 
 class EstateJobsMapPage extends StatefulWidget {
   final List<WorkerJob> jobs;
@@ -110,205 +111,324 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
       builder: (context, estateSnapshot) {
         final estates = estateSnapshot.data ?? const <WorkerEstate>[];
         _focusInitialEstateWhenReady(estateSnapshot, estates);
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(
-              widget.nearbyOnly
-                  ? 'Reachable Estates (${widget.radiusKm} km)'
-                  : 'All Estates',
+        return RoleNavigationPage(
+          chatScope: ChatScope.dayJobs,
+          current: AppTab.dashboard,
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(
+                widget.nearbyOnly
+                    ? 'Reachable Estates (${widget.radiusKm} km)'
+                    : 'All Estates',
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'Refresh estates',
+                  onPressed: _refreshEstates,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
             ),
-            actions: [
-              IconButton(
-                tooltip: 'Refresh estates',
-                onPressed: _refreshEstates,
-                icon: const Icon(Icons.refresh),
-              ),
-            ],
-          ),
-          body: Stack(
-            children: [
-              FlutterMap(
-                mapController: _map,
-                options: MapOptions(
-                  initialCenter: widget.nearbyOnly && workerPoint != null
-                      ? workerPoint
-                      : center,
-                  initialZoom: widget.nearbyOnly && workerPoint != null
-                      ? _radiusZoom
-                      : 7,
-                  minZoom: 6,
-                  maxZoom: 18,
-                  interactionOptions: const InteractionOptions(
-                    flags: InteractiveFlag.all,
-                  ),
-                  onTap: (_, _) => setState(() => _selectedEstateId = null),
-                ),
-                children: [
-                  kapConnectMapTiles(
-                    key: ValueKey(_tileGeneration),
-                    onTileError: _handleTileError,
-                  ),
-                  if (widget.nearbyOnly && workerPoint != null)
-                    CircleLayer(
-                      circles: [
-                        CircleMarker(
-                          point: workerPoint,
-                          radius: widget.radiusKm * 1000,
-                          useRadiusInMeter: true,
-                          color: const Color(0x22256B45),
-                          borderColor: const Color(0xAA256B45),
-                          borderStrokeWidth: 2,
-                        ),
-                      ],
+            body: Stack(
+              children: [
+                FlutterMap(
+                  mapController: _map,
+                  options: MapOptions(
+                    initialCenter: widget.nearbyOnly && workerPoint != null
+                        ? workerPoint
+                        : center,
+                    initialZoom: widget.nearbyOnly && workerPoint != null
+                        ? _radiusZoom
+                        : 7,
+                    minZoom: 6,
+                    maxZoom: 18,
+                    interactionOptions: const InteractionOptions(
+                      flags: InteractiveFlag.all,
                     ),
-                  MarkerLayer(
-                    markers: [
-                      if (widget.nearbyOnly && workerPoint != null)
-                        Marker(
-                          point: workerPoint,
-                          width: 54,
-                          height: 54,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFF256B45),
-                                width: 3,
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.person_pin_circle,
-                              color: Color(0xFF256B45),
-                              size: 38,
-                            ),
-                          ),
-                        ),
-                      for (final estate in estates)
-                        if (_pointForEstate(estate) case final point?)
-                          _estateMarker(estate, point),
-                      if (!widget.nearbyOnly && estates.isEmpty)
-                        for (final estate in mappedEstates)
-                          _marker(
-                            context,
-                            point: estate.point,
-                            name: estate.job.estateName,
-                            location: estate.job.location,
-                          ),
-                    ],
+                    onTap: (_, _) => setState(() => _selectedEstateId = null),
                   ),
-                  const RichAttributionWidget(
-                    attributions: [
-                      TextSourceAttribution('OpenStreetMap contributors'),
-                    ],
-                  ),
-                ],
-              ),
-              Positioned(
-                right: 12,
-                bottom: 28,
-                child: Column(
                   children: [
-                    _mapControl(
-                      tooltip: 'Zoom in',
-                      icon: Icons.add,
-                      onPressed: () => _zoomBy(1),
+                    kapConnectMapTiles(
+                      key: ValueKey(_tileGeneration),
+                      onTileError: _handleTileError,
                     ),
-                    const SizedBox(height: 8),
-                    _mapControl(
-                      tooltip: 'Zoom out',
-                      icon: Icons.remove,
-                      onPressed: () => _zoomBy(-1),
-                    ),
-                    const SizedBox(height: 8),
-                    _mapControl(
-                      tooltip: 'Show all estates',
-                      icon: Icons.fit_screen,
-                      onPressed: () => _fitAllEstates(estates),
-                    ),
-                    if (workerPoint != null) ...[
-                      const SizedBox(height: 8),
-                      _mapControl(
-                        tooltip: 'My location',
-                        icon: Icons.my_location,
-                        onPressed: () => _map.move(workerPoint, 15),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (estateSnapshot.connectionState == ConnectionState.waiting)
-                const Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(10),
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  ),
-                ),
-              if (estateSnapshot.hasError)
-                Positioned(
-                  left: 18,
-                  right: 18,
-                  bottom: 28,
-                  child: _mapMessage(
-                    _workerPoint == null && widget.nearbyOnly
-                        ? 'Set your worker location to find reachable estates.'
-                        : 'Could not load estates. Check the connection and retry.',
-                    showRetry: true,
-                  ),
-                )
-              else if (widget.nearbyOnly &&
-                  estateSnapshot.connectionState == ConnectionState.done &&
-                  estates.isEmpty)
-                Positioned(
-                  left: 18,
-                  right: 18,
-                  bottom: 28,
-                  child: _mapMessage(
-                    'No estates are within ${widget.radiusKm} km of your location.',
-                  ),
-                ),
-              if (_tileLoadFailed)
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  right: 12,
-                  child: Material(
-                    elevation: 3,
-                    borderRadius: BorderRadius.circular(14),
-                    color: Colors.white,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.wifi_off, color: Colors.orange),
-                          const SizedBox(width: 10),
-                          const Expanded(
-                            child: Text(
-                              'Some map tiles could not load.',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: _retryMap,
-                            child: const Text('Retry'),
+                    if (widget.nearbyOnly && workerPoint != null)
+                      CircleLayer(
+                        circles: [
+                          CircleMarker(
+                            point: workerPoint,
+                            radius: widget.radiusKm * 1000,
+                            useRadiusInMeter: true,
+                            color: const Color(0x22256B45),
+                            borderColor: const Color(0xAA256B45),
+                            borderStrokeWidth: 2,
                           ),
                         ],
                       ),
+                    MarkerLayer(
+                      markers: [
+                        if (widget.nearbyOnly && workerPoint != null)
+                          Marker(
+                            point: workerPoint,
+                            width: 54,
+                            height: 54,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFF256B45),
+                                  width: 3,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.person_pin_circle,
+                                color: Color(0xFF256B45),
+                                size: 38,
+                              ),
+                            ),
+                          ),
+                        for (final group in _groupNearbyEstates(estates))
+                          if (group.estates.any(
+                            (estate) => estate.id == _selectedEstateId,
+                          ))
+                            for (final estate in group.estates)
+                              _estateMarker(estate, _pointForEstate(estate)!)
+                          else
+                            _estateGroupMarker(context, group),
+                        if (!widget.nearbyOnly && estates.isEmpty)
+                          for (final estate in mappedEstates)
+                            _marker(
+                              context,
+                              point: estate.point,
+                              name: estate.job.estateName,
+                              location: estate.job.location,
+                            ),
+                      ],
                     ),
+                    const RichAttributionWidget(
+                      attributions: [
+                        TextSourceAttribution('OpenStreetMap contributors'),
+                      ],
+                    ),
+                  ],
+                ),
+                Positioned(
+                  right: 12,
+                  bottom: 28,
+                  child: Column(
+                    children: [
+                      _mapControl(
+                        tooltip: 'Zoom in',
+                        icon: Icons.add,
+                        onPressed: () => _zoomBy(1),
+                      ),
+                      const SizedBox(height: 8),
+                      _mapControl(
+                        tooltip: 'Zoom out',
+                        icon: Icons.remove,
+                        onPressed: () => _zoomBy(-1),
+                      ),
+                      const SizedBox(height: 8),
+                      _mapControl(
+                        tooltip: 'Show all estates',
+                        icon: Icons.fit_screen,
+                        onPressed: () => _fitAllEstates(estates),
+                      ),
+                      if (workerPoint != null) ...[
+                        const SizedBox(height: 8),
+                        _mapControl(
+                          tooltip: 'My location',
+                          icon: Icons.my_location,
+                          onPressed: () => _map.move(workerPoint, 15),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-            ],
+                if (estateSnapshot.connectionState == ConnectionState.waiting)
+                  const Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(10),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (estateSnapshot.hasError)
+                  Positioned(
+                    left: 18,
+                    right: 18,
+                    bottom: 28,
+                    child: _mapMessage(
+                      _workerPoint == null && widget.nearbyOnly
+                          ? 'Set your worker location to find reachable estates.'
+                          : 'Could not load estates. Check the connection and retry.',
+                      showRetry: true,
+                    ),
+                  )
+                else if (widget.nearbyOnly &&
+                    estateSnapshot.connectionState == ConnectionState.done &&
+                    estates.isEmpty)
+                  Positioned(
+                    left: 18,
+                    right: 18,
+                    bottom: 28,
+                    child: _mapMessage(
+                      'No estates are within ${widget.radiusKm} km of your location.',
+                    ),
+                  ),
+                if (_tileLoadFailed)
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    right: 12,
+                    child: Material(
+                      elevation: 3,
+                      borderRadius: BorderRadius.circular(14),
+                      color: Colors.white,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.wifi_off, color: Colors.orange),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                'Some map tiles could not load.',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _retryMap,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  List<_EstateGroup> _groupNearbyEstates(List<WorkerEstate> estates) {
+    final candidates = estates
+        .where((estate) => _pointForEstate(estate) != null)
+        .toList();
+    final groups = <_EstateGroup>[];
+    final clusterDistanceKm = widget.nearbyOnly ? 5.0 : 30.0;
+    const distance = Distance();
+
+    while (candidates.isNotEmpty) {
+      final seed = candidates.removeAt(0);
+      final seedPoint = _pointForEstate(seed)!;
+      final members = <WorkerEstate>[seed];
+      for (var index = candidates.length - 1; index >= 0; index--) {
+        final point = _pointForEstate(candidates[index])!;
+        final km = distance.as(LengthUnit.Kilometer, seedPoint, point);
+        if (km <= clusterDistanceKm) {
+          members.add(candidates.removeAt(index));
+        }
+      }
+      final points = members.map(_pointForEstate).whereType<LatLng>().toList();
+      groups.add(
+        _EstateGroup(
+          estates: members,
+          point: LatLng(
+            points.fold(0.0, (sum, point) => sum + point.latitude) /
+                points.length,
+            points.fold(0.0, (sum, point) => sum + point.longitude) /
+                points.length,
+          ),
+        ),
+      );
+    }
+    return groups;
+  }
+
+  Marker _estateGroupMarker(BuildContext context, _EstateGroup group) {
+    if (group.estates.length == 1) {
+      final estate = group.estates.single;
+      return _estateMarker(estate, group.point);
+    }
+
+    final names = group.estates.map((estate) => estate.estateName).join(' + ');
+    return Marker(
+      point: group.point,
+      width: 230,
+      height: 78,
+      child: GestureDetector(
+        onTap: () => showModalBottomSheet<void>(
+          context: context,
+          showDragHandle: true,
+          builder: (_) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${group.estates.length} nearby estates',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                for (final estate in group.estates)
+                  ListTile(
+                    onTap: () {
+                      Navigator.pop(context);
+                      _focusEstate(estate, _pointForEstate(estate)!);
+                    },
+                    leading: const Icon(Icons.park, color: Color(0xFF256B45)),
+                    title: Text(estate.estateName),
+                    subtitle: Text(
+                      estate.distanceKm == null
+                          ? estate.location
+                          : '${estate.location}\n'
+                                '${estate.distanceKm!.toStringAsFixed(1)} km away',
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              constraints: const BoxConstraints(maxWidth: 220),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF256B45)),
+              ),
+              child: Text(
+                names,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const Icon(Icons.park, color: Color(0xFF256B45), size: 34),
+          ],
+        ),
+      ),
     );
   }
 
@@ -728,4 +848,11 @@ class _MappedEstate {
   final LatLng point;
 
   const _MappedEstate({required this.job, required this.point});
+}
+
+class _EstateGroup {
+  final List<WorkerEstate> estates;
+  final LatLng point;
+
+  const _EstateGroup({required this.estates, required this.point});
 }

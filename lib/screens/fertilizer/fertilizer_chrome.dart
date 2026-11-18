@@ -1,6 +1,8 @@
+import '../account_profile_page.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/owner_widgets.dart';
 import '../account_dialogs.dart';
+import 'fertilizer_alerts.dart';
 
 /// The page frame every fertilizer screen uses, so it looks like the rest of
 /// the app: the same cream page, the same green centred title with a small
@@ -14,6 +16,11 @@ class FertPage extends StatelessWidget {
     this.bottom,
     this.showLogout = false,
     this.showBack = true,
+    this.showAlerts = false,
+    this.supplierAlerts = false,
+    this.cdoAlerts = false,
+    this.onOpenStock,
+    this.onOpenOrders,
   });
 
   final String title;
@@ -22,6 +29,17 @@ class FertPage extends StatelessWidget {
   final Widget? bottom;
   final bool showLogout;
   final bool showBack;
+
+  /// Estate-owner bell for supplier accept / cancel / negotiate alerts.
+  final bool showAlerts;
+  /// Supplier bell for new orders / disputes / low stock.
+  final bool supplierAlerts;
+  /// CDO bell for estate cancel / dispute / low warehouse stock.
+  final bool cdoAlerts;
+  /// Notification Show → Stock tab.
+  final VoidCallback? onOpenStock;
+  /// Notification Show → Orders (or Messages for CDO) tab.
+  final VoidCallback? onOpenOrders;
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +90,33 @@ class FertPage extends StatelessWidget {
             subtitle: subtitle,
             showBack: showBack,
             actions: [
+              if (showAlerts)
+                FertAlertBell(
+                  onOpenStock: onOpenStock,
+                  onOpenOrders: onOpenOrders,
+                ),
+              if (supplierAlerts)
+                FertAlertBell(
+                  forSupplier: true,
+                  onOpenStock: onOpenStock,
+                  onOpenOrders: onOpenOrders,
+                ),
+              if (cdoAlerts)
+                FertAlertBell(
+                  forCdo: true,
+                  onOpenStock: onOpenStock,
+                  onOpenOrders: onOpenOrders,
+                ),
+              if (showLogout)
+                IconButton(
+                  tooltip: 'Profile',
+                  onPressed: () => openAccountProfile(context),
+                  icon: const Icon(
+                    Icons.account_circle_outlined,
+                    color: kOwnerGreen,
+                    size: 22,
+                  ),
+                ),
               if (showLogout)
                 IconButton(
                   tooltip: 'Log out',
@@ -119,43 +164,51 @@ class FertTabBar extends StatelessWidget {
         children: [
           for (int i = 0; i < items.length; i++)
             Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => onTap(i),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: i == current ? _greenSoft : Colors.transparent,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(
-                        items[i].$1,
-                        size: 22,
-                        color: i == current ? _green : _grey,
-                      ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => onTap(i),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                i == current ? _greenSoft : Colors.transparent,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Icon(
+                            items[i].$1,
+                            size: 22,
+                            color: i == current ? _green : _grey,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          items[i].$2,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: items[i].$2.length > 11 ? 9.5 : 10.5,
+                            height: 1.1,
+                            fontWeight: i == current
+                                ? FontWeight.bold
+                                : FontWeight.w600,
+                            color: i == current ? _green : _grey,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      items[i].$2,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: items[i].$2.length > 11 ? 9.5 : 10.5,
-                        height: 1.1,
-                        fontWeight:
-                            i == current ? FontWeight.bold : FontWeight.w600,
-                        color: i == current ? _green : _grey,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

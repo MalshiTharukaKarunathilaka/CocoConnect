@@ -90,7 +90,7 @@ class Negotiation {
   final Listing listing;
   final List<NegotiationMessage> messages;
 
-  /// Set when an estate owner opens the chat.
+  /// Set when a land owner opens the chat.
   final String? buyerName;
 
   const Negotiation({
@@ -104,7 +104,7 @@ class Negotiation {
   });
 
   /// The other side's latest counter-offer, or the listed price. For a buyer
-  /// this is the estate owner's price that "Accept Deal" agrees to - the
+  /// this is the land owner's price that "Accept Deal" agrees to - the
   /// backend uses the same rule.
   double get priceOnTable {
     for (final message in messages.reversed) {
@@ -137,7 +137,7 @@ class BuyerRequest {
   final String status; // PENDING, ACCEPTED once an offer is accepted
   final DateTime? createdAt;
 
-  /// How many estate owners have sent an offer for this request.
+  /// How many land owners have sent an offer for this request.
   final int responseCount;
 
   const BuyerRequest({
@@ -165,7 +165,7 @@ class BuyerRequest {
   );
 }
 
-/// An estate owner's offer (sell request) answering a buyer request.
+/// A land owner's offer (sell request) answering a buyer request.
 class SellOffer {
   final int id;
   final int buyerRequestId;
@@ -180,7 +180,7 @@ class SellOffer {
   final String? location;
   final double? trustScore;
 
-  // Filled in when an estate owner lists the offers they sent.
+  // Filled in when a land owner lists the offers they sent.
   final String? buyerName;
   final int? requestedQuantity;
   final double? buyerBid;
@@ -245,7 +245,7 @@ class NegotiationSummary {
   final int messageCount;
   final DateTime? createdAt;
 
-  /// Set when an estate owner lists the chats on their listings.
+  /// Set when a land owner lists the chats on their listings.
   final String? buyerName;
 
   const NegotiationSummary({
@@ -289,10 +289,10 @@ class BuyerOrder {
   final String estateName;
   final DateTime? createdAt;
 
-  /// Set when an estate owner lists their orders.
+  /// Set when a land owner lists their orders.
   final String? buyerName;
 
-  /// Filled in when the estate owner completes the deal.
+  /// Filled in when the land owner completes the deal.
   final int? deliveredQuantity;
   final double? deliveredPrice;
 
@@ -444,7 +444,7 @@ class BuyerService {
         .toList();
   }
 
-  /// Accepts one estate owner's offer; creates an order and closes the
+  /// Accepts one land owner's offer; creates an order and closes the
   /// request.
   static Future<void> acceptResponse(int sellOfferId) =>
       ApiClient.post('/api/buyer/responses/$sellOfferId/accept');

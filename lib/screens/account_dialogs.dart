@@ -12,13 +12,18 @@ const Color _green = Color(0xFF2E7D32);
 const Color _grey = Color(0xFF777777);
 const Color _red = Color(0xFFC62828);
 
-/// "ESTATE_OWNER" -> "Estate Owner"
+/// "ESTATE_OWNER" -> "Land Owner"
 String roleLabel(String role) =>
     const {
       'BUYER': 'Buyer',
-      'ESTATE_OWNER': 'Estate Owner',
+      'ESTATE_OWNER': 'Land Owner',
       'ESTATE_MANAGER': 'Estate Manager',
       'SERVICE_PROVIDER': 'Service Provider',
+      'WORKER': 'Day Job Worker',
+      'FERTILIZER_SUPPLIER': 'Fertilizer Supplier',
+      'CDO': 'Coconut Development Officer',
+      'REGIONAL_MANAGER': 'Regional Manager',
+      'CHAIRMAN': 'Chairman',
     }[role] ??
     role;
 

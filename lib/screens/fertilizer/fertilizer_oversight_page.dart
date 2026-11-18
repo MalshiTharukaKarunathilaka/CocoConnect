@@ -1,3 +1,4 @@
+import '../account_profile_page.dart';
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
@@ -266,6 +267,11 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
             ),
           ),
           const SizedBox(width: 10),
+          IconButton(
+            tooltip: 'Profile',
+            onPressed: () => openAccountProfile(context),
+            icon: const Icon(Icons.account_circle_outlined, color: AppColors.green),
+          ),
           IconButton(
             tooltip: 'Log out / switch role',
             onPressed: () => confirmLogOut(context),
@@ -540,7 +546,7 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
       ),
       _panel(
         'Live private shop orders (shared store)',
-        'Also syncs with Estate Owner / Supplier Agent logins',
+        'Also syncs with Land Owner / Supplier Agent logins',
         _privateOrdersTable(_privateOrders.take(8).toList()),
       ),
     ]);
@@ -617,7 +623,7 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
       ),
       _panel(
         'Live private shop orders (shared store)',
-        'Same orders Estate Owner and Supplier see',
+        'Same orders Land Owner and Supplier see',
         _privateOrdersTable(_privateOrders.take(8).toList()),
       ),
     ]);

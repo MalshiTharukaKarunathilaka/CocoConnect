@@ -3,15 +3,17 @@ import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
 
-// Keep cream/green look via design-system tokens.
-const Color kOwnerCream = AppColors.cream;
-const Color kOwnerGreen = AppColors.green;
-const Color kOwnerMuted = AppColors.muted;
-const Color kOwnerGreenSoft = AppColors.greenSoft;
-
 class FertilizerOrderSheet extends StatefulWidget {
-  const FertilizerOrderSheet({super.key, required this.place});
+  const FertilizerOrderSheet({
+    super.key,
+    required this.place,
+    this.preselectedKinds = const {},
+  });
+
   final FertPlace place;
+
+  /// From the map Fertilizer filter. Matching items start ticked; others show unticked.
+  final Set<String> preselectedKinds;
 
   @override
   State<FertilizerOrderSheet> createState() => _FertilizerOrderSheetState();
@@ -26,9 +28,18 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
   @override
   void initState() {
     super.initState();
-    final n = widget.place.items.length;
-    _on = List.filled(n, true);
+    final items = widget.place.items;
+    final n = items.length;
     _qty = List.filled(n, 1);
+    // Why: if owner filtered APM on the map, only APM starts checked — others stay visible.
+    if (widget.preselectedKinds.isEmpty) {
+      _on = List.filled(n, true);
+    } else {
+      _on = [
+        for (final item in items)
+          item.kinds.any(widget.preselectedKinds.contains),
+      ];
+    }
   }
 
   int get _total {
@@ -62,7 +73,6 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
       );
       return;
     }
-    // A government supplier: go on to the request form (estate, NIC, land title).
     if (widget.place.isGov) {
       Navigator.pop(
         context,
@@ -77,7 +87,8 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
       company: widget.place.company,
       agent: widget.place.who,
       owner: 'Your Estate',
-      product: lines.map((l) => '${l.item.brand} ${l.item.name} (50 kg)').join(', '),
+      product:
+          lines.map((l) => '${l.item.brand} ${l.item.name} (50 kg)').join(', '),
       items: lines,
       qty50: lines.fold(0, (s, l) => s + l.qty50),
       price: _total,
@@ -94,247 +105,276 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
     );
   }
 
+  Widget _itemCard(int i) {
+    final item = widget.place.items[i];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(4, 8, 10, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.field),
+        border: Border.all(
+          color: _on[i] ? AppColors.green : AppColors.line,
+          width: _on[i] ? 1.4 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Checkbox(
+                value: _on[i],
+                activeColor: AppColors.green,
+                visualDensity: VisualDensity.compact,
+                onChanged: (v) => setState(() => _on[i] = v ?? false),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${item.type} · ${item.stock50} × 50 kg available',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                    Text(
+                      // Why: owners compare shops by Rs/kg, not only the 50 kg bag total.
+                      '${rupees(item.perKg)}/kg · 50 kg ${rupees(item.price50)}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (_on[i])
+            Padding(
+              padding: const EdgeInsets.only(left: 8, right: 4),
+              child: Row(
+                children: [
+                  const Text(
+                    'Bags',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    onPressed: _qty[i] <= 1
+                        ? null
+                        : () => setState(() => _qty[i]--),
+                    icon: const Icon(Icons.remove_circle_outline, size: 22),
+                  ),
+                  Text(
+                    '${_qty[i]}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    onPressed: _qty[i] >= item.stock50
+                        ? null
+                        : () => setState(() => _qty[i]++),
+                    icon: const Icon(Icons.add_circle_outline, size: 22),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = widget.place;
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.92,
-      ),
-      decoration: const BoxDecoration(
-        color: kOwnerCream,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Order · ${p.company}',
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: kOwnerGreen,
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final maxH = MediaQuery.sizeOf(context).height * 0.92;
+
+    // Why: phone-style sheet — list scrolls, Place order stays fixed at the bottom.
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxH, maxWidth: 430),
+          child: Material(
+            color: AppColors.cream,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.line,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
                     ),
                   ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              '${p.brandLine} · Quantities are in 50 kg units so bag sizes are easy to compare. '
-              '${p.isGov ? 'Government programme. No negotiation.' : 'Private shop. You can negotiate before you send.'}',
-              style: const TextStyle(fontSize: 12.5, color: kOwnerMuted),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              itemCount: p.items.length,
-              separatorBuilder: (_, __) => const Divider(height: 18),
-              itemBuilder: (_, i) {
-                final item = p.items[i];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 4, 0),
+                    child: Row(
                       children: [
-                        Checkbox(
-                          value: _on[i],
-                          activeColor: kOwnerGreen,
-                          onChanged: (v) => setState(() => _on[i] = v ?? false),
-                        ),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 6,
-                                children: [
-                                  Text(
-                                    item.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: kOwnerGreenSoft,
-                                      borderRadius: BorderRadius.circular(99),
-                                    ),
-                                    child: const Text(
-                                      '50 kg',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: kOwnerGreen,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                '${item.brand} · sold as ${item.unit} · ${item.stock50} × 50 kg available',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: kOwnerMuted,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Text(
-                                    '${rupees(item.perKg)} / kg',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: kOwnerMuted,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    '50 kg base ${rupees(item.price50)}',
-                                    style: const TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                          child: Text(
+                            'Order · ${p.company}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.green,
+                            ),
                           ),
                         ),
-                        Row(
-                          children: [
-                            IconButton(
-                              onPressed: !_on[i] || _qty[i] <= 1
-                                  ? null
-                                  : () => setState(() => _qty[i]--),
-                              icon: const Icon(Icons.remove_circle_outline),
-                            ),
-                            Text(
-                              '${_qty[i]}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: !_on[i] || _qty[i] >= item.stock50
-                                  ? null
-                                  : () => setState(() => _qty[i]++),
-                              icon: const Icon(Icons.add_circle_outline),
-                            ),
-                          ],
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close, color: AppColors.ink),
                         ),
                       ],
                     ),
-                  ],
-                );
-              },
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'Cart total',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const Spacer(),
-                    Text(
-                      rupees(_total),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text(
+                      widget.preselectedKinds.isEmpty
+                          ? '${p.brandLine} · Tick what you need. Bags are 50 kg.'
+                          : 'Only ${widget.preselectedKinds.join(', ')} starts ticked. Other stock is shown so you can add it.',
                       style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: kOwnerGreen,
+                        fontSize: 12,
+                        color: AppColors.muted,
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _pickDate,
-                        child: Text(shortDate(_date)),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _slot,
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Morning 8–11',
-                            child: Text('Morning 8–11', style: TextStyle(fontSize: 12)),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Afternoon 12–3',
-                            child: Text('Afternoon 12–3', style: TextStyle(fontSize: 12)),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Evening 3–6',
-                            child: Text('Evening 3–6', style: TextStyle(fontSize: 12)),
-                          ),
-                        ],
-                        onChanged: (v) => setState(() => _slot = v ?? _slot),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.place.isGov
-                      ? 'Next you fill in your estate details and attach your NIC and land title. The order then goes to the CDO for approval.'
-                      : 'After you place the order it stays in Pending Ack until the provider accepts. Payment is after they accept.',
-                  style: TextStyle(fontSize: 11.5, color: kOwnerMuted),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _submit,
-                    child: const Text(
-                      'Place order',
-                      style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
-                ),
-              ],
+                  Flexible(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      shrinkWrap: true,
+                      itemCount: p.items.length,
+                      itemBuilder: (_, i) => _itemCard(i),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      border: Border(
+                        top: BorderSide(color: AppColors.line),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'Total',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            const Spacer(),
+                            Text(
+                              rupees(_total),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.green,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _pickDate,
+                                child: Text(
+                                  shortDate(_date),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                // ignore: deprecated_member_use
+                                value: _slot,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 10,
+                                  ),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'Morning 8–11',
+                                    child: Text('Morning 8–11',
+                                        overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'Afternoon 12–3',
+                                    child: Text('Afternoon 12–3',
+                                        overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'Evening 3–6',
+                                    child: Text('Evening 3–6',
+                                        overflow: TextOverflow.ellipsis),
+                                  ),
+                                ],
+                                onChanged: (v) =>
+                                    setState(() => _slot = v ?? _slot),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          widget.place.isGov
+                              ? 'Next: estate details + NIC / land title, then CDO approval.'
+                              : 'Stays Pending Ack until the provider accepts. Pay after that.',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        ElevatedButton(
+                          onPressed: _submit,
+                          child: const Text('Place order'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

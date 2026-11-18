@@ -8,6 +8,7 @@ const {
   rejectOffer,
   acceptListing,
   closeChat,
+  cancelDeal,
 } = require("../controllers/chatController");
 const { getNotifications } = require("../controllers/notificationController");
 const { getActivity } = require("../controllers/activityController");
@@ -16,12 +17,13 @@ const { requireAuth } = require("../middleware/auth");
 const router = express.Router();
 
 router.use(requireAuth);
+router.put('/orders/:id/rating', require('../controllers/orderRatingController').rateOrder);
 
 /**
  * @swagger
  * /api/chats:
  *   get:
- *     summary: My negotiation chats (buyer or estate owner), newest activity first
+ *     summary: My negotiation chats (buyer or land owner), newest activity first
  *     tags: [Chats]
  *     security:
  *       - bearerAuth: []
@@ -167,18 +169,19 @@ router.post("/chats/:id/accept-listing", acceptListing);
  *         description: Closed
  */
 router.post("/chats/:id/close", closeChat);
+router.post("/chats/:id/cancel-deal", cancelDeal);
 
 /**
  * @swagger
  * /api/notifications:
  *   get:
- *     summary: Offers waiting for me and upcoming deliveries (buyer or estate owner)
+ *     summary: Offers and chat activity, including collection confirmations (buyer or land owner)
  *     tags: [Chats]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Items with key, type (OFFER / SELL_OFFER / DELIVERY), title, body, at
+ *         description: Items with key, type (OFFER / SELL_OFFER / CHAT / DAY_JOB_CHAT), title, body, at
  */
 router.get("/notifications", getNotifications);
 

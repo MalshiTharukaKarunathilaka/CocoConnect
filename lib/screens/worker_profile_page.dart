@@ -1,3 +1,4 @@
+import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/owner_service.dart';
@@ -43,34 +44,37 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _profileBackground,
-      appBar: AppBar(
+    return RoleNavigationPage(
+      current: AppTab.dashboard,
+      child: Scaffold(
         backgroundColor: _profileBackground,
-        foregroundColor: _profileInk,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context, _currentJobRating),
-          icon: const Icon(Icons.arrow_back),
+        appBar: AppBar(
+          backgroundColor: _profileBackground,
+          foregroundColor: _profileInk,
+          elevation: 0,
+          leading: IconButton(
+            onPressed: () => Navigator.pop(context, _currentJobRating),
+            icon: const Icon(Icons.arrow_back),
+          ),
+          title: const Text(
+            'Worker Profile',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
-        title: const Text(
-          'Worker Profile',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        body: FutureBuilder<WorkerProfile>(
+          future: _profile,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: _profileGreen),
+              );
+            }
+            if (snapshot.hasError || snapshot.data == null) {
+              return _errorView();
+            }
+            return _profileView(snapshot.data!);
+          },
         ),
-      ),
-      body: FutureBuilder<WorkerProfile>(
-        future: _profile,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: _profileGreen),
-            );
-          }
-          if (snapshot.hasError || snapshot.data == null) {
-            return _errorView();
-          }
-          return _profileView(snapshot.data!);
-        },
       ),
     );
   }

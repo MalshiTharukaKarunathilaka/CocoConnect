@@ -12,7 +12,7 @@ import 'buyer/buyer_format.dart';
 import 'my_bookings_page.dart';
 import 'service_schedule_page.dart';
 
-/// Estate owners see tractors, backhoes and hand tractors around their estate.
+/// Land owners see tractors, backhoes and hand tractors around their estate.
 /// Pass [type] (TRACTOR / BACKHOE / HAND_TRACTOR) to start on one type.
 class MachineryMapPage extends StatefulWidget {
   final String? type;

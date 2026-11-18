@@ -2,10 +2,36 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kapconnect_mobile/screens/estate_owner_dashboard.dart';
 import 'package:kapconnect_mobile/screens/coconuts_page.dart';
+import 'package:kapconnect_mobile/screens/buyer/buyer_categories_page.dart';
+import 'package:kapconnect_mobile/widgets/buyer_widgets.dart';
 import 'package:kapconnect_mobile/widgets/reusable_widgets.dart';
 
 void main() {
   for (final height in [568.0, 640.0, 844.0]) {
+    testWidgets('four buyer categories fit at height $height', (tester) async {
+      tester.view.physicalSize = Size(390, height);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(const MaterialApp(home: BuyerCategoriesPage()));
+      final viewport = tester.getRect(find.byType(ListView));
+      for (final title in ['Coconuts', 'Spices', 'Livestock', 'Vegetables']) {
+        final card = find.ancestor(
+          of: find.text(title),
+          matching: find.byType(BuyerCategoryCard),
+        );
+        final bounds = tester.getRect(card);
+        expect(bounds.top, greaterThanOrEqualTo(viewport.top));
+        expect(bounds.bottom, lessThanOrEqualTo(viewport.bottom - 8));
+      }
+      expect(tester.takeException(), isNull);
+      await tester.drag(find.byType(ListView), const Offset(0, -1000));
+      await tester.pumpAndSettle();
+      expect(find.text('Fruits').hitTestable(), findsOneWidget);
+      expect(find.text('Other Goods').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
     testWidgets('all coconut categories fit at height $height', (tester) async {
       tester.view.physicalSize = Size(390, height);
       tester.view.devicePixelRatio = 1;
@@ -14,8 +40,8 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: CoconutsPage()));
       await tester.pumpAndSettle();
       final bottomBar = tester.getRect(find.byType(CustomBottomNavigation));
-      expect(find.text('1 unit = 1 nut').hitTestable(), findsNWidgets(2));
-      expect(find.text('1 unit = 1 kg').hitTestable(), findsOneWidget);
+      expect(find.text('1 unit = 1 nut').hitTestable(), findsNWidgets(3));
+      expect(find.text('1 unit = 1 kg').hitTestable(), findsNothing);
       for (final title in [
         'Raw Coconuts(with husks)',
         'Dehusked Coconuts',

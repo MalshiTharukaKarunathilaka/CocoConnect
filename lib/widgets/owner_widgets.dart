@@ -2,8 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../screens/buyer/buyer_format.dart';
 import '../services/owner_service.dart';
+import 'app_bottom_nav.dart';
 
-// Estate owner palette, taken from the Figma designs.
+// Land owner palette, taken from the Figma designs.
 const Color kOwnerGreen = Color(0xFF256B45);
 const Color kOwnerGreenSoft = Color(0xFFE3F0E6);
 const Color kOwnerCream = Color(0xFFFCF8EF);
@@ -15,33 +16,41 @@ const Color kOwnerRed = Color(0xFFC62828);
 const Color kOwnerBrown = Color(0xFF8B4A1C);
 
 /// Shared phone canvas for estate owner and service provider machinery screens.
-const double kMachineryPageWidth = 390;
+/// Why: slightly wider on desktop web so taps are easier than a skinny 390 column.
+const double kMachineryPageWidth = 430;
 
-/// The phone-width cream page every estate owner screen sits in.
+/// The phone-width cream page every land owner screen sits in.
 class OwnerPage extends StatelessWidget {
   final Widget child;
   final Widget? bottom;
+  final AppTab currentTab;
 
-  const OwnerPage({super.key, required this.child, this.bottom});
+  const OwnerPage({
+    super.key,
+    required this.child,
+    this.bottom,
+    this.currentTab = AppTab.dashboard,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // Why: no page-wide GestureDetector — on Flutter web it steals taps from
+    // tabs/buttons and the estate hub feels completely untouchable.
     return Scaffold(
       backgroundColor: const Color(0xFFEFEFEF),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Center(
-          child: Container(
-            width: kMachineryPageWidth,
-            height: double.infinity,
-            color: kOwnerCream,
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Expanded(child: child),
-                  ?bottom,
-                ],
-              ),
+      body: Center(
+        child: Container(
+          width: MediaQuery.sizeOf(context).width < kMachineryPageWidth + 24
+              ? MediaQuery.sizeOf(context).width
+              : kMachineryPageWidth,
+          height: double.infinity,
+          color: kOwnerCream,
+          child: SafeArea(
+            child: Column(
+              children: [
+                Expanded(child: child),
+                ?bottom,
+              ],
             ),
           ),
         ),
@@ -481,9 +490,17 @@ class OwnerPrimaryButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
             if (arrow) ...[
               const SizedBox(width: 8),
@@ -687,31 +704,28 @@ class CategoryImageCard extends StatelessWidget {
             SizedBox(
               height: 130,
               width: double.infinity,
-              child: imageAsset != null
-                  ? Image.asset(imageAsset!, fit: BoxFit.cover)
-                  : Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      // Wikimedia asks apps to say who they are.
-                      headers: const {
-                        'User-Agent': 'KapConnect/1.0 (university project)',
-                      },
-                      loadingBuilder: (context, child, progress) =>
-                          progress == null
-                          ? child
-                          : const ColoredBox(color: Color(0xFFF1F1EC)),
-                      errorBuilder: (context, error, stackTrace) =>
-                          const ColoredBox(
-                            color: Color(0xFFE8F5E9),
-                            child: Center(
-                              child: Icon(
-                                Icons.image,
-                                size: 40,
-                                color: kOwnerGreen,
-                              ),
-                            ),
-                          ),
-                    ),
+              child: Image(
+                image: imageAsset != null
+                    ? AssetImage(imageAsset!)
+                    : NetworkImage(
+                            imageUrl,
+                            headers: const {
+                              'User-Agent':
+                                  'KapConnect/1.0 (university project)',
+                            },
+                          )
+                          as ImageProvider,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) => progress == null
+                    ? child
+                    : const ColoredBox(color: Color(0xFFF1F1EC)),
+                errorBuilder: (context, error, stackTrace) => const ColoredBox(
+                  color: Color(0xFFE8F5E9),
+                  child: Center(
+                    child: Icon(Icons.image, size: 40, color: kOwnerGreen),
+                  ),
+                ),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),

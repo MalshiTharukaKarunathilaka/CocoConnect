@@ -40,6 +40,11 @@ class _FertilizerComplaintsPageState extends State<FertilizerComplaintsPage> {
             label: const Text('New complaint'),
           ),
         ),
+        const SizedBox(height: 8),
+        const Text(
+          'Quality complaints and order disputes (wrong bags, late delivery, billing) show here.',
+          style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+        ),
         const SizedBox(height: 16),
         if (list.isEmpty)
           Container(
@@ -50,7 +55,7 @@ class _FertilizerComplaintsPageState extends State<FertilizerComplaintsPage> {
               border: Border.all(color: AppColors.line),
             ),
             child: const Text(
-              'No complaints yet.',
+              'No complaints or disputes yet.',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.muted),
             ),
@@ -101,7 +106,7 @@ class _FertilizerComplaintsPageState extends State<FertilizerComplaintsPage> {
     }
     return FertPage(
       title: 'Quality complaints',
-      subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
+      subtitle: 'FERTILIZER \u00b7 LAND OWNER',
       child: body,
     );
   }
