@@ -1,3 +1,4 @@
+import 'mobile_sheet.dart';
 import 'package:flutter/material.dart';
 import 'nearby_filter.dart';
 import 'owner_widgets.dart';
@@ -12,9 +13,12 @@ Future<BuyerFilter?> showBuyerFilterSheet(
   BuyerFilter current,
 ) {
   return showModalBottomSheet<BuyerFilter>(
+    useSafeArea: true,
     context: context,
     isScrollControlled: true,
-    builder: (context) => _BuyerFilterSheet(current: current),
+    builder: mobileSheetBuilder(
+      (context) => _BuyerFilterSheet(current: current),
+    ),
   );
 }
 
@@ -70,84 +74,86 @@ class _BuyerFilterSheetState extends State<_BuyerFilterSheet> {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Filter Interested Buyers',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: kOwnerInk,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Filter Interested Buyers',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: kOwnerInk,
+                      ),
                     ),
                   ),
-                ),
-                TextButton(
-                  onPressed: () => setState(() {
-                    _sort = 'price';
-                    _radius = null;
-                    _match = true;
-                  }),
-                  style: TextButton.styleFrom(foregroundColor: kOwnerGreen),
-                  child: const Text('Reset'),
-                ),
-              ],
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              activeThumbColor: kOwnerGreen,
-              value: _match,
-              onChanged: (value) => setState(() => _match = value),
-              title: const Text(
-                'Match my harvest',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              subtitle: const Text(
-                'Only buyers who need your nuts on your available date or up '
-                'to 7 days before it, and no more than you have.',
-                style: TextStyle(fontSize: 12),
-              ),
-            ),
-            _title('SORT BY'),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final entry in _sorts.entries)
-                  _chip(
-                    entry.value,
-                    _sort == entry.key,
-                    () => setState(() => _sort = entry.key),
+                  TextButton(
+                    onPressed: () => setState(() {
+                      _sort = 'price';
+                      _radius = null;
+                      _match = true;
+                    }),
+                    style: TextButton.styleFrom(foregroundColor: kOwnerGreen),
+                    child: const Text('Reset'),
                   ),
-              ],
-            ),
-            _title('DISTANCE'),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final int? km in kRadiusOptions)
-                  _chip(
-                    km == null ? 'Any distance' : 'Within $km km',
-                    _radius == km,
-                    () => setState(() => _radius = km),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 22),
-            OwnerPrimaryButton(
-              label: 'Apply',
-              onPressed: () => Navigator.pop(context, (
-                sort: _sort,
-                radiusKm: _radius,
-                matchHarvest: _match,
-              )),
-            ),
-          ],
+                ],
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                activeThumbColor: kOwnerGreen,
+                value: _match,
+                onChanged: (value) => setState(() => _match = value),
+                title: const Text(
+                  'Match my harvest',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text(
+                  'Only buyers who need your nuts on your available date or up '
+                  'to 7 days before it, and no more than you have.',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+              _title('SORT BY'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final entry in _sorts.entries)
+                    _chip(
+                      entry.value,
+                      _sort == entry.key,
+                      () => setState(() => _sort = entry.key),
+                    ),
+                ],
+              ),
+              _title('DISTANCE'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final int? km in kRadiusOptions)
+                    _chip(
+                      km == null ? 'Any distance' : 'Within $km km',
+                      _radius == km,
+                      () => setState(() => _radius = km),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              OwnerPrimaryButton(
+                label: 'Apply',
+                onPressed: () => Navigator.pop(context, (
+                  sort: _sort,
+                  radiusKm: _radius,
+                  matchHarvest: _match,
+                )),
+              ),
+            ],
+          ),
         ),
       ),
     );

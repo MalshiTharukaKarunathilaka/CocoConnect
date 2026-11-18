@@ -102,7 +102,11 @@ class AuthService {
       'name': name,
       'phone': normalisePhone(phone),
       'password': password,
-      'role': role == 'Land Owner' ? 'ESTATE_OWNER' : role,
+      'role': switch (role) {
+        'Land Owner' => 'ESTATE_OWNER',
+        'Land Manager' => 'ESTATE_MANAGER',
+        _ => role,
+      },
       'location': location,
       'latitude': latitude,
       'longitude': longitude,

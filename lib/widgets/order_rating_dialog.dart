@@ -42,6 +42,7 @@ class _OrderRatingDialogState extends State<_OrderRatingDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
+    scrollable: true,
     title: Text(widget.order.iAmBuyer ? 'Rate seller' : 'Rate buyer'),
     content: Column(
       mainAxisSize: MainAxisSize.min,

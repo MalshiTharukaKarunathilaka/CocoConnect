@@ -15,8 +15,7 @@ const Color kOwnerPanel = Color(0xFFF1EFEA);
 const Color kOwnerRed = Color(0xFFC62828);
 const Color kOwnerBrown = Color(0xFF8B4A1C);
 
-/// Shared phone canvas for estate owner and service provider machinery screens.
-/// Why: slightly wider on desktop web so taps are easier than a skinny 390 column.
+/// Shared phone canvas for land owner and service provider machinery screens.
 const double kMachineryPageWidth = 430;
 
 /// The phone-width cream page every land owner screen sits in.
@@ -34,8 +33,6 @@ class OwnerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Why: no page-wide GestureDetector — on Flutter web it steals taps from
-    // tabs/buttons and the estate hub feels completely untouchable.
     return Scaffold(
       backgroundColor: const Color(0xFFEFEFEF),
       body: Center(
@@ -46,11 +43,23 @@ class OwnerPage extends StatelessWidget {
           height: double.infinity,
           color: kOwnerCream,
           child: SafeArea(
-            child: Column(
-              children: [
-                Expanded(child: child),
-                ?bottom,
-              ],
+            child: LayoutBuilder(
+              builder: (context, viewport) => Column(
+                children: [
+                  Expanded(child: child),
+                  if (bottom is AppBottomNav)
+                    bottom!
+                  else if (bottom != null)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: viewport.maxHeight * 0.4,
+                      ),
+                      child: SingleChildScrollView(child: bottom!),
+                    ),
+                  if (supportsMainNavigation && bottom is! AppBottomNav)
+                    AppBottomNav(current: currentTab),
+                ],
+              ),
             ),
           ),
         ),
@@ -97,6 +106,8 @@ class OwnerHeader extends StatelessWidget {
               children: [
                 Text(
                   title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 18,
@@ -107,6 +118,9 @@ class OwnerHeader extends StatelessWidget {
                 if (subtitle != null)
                   Text(
                     subtitle!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
@@ -530,69 +544,83 @@ class OwnerTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          for (int i = 0; i < labels.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(22),
-                onTap: () => onSelected(i),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 9,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (int i = 0; i < labels.length; i++)
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth,
+                    minHeight: 48,
                   ),
-                  decoration: BoxDecoration(
+                  child: Material(
                     color: i == selected ? kOwnerGreen : Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: i == selected
-                          ? kOwnerGreen
-                          : const Color(0xFFBDBDBD),
+                    shape: StadiumBorder(
+                      side: BorderSide(
+                        color: i == selected
+                            ? kOwnerGreen
+                            : const Color(0xFFBDBDBD),
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        labels[i],
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: i == selected ? Colors.white : kOwnerInk,
+                    child: InkWell(
+                      customBorder: const StadiumBorder(),
+                      onTap: () => onSelected(i),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                labels[i],
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: i == selected
+                                      ? Colors.white
+                                      : kOwnerInk,
+                                ),
+                              ),
+                            ),
+                            if (i < badges.length && badges[i] > 0) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFDDCDC),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${badges[i]}',
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: kOwnerRed,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      if (i < badges.length && badges[i] > 0) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFDDCDC),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${badges[i]}',
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.bold,
-                              color: kOwnerRed,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

@@ -133,13 +133,15 @@ class WelcomePage extends StatelessWidget {
                     bottom: waveHeight - 10,
                     child: SafeArea(
                       bottom: false,
-                      child: const Column(
-                        children: [
-                          SizedBox(height: 36),
-                          Expanded(child: _Palm()),
-                          _WelcomeText(),
-                          SizedBox(height: 14),
-                        ],
+                      child: SingleChildScrollView(
+                        child: const Column(
+                          children: [
+                            SizedBox(height: 36),
+                            SizedBox(height: 120, child: _Palm()),
+                            _WelcomeText(),
+                            SizedBox(height: 14),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -294,7 +296,7 @@ class _WelcomeText extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const Text(
-            'Sell your harvest and buy coconuts directly between estates '
+            'Sell your harvest and buy coconuts directly between lands '
             'and buyers, at live market prices.',
             textAlign: TextAlign.center,
             style: TextStyle(

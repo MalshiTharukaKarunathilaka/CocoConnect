@@ -302,7 +302,7 @@ test("PROVIDER <-> OWNER: a machine is registered, requested, negotiated, confir
 
   // The owner cancels: both sides see it, and the time is free again.
   const cancelled = await ok("POST", `/api/machinery/bookings/${request.id}/cancel`, {
-    token: owner.token, body: { expected_version: booking.version },
+    token: owner.token, body: { reason: "Schedule changed", expected_version: booking.version },
   });
   assert.equal(cancelled.status, "CANCELLED");
   const seenByProvider = await ok("GET", `/api/machinery/bookings/${request.id}`, { token: provider.token });

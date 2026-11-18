@@ -1,3 +1,4 @@
+import '../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app_bottom_nav.dart';
@@ -152,10 +153,18 @@ class BuyerInputField extends StatelessWidget {
         hintText: hint,
         hintStyle: const TextStyle(fontSize: 14, color: Color(0xFFAAAAAA)),
         prefixIcon: prefix,
-        suffixIcon: suffix,
+        suffixIcon: readOnly && onTap == null
+            ? const Icon(
+                Icons.lock_outline,
+                size: 18,
+                color: AppColors.autoFilledInk,
+              )
+            : suffix,
         prefixIconConstraints: const BoxConstraints(minWidth: 42),
         filled: true,
-        fillColor: kBuyerFieldFill,
+        fillColor: readOnly && onTap == null
+            ? AppColors.autoFilledBackground
+            : kBuyerFieldFill,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
@@ -210,9 +219,14 @@ class BuyerPrimaryButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             if (trailingIcon != null) ...[
               const SizedBox(width: 8),
@@ -258,9 +272,14 @@ class BuyerOutlinedButton extends StatelessWidget {
               Icon(leadingIcon, size: 18, color: kBuyerGreen),
               const SizedBox(width: 8),
             ],
-            Text(
-              label,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         ),

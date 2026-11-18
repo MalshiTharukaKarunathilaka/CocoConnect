@@ -18,7 +18,7 @@ class SignupPage extends StatefulWidget {
 class _SignupPageState extends State<SignupPage> {
   static const List<String> _roles = [
     'Land Owner',
-    'Estate Manager',
+    'Land Manager',
     'Buyer',
     'Service Provider',
     'Worker',
@@ -143,17 +143,17 @@ class _SignupPageState extends State<SignupPage> {
         );
       case 'Land Owner':
         return EstateOwnerSignupSection(extras: _extras);
-      case 'Estate Manager':
+      case 'Land Manager':
         return const RoleNoteSection(
           icon: Icons.assignment_ind_outlined,
-          title: 'Estate manager',
-          text: 'Run day-to-day sales and bookings for your estate.',
+          title: 'Land manager',
+          text: 'Run day-to-day sales and bookings for your land.',
         );
       default:
         return const RoleNoteSection(
           icon: Icons.shopping_basket_outlined,
           title: 'Buyer',
-          text: 'Post what you need and get offers from nearby estates.',
+          text: 'Post what you need and get offers from nearby lands.',
         );
     }
   }
@@ -221,7 +221,7 @@ class _SignupPageState extends State<SignupPage> {
                     onPressed: _pickLocation,
                   ),
                   validator: (_) => _location == null
-                      ? 'Pick your location so nearby buyers and estates '
+                      ? 'Pick your location so nearby buyers and lands '
                             'can find you'
                       : null,
                 ),

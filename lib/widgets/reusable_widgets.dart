@@ -138,7 +138,7 @@ class CoconutProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 180,
+      height: 180 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(3),

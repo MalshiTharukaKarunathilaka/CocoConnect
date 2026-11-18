@@ -56,7 +56,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const LanguageSelector(),
+                      const Flexible(child: LanguageSelector()),
                     ],
                   ),
                 ),
@@ -204,7 +204,7 @@ class EstateOwnerDashboard extends StatelessWidget {
       ),
       DashboardCategoryCard(
         title: 'Machinery',
-        subtitle: 'Rent or buy',
+        subtitle: 'Make a booking',
         icon: Icons.agriculture,
         iconColor: const Color(0xFFB26A2C),
         onTap: () => open(const MachineryMapPage()),

@@ -1,3 +1,4 @@
+import '../widgets/open_street_map_tiles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -277,14 +278,14 @@ class EstateOwnerSignupSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return RoleSectionCard(
       icon: Icons.park_outlined,
-      title: 'Your estate',
+      title: 'Your land',
       subtitle: 'Buyers see this on your listings. You can edit it later.',
       children: [
         _labelled(
-          'Estate name',
+          'Land name',
           AuthTextField(
             controller: extras.estateName,
-            hint: 'e.g. Green Valley Estate',
+            hint: 'e.g. Green Valley Land',
             prefixIcon: _icon(Icons.landscape_outlined),
           ),
         ),
@@ -487,9 +488,7 @@ class _ServiceRadius extends StatelessWidget {
             ),
           ],
         ),
-        const SimpleAttributionWidget(
-          source: Text('OpenStreetMap contributors'),
-        ),
+        const KapConnectMapAttribution(),
       ],
     );
   }

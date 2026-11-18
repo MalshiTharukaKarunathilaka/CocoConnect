@@ -168,9 +168,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
               ),
               children: [
                 kapConnectMapTiles(),
-                const SimpleAttributionWidget(
-                  source: Text('OpenStreetMap contributors'),
-                ),
+                const KapConnectMapAttribution(),
               ],
             ),
 
