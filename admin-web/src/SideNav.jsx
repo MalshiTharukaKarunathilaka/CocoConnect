@@ -6,6 +6,7 @@ const ICONS = {
   land: 'M12 21V10m0 0C12 6 9 4 5 4c0 4 2 6 7 6Zm0 3c0-3 2.5-5 7-5 0 4-2.5 6-7 6M4 21h16',
   community: 'M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm10 8v-1.5a3.5 3.5 0 0 0-2.5-3.3M15.5 5.2a3.5 3.5 0 0 1 0 6.6',
   resources: 'M21 8 12 3 3 8v8l9 5 9-5V8ZM3 8l9 5m0 0 9-5m-9 5v8',
+  subsidies: 'M12 3v18M7 8c0-2 2-3 5-3s5 1 5 3-2 3-5 3-5 1-5 3 2 3 5 3 5-1 5-3',
   marketplace: 'M4 9l1.5-5h13L20 9M4 9v11h16V9M4 9c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3',
   platform: 'M4 7h9m4 0h3M4 17h3m4 0h9M15 4v6M9 14v6',
   'an-overview': 'M12 21s7-5.5 7-11a7 7 0 0 0-14 0c0 5.500 7 11 7 11Zm0-8.500a2.500 2.500 0 1 0 0-5 2.500 2.500 0 0 0 0 5Z',
@@ -21,6 +22,8 @@ const ICONS = {
   'an-clients': 'M5 8h14l-1 12H6L5 8Zm4 0a3 3 0 0 1 6 0',
   'an-fert': 'M9 3h6M10 3v6L5 19a1.5 1.5 0 0 0 1.300 2h11.400a1.500 1.500 0 0 0 1.300-2l-5-10V3',
   'an-mach': 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm0-12v3m0 12v3M3 12h3m12 0h3M5.600 5.600l2.100 2.100m8.600 8.600 2.100 2.100M18.400 5.600l-2.100 2.100M7.700 16.300l-2.100 2.100',
+  'an-subsidies': 'M12 3v18M7 8c0-2 2-3 5-3s5 1 5 3-2 3-5 3-5 1-5 3 2 3 5 3 5-1 5-3',
+  'an-finance': 'M3 7h18v12H3V7Zm0 0 2-3h14l2 3M16 13h2.500',
   'soon-instruments': 'M14.500 6.500a4 4 0 0 0 5 5L11 20a2 2 0 0 1-3-3l8.500-8.500',
   'soon-irrigation': 'M12 3s5 5 5 9a5 5 0 0 1-10 0c0-4 5-9 5-9ZM4 21h16',
   'soon-guns': 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-5a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 2v4m0 12v4M2 12h4m12 0h4',
@@ -84,21 +87,21 @@ export default function SideNav({ view, setView, badgeFor, user, logout, collaps
 
         <nav className="sn-nav" aria-label="Main">
           {MENU.map((m) => {
-            const open = !collapsed && openId === m.id
+            const open = !collapsed && !m.direct && openId === m.id
             return (
               <div key={m.id} className="sn-group">
                 <button
                   className={`sn-main ${active === m.id ? 'active' : ''}`}
-                  aria-expanded={open}
+                  aria-expanded={m.direct ? undefined : open}
                   title={collapsed ? m.label : undefined}
-                  onClick={() => toggle(m.id)}
+                  onClick={() => (m.direct ? go(m.direct) : toggle(m.id))}
                 >
                   <Icon name={m.id} />
                   {!collapsed && (
                     <>
                       <span>{m.label}</span>
                       {countOf(m) > 0 && <span className="adm-badge">{countOf(m)}</span>}
-                      <Chevron open={open} />
+                      {!m.direct && <Chevron open={open} />}
                     </>
                   )}
                 </button>

@@ -30,12 +30,19 @@ export const MENU = [
     items: [
       ['an-fert', 'Fertilizer', 'Donations and usage by district'],
       ['an-mach', 'Machinery', 'Machines, prices and availability'],
+      ['an-finance', 'Financial Products', 'Loans, insurance and carbon credits'],
       ['soon-instruments', 'Instruments', 'Tools and instruments'],
       ['soon-irrigation', 'Irrigation Equipment', 'Pumps, pipes and sprinklers'],
       ['soon-guns', 'Guns', 'Spray and other guns'],
       ['soon-planting-materials', 'Planting Materials', 'Seedlings and plants'],
       ['soon-chemicals', 'Chemicals', 'Pesticides and chemicals'],
     ],
+  },
+  {
+    id: 'subsidies',
+    label: 'Subsidies',
+    direct: 'an-subsidies', // opens its page straight away, no sub-menu
+    items: [['an-subsidies', 'Subsidies', 'Fertilizer, machinery and other farm inputs']],
   },
   {
     id: 'marketplace',

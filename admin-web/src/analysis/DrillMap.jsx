@@ -53,13 +53,14 @@ export default function DrillMap({
   agg = 'sum', // 'avg' when the values are prices
   cdoValues = null, // optional {areaName: value} for the CDO areas
   badge = null, // { html: (value, name, index) => string }: a picture and the amount on every area
+  noSub = false, // true: stop at the district, no CDO areas
 }) {
   const [tiles, setTiles] = useState(false)
   const level = sel.district ? 2 : sel.province ? 1 : 0
   const [subGeo, setSubGeo] = useState(null)
   const region = sel.region || null
   const setRegion = (name) => onSel(name ? { province: sel.province, district: sel.district, region: name } : { province: sel.province, district: sel.district })
-  const subDistrict = sel.district && SUB_FILES[sel.district] ? sel.district : null
+  const subDistrict = !noSub && sel.district && SUB_FILES[sel.district] ? sel.district : null
   useEffect(() => {
     if (!subDistrict) return setSubGeo(null)
     let live = true
@@ -221,6 +222,18 @@ export default function DrillMap({
             }}
           />
         )}
+        {/* each CDO area has its office, shown as a house at the area's centre */}
+        {subGeo && subGeo.features.filter((f) => f.properties.c && (!region || f.properties.region === region)).map((f) => (
+          <Marker
+            key={`cdo-office-${f.properties.region}`}
+            position={[f.properties.c[0] - 0.012, f.properties.c[1] + 0.012]}
+            zIndexOffset={900}
+            icon={pinIcon('house', '#b4531f', 30, false)}
+            eventHandlers={{ click: () => setRegion(region === f.properties.region ? null : f.properties.region) }}
+          >
+            <Tooltip direction="top" offset={[0, -26]}><b>CDO office</b><br />{f.properties.region}</Tooltip>
+          </Marker>
+        ))}
         {badges.map((b, i) => (
           <Marker
             key={`badge-${level}-${b.name}-${i}`}
@@ -283,6 +296,11 @@ export default function DrillMap({
             {l.icon ? <span className="an-leg-ic" dangerouslySetInnerHTML={{ __html: glyphHtml(l.icon, l.color, 24) }} /> : <i style={{ background: l.color }} />} {l.text}
           </div>
         ))}
+        {subGeo && subGeo.features.some((f) => f.properties.c) && (
+          <div className="an-leg-row">
+            <span className="an-leg-ic" dangerouslySetInnerHTML={{ __html: glyphHtml('house', '#b4531f', 24) }} /> CDO office
+          </div>
+        )}
       </div>
     </div>
   )

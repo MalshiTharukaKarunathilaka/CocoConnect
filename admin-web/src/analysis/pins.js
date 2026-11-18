@@ -94,8 +94,9 @@ const glyph = (kind, color, px) =>
 
 // Crop pictures (real artwork) used as pins for pepper and pineapple.
 const PHOTO = {
-  pepper: ['/crops/pepper.png', 1.1], pineapple: ['/crops/pineapple.png', 0.82],
+  peanut: ['/crops/peanut.png', 1.18, 0.66], pepper: ['/crops/pepper.png', 1.1], pineapple: ['/crops/pineapple.png', 0.82],
   sack: ['/crops/sack.png', 0.95, 0.95],
+  coconut: ['/photos/coconut.png', 1.39, 0.85],
   tractor: ['/crops/tractor.png', 1.41, 0.7], hand: ['/crops/hand-tractor.png', 1.45, 0.7], backhoe: ['/crops/backhoe.png', 2.1, 0.6],
 }
 // A sack can be shown in other colours: turn the brown picture round the colour wheel.
@@ -231,6 +232,43 @@ const RICH = {
     <circle cx="12" cy="13" r="3.200" fill="#e53935"/><circle cx="17.500" cy="11" r="3.400" fill="#fdd835"/><circle cx="21" cy="13.500" r="3" fill="#43a047"/>
     <path d="M3.500 14 H28.500 L25.500 28.500 H6.500 Z" fill="${g}"/>
     <path d="M5 18.500 H27 M5.800 23 H26.200" stroke="${D}" stroke-width="1" opacity=".6"/><path d="M11 14 L12 28.500 M16 14 V28.500 M21 14 L20 28.500" stroke="${D}" stroke-width=".9" opacity=".45"/>`,
+  peanut: (c, L, D, g) => `
+    <path d="M8 6 C2 8 2 16 7 17 C6 23 11 29 17 27 C24 25 25 18 22 15 C26 12 24 4 17 4 C13 4 10 4.500 8 6 Z" fill="${g}"/>
+    <path d="M9 11 L11 11.500 M8 20 L10 19.500 M18 22 L16.500 24 M20 9 L18.500 11 M15 16 L17 15.500" stroke="${D}" stroke-width="1" stroke-linecap="round" opacity=".6"/>
+    <path d="M7 16.500 Q14 13 22 15" stroke="${D}" stroke-width="1.100" fill="none" opacity=".55"/>
+    <ellipse cx="10" cy="9" rx="3.500" ry="1.800" fill="#fff" opacity=".4"/>`,
+  bank: (c, L, D, g) => `
+    <path d="M2.500 12 L16 3.500 L29.500 12 Z" fill="${D}"/><rect x="4" y="12" width="24" height="2.400" fill="${g}"/>
+    <rect x="6" y="15" width="3.400" height="9.500" fill="${g}"/><rect x="11.600" y="15" width="3.400" height="9.500" fill="${g}"/>
+    <rect x="17.200" y="15" width="3.400" height="9.500" fill="${g}"/><rect x="22.800" y="15" width="3.400" height="9.500" fill="${g}"/>
+    <rect x="3" y="25.500" width="26" height="3.200" rx="1" fill="${D}"/><circle cx="16" cy="9" r="1.600" fill="#fff" opacity=".85"/>`,
+  shield: (c, L, D, g) => `
+    <path d="M16 2.500 L27 6.500 V15 C27 22 22 27 16 29.500 C10 27 5 22 5 15 V6.500 Z" fill="${g}"/>
+    <path d="M16 2.500 L27 6.500 V15 C27 22 22 27 16 29.500 Z" fill="#000" opacity=".12"/>
+    <path d="M10.500 15.500 L14.500 19.500 L22 11.500" stroke="#fff" stroke-width="2.800" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
+  coin: (c, L, D, g) => `
+    <ellipse cx="16" cy="18" rx="12.500" ry="11" fill="${D}"/><ellipse cx="16" cy="15.500" rx="12.500" ry="11" fill="${g}"/>
+    <ellipse cx="16" cy="15.500" rx="8.600" ry="7.400" fill="none" stroke="#fff" stroke-width="1.200" opacity=".6"/>
+    <text x="16" y="20" text-anchor="middle" font-size="11" font-weight="800" font-family="Arial, sans-serif" fill="#fff">Rs</text>`,
+  wrench: (c, L, D, g) => `
+    <path d="M22 3 C17.500 3 14.500 7 15.800 11 L4.500 22.500 C3 24 3 26.500 4.800 28 C6.300 29.300 8.800 29.300 10.300 27.800 L21.500 16.300 C26 17.500 30 13.500 29 9 L25 12.500 L20.800 11 L19.500 6.800 L23.500 3.300 Z" fill="${g}"/>
+    <circle cx="7.500" cy="25.500" r="1.500" fill="#fff" opacity=".6"/>`,
+  spraygun: (c, L, D, g) => `
+    <rect x="4" y="8" width="17" height="8" rx="3" fill="${g}"/>
+    <path d="M8 16 L11 28 H16 L15 16 Z" fill="${D}"/><rect x="21" y="10" width="5" height="4" rx="1" fill="${D}"/>
+    <circle cx="28" cy="9" r="1.200" fill="${L}"/><circle cx="29.500" cy="12" r="1.200" fill="${L}"/><circle cx="28" cy="15" r="1.200" fill="${L}"/>
+    <ellipse cx="10" cy="10.500" rx="5" ry="1.400" fill="#fff" opacity=".4"/>`,
+  flask: (c, L, D, g) => `
+    <path d="M12 3 H20 V4.500 H19 V12 L27 25 C28.500 27.500 27 29.500 24.500 29.500 H7.500 C5 29.500 3.500 27.500 5 25 L13 12 V4.500 H12 Z" fill="${g}"/>
+    <path d="M8.500 22 H23.500 L26 26 C26.800 27.300 26 28.500 24.500 28.500 H7.500 C6 28.500 5.200 27.300 6 26 Z" fill="${D}" opacity=".55"/>
+    <circle cx="15" cy="18" r="1.300" fill="#fff" opacity=".7"/><circle cx="18" cy="20" r="1" fill="#fff" opacity=".7"/>`,
+  gift: (c, L, D, g) => `
+    <rect x="4" y="13" width="24" height="16" rx="2" fill="${g}"/>
+    <rect x="2.500" y="9" width="27" height="6" rx="1.800" fill="${D}"/>
+    <rect x="14" y="9" width="4" height="20" fill="#fff" opacity=".85"/>
+    <path d="M16 9 C12 9 8 7.500 9 4.500 C10 2 14 4 16 9 Z" fill="#fff" opacity=".9"/>
+    <path d="M16 9 C20 9 24 7.500 23 4.500 C22 2 18 4 16 9 Z" fill="#fff" opacity=".9"/>
+    <ellipse cx="10" cy="19" rx="3.500" ry="1.500" fill="#fff" opacity=".25"/>`,
   leaf: (c, L, D, g) => `
     <path d="M4.500 28 C4.500 12 13.500 3.500 28.500 3.500 C28.500 18.500 20 28 4.500 28 Z" fill="${g}"/>
     <path d="M4.500 28 L23 9.500" stroke="#fff" stroke-width="1.600" opacity=".7" stroke-linecap="round"/>

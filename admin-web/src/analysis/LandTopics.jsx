@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import DrillMap from './DrillMap'
 import { glyphHtml } from './pins'
-import { Bars, Donut, FigTiles, PhotoRow, ProvinceStrip, Split, areaBars, glyphRow, landStrip } from './AnalysisPages'
+import { Bars, Donations, Donut, FigTiles, Overview, PhotoRow, ProvinceStrip, Split, areaBars, glyphRow, landStrip } from './AnalysisPages'
 import { MONTHS, compact, inScope, kgText, label, num, pct, rs, scopeName, sumBy } from './data'
-import { Card, DataTable, PageHead } from './ui'
+import PlatformPage from './PlatformPages'
+import { Card, Chips, DataTable, PageHead, Segmented } from './ui'
 
 // =============================================================================
 // Land topics: Cultivation Type, Agri Tourism, Aquaculture, Animal Husbandry,
@@ -63,10 +64,73 @@ const ENV = [
 const GRID_KG = 0.45 // kg of CO2 saved for each kWh that does not come from the grid
 const BILL = 38 // rupees per kWh
 
+const LOAN = [
+  { name: 'Replanting', color: '#2f8a4f', glyph: 'sprout', mult: 1 },
+  { name: 'Machinery', color: '#8e44ad', glyph: 'tractor', mult: 1.8 },
+  { name: 'Irrigation', color: '#0288d1', glyph: 'drop', mult: 1.2 },
+  { name: 'Working capital', color: '#d99a0b', glyph: 'coin', mult: 0.7 },
+  { name: 'Processing', color: '#8b4a1c', glyph: 'shell', mult: 1.5 },
+]
+const LENDERS = ['Bank of Ceylon', "People's Bank", 'Sampath Bank', 'National Development Bank', 'Regional Development Bank']
+const LOAN_STATUS = [['Active', 0.62], ['Repaid', 0.25], ['Overdue', 0.13]]
+const COVER = [
+  { name: 'Crop and drought', color: '#2f8a4f', glyph: 'sprout', per: 110000, rate: 0.045 },
+  { name: 'Fire and property', color: '#d9741a', glyph: 'flame', per: 70000, rate: 0.012 },
+  { name: 'Machinery', color: '#8e44ad', glyph: 'tractor', per: 90000, rate: 0.03 },
+  { name: 'Livestock', color: '#5d4037', glyph: 'cow', per: 50000, rate: 0.04 },
+]
+const INSURERS = ['Sri Lanka Insurance', 'Ceylinco Insurance', 'Janashakthi Insurance', 'AIA Insurance']
+const CREDIT = [
+  { name: 'Registered', color: '#43a047', glyph: 'leaf' },
+  { name: 'Verified', color: '#0288d1', glyph: 'shield' },
+  { name: 'Sold', color: '#d99a0b', glyph: 'coin' },
+]
+const STANDARDS = ['Verra VCS', 'Gold Standard', 'Sri Lanka Carbon Registry']
+const USD = 300 // rupees to the dollar
+const share = (items, r) => {
+  let a = 0
+  for (const [name, w] of items) { a += w; if (r < a) return name }
+  return items[items.length - 1][0]
+}
+
+const SUBS = [
+  { name: 'Fertilizer', color: '#2f8a4f', glyph: 'sack', p: 0.5, schemes: ['Free issue', 'Reduced price', 'Cash grant'], amt: (a, r) => a * (4000 + r * 5000) },
+  { name: 'Machinery', color: '#8e44ad', glyph: 'tractor', p: 0.15, schemes: ['Tractor subsidy', 'Hand tractor grant', 'Hire voucher'], amt: (a, r) => 40000 + r * 110000 },
+  { name: 'Instruments', color: '#8b4a1c', glyph: 'wrench', p: 0.3, schemes: ['Harvesting tools', 'Climbing gear', 'Hand tools'], amt: (a, r) => 8000 + r * 17000 },
+  { name: 'Irrigation Equipment', color: '#0288d1', glyph: 'drop', p: 0.2, schemes: ['Drip kit', 'Sprinklers', 'Pump grant'], amt: (a, r) => a * (6000 + r * 6000) },
+  { name: 'Guns', color: '#d9741a', glyph: 'spraygun', p: 0.25, schemes: ['Sprayer gun', 'Knapsack sprayer', 'Fogger'], amt: (a, r) => 12000 + r * 33000 },
+  { name: 'Planting Materials', color: '#43a047', glyph: 'sprouts', p: 0.35, schemes: ['Seedlings', 'Tissue-culture plants', 'Hybrid seed nuts'], amt: (a, r) => a * (5000 + r * 9000) },
+  { name: 'Chemicals', color: '#c0392b', glyph: 'flask', p: 0.4, schemes: ['Pesticide', 'Fungicide', 'Weedicide'], amt: (a, r) => a * (2500 + r * 2500) },
+]
+
 const cache = new WeakMap()
 function topicRows(d) {
   if (cache.has(d)) return cache.get(d)
-  const out = { cult: [], tour: [], aqua: [], animal: [], energy: [], env: [] }
+  const out = { cult: [], tour: [], aqua: [], animal: [], energy: [], env: [], loans: [], insure: [], carbon: [] }
+  for (const e of d.estates) {
+    const a = e.acres
+    // loans: about two lands in five
+    if (hr(e.id, 'loan') < 0.42) {
+      const p = pickOf(LOAN, hr(e.id, 'l1'))
+      const amount = Math.round((a * (45000 + hr(e.id, 'l2') * 110000) * p.mult) / 1000) * 1000
+      const status = share(LOAN_STATUS, hr(e.id, 'l3'))
+      out.loans.push({ e, cat: p.name, lender: pickOf(LENDERS, hr(e.id, 'l4')), amount, rate: Math.round((8 + hr(e.id, 'l5') * 6) * 10) / 10, term: pickOf([12, 24, 36, 60], hr(e.id, 'l6')), status, owing: status === 'Repaid' ? 0 : Math.round(amount * (0.3 + hr(e.id, 'l7') * 0.6)), money: amount })
+    }
+    // insurance: about one land in three
+    if (hr(e.id, 'ins') < 0.34) {
+      const c = pickOf(COVER, hr(e.id, 'i1'))
+      const sum = Math.round((a * c.per * (0.7 + hr(e.id, 'i2') * 0.6)) / 1000) * 1000
+      const claims = Math.floor(hr(e.id, 'i3') * 3.4)
+      out.insure.push({ e, cat: c.name, insurer: pickOf(INSURERS, hr(e.id, 'i4')), sum, premium: Math.round(sum * c.rate), claims, paid: Math.round(claims * sum * (0.04 + hr(e.id, 'i5') * 0.08)), status: hr(e.id, 'i6') < 0.82 ? 'Active' : 'Lapsed', money: Math.round(sum * c.rate) })
+    }
+    // carbon credits: about one land in four
+    if (hr(e.id, 'cc') < 0.27) {
+      const credits = Math.max(1, Math.round(a * (0.8 + hr(e.id, 'c1') * 1.4) * (e.crop === 'Coconut' ? 1.2 : 0.8)))
+      const status = share([['Registered', 0.3], ['Verified', 0.35], ['Sold', 0.35]], hr(e.id, 'c2'))
+      const price = Math.round((8 + hr(e.id, 'c3') * 10) * USD)
+      out.carbon.push({ e, cat: status, credits, standard: pickOf(STANDARDS, hr(e.id, 'c4')), price, sold: status === 'Sold' ? credits : 0, money: credits * price })
+    }
+  }
   for (const e of d.estates) {
     const a = e.acres
     // cultivation type: every land
@@ -144,7 +208,7 @@ function CatCard({ title, cats, value, onChange, rows }) {
 }
 
 /** One page: stat cards, comparison cards, map, charts and a table, all for one topic. */
-function TopicPage({ d, sel, setSel, spec }) {
+function TopicPage({ d, sel, setSel, spec, bar }) {
   const [cat, setCat] = useState('')
   const all = useMemo(() => spec.rows(topicRows(d)), [d, spec])
   const here = (r) => inScope(sel, r.e.district) && (!sel.region || r.e.region === sel.region)
@@ -174,6 +238,7 @@ function TopicPage({ d, sel, setSel, spec }) {
 
   return (
     <PageHead title={spec.title} sub={spec.sub} name={spec.name} sel={sel} onSel={setSel} sections={sections}>
+      {bar}
       <PhotoRow items={spec.kpis(scoped, sel)} />
       <FigTiles items={spec.figs(scoped, sel)} />
       <ProvinceStrip startOpen byD={perD} fmt={spec.fmt || num} unit={spec.unit} sel={sel} setSel={setSel} color={spec.color} {...landStrip(d, sel, setSel, perD, spec.noun, cdoValue)} />
@@ -342,8 +407,8 @@ const SPECS = {
       ]
     },
     month: {
-      title: 'Cultivation type by crop', sub: 'How many lands of each crop are grown each way', keys: ['Coconut', 'Pepper', 'Pineapple'], colors: ['#2f8a4f', '#9c2a23', '#d99a0b'], fmt: num,
-      data: (s) => CULT.map((c) => ({ name: c.name, Coconut: s.filter((r) => r.cat === c.name && r.e.crop === 'Coconut').length, Pepper: s.filter((r) => r.cat === c.name && r.e.crop === 'Pepper').length, Pineapple: s.filter((r) => r.cat === c.name && r.e.crop === 'Pineapple').length })),
+      title: 'Cultivation type by crop', sub: 'How many lands of each crop are grown each way', keys: ['Coconut', 'Pepper', 'Pineapple', 'Peanut'], colors: ['#2f8a4f', '#9c2a23', '#d99a0b', '#b5803c'], fmt: num,
+      data: (s) => CULT.map((c) => ({ name: c.name, Coconut: s.filter((r) => r.cat === c.name && r.e.crop === 'Coconut').length, Pepper: s.filter((r) => r.cat === c.name && r.e.crop === 'Pepper').length, Pineapple: s.filter((r) => r.cat === c.name && r.e.crop === 'Pineapple').length, Peanut: s.filter((r) => r.cat === c.name && r.e.crop === 'Peanut').length })),
     },
     second: {
       title: 'Crops grown together', sub: 'Second crops on intercropped and mixed lands',
@@ -423,6 +488,97 @@ const SPECS = {
     cols: ['ID', 'Land', 'Owner', 'District', 'Crop', 'Emitted', 'Stored', 'Avoided', 'Balance'],
     row: (r) => [r.e.id, r.e.name, r.e.owner, label(r.e.district), r.e.crop, t1(r.emit), t1(r.seq), t1(r.avoided), `${r.balance >= 0 ? '+' : '-'}${t1(Math.abs(r.balance))}`],
   },
+
+  loans: {
+    title: 'Financial products', sub: 'Loans taken by land owners, from banks and lenders', name: 'Loans', noun: 'Loans', unit: 'loans',
+    rows: (t) => t.loans, cats: LOAN, catTitle: 'Loan purpose', donutTitle: 'What the loans are for', color: '#7a4fb0',
+    mapTitle: 'Where the loans are', mapSub: 'Each pin is a land with a loan, shown by what the loan is for.',
+    tip: (r) => `${rs(r.amount)} \u00b7 ${r.lender} \u00b7 ${r.status}`,
+    rank: (r) => r.amount, rankFmt: rs, topTitle: 'Biggest loans', topSub: 'Amount lent',
+    kpis: (s) => [
+      ['rotary', 'wallet', 'green', 'Loans', num(s.length), `${num(s.filter((r) => r.status === 'Active').length)} still active`],
+      ['koku_nagula', 'wallet', 'purple', 'Lent in total', rs(sumBy(s, (r) => r.amount)), 'to land owners'],
+      ['disc_plough', 'scale', 'amber', 'Still owed', rs(sumBy(s, (r) => r.owing)), 'not yet repaid'],
+      ['slasher', 'check', 'brown', 'Overdue loans', num(s.filter((r) => r.status === 'Overdue').length), s.length ? `${pct(s.filter((r) => r.status === 'Overdue').length, s.length)} of the loans` : ''],
+    ],
+    figs: (s) => {
+      const t = top1(tally(s, LOAN))
+      return [
+        ['Most common purpose', t && t.value ? t.name : '-', t && t.value ? `${t.value} loans` : '', glyphRow(['coin'], ['#d99a0b'], 62)],
+        ['Average interest', s.length ? `${(sumBy(s, (r) => r.rate) / s.length).toFixed(1)}%` : '-', 'a year', glyphRow(['bank'], ['#7a4fb0'], 60)],
+      ]
+    },
+    month: {
+      title: 'Loans given each month', sub: 'Rupees lent by purpose. Sample figures; most are taken before planting seasons', keys: LOAN.map((x) => x.name), colors: LOAN.map((x) => x.color), fmt: rs,
+      data: (s) => monthRows(LOAN.map((x) => x.name), LOAN.map((x) => monthly(sumBy(s.filter((r) => r.cat === x.name), (r) => r.amount), [0.9, 1, 1.3, 1.4, 1.1, 0.8, 0.8, 0.9, 1.2, 1.3, 1, 0.9]))),
+    },
+    second: { title: 'Lent by bank', sub: 'Rupees lent', fmt: rs, data: (s) => LENDERS.map((n) => ({ name: n, value: sumBy(s.filter((r) => r.lender === n), (r) => r.amount) })).sort((a, b) => b.value - a.value) },
+    cols: ['ID', 'Land', 'Owner', 'District', 'Purpose', 'Bank', 'Amount', 'Interest', 'Term', 'Status'],
+    row: (r) => [r.e.id, r.e.name, r.e.owner, label(r.e.district), r.cat, r.lender, rs(r.amount), `${r.rate}%`, `${r.term} months`, r.status],
+  },
+
+  insure: {
+    title: 'Financial products', sub: 'Insurance cover on registered lands, and the claims paid', name: 'Insurance', noun: 'Policies', unit: 'policies',
+    rows: (t) => t.insure, cats: COVER, catTitle: 'Cover', donutTitle: 'What is insured', color: '#0288d1', scale: ['#e4eff5', '#bad7e6', '#86b6cf', '#4f8fb0', '#25607f'],
+    mapTitle: 'Where the cover is', mapSub: 'Each pin is an insured land, shown by the kind of cover.',
+    tip: (r) => `${rs(r.sum)} insured \u00b7 ${r.insurer} \u00b7 ${r.status}`,
+    rank: (r) => r.sum, rankFmt: rs, topTitle: 'Highest cover', topSub: 'Sum insured',
+    kpis: (s) => [
+      ['rotary', 'check', 'blue', 'Policies', num(s.length), `${num(s.filter((r) => r.status === 'Active').length)} active`],
+      ['koku_nagula', 'wallet', 'green', 'Sum insured', rs(sumBy(s, (r) => r.sum)), 'cover in total'],
+      ['disc_plough', 'tag', 'amber', 'Premiums', rs(sumBy(s, (r) => r.premium)), 'paid in a year'],
+      ['slasher', 'receipt', 'purple', 'Claims paid', rs(sumBy(s, (r) => r.paid)), `${num(sumBy(s, (r) => r.claims))} claims made`],
+    ],
+    figs: (s) => {
+      const t = top1(tally(s, COVER))
+      return [
+        ['Most common cover', t && t.value ? t.name : '-', t && t.value ? `on ${t.value} lands` : '', glyphRow(['shield'], ['#0288d1'], 62)],
+        ['Claims per 100 policies', s.length ? String(Math.round((sumBy(s, (r) => r.claims) / s.length) * 100)) : '-', 'in the last year', glyphRow(['shield', 'sprout'], ['#2f8a4f', '#43a047'], 50)],
+      ]
+    },
+    month: {
+      title: 'Premiums and claims each month', sub: 'Rupees. Sample figures; claims peak after dry spells and in the rainy months', keys: ['Premiums', 'Claims paid'], colors: ['#0288d1', '#d9741a'], fmt: rs,
+      data: (s) => monthRows(['Premiums', 'Claims paid'], [
+        monthly(sumBy(s, (r) => r.premium), WEEK),
+        monthly(sumBy(s, (r) => r.paid), [0.6, 0.7, 0.8, 0.9, 1.4, 1.5, 0.9, 0.8, 0.9, 1.4, 1.6, 1.2]),
+      ]),
+    },
+    second: { title: 'Cover by insurer', sub: 'Rupees insured', fmt: rs, data: (s) => INSURERS.map((n) => ({ name: n, value: sumBy(s.filter((r) => r.insurer === n), (r) => r.sum) })).sort((a, b) => b.value - a.value) },
+    cols: ['ID', 'Land', 'Owner', 'District', 'Cover', 'Insurer', 'Sum insured', 'Premium a year', 'Claims', 'Status'],
+    row: (r) => [r.e.id, r.e.name, r.e.owner, label(r.e.district), r.cat, r.insurer, rs(r.sum), rs(r.premium), r.claims, r.status],
+  },
+
+  carbon: {
+    title: 'Financial products', sub: 'Carbon credits earned by lands that store carbon, and what they sell for', name: 'Carbon credits', noun: 'Credit lands', unit: 'lands',
+    rows: (t) => t.carbon, cats: CREDIT, catTitle: 'Credit status', donutTitle: 'Where the credits stand', color: '#2f8a4f',
+    mapTitle: 'Where the credits come from', mapSub: 'Each pin is a land enrolled for carbon credits, shown by the status of its credits.',
+    mapVal: (r) => r.credits, fmt: (v) => `${num(v)} t`,
+    tip: (r) => `${num(r.credits)} t CO2e \u00b7 ${r.standard} \u00b7 ${r.cat}`,
+    rank: (r) => r.credits, rankFmt: (v) => `${num(v)} t`, topTitle: 'Most credits', topSub: 'Tonnes of CO2e',
+    kpis: (s) => [
+      ['rotary', 'palm', 'green', 'Lands enrolled', num(s.length), 'earning carbon credits'],
+      ['koku_nagula', 'scale', 'blue', 'Credits', `${num(sumBy(s, (r) => r.credits))} t`, 'tonnes of CO2e'],
+      ['disc_plough', 'check', 'amber', 'Credits sold', `${num(sumBy(s, (r) => r.sold))} t`, s.length ? `${pct(sumBy(s, (r) => r.sold), sumBy(s, (r) => r.credits))} of all credits` : ''],
+      ['slasher', 'wallet', 'purple', 'Earned', rs(sumBy(s.filter((r) => r.cat === 'Sold'), (r) => r.money)), 'from credits sold'],
+    ],
+    figs: (s) => {
+      const c = sumBy(s, (r) => r.credits)
+      return [
+        ['Average price', c ? rs(sumBy(s, (r) => r.money) / c) : '-', 'for one tonne of CO2e', glyphRow(['coin'], ['#d99a0b'], 62)],
+        ['Credits per acre', sumBy(s, (r) => r.e.acres) ? (c / sumBy(s, (r) => r.e.acres)).toFixed(2) : '-', 'tonnes a year', glyphRow(['cloud', 'leaf'], ['#2f8a4f', '#43a047'], 52)],
+      ]
+    },
+    month: {
+      title: 'Credits issued each month', sub: 'Tonnes of CO2e. Sample figures; most are issued after the yearly audit', keys: ['Issued', 'Sold'], colors: ['#43a047', '#d99a0b'], fmt: (v) => `${num(v)} t`,
+      data: (s) => monthRows(['Issued', 'Sold'], [
+        monthly(sumBy(s, (r) => r.credits), [0.5, 0.6, 1.8, 1.6, 0.8, 0.6, 0.6, 0.7, 1.5, 1.4, 0.8, 0.6]),
+        monthly(sumBy(s, (r) => r.sold), [0.4, 0.5, 0.9, 1.3, 1.5, 1.2, 0.9, 0.8, 1, 1.4, 1.2, 0.7]),
+      ]),
+    },
+    second: { title: 'Credits by standard', sub: 'Tonnes of CO2e', fmt: (v) => `${num(v)} t`, data: (s) => STANDARDS.map((n) => ({ name: n, value: sumBy(s.filter((r) => r.standard === n), (r) => r.credits) })).sort((a, b) => b.value - a.value) },
+    cols: ['ID', 'Land', 'Owner', 'District', 'Status', 'Standard', 'Credits (t CO2e)', 'Price per tonne', 'Value'],
+    row: (r) => [r.e.id, r.e.name, r.e.owner, label(r.e.district), r.cat, r.standard, num(r.credits), rs(r.price), rs(r.money)],
+  },
 }
 
 export const LAND_TOPICS = {
@@ -432,8 +588,64 @@ export const LAND_TOPICS = {
   'soon-animal-husbandry': 'animal',
   'soon-green-energy': 'energy',
   'soon-environment': 'env',
+  'an-finance': 'finance',
+  'an-subsidies': 'subsidies',
+  'soon-error-correction': 'platform',
+  'soon-audit-trail': 'platform',
+}
+
+
+// Each subsidy reuses the donation page: the same funding sources, counted in that subsidy's own unit.
+const SUB_UNITS = { Machinery: ['machines', 2500], Instruments: ['tool sets', 120], 'Irrigation Equipment': ['kits', 400], Guns: ['sprayers', 300], 'Planting Materials': ['plants', 0.2], Chemicals: ['litres', 1] }
+const subKinds = {}
+function subsidyKind(name) {
+  if (subKinds[name]) return subKinds[name]
+  const k = SUBS.find((x) => x.name === name)
+  const all = !k
+  const [unit, scale] = all ? ['', 1 / 450] : SUB_UNITS[name]
+  const types = all ? [] : k.schemes
+  const fmt = all ? (v) => rs(v) : (v) => `${num(v)} ${unit}`
+  subKinds[name] = {
+    name: all ? 'All subsidies' : k.name, page: 'Subsidies', glyph: all ? 'gift' : k.glyph, color: all ? '#d99a0b' : k.color, noun: all ? 'subsidies' : k.name.toLowerCase(),
+    types, typeLabel: 'Scheme', fmt, axis: (v) => compact(v),
+    derive: (x) => {
+      const areas = x.areas.map((a) => ({ ...a, kg: Math.round(a.kg / scale) })).filter((a) => a.kg > 0)
+      return { ...x, kg: Math.round(x.kg / scale), delivered: sumBy(areas, (a) => a.kg), areas, type: all ? 'All subsidies' : pickOf(k.schemes, hr(x.id, `dk${name}`)) }
+    },
+  }
+  return subKinds[name]
+}
+
+function Subsidies({ d, sel, setSel }) {
+  const [kind, setKind] = useState('')
+  const [pickedId, setPickedId] = useState(d.donations[0]?.id)
+  const chips = <Chips value={kind} onChange={setKind} options={SUBS.map((x) => x.name)} all="All" />
+  const kindBar = (
+    <div className="an-filterbar">
+      <span>Subsidy</span>
+      {chips}
+    </div>
+  )
+  if (kind === 'Fertilizer') return <Donations d={d} sel={sel} setSel={setSel} pickedId={pickedId} onPickId={setPickedId} kindBar={kindBar} />
+  return <Donations key={kind} d={d} sel={sel} setSel={setSel} pickedId={pickedId} onPickId={setPickedId} kindBar={kindBar} kind={subsidyKind(kind)} />
+}
+
+const FIN_TABS = [['loans', 'Loans'], ['insure', 'Insurance'], ['carbon', 'Carbon credits']]
+function Finance({ d, sel, setSel }) {
+  const [tab, setTab] = useState('loans')
+  const bar = (
+    <div className="an-filterbar">
+      <span>Financial product</span>
+      <Segmented value={tab} onChange={setTab} options={FIN_TABS} />
+    </div>
+  )
+  return <TopicPage key={tab} d={d} sel={sel} setSel={setSel} spec={SPECS[tab]} bar={bar} />
 }
 
 export default function LandTopic({ view, d, sel, setSel }) {
+  if (LAND_TOPICS[view] === 'platform') return <PlatformPage view={view} d={d} sel={sel} setSel={setSel} />
+  if (LAND_TOPICS[view] === 'finance') return <Finance d={d} sel={sel} setSel={setSel} />
+  if (LAND_TOPICS[view] === 'subsidies') return <Subsidies d={d} sel={sel} setSel={setSel} />
+  if (LAND_TOPICS[view] === 'cult') return <Overview key={view} d={d} sel={sel} setSel={setSel} mode="crops" />
   return <TopicPage key={view} d={d} sel={sel} setSel={setSel} spec={SPECS[LAND_TOPICS[view]]} />
 }

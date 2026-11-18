@@ -113,7 +113,7 @@ export const JOB_CATEGORIES = [
 ]
 export const AGE_GROUPS = ['18–25', '26–35', '36–45', '46–55', '56+']
 export const GENDERS = ['Male', 'Female', 'Other']
-export const ESTATE_TYPES = ['Non-systematic plantation (< 5 ac)', 'Systematic plantation (5–25 ac)', 'Corporate plantation (25+ ac)']
+export const ESTATE_TYPES = ['Non-systematic cultivation (< 5 ac)', 'Systematic cultivation (5–25 ac)', 'Institutional plantation (25+ ac)']
 
 export const FERT_TYPES = ['CIC', 'Baurs', 'Hayleys', 'CCB']
 export const FERT_YEARS = [2022, 2023, 2024, 2025, 2026]
@@ -176,7 +176,7 @@ export function buildDataset(geo, cdo) {
       lng,
       acres,
       palms: Math.round(acres * (60 + rng() * 25)),
-      plan: acres > 25 ? 'Corporate plantation' : acres > 5 ? 'Systematic plantation' : 'Non-systematic plantation',
+      plan: acres > 25 ? 'Institutional plantation' : acres > 5 ? 'Systematic cultivation' : 'Non-systematic cultivation',
       registeredOn: when.toISOString().slice(0, 10),
     })
   }
@@ -185,7 +185,7 @@ export function buildDataset(geo, cdo) {
   // Who owns them. A separate generator, so the other sample numbers stay exactly as they were.
   const orng = rngOf(7102026)
   for (const e of estates) {
-    const big = e.plan === 'Corporate plantation'
+    const big = e.plan === 'Institutional plantation'
     e.ownerAge = wpick(orng, [0, 1, 2, 3, 4], (i) => [0.04, 0.17, 0.3, 0.29, 0.2][i] * (big && i === 0 ? 0.3 : 1))
     e.ownerGender = orng() < (big ? 0.84 : 0.7) ? 0 : 1 // 0 = male, 1 = female
   }
@@ -221,7 +221,7 @@ export function buildDataset(geo, cdo) {
           lng: x,
           acres,
           palms: Math.round(acres * (60 + crng() * 25)),
-          plan: acres > 25 ? 'Corporate plantation' : acres > 5 ? 'Systematic plantation' : 'Non-systematic plantation',
+          plan: acres > 25 ? 'Institutional plantation' : acres > 5 ? 'Systematic cultivation' : 'Non-systematic cultivation',
           registeredOn: when.toISOString().slice(0, 10),
           ownerAge: wpick(crng, [0, 1, 2, 3, 4], (i) => [0.04, 0.17, 0.3, 0.29, 0.2][i]),
           ownerGender: crng() < 0.7 ? 0 : 1,
@@ -231,7 +231,7 @@ export function buildDataset(geo, cdo) {
   }
   for (const e of estates) {
     const r = crng()
-    e.crop = r < 0.68 ? 'Coconut' : r < 0.86 ? 'Pepper' : 'Pineapple'
+    e.crop = r < 0.68 ? 'Coconut' : r < 0.82 ? 'Pepper' : r < 0.92 ? 'Pineapple' : 'Peanut'
     if (e.crop !== 'Coconut') e.palms = 0 // palms are only counted on coconut land
     e.region = null
     if (cdo && e.district === 'Kurunegala') {
@@ -373,10 +373,19 @@ export function buildDataset(geo, cdo) {
   }
 
   // Named donations and where each one was distributed ---------------------
-  const DONORS = ['Ministry of Agriculture', 'Coconut Cultivation Board', 'Lanka Fertilizer Ltd', 'FAO Sri Lanka', 'Rotary Club of Colombo', 'Ceylon Agro Foundation', 'Hayleys Agriculture', 'JICA Sri Lanka', 'Sarvodaya', 'CDO Sri Lanka', 'World Vision Lanka', 'Lions Club Kurunegala']
-  const donations = DONORS.map((donor, i) => {
+  const DONORS = [
+    { name: 'Government Budget Allocation', note: 'The yearly fertilizer budget in the national budget, paid for from public tax money.' },
+    { name: 'World Bank', note: 'Given for a specific project: improving soil health and coconut yields.' },
+    { name: 'Asian Development Bank', note: 'Given for a specific programme: climate-smart farming support for smallholders.' },
+    { name: 'Global Environment Facility (GEF)', note: 'Given for a specific project: protecting soil and restoring farm land.' },
+    { name: 'Green Climate Fund (GCF)', note: 'Given for a specific programme: climate-resilient coconut growing.' },
+    { name: 'Government of Japan', note: 'A donation from the people of Japan.' },
+    { name: 'Government of Australia', note: 'A donation from the people of Australia.' },
+    { name: 'Russian Government', note: 'A government-to-government fertilizer donation.' },
+  ]
+  const donations = DONORS.map(({ name: donor, note }, i) => {
     const type = FERT_TYPES[Math.floor(rng() * FERT_TYPES.length)]
-    const when = new Date(Date.parse('2024-03-01') + (i / (DONORS.length - 1)) * (Date.parse('2026-09-15') - Date.parse('2024-03-01')))
+    const when = new Date(Date.parse('2024-03-01') + (1 - i / (DONORS.length - 1)) * (Date.parse('2026-09-15') - Date.parse('2024-03-01')))
     const kg = Math.round((30 + rng() * 140) * 1000 / 500) * 500
     const age = (Date.parse('2026-10-28') - when) / (86400000 * 365)
     const delivered = Math.min(1, 0.45 + age * 0.35 + rng() * 0.12)
@@ -391,13 +400,14 @@ export function buildDataset(geo, cdo) {
     return {
       id: `D-${String(i + 1).padStart(2, '0')}`,
       donor,
+      note,
       type,
       date: when.toISOString().slice(0, 10),
       kg,
       delivered: total,
       areas: picked.map((x, j) => ({ district: x.name, province: x.province, kg: parts[j], farmers: Math.max(1, Math.round(parts[j] / (45 + rng() * 25))) })).filter((a) => a.kg > 0),
     }
-  }).reverse()
+  })
 
   return { shapes, estates, workers, fert, donated, machines, bookings, sales, donations }
 }

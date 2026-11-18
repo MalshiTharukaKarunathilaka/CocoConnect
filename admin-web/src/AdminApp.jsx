@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from './api'
 import './AdminApp.css'
 import { LAND_TOPICS } from './analysis/LandTopics'
-import Analysis, { MarketPrices, MarketVolumes, SalesSummary, SubscriptionGrowth } from './analysis/AnalysisPages'
+import { glyphHtml } from './analysis/pins'
+import ProductSetup from './analysis/ProductSetup'
+import Analysis, { MarketPrices, MarketVolumes, SubscriptionGrowth } from './analysis/AnalysisPages'
 import DisputeFlow from './DisputeFlow'
+import { DealVsPaid, FaultBoard, OrderBook } from './analysis/MarketBook'
 import './analysis/analysis.css'
 import SideNav from './SideNav'
 import { MENU, menuOf, itemLabel } from './menu'
@@ -11,6 +14,13 @@ import './SideNav.css'
 
 const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`
 const shortDate = (value) => (value ? new Date(value).toLocaleDateString() : '—')
+// A picture for a marketplace category, in place of its name (the name shows on hover).
+const CAT_ICONS = [['coconut', 'palm', '#2f8a4f'], ['husk', 'shell', '#8b5a2b'], ['spice', 'leaf', '#c0572b'], ['pepper', 'leaf', '#c0572b'], ['vegetable', 'sprout', '#4c9a3a'], ['livestock', 'cow', '#8b4a1c'], ['animal', 'cow', '#8b4a1c'], ['honey', 'hive', '#d99a0b'], ['fertili', 'sack', '#2f8a4f'], ['machin', 'tractor', '#8e44ad'], ['fish', 'fish', '#0288d1']]
+function CatIcon({ category }) {
+  const c = String(category || '').toLowerCase()
+  const [, glyph, color] = CAT_ICONS.find(([k]) => c.includes(k)) || [0, 'basket', '#6b7a70']
+  return <span className="adm-cat-ic" title={category} aria-label={category} dangerouslySetInnerHTML={{ __html: glyphHtml(glyph, color, 34) }} />
+}
 const pill = (status) => <span className={`adm-pill ${String(status || '').toLowerCase()}`}>{String(status || '').replaceAll('_', ' ')}</span>
 
 // Each of these is one sidebar entry; its pages show as tabs above the content.
@@ -465,7 +475,7 @@ export default function AdminApp({ user: account, logout }) {
               <tbody>
                 {requestRows.map((r) => (
                   <tr key={r.id}>
-                    <td>{r.category}</td>
+                    <td><CatIcon category={r.category} /></td>
                     <td>{r.quantity?.toLocaleString()}</td>
                     <td>{money(r.bidPrice)}</td>
                     <td>{r.district || '—'}</td>
@@ -484,7 +494,7 @@ export default function AdminApp({ user: account, logout }) {
               <tbody>
                 {listingRows.map((l) => (
                   <tr key={l.id}>
-                    <td>{l.category}{l.verified ? <span className="adm-inline-ok"> Verified</span> : ''}</td>
+                    <td><CatIcon category={l.category} />{l.verified ? <span className="adm-inline-ok"> Verified</span> : ''}</td>
                     <td>{l.quantity?.toLocaleString()}</td>
                     <td>{money(l.offerPrice)}</td>
                     <td>{l.district || '—'}</td>
@@ -699,93 +709,7 @@ export default function AdminApp({ user: account, logout }) {
         regions.push({ name: r.name, left: 50, top: 50, band: r.band, buyers: r.buyers, estates: r.estates, radius: r.radius, capital: false })
       }
     })
-    const active = selectedRegion
-      ? regions.find((r) => r.name === selectedRegion) || null
-      : null
-    content = (
-      <div className="adm-map-layout">
-        <div className="adm-card adm-map-card">
-          <div className="adm-card-h">
-            <h2>Sri Lanka · regions &amp; prices</h2>
-            <span className="adm-muted">Click a pin on the map</span>
-          </div>
-          <div className="adm-map-wrap">
-            <div className="adm-map-stage">
-              <img src="/sri-lanka-map.png" alt="Sri Lanka map" className="adm-map-img" />
-              {regions.filter((r) => r.left != null).map((r) => (
-                <button
-                  type="button"
-                  key={r.name}
-                  className={`adm-map-pin ${selectedRegion === r.name ? 'on' : ''} ${r.capital ? 'capital' : ''}`}
-                  style={{ left: `${r.left}%`, top: `${r.top}%` }}
-                  onClick={() => setSelectedRegion(r.name)}
-                  title={r.name}
-                  aria-label={`Open prices for ${r.name}`}
-                >
-                  <span className="adm-map-pin-dot" />
-                  <span className="adm-map-pin-name">{r.name}</span>
-                </button>
-              ))}
-            </div>
-            {active && (
-              <aside className="adm-price-popup">
-                <div className="adm-price-popup-h">
-                  <div>
-                    <small>Selected district</small>
-                    <strong>{active.name}</strong>
-                  </div>
-                  <button type="button" className="adm-link" onClick={() => setSelectedRegion(null)}>Close</button>
-                </div>
-                <label className="adm-band-edit">
-                  Price band
-                  <input
-                    type="text"
-                    value={bandDraft}
-                    onChange={(e) => setBandDraft(e.target.value)}
-                    placeholder="e.g. Rs. 110 – 135"
-                  />
-                </label>
-                <p className="adm-muted">Edit the suggested coconut price for this region</p>
-                <div className="adm-price-stats">
-                  <div><small>Buyers</small><b>{active.buyers ?? 0}</b></div>
-                  <div><small>Estates</small><b>{active.estates ?? 0}</b></div>
-                  <div><small>Radius</small><b>{active.radius ?? 3} km</b></div>
-                </div>
-                <button
-                  type="button"
-                  className="adm-btn green"
-                  style={{ width: '100%', marginTop: 12 }}
-                  onClick={() => publishRegionBand(active.name, bandDraft)}
-                >
-                  Publish this band
-                </button>
-              </aside>
-            )}
-            {!active && (
-              <aside className="adm-price-popup soft">
-                <small>Tip</small>
-                <strong>Select a city pin</strong>
-                <p className="adm-muted" style={{ marginTop: 8 }}>Click Colombo, Kurunegala, Galle, or any marked city to see the price band.</p>
-              </aside>
-            )}
-          </div>
-        </div>
-        <div className="adm-card">
-          <div className="adm-card-h"><h2>All district bands</h2></div>
-          {regions.map((r) => (
-            <button
-              type="button"
-              key={r.name}
-              className={`adm-price-band-btn ${selectedRegion === r.name ? 'on' : ''}`}
-              onClick={() => setSelectedRegion(r.name)}
-            >
-              <strong>{r.name}</strong>
-              <span>{selectedRegion === r.name ? bandDraft : r.band}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    )
+    content = <ProductSetup regions={regions} onPublish={publishRegionBand} />
   } else if (view === 'reports') {
     const r = data.reports
     content = (
@@ -828,18 +752,19 @@ export default function AdminApp({ user: account, logout }) {
     )
   }
 
-  if (['orders', 'deal', 'transactions'].includes(view) && content) {
+  if (view === 'orders' && content) content = <><OrderBook />{content}</>
+  if (view === 'deal' && content) {
     content = (
       <>
         <MarketPrices stage={view} />
         <MarketVolumes stage={view} />
-        {view === 'transactions' && <SalesSummary />}
         {content}
       </>
     )
   }
+  if (view === 'transactions' && content) content = <><DealVsPaid />{content}</>
 
-  if (view === 'disputes') content = <><DisputeFlow />{content}</>
+  if (view === 'disputes') content = <><DisputeFlow /><FaultBoard />{content}</>
 
   const activeGroup = groupOf(view)
   const badgeFor = (id) => (id === 'verify' ? pendingUsers.length : id === 'deal' ? dealRows.length : id === 'disputes' ? openDisputes.length : 0)

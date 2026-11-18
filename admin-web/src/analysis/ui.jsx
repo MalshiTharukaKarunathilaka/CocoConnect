@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { ResponsiveContainer, Tooltip } from 'recharts'
 import { loadDataset, num, scopeName } from './data'
 
@@ -93,7 +93,7 @@ export function Kpi({ label, value, sub, tone = 'green', icon, onClick, active, 
     >
       <div className="an-kpi-head">
         <div className="an-kpi-top">
-          <span className="an-kpi-photo" style={{ backgroundImage: `url(/photos/${photo}.jpg)`, backgroundPosition: pos }} />
+          <span className="an-kpi-photo" style={{ backgroundImage: `url(/photos/${String(photo).includes('.') ? photo : photo + '.jpg'})`, backgroundPosition: pos }} />
           <span className="an-kpi-ic"><Icon name={icon} size={14} /></span>
         </div>
         <h4>{label}</h4>
@@ -229,11 +229,51 @@ export function PageHead({ title, sub, sel, onSel, name, sections, children }) {
   )
 }
 
-export function DataTable({ columns, rows, limit = 8 }) {
+const cellText = (v) => (v == null ? '' : typeof v === 'string' || typeof v === 'number' ? String(v) : '')
+
+/** A table with search, a filter for each column that has a few kinds of value, and a CSV export. */
+export function DataTable({ columns, rows, limit = 8, name }) {
   const [all, setAll] = useState(false)
-  const shown = all ? rows : rows.slice(0, limit)
+  const [q, setQ] = useState('')
+  const [pick, setPick] = useState({})
+  const wrap = useRef(null)
+  // columns that make good filters: between 2 and 10 different text values
+  const facets = columns.map((_, j) => {
+    const vals = [...new Set(rows.map((r) => cellText(r[j])).filter(Boolean))]
+    return vals.length >= 2 && vals.length <= 10 && vals.every((v) => Number.isNaN(Number(v.replace(/[^0-9.-]/g, ''))) || /[A-Za-z]{2,}/.test(v)) && !vals.every((v) => /\d/.test(v)) ? vals.sort() : null
+  })
+  const shownRows = rows.filter((r) => {
+    for (const [j, v] of Object.entries(pick)) if (v && cellText(r[j]) !== v) return false
+    if (q) {
+      const t = q.toLowerCase()
+      if (!r.some((v) => cellText(v).toLowerCase().includes(t))) return false
+    }
+    return true
+  })
+  const shown = all ? shownRows : shownRows.slice(0, limit)
+  const filtered = q || Object.values(pick).some(Boolean)
+  const exportCsv = () => {
+    const title = wrap.current?.closest('.an-card')?.querySelector('h3')?.textContent || name || 'table'
+    const quote = (v) => `"${cellText(v).replaceAll('"', '""')}"`
+    const text = [columns, ...shownRows].map((r) => r.map(quote).join(',')).join('\r\n')
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' }))
+    a.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'table'}.csv`
+    a.click()
+  }
   return (
-    <div className="an-table-wrap">
+    <div className="an-table-wrap" ref={wrap}>
+      <div className="an-filters an-noprint">
+        {rows.length > 5 && <input className="an-search" placeholder="Search this table" value={q} onChange={(e) => setQ(e.target.value)} />}
+        {rows.length > 5 && columns.map((c, j) => facets[j] && (
+          <select key={c} value={pick[j] || ''} onChange={(e) => setPick({ ...pick, [j]: e.target.value })} aria-label={c}>
+            <option value="">{`All ${c.toLowerCase()}`}</option>
+            {facets[j].map((v) => <option key={v}>{v}</option>)}
+          </select>
+        ))}
+        {filtered && <button type="button" className="an-more" onClick={() => { setQ(''); setPick({}) }}>Clear</button>}
+        <button type="button" className="an-more an-export" onClick={exportCsv}>Export CSV ({shownRows.length})</button>
+      </div>
       <table className="an-table">
         <thead>
           <tr>{columns.map((c) => <th key={c}>{c}</th>)}</tr>
@@ -242,11 +282,12 @@ export function DataTable({ columns, rows, limit = 8 }) {
           {shown.map((r, i) => (
             <tr key={i}>{r.map((v, j) => <td key={j}>{v}</td>)}</tr>
           ))}
+          {!shown.length && <tr><td colSpan={columns.length}>Nothing matches these filters.</td></tr>}
         </tbody>
       </table>
-      {rows.length > limit && (
+      {shownRows.length > limit && (
         <button className="an-more an-noprint" onClick={() => setAll(!all)}>
-          {all ? 'Show less' : `Show all ${rows.length}`}
+          {all ? 'Show less' : `Show all ${shownRows.length}`}
         </button>
       )}
     </div>
