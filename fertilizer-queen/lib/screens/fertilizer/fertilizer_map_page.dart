@@ -83,11 +83,30 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     return LatLng(me?.latitude ?? 7.4863, me?.longitude ?? 80.3647);
   }
 
-  LatLng _at(FertPlace p) =>
-      LatLng(_estate.latitude + p.dLat, _estate.longitude + p.dLng);
+  LatLng _at(FertPlace p) {
+    if (p.absLat != null && p.absLng != null) {
+      return LatLng(p.absLat!, p.absLng!);
+    }
+    return LatLng(_estate.latitude + p.dLat, _estate.longitude + p.dLng);
+  }
 
-  String _spotKey(FertPlace p) =>
-      '${p.dLat.toStringAsFixed(4)}_${p.dLng.toStringAsFixed(4)}';
+  /// Real km from this estate — absolute pins use GPS; relative pins stay demo offsets.
+  double _km(FertPlace p) {
+    if (p.absLat != null && p.absLng != null) {
+      return const Distance().as(LengthUnit.Kilometer, _estate, _at(p));
+    }
+    if (p.region != _store.ownerRegion && p.region != 'all') {
+      return 9999;
+    }
+    return p.distanceKm;
+  }
+
+  String _spotKey(FertPlace p) {
+    if (p.absLat != null && p.absLng != null) {
+      return '${p.absLat!.toStringAsFixed(4)}_${p.absLng!.toStringAsFixed(4)}';
+    }
+    return '${p.dLat.toStringAsFixed(4)}_${p.dLng.toStringAsFixed(4)}';
+  }
 
   bool _matchesBrand(FertPlace p) {
     if (_brands.isEmpty) return true;
@@ -105,11 +124,18 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     final q = _search.text.trim().toLowerCase();
     final channel = _activeChannel;
     final list = _store.places.where((p) {
+      final km = _km(p);
+      // Why: Colombo / Puttalam owners only see outlets in their region (or absolute nearby).
+      if (p.absLat == null &&
+          p.region != _store.ownerRegion &&
+          p.region != 'all') {
+        return false;
+      }
       if (channel == 'private' && p.isGov) return false;
       // Why: government programme shows only CCB — no CIC / Hayleys / Baurs shops.
       if (channel == 'gov') {
         if (!_isCcbOutlet(p)) return false;
-        if (p.distanceKm > _radiusKm) return false;
+        if (km > _radiusKm) return false;
       } else {
         if (!_matchesBrand(p)) return false;
       }
@@ -123,11 +149,11 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                 .toLowerCase();
         if (!hay.contains(q)) return false;
       }
-      if (p.distanceKm <= _radiusKm) return true;
+      if (km <= _radiusKm) return true;
       if (channel == 'gov') return false;
       return p.willingFar;
     }).toList()
-      ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+      ..sort((a, b) => _km(a).compareTo(_km(b)));
     // Why: the estate map must show only one CCB pin (Hub + Government).
     return _withSingleCcb(list);
   }
@@ -144,7 +170,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
       }
     }
     if (ccb != null) others.add(ccb);
-    others.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+    others.sort((a, b) => _km(a).compareTo(_km(b)));
     return others;
   }
 
@@ -158,7 +184,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   }
 
   int get _pendingMine => _store
-      .ownerOrders('Your Estate')
+      .myOrders
       .where(
         (o) =>
             o.status == 'Pending Ack' ||
@@ -278,7 +304,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
   /// The title row of the bottom sheet.
   Widget _sheetTabs() {
-    final int mine = _store.ownerOrders('Your Estate').length;
+    final int mine = _store.myOrders.length;
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
       child: Row(
@@ -311,7 +337,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
   /// The owner's own orders: what is waiting, what was accepted, with View and Cancel.
   Widget _ordersSheet(ScrollController scrollController) {
-    final mine = _store.ownerOrders('Your Estate');
+    final mine = _store.myOrders;
     final pending = mine
         .where((o) => o.status == 'Pending Ack' || o.status == 'Negotiating')
         .toList();
@@ -1155,9 +1181,9 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                 .toLowerCase();
         if (!hay.contains(q)) return false;
       }
-      return p.distanceKm <= r;
+      return _km(p) <= r;
     }).toList()
-      ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+      ..sort((a, b) => _km(a).compareTo(_km(b)));
     if (c == 'gov' && list.isNotEmpty) return [list.first];
     return list;
   }
@@ -1500,7 +1526,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     final lead = places.first;
     final on = _clusterKey == key ||
         (_selected != null && places.any((p) => identical(p, _selected)));
-    final far = lead.distanceKm > _radiusKm;
+    final far = _km(lead) > _radiusKm;
     final talking = places.any(
       (p) => (_store.shopTalks[p.id] ?? const []).isNotEmpty,
     );
@@ -1745,12 +1771,13 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   }
 
   Widget _placePop(FertPlace p) {
-    final far = p.distanceKm > _radiusKm;
+    final km = _km(p);
+    final far = km > _radiusKm;
     final where = far
         ? (p.physical
-            ? '${p.distanceKm} km away · still delivers here'
+            ? '${km.toStringAsFixed(1)} km away · still delivers here'
             : 'No shop here · delivers far')
-        : '${p.distanceKm.toStringAsFixed(1)} km';
+        : '${km.toStringAsFixed(1)} km';
     final lines = _priceLines(p);
 
     return Material(

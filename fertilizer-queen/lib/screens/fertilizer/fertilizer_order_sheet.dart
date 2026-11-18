@@ -86,7 +86,7 @@ class _FertilizerOrderSheetState extends State<FertilizerOrderSheet> {
       placeId: widget.place.id,
       company: widget.place.company,
       agent: widget.place.who,
-      owner: 'Your Estate',
+      owner: FertilizerStore.instance.boundOwnerKey,
       product:
           lines.map((l) => '${l.item.brand} ${l.item.name} (50 kg)').join(', '),
       items: lines,

@@ -23,7 +23,7 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
 
   /// The owner's latest order with this supplier, if there is one.
   FertOrder? get _order {
-    for (final o in _store.ownerOrders('Your Estate')) {
+    for (final o in _store.myOrders) {
       if (o.placeId == widget.place.id) return o;
     }
     return null;

@@ -76,7 +76,7 @@ class _FertProcessingBannerState extends State<FertProcessingBanner>
       valueListenable: store.ownerAlertTick,
       builder: (context, _, __) {
         final pending = store
-            .ownerOrders('Your Estate')
+            .myOrders
             .where(
               (o) =>
                   o.status == 'Pending Ack' || o.status == 'Negotiating',

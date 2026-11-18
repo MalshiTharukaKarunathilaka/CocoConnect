@@ -16,16 +16,20 @@ class _FertilizerGovRequestSheetState extends State<FertilizerGovRequestSheet> {
 
   void _submit() {
     final store = FertilizerStore.instance;
+    final profile = store.ownerProfile;
     store.placeGovRequest(
       FertGovRequest(
         id: 'FR-${1000 + store.govRequests.length + 1}',
-        owner: 'Your Estate',
+        owner: store.boundOwnerKey,
         fertilizer: 'ERP Coconut Fertilizer (50 kg)',
         requested: _qty,
         status: 'Pending Ack',
-        cdo: 'CDO - Mawathagama',
+        cdo: 'CDO - ${profile.district}',
         date: DateTime.now(),
-        district: 'Kurunegala',
+        district: profile.district,
+        estateName: profile.estateName,
+        phone: profile.phone,
+        beneficiaryName: profile.fullName,
       ),
     );
     Navigator.pop(context, true);

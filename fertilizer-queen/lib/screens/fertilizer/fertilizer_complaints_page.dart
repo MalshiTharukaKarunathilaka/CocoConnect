@@ -19,7 +19,7 @@ class FertilizerComplaintsPage extends StatefulWidget {
 class _FertilizerComplaintsPageState extends State<FertilizerComplaintsPage> {
   @override
   Widget build(BuildContext context) {
-    final list = FertilizerStore.instance.complaints;
+    final list = FertilizerStore.instance.myComplaints;
 
     final body = ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),

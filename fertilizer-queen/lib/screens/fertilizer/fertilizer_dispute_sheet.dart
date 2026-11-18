@@ -71,8 +71,8 @@ class _FertilizerDisputeSheetState extends State<FertilizerDisputeSheet> {
         status: 'Submitted',
         date: DateTime.now(),
         description: '${o.id} · ${o.company}\n${_desc.text.trim()}',
-        owner: 'Your Estate',
-        district: 'Kurunegala',
+        owner: store.boundOwnerKey,
+        district: store.ownerProfile.district,
       ),
     );
     // Why: after a dispute, Mark delivered must disappear — status becomes Disputed.

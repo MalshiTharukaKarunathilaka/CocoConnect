@@ -69,6 +69,9 @@ class FertPlace {
     required this.items,
     this.phone = '',
     this.coverageNote = '',
+    this.absLat,
+    this.absLng,
+    this.region = 'kurunegala',
   });
 
   final String id;
@@ -78,13 +81,18 @@ class FertPlace {
   final bool physical;
   bool willingFar;
   final List<String> brands;
-  final double distanceKm;
+  double distanceKm;
   final double dLat;
   final double dLng;
   final List<FertItem> items;
   String phone;
   /// Free-text coverage note the supplier can edit on Profile.
   String coverageNote;
+  /// Absolute map pin (Colombo / Puttalam / …). Null = offset from estate.
+  final double? absLat;
+  final double? absLng;
+  /// Which demo region this outlet belongs to.
+  final String region;
 
   bool get isGov => kind == 'cdo';
   int get minPrice50 =>
@@ -238,7 +246,7 @@ class FertOwnerProfile {
     required this.coconutSaplings,
     required this.annualHarvestNuts,
     this.district = 'Kurunegala',
-    this.estateName = 'Your Estate',
+    this.estateName = 'Mawathagama Palm Estate',
   });
 
   final String fullName;
@@ -353,7 +361,7 @@ class FertComplaint {
     required this.status,
     required this.date,
     required this.description,
-    this.owner = 'Your Estate',
+    this.owner = 'Mawathagama Palm Estate',
     this.district = 'Kurunegala',
   });
 
@@ -377,6 +385,12 @@ class FertilizerStore {
 
   /// Logged-in CDO place (government office).
   String cdoPlaceId = 'PL5';
+
+  /// Estate name key for the logged-in owner (orders / complaints / gov).
+  String boundOwnerKey = 'Mawathagama Palm Estate';
+
+  /// Demo region for map filtering: kurunegala | colombo | puttalam.
+  String ownerRegion = 'kurunegala';
 
   FertHomeMode homeMode = FertHomeMode.supplier;
 
@@ -533,7 +547,7 @@ class FertilizerStore {
     address: 'No. 12, Temple Road, Mawathagama',
     phone: '0711000001',
     nicNumber: '198512345678',
-    landAddress: 'Your Estate, Mawathagama, Kurunegala',
+    landAddress: 'Mawathagama Palm Estate, Mawathagama, Kurunegala',
     deedNumber: 'KUR/MWT/2018/0456',
     acres: 8,
     roods: 0,
@@ -542,8 +556,61 @@ class FertilizerStore {
     coconutSaplings: 80,
     annualHarvestNuts: 42000,
     district: 'Kurunegala',
-    estateName: 'Your Estate',
+    estateName: 'Mawathagama Palm Estate',
   );
+
+  /// Demo estate cards keyed by last-9 phone digits.
+  static const Map<String, FertOwnerProfile> demoOwnerProfiles = {
+    '711000001': FertOwnerProfile(
+      fullName: 'Demo Estate Owner',
+      address: 'No. 12, Temple Road, Mawathagama',
+      phone: '0711000001',
+      nicNumber: '198512345678',
+      landAddress: 'Mawathagama Palm Estate, Mawathagama, Kurunegala',
+      deedNumber: 'KUR/MWT/2018/0456',
+      acres: 8,
+      coconutTrees: 640,
+      coconutSaplings: 80,
+      annualHarvestNuts: 42000,
+      district: 'Kurunegala',
+      estateName: 'Mawathagama Palm Estate',
+    ),
+    '712000011': FertOwnerProfile(
+      fullName: 'Nushrath Silva',
+      address: '42 Marine Drive, Colombo 03',
+      phone: '0712000011',
+      nicNumber: '199012345678',
+      landAddress: 'Colombo Palm Estate, Kaduwela, Colombo',
+      deedNumber: 'COL/KDW/2020/1188',
+      acres: 6,
+      coconutTrees: 480,
+      coconutSaplings: 60,
+      annualHarvestNuts: 28000,
+      district: 'Colombo',
+      estateName: 'Colombo Palm Estate',
+    ),
+    '712000022': FertOwnerProfile(
+      fullName: 'Kamal Fernando',
+      address: '15 Beach Road, Puttalam',
+      phone: '0712000022',
+      nicNumber: '198712345678',
+      landAddress: 'Puttalam Coast Estate, Chilaw, Puttalam',
+      deedNumber: 'PUT/CHW/2019/0771',
+      acres: 10,
+      coconutTrees: 820,
+      coconutSaplings: 100,
+      annualHarvestNuts: 51000,
+      district: 'Puttalam',
+      estateName: 'Puttalam Coast Estate',
+    ),
+  };
+
+  static String regionForDistrict(String district) {
+    final d = district.toLowerCase();
+    if (d.contains('colombo')) return 'colombo';
+    if (d.contains('puttalam')) return 'puttalam';
+    return 'kurunegala';
+  }
 
   static String _last9(String phone) {
     final digits = phone.replaceAll(RegExp(r'\D'), '');
@@ -552,32 +619,54 @@ class FertilizerStore {
   }
 
   /// Tie the fertilizer demo store to the real login (phone / role).
-  /// Why: one phone should only see that person's shop or CDO desk.
+  /// Why: one phone should only see that person's shop, CDO desk, or estate.
   void bindUser(AppUser user) {
     final key = _last9(user.phone);
-    // Keep CCB form details in sync with the logged-in person.
-    if (user.role == 'ESTATE_OWNER' || user.name.trim().isNotEmpty) {
+    if (user.role == 'ESTATE_OWNER') {
+      final demo = demoOwnerProfiles[key];
+      final estateName = demo?.estateName ??
+          (user.name.trim().isEmpty
+              ? 'My Estate'
+              : "${user.name.trim()}'s Estate");
       ownerProfile = FertOwnerProfile(
-        fullName: user.name.trim().isEmpty ? ownerProfile.fullName : user.name,
+        fullName: user.name.trim().isEmpty
+            ? (demo?.fullName ?? ownerProfile.fullName)
+            : user.name.trim(),
         address: (user.location ?? '').trim().isEmpty
-            ? ownerProfile.address
+            ? (demo?.address ?? ownerProfile.address)
             : user.location!.trim(),
         phone: user.phone,
-        nicNumber: ownerProfile.nicNumber,
-        landAddress: ownerProfile.landAddress,
-        deedNumber: ownerProfile.deedNumber,
-        acres: ownerProfile.acres,
-        roods: ownerProfile.roods,
-        perches: ownerProfile.perches,
-        coconutTrees: ownerProfile.coconutTrees,
-        coconutSaplings: ownerProfile.coconutSaplings,
-        annualHarvestNuts: ownerProfile.annualHarvestNuts,
-        district: ownerProfile.district,
-        estateName: ownerProfile.estateName,
+        nicNumber: demo?.nicNumber ?? ownerProfile.nicNumber,
+        landAddress: demo?.landAddress ??
+            '$estateName, ${user.location ?? ownerProfile.district}',
+        deedNumber: demo?.deedNumber ?? ownerProfile.deedNumber,
+        acres: demo?.acres ?? ownerProfile.acres,
+        roods: demo?.roods ?? ownerProfile.roods,
+        perches: demo?.perches ?? ownerProfile.perches,
+        coconutTrees: demo?.coconutTrees ?? ownerProfile.coconutTrees,
+        coconutSaplings: demo?.coconutSaplings ?? ownerProfile.coconutSaplings,
+        annualHarvestNuts:
+            demo?.annualHarvestNuts ?? ownerProfile.annualHarvestNuts,
+        district: demo?.district ??
+            ((user.location ?? '').trim().isEmpty
+                ? ownerProfile.district
+                : user.location!.trim()),
+        estateName: estateName,
       );
+      boundOwnerKey = estateName;
+      ownerRegion = regionForDistrict(ownerProfile.district);
+      if (user.latitude != null && user.longitude != null) {
+        estateGeo[estateName] = LatLng(user.latitude!, user.longitude!);
+      }
+      return;
     }
     if (user.role == 'CDO') {
       homeMode = FertHomeMode.cdo;
+      final profile = AuthService.cdoProfile;
+      final district = '${profile?['assigned_district'] ?? user.location ?? ''}';
+      ownerRegion = regionForDistrict(
+        district.isEmpty ? 'Kurunegala' : district,
+      );
       _ensureRegisteredCdoPlace(user);
       final match = places.where(
         (p) => p.kind == 'cdo' && _last9(p.phone) == key,
@@ -927,6 +1016,7 @@ class FertilizerStore {
       distanceKm: 3.2,
       dLat: -0.018,
       dLng: 0.012,
+      region: 'kurunegala',
       phone: '037 222 3344',
       items: [
         FertItem(
@@ -974,6 +1064,9 @@ class FertilizerStore {
       distanceKm: 86,
       dLat: 0.09,
       dLng: 0.06,
+      region: 'colombo',
+      absLat: 6.9271,
+      absLng: 79.8612,
       items: [
         FertItem(
           name: 'Coconut Fertilizer Mix',
@@ -985,6 +1078,344 @@ class FertilizerStore {
         ),
       ],
     ),
+    // --- Colombo suppliers (for Colombo Palm Estate) ---
+    FertPlace(
+      id: 'PL-CMB-1',
+      company: 'Colombo Agro Mart',
+      who: 'Ravi Jayasuriya',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['CIC', 'Baurs'],
+      distanceKm: 2.1,
+      dLat: 0,
+      dLng: 0,
+      region: 'colombo',
+      absLat: 6.9350,
+      absLng: 79.8700,
+      phone: '0772100001',
+      items: [
+        FertItem(
+          name: 'CIC Urea',
+          brand: 'CIC',
+          type: 'Urea',
+          price: 5950,
+          unit: '50 kg bag',
+          stock: 24,
+        ),
+        FertItem(
+          name: 'Baurs YPM',
+          brand: 'Baurs',
+          type: 'YPM',
+          price: 6900,
+          unit: '50 kg bag',
+          stock: 12,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-CMB-2',
+      company: 'Green Leaf Colombo',
+      who: 'Sithara Perera',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['Hayleys'],
+      distanceKm: 3.4,
+      dLat: 0,
+      dLng: 0,
+      region: 'colombo',
+      absLat: 6.9150,
+      absLng: 79.8800,
+      phone: '0772100002',
+      items: [
+        FertItem(
+          name: 'Hayleys Organic',
+          brand: 'Hayleys',
+          type: 'Organic',
+          price: 5200,
+          unit: '25 kg bag',
+          stock: 18,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-CMB-3',
+      company: 'CIC Point Colombo',
+      who: 'Nuwan Dias',
+      kind: 'shop',
+      physical: true,
+      willingFar: true,
+      brands: const ['CIC'],
+      distanceKm: 4.8,
+      dLat: 0,
+      dLng: 0,
+      region: 'colombo',
+      absLat: 6.9450,
+      absLng: 79.8500,
+      phone: '0772100003',
+      items: [
+        FertItem(
+          name: 'CIC MOP',
+          brand: 'CIC',
+          type: 'MOP',
+          price: 6600,
+          unit: '50 kg bag',
+          stock: 15,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-CMB-4',
+      company: 'Baurs Depot Colombo',
+      who: 'Malsha Fernando',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['Baurs'],
+      distanceKm: 5.5,
+      dLat: 0,
+      dLng: 0,
+      region: 'colombo',
+      absLat: 6.9000,
+      absLng: 79.8900,
+      phone: '0772100004',
+      items: [
+        FertItem(
+          name: 'Baurs Coconut Blend',
+          brand: 'Baurs',
+          type: 'Coconut mix',
+          price: 7000,
+          unit: '50 kg bag',
+          stock: 20,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-CMB-5',
+      company: 'Hayleys Colombo Hub',
+      who: 'Ishara Gunasekara',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['Hayleys', 'CIC'],
+      distanceKm: 6.2,
+      dLat: 0,
+      dLng: 0,
+      region: 'colombo',
+      absLat: 6.9600,
+      absLng: 79.8700,
+      phone: '0772100005',
+      items: [
+        FertItem(
+          name: 'Hayleys Dolomite',
+          brand: 'Hayleys',
+          type: 'Dolomite',
+          price: 2400,
+          unit: '50 kg bag',
+          stock: 40,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-CCB-CMB',
+      company: 'CCB',
+      who: 'CDO - Colombo',
+      kind: 'cdo',
+      physical: true,
+      willingFar: false,
+      brands: const ['CCB'],
+      distanceKm: 3.0,
+      dLat: 0,
+      dLng: 0,
+      region: 'colombo',
+      absLat: 6.9300,
+      absLng: 79.8650,
+      phone: '0772300001',
+      items: [
+        FertItem(
+          name: 'ERP Coconut Fertilizer',
+          brand: 'CCB',
+          type: 'Government',
+          price: 6000,
+          unit: '50 kg bag',
+          stock: 100,
+        ),
+        FertItem(
+          name: 'Urea subsidy',
+          brand: 'CCB',
+          type: 'Urea',
+          price: 4200,
+          unit: '50 kg bag',
+          stock: 70,
+        ),
+      ],
+    ),
+    // --- Puttalam suppliers (for Puttalam Coast Estate) ---
+    FertPlace(
+      id: 'PL-PUT-1',
+      company: 'Puttalam Fertilizer',
+      who: 'Ajith Bandara',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['CIC'],
+      distanceKm: 1.8,
+      dLat: 0,
+      dLng: 0,
+      region: 'puttalam',
+      absLat: 8.0400,
+      absLng: 79.8350,
+      phone: '0772200001',
+      items: [
+        FertItem(
+          name: 'CIC Urea',
+          brand: 'CIC',
+          type: 'Urea',
+          price: 5900,
+          unit: '50 kg bag',
+          stock: 22,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-PUT-2',
+      company: 'Chilaw Agro',
+      who: 'Dilani Wijesinghe',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['Baurs', 'Hayleys'],
+      distanceKm: 2.9,
+      dLat: 0,
+      dLng: 0,
+      region: 'puttalam',
+      absLat: 8.0200,
+      absLng: 79.8500,
+      phone: '0772200002',
+      items: [
+        FertItem(
+          name: 'Baurs YPM',
+          brand: 'Baurs',
+          type: 'YPM',
+          price: 6850,
+          unit: '50 kg bag',
+          stock: 14,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-PUT-3',
+      company: 'Coastline Supplies',
+      who: 'Pradeep Silva',
+      kind: 'shop',
+      physical: true,
+      willingFar: true,
+      brands: const ['CIC', 'Hayleys'],
+      distanceKm: 4.1,
+      dLat: 0,
+      dLng: 0,
+      region: 'puttalam',
+      absLat: 8.0550,
+      absLng: 79.8200,
+      phone: '0772200003',
+      items: [
+        FertItem(
+          name: 'CIC TSP',
+          brand: 'CIC',
+          type: 'TSP',
+          price: 8700,
+          unit: '50 kg bag',
+          stock: 10,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-PUT-4',
+      company: 'Palm Care Puttalam',
+      who: 'Nadeeka Rathnayake',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['Baurs'],
+      distanceKm: 5.0,
+      dLat: 0,
+      dLng: 0,
+      region: 'puttalam',
+      absLat: 8.0100,
+      absLng: 79.8600,
+      phone: '0772200004',
+      items: [
+        FertItem(
+          name: 'Baurs Coconut Blend',
+          brand: 'Baurs',
+          type: 'Coconut mix',
+          price: 7050,
+          unit: '50 kg bag',
+          stock: 16,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-PUT-5',
+      company: 'Wennappuwa Agro',
+      who: 'Kasun Mendis',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['Hayleys'],
+      distanceKm: 6.5,
+      dLat: 0,
+      dLng: 0,
+      region: 'puttalam',
+      absLat: 8.0700,
+      absLng: 79.8400,
+      phone: '0772200005',
+      items: [
+        FertItem(
+          name: 'Hayleys Organic',
+          brand: 'Hayleys',
+          type: 'Organic',
+          price: 5100,
+          unit: '25 kg bag',
+          stock: 25,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-CCB-PUT',
+      company: 'CCB',
+      who: 'CDO - Puttalam',
+      kind: 'cdo',
+      physical: true,
+      willingFar: false,
+      brands: const ['CCB'],
+      distanceKm: 2.5,
+      dLat: 0,
+      dLng: 0,
+      region: 'puttalam',
+      absLat: 8.0350,
+      absLng: 79.8300,
+      phone: '0772300002',
+      items: [
+        FertItem(
+          name: 'ERP Coconut Fertilizer',
+          brand: 'CCB',
+          type: 'Government',
+          price: 6000,
+          unit: '50 kg bag',
+          stock: 90,
+        ),
+        FertItem(
+          name: 'Urea subsidy',
+          brand: 'CCB',
+          type: 'Urea',
+          price: 4200,
+          unit: '50 kg bag',
+          stock: 60,
+        ),
+      ],
+    ),
   ];
 
   late final List<FertOrder> orders = [
@@ -993,7 +1424,7 @@ class FertilizerStore {
       placeId: 'PL4',
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
-      owner: 'Your Estate',
+      owner: 'Mawathagama Palm Estate',
       product: 'CIC Urea (50 kg)',
       items: [
         CartLine(
@@ -1089,7 +1520,7 @@ class FertilizerStore {
       placeId: 'PL4',
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
-      owner: 'Your Estate',
+      owner: 'Mawathagama Palm Estate',
       product: 'CIC Urea (50 kg)',
       items: [
         CartLine(
@@ -1171,7 +1602,7 @@ class FertilizerStore {
   final List<FertGovRequest> govRequests = [
     FertGovRequest(
       id: 'FR-1099',
-      owner: 'Your Estate',
+      owner: 'Mawathagama Palm Estate',
       fertilizer: 'ERP Coconut Fertilizer (50 kg)',
       requested: 12,
       status: 'Pending Ack',
@@ -1179,7 +1610,7 @@ class FertilizerStore {
       date: DateTime(2026, 11, 8),
       district: 'Kurunegala',
       // Why: CDO View must show the filled Annex 01 form the estate uploaded.
-      estateName: 'Your Estate',
+      estateName: 'Mawathagama Palm Estate',
       acres: 8,
       nicCopy: 'nic_demo_owner.jpg',
       landTitleCopy: 'deed_KUR_MWT_2018_0456.pdf',
@@ -1189,7 +1620,7 @@ class FertilizerStore {
       address: 'No. 12, Temple Road, Mawathagama',
       phone: '0711000001',
       nicNumber: '198512345678',
-      landAddress: 'Your Estate, Mawathagama, Kurunegala',
+      landAddress: 'Mawathagama Palm Estate, Mawathagama, Kurunegala',
       deedNumber: 'KUR/MWT/2018/0456',
       coconutTrees: 640,
       coconutSaplings: 80,
@@ -1197,7 +1628,7 @@ class FertilizerStore {
       deliveryAt: DateTime(2026, 11, 18, 10, 30),
       chat: const [
         FertChat(
-          'Your Estate',
+          'Mawathagama Palm Estate',
           'We submitted Annex 01 for 12 bags of ERP.',
           '08 Nov · 09:12',
         ),
@@ -1381,7 +1812,7 @@ class FertilizerStore {
       status: 'Submitted',
       date: DateTime(2026, 10, 16),
       description: 'Sample complaint for demonstration.',
-      owner: 'Your Estate',
+      owner: 'Mawathagama Palm Estate',
       district: 'Kurunegala',
     ),
     FertComplaint(
@@ -1406,8 +1837,10 @@ class FertilizerStore {
     ),
   ];
 
-  static const estateGeo = {
-    'Your Estate': LatLng(7.4863, 80.3647),
+  static final Map<String, LatLng> estateGeo = {
+    'Mawathagama Palm Estate': LatLng(7.4863, 80.3647),
+    'Colombo Palm Estate': LatLng(6.9271, 79.8612),
+    'Puttalam Coast Estate': LatLng(8.0362, 79.8283),
     'Green Palm Estate': LatLng(7.5010, 80.3520),
     'Estate A': LatLng(7.4720, 80.3810),
     'Estate F': LatLng(7.4550, 80.3480),
@@ -1440,6 +1873,24 @@ class FertilizerStore {
 
   List<FertOrder> ownerOrders(String owner) =>
       orders.where((o) => o.owner == owner).toList();
+
+  /// Orders that belong to the logged-in estate owner only.
+  List<FertOrder> get myOrders => ownerOrders(boundOwnerKey);
+
+  List<FertGovRequest> get myGovRequests {
+    final phone = _last9(ownerProfile.phone);
+    return govRequests
+        .where(
+          (r) =>
+              r.owner == boundOwnerKey ||
+              r.estateName == boundOwnerKey ||
+              (phone.isNotEmpty && _last9(r.phone) == phone),
+        )
+        .toList();
+  }
+
+  List<FertComplaint> get myComplaints =>
+      complaints.where((c) => c.owner == boundOwnerKey).toList();
 
   String nextId() => 'PO-${410 + orders.length + 1}';
 
@@ -1827,7 +2278,7 @@ class FertilizerStore {
   ];
 
   static const eligibleEstates = [
-    ('Your Estate', '8 acres', 'Mawathagama', true),
+    ('Mawathagama Palm Estate', '8 acres', 'Mawathagama', true),
     ('Estate A', '12 acres', 'Mawathagama', true),
     ('Estate F', '6 acres', 'Kuliyapitiya', true),
     ('Green Palm Estate', '5 acres', 'Narammala', true),
@@ -1844,7 +2295,7 @@ class FertilizerStore {
       cdoWho: 'CDO - Mawathagama',
       estates: [
         FertCdoEstate(
-          name: 'Your Estate',
+          name: 'Mawathagama Palm Estate',
           acresLabel: '8 acres',
           ownerName: 'Demo Estate Owner',
           phone: '0711000001',
@@ -1896,6 +2347,36 @@ class FertilizerStore {
           acresLabel: '5 acres',
           ownerName: 'Anusha Wijesinghe',
           phone: '0709988776',
+        ),
+      ],
+    ),
+    FertCdoArea(
+      id: 'A-COL-1',
+      name: 'Area 01 · Kaduwela',
+      town: 'Kaduwela',
+      district: 'Colombo',
+      cdoWho: 'CDO - Colombo',
+      estates: [
+        FertCdoEstate(
+          name: 'Colombo Palm Estate',
+          acresLabel: '6 acres',
+          ownerName: 'Nushrath Silva',
+          phone: '0712000011',
+        ),
+      ],
+    ),
+    FertCdoArea(
+      id: 'A-PUT-1',
+      name: 'Area 01 · Chilaw',
+      town: 'Chilaw',
+      district: 'Puttalam',
+      cdoWho: 'CDO - Puttalam',
+      estates: [
+        FertCdoEstate(
+          name: 'Puttalam Coast Estate',
+          acresLabel: '10 acres',
+          ownerName: 'Kamal Fernando',
+          phone: '0712000022',
         ),
       ],
     ),

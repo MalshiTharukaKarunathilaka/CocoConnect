@@ -561,7 +561,7 @@ Future<void> showSupplierOrderDetail(
 }) async {
   final store = FertilizerStore.instance;
   final loc = FertilizerStore.estateGeo[order.owner] ??
-      FertilizerStore.estateGeo['Your Estate']!;
+      FertilizerStore.estateGeo[FertilizerStore.instance.boundOwnerKey] ?? FertilizerStore.estateGeo['Mawathagama Palm Estate']!;
   final mapH = (MediaQuery.sizeOf(context).height * 0.18).clamp(100.0, 150.0);
 
   await showModalBottomSheet<void>(

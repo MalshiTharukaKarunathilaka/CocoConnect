@@ -17,7 +17,7 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
   String _tab = 'pending';
 
   List<FertOrder> get _list {
-    final mine = _store.ownerOrders('Your Estate');
+    final mine = _store.myOrders;
     if (_tab == 'pending') {
       return mine
           .where((o) => o.status == 'Pending Ack' || o.status == 'Negotiating')
@@ -41,7 +41,7 @@ class _FertilizerOrdersPageState extends State<FertilizerOrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final mine = _store.ownerOrders('Your Estate');
+    final mine = _store.myOrders;
     final pending = mine
         .where((o) => o.status == 'Pending Ack' || o.status == 'Negotiating')
         .length;

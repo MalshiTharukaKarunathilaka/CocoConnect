@@ -210,10 +210,8 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final allPrivate = _store.ownerOrders('Your Estate');
-    final allGov = _store.govRequests
-        .where((r) => r.owner == 'Your Estate')
-        .toList();
+    final allPrivate = _store.myOrders;
+    final allGov = _store.myGovRequests;
     final private = allPrivate
         .where(_privateMatchesStatus)
         .where((_) => _channel == 'all' || _channel == 'private')
