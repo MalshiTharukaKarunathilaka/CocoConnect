@@ -1,3 +1,4 @@
+import '../widgets/mobile_sheet.dart';
 import 'package:flutter/material.dart';
 
 /// KapConnect design system tokens. See DESIGN_SYSTEM.md in the repository.
@@ -266,8 +267,8 @@ Future<T?> showThemedDialog<T>({
 Future<T?> showThemedBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
-  bool isScrollControlled = false,
-  bool useSafeArea = false,
+  bool isScrollControlled = true,
+  bool useSafeArea = true,
   bool showDragHandle = false,
   Color? backgroundColor,
   BoxConstraints? constraints,
@@ -278,7 +279,9 @@ Future<T?> showThemedBottomSheet<T>({
   showDragHandle: showDragHandle,
   backgroundColor: backgroundColor,
   constraints: constraints,
-  builder: (ctx) => AppThemeScope(child: Builder(builder: builder)),
+  builder: mobileSheetBuilder(
+    (ctx) => AppThemeScope(child: Builder(builder: builder)),
+  ),
 );
 
 /// The pickers take their theme from here.
@@ -352,28 +355,20 @@ class StatusPill extends StatelessWidget {
       case 'Completed':
         return const StatusPill('Completed');
       default:
-        return StatusPill(
-          status,
-          fg: AppColors.info,
-          bg: AppColors.infoSoft,
-        );
+        return StatusPill(status, fg: AppColors.info, bg: AppColors.infoSoft);
     }
   }
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: fg,
-            fontSize: 11.5,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(color: fg, fontSize: 11.5, fontWeight: FontWeight.w600),
+    ),
+  );
 }

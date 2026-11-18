@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 
-Future<int?> showLandOwnerRatingDialog(BuildContext context) => showDialog<int>(
+Future<int?> showLandOwnerRatingDialog(
+  BuildContext context, {
+  String party = 'land owner',
+}) => showDialog<int>(
   context: context,
   builder: (context) {
     var rating = 0;
     return StatefulBuilder(
       builder: (context, setState) => AlertDialog(
         scrollable: true,
-        title: const Text('Rate land owner'),
+        title: Text('Rate $party'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('How was your experience with this land owner?'),
+            Text('How was your experience with this $party?'),
             const SizedBox(height: 12),
             Wrap(
               children: [

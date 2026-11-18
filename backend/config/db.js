@@ -29,6 +29,7 @@ if (process.env.DB_MODE === "memory") {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  max: 4,
   ssl:
     process.env.DATABASE_SSL === "false"
       ? false
