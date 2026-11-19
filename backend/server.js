@@ -32,6 +32,8 @@ app.get("/", (req, res) => {
 
 app.get("/api/health", getHealth);
 
+// Fertilizer_Final cloud sync (bootstrap + upsert) — must stay first.
+app.use("/api/fertilizer", require("./routes/fertilizerOpsRoutes"));
 app.use("/api/fertilizer", require("./routes/fertilizerRoutes"));
 app.use("/api/machinery", require("./routes/machineryRoutes"));
 app.use("/api/holidays", require("./routes/holidayRoutes"));
