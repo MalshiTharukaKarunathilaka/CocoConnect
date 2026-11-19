@@ -250,6 +250,36 @@ final client = MockClient((request) async {
       'total_spent': 100000,
     };
   }
+  if (path == '/api/owner/buyer-requests') {
+    result = [
+      {
+        'id': 1,
+        'buyer_name': 'Buyer with a long registered company name',
+        'location': 'Ibbagamuwa, Kurunegala District',
+        'product_type': request.url.queryParameters['type'],
+        'requested_quantity': 10000,
+        'required_date': '2030-01-01',
+        'bidding_price_per_unit': 130,
+        'trust_score': 4.3,
+        'distance_km': 11,
+      },
+    ];
+  }
+  if (path == '/api/buyer/listings') {
+    result = [
+      {
+        'id': 1,
+        'estate_name': 'Green Valley Coconut Land',
+        'owner_name': 'Land owner with a long registered name',
+        'product_type': 'RAW_COCONUT',
+        'quantity': 10000,
+        'available_date': '2030-01-01',
+        'offer_price_per_unit': 130,
+        'trust_score': 4.3,
+        'distance_km': 11,
+      },
+    ];
+  }
   if (path == '/api/worker/profile' ||
       path.contains('/workers/') ||
       path.endsWith('/estate-owner')) {

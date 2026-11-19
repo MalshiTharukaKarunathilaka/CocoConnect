@@ -1,3 +1,4 @@
+import '../../theme/app_theme.dart' show themedPicker;
 import '../../widgets/mobile_sheet.dart';
 import '../../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
@@ -11,13 +12,7 @@ import '../../widgets/nearby_filter.dart';
 import 'buyer_format.dart';
 import 'coconut_type.dart';
 import 'estate_owner_request_page.dart';
-
-const List<Color> _avatarColors = [
-  Color(0xFFDDEEE0),
-  Color(0xFFDCE6F5),
-  Color(0xFFF5E6DC),
-  Color(0xFFEDE3F5),
-];
+import '../chat/coconut_counterpart_profile_page.dart';
 
 /// The request a buyer just submitted; listings are matched against it.
 class _RequestMatch {
@@ -88,6 +83,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
   Future<void> _pickDate() async {
     final DateTime now = DateTime.now();
     final DateTime? picked = await showDatePicker(
+      builder: themedPicker,
       context: context,
       initialDate: now,
       firstDate: now,
@@ -198,8 +194,9 @@ class _MarketplacePageState extends State<MarketplacePage> {
       context: context,
       builder: mobileSheetBuilder(
         (context) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: ListView(
+            primary: false,
+            shrinkWrap: true,
             children: [
               const Padding(
                 padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
@@ -283,24 +280,30 @@ class _MarketplacePageState extends State<MarketplacePage> {
         return Column(
           children: [
             for (int i = 0; i < listings.length; i++) ...[
-              EstateListingCard(
+              CoconutListingCard(
                 initial: listings[i].estateName.isEmpty
                     ? '?'
                     : listings[i].estateName[0].toUpperCase(),
-                initialBackground: _avatarColors[i % _avatarColors.length],
-                estateName: listings[i].estateName,
-                ownerName: listings[i].ownerName,
+                colorIndex: i,
+                name: listings[i].estateName,
+                subtitle: listings[i].ownerName,
                 price: rupees(listings[i].pricePerUnit),
                 trustScore: listings[i].trustScore == null
                     ? 'New'
-                    : '${listings[i].trustScore}/5',
+                    : '${listings[i].trustScore!.toStringAsFixed(1)}/5',
                 quantity: '${withCommas(listings[i].quantity)} nuts',
-                availableDate: shortDate(listings[i].availableDate),
+                date: shortDate(listings[i].availableDate),
                 distance: distanceLabel(listings[i].distanceKm),
                 note: match == null ? null : _bidNote(listings[i], match),
                 noteGood:
                     match == null || listings[i].pricePerUnit <= match.price,
                 onTap: () => _openRequest(listings[i]),
+                onProfileTap: () => openCoconutCounterpartProfile(
+                  context,
+                  name: listings[i].estateName,
+                  profilePath:
+                      '/api/buyer/listings/${listings[i].id}/counterpart-profile',
+                ),
               ),
               const SizedBox(height: 16),
             ],

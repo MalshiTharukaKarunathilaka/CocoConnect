@@ -435,16 +435,27 @@ class BuyerPill extends StatelessWidget {
   }
 }
 
-class EstateListingCard extends StatelessWidget {
+class CoconutListingCard extends StatelessWidget {
+  static const _avatarColors = [
+    Color(0xFFDDEEE0),
+    Color(0xFFDCE6F5),
+    Color(0xFFF5E6DC),
+    Color(0xFFEDE3F5),
+  ];
+
   final String initial;
-  final Color initialBackground;
-  final String estateName;
-  final String ownerName;
+  final int colorIndex;
+  final String name;
+  final String? subtitle;
   final String price;
+  final String priceLabel;
+  final IconData priceIcon;
   final String trustScore;
   final String quantity;
-  final String availableDate;
+  final String date;
+  final String dateLabel;
   final VoidCallback? onTap;
+  final VoidCallback? onProfileTap;
 
   /// "7.4 km away", when both sides have a location.
   final String? distance;
@@ -453,17 +464,21 @@ class EstateListingCard extends StatelessWidget {
   final String? note;
   final bool noteGood;
 
-  const EstateListingCard({
+  const CoconutListingCard({
     super.key,
     required this.initial,
-    required this.initialBackground,
-    required this.estateName,
-    required this.ownerName,
+    required this.colorIndex,
+    required this.name,
+    this.subtitle,
     required this.price,
+    this.priceLabel = 'VERIFIED OFFER PRICE',
+    this.priceIcon = Icons.check_circle_outline,
     required this.trustScore,
     required this.quantity,
-    required this.availableDate,
+    required this.date,
+    this.dateLabel = 'AVAILABLE',
     this.onTap,
+    this.onProfileTap,
     this.distance,
     this.note,
     this.noteGood = true,
@@ -484,7 +499,7 @@ class EstateListingCard extends StatelessWidget {
                 height: 42,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: initialBackground,
+                  color: _avatarColors[colorIndex % _avatarColors.length],
                   shape: BoxShape.circle,
                 ),
                 child: Text(
@@ -501,35 +516,59 @@ class EstateListingCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      estateName,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A1A1A),
+                    InkWell(
+                      onTap: onProfileTap,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: kBuyerGreenDark,
+                            ),
+                          ),
+                          if (subtitle case final value? when value.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              value,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: kBuyerGrey,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
-                      ownerName,
-                      style: const TextStyle(fontSize: 11, color: kBuyerGrey),
+                      'TRUST SCORE: $trustScore',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFFE65100),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 5),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.check_circle_outline,
+                        Icon(
+                          priceIcon,
                           size: 12,
                           color: kBuyerGreen,
                         ),
                         const SizedBox(width: 4),
-                        const Text(
-                          'VERIFIED OFFER PRICE',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: kBuyerGreen,
-                            letterSpacing: 0.3,
+                        Flexible(
+                          child: Text(
+                            priceLabel,
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: kBuyerGreen,
+                              letterSpacing: 0.3,
+                            ),
                           ),
                         ),
                       ],
@@ -546,23 +585,6 @@ class EstateListingCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 10),
-
-          Row(
-            children: [
-              const Icon(Icons.star, size: 14, color: Color(0xFFE0A526)),
-              const SizedBox(width: 5),
-              Text(
-                'Trust Score: $trustScore',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF3A3A3A),
-                ),
-              ),
-            ],
-          ),
-
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Divider(height: 1, color: kBuyerBorder),
@@ -575,7 +597,7 @@ class EstateListingCard extends StatelessWidget {
                 child: BuyerInfoPair(label: 'QUANTITY', value: quantity),
               ),
               Expanded(
-                child: BuyerInfoPair(label: 'AVAILABLE', value: availableDate),
+                child: BuyerInfoPair(label: dateLabel, value: date),
               ),
               const Padding(
                 padding: EdgeInsets.only(left: 8),
