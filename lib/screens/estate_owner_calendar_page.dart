@@ -842,45 +842,38 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
 
   Widget _header({required bool compact}) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(12, compact ? 2 : 12, 12, compact ? 0 : 4),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          GestureDetector(
-            onTap: () => Navigator.maybePop(context),
-            child: const Icon(
-              Icons.arrow_back,
-              size: 28,
-              color: Colors.black87,
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.maybePop(context),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      size: 20,
+                      color: _calendarGreen,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  const Text(
+                    'KapConnect',
+                    style: TextStyle(
+                      color: _calendarGreen,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'KapConnect',
-                  style: TextStyle(
-                    color: _calendarGreen,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'DAY JOBS',
-                  style: TextStyle(
-                    color: Color(0xFF718096),
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Spacer(),
+          const SizedBox(width: 12),
           const LanguageSelector(),
-          const SizedBox(width: 10),
         ],
       ),
     );

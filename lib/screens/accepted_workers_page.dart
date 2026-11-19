@@ -3,6 +3,7 @@ import '../services/api_client.dart';
 import '../services/day_job_chat_service.dart';
 import '../services/owner_service.dart';
 import '../widgets/owner_widgets.dart';
+import '../widgets/role_navigation_page.dart';
 import 'worker_chat_page.dart';
 
 class AcceptedWorkersPage extends StatelessWidget {
@@ -14,10 +15,13 @@ class AcceptedWorkersPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final workers = job.acceptedWorkers;
 
-    return OwnerPage(
-      child: Column(
-        children: [
-          OwnerHeader(title: job.category),
+    return RoleNavigationPage(
+      chatScope: ChatScope.dayJobs,
+      current: AppTab.jobs,
+      child: OwnerPage(
+        child: Column(
+          children: [
+            OwnerHeader(title: job.category),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -50,7 +54,8 @@ class AcceptedWorkersPage extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _countBadge(int count) {
