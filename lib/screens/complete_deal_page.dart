@@ -30,8 +30,8 @@ class CompleteDealPage extends StatefulWidget {
 }
 
 class _CompleteDealPageState extends State<CompleteDealPage> {
-  final _quantityController = TextEditingController(text: '0');
-  final _priceController = TextEditingController(text: '0.00');
+  final _quantityController = TextEditingController();
+  final _priceController = TextEditingController();
   final _noteController = TextEditingController();
 
   late Future<OrderItem> _deal = _find();
@@ -51,6 +51,12 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
   Future<OrderItem> _find() async {
     final OrderItem? deal = await ActivityService.findOrder(widget.orderId);
     if (deal == null) throw const ApiException('This deal was not found');
+    if (mounted) {
+      _quantityController.text = deal.quantity > 0 ? '${deal.quantity}' : '';
+      _priceController.text = deal.pricePerUnit > 0
+          ? deal.pricePerUnit.toString()
+          : '';
+    }
     return deal;
   }
 
@@ -202,7 +208,7 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
               const SizedBox(height: 8),
               _Field(
                 controller: _quantityController,
-                hint: '0',
+                hint: 'Enter quantity',
                 error: _quantityError,
                 enabled: !_saving,
                 keyboard: TextInputType.number,
@@ -227,7 +233,7 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
               const SizedBox(height: 8),
               _Field(
                 controller: _priceController,
-                hint: '0.00',
+                hint: 'Enter price',
                 prefix: 'Rs. ',
                 error: _priceError,
                 enabled: !_saving,
