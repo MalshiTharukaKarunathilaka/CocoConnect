@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { coconutTrustScores, coconutCounterpartProfile } = require("./coconutReviewController");
 const {
   parseCoords,
   parseRadius,
@@ -341,12 +342,32 @@ const getBuyerRequests = async (req, res) => {
       );
     }
 
+    const ids = [...new Set(rows.map(row => row.buyer_id).filter(id => id != null))];
+    const scores = await coconutTrustScores(ids, "BUYER");
     // Buyers' coordinates stay on the server; owners only see the distance.
     return res
       .status(200)
-      .json(rows.map(({ latitude, longitude, ...row }) => row));
+      .json(rows.map(({ latitude, longitude, ...row }) => ({
+        ...row, trust_score: scores.get(row.buyer_id) ?? null,
+      })));
   } catch (error) {
     return serverError(res, "Get buyer requests", error);
+  }
+};
+
+const getBuyerRequestProfile = async (req, res) => {
+  try {
+    const {rows: [request]} = await pool.query(
+      `SELECT buyer_id, buyer_name, location FROM buyer_requests
+       WHERE id = $1 AND UPPER(COALESCE(status, 'PENDING')) = 'PENDING'`,
+      [req.params.id],
+    );
+    if (!request) return res.status(404).json({message: "Buyer request not found"});
+    const profile = await coconutCounterpartProfile(
+      request.buyer_id, "BUYER", request.buyer_name);
+    return res.json({...profile, location: profile.location || request.location});
+  } catch (error) {
+    return serverError(res, "Get buyer request profile", error);
   }
 };
 
@@ -496,6 +517,7 @@ const getMySellRequests = async (req, res) => {
       `SELECT
         sr.*,
         br.buyer_name,
+        br.buyer_id,
         br.location AS buyer_location,
         br.requested_quantity,
         br.required_date,
@@ -511,7 +533,11 @@ const getMySellRequests = async (req, res) => {
       [estate.id]
     );
 
-    return res.status(200).json(result.rows);
+    const ids = [...new Set(result.rows.map(row => row.buyer_id).filter(id => id != null))];
+    const scores = await coconutTrustScores(ids, "BUYER");
+    return res.status(200).json(result.rows.map(({buyer_id, ...offer}) => ({
+      ...offer, counterpart_trust_score: scores.get(buyer_id) ?? null,
+    })));
   } catch (error) {
     return serverError(res, "Get my sell requests", error);
   }
@@ -1485,6 +1511,7 @@ const rateDayJobWorker = async (req, res) => {
 };
 
 module.exports = {
+  getBuyerRequestProfile,
   acceptNegotiation,
   completeOrder,
   getMarketStats,

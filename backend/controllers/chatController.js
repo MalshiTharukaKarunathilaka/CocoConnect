@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const { dayOf } = require("../utils/geo");
+const { receivedCoconutReviews } = require("./coconutReviewController");
 
 /*
 |--------------------------------------------------------------------------
@@ -51,6 +52,28 @@ const loadChat = async (db, negotiationId, userId) => {
   if (chat.buyer_id === userId) return { ...chat, role: "BUYER" };
   if (chat.owner_user_id === userId) return { ...chat, role: "ESTATE_OWNER" };
   return null;
+};
+
+const getCounterpartProfile = async (req, res) => {
+  try {
+    const chat = await loadChat(pool, req.params.id, req.user.id);
+    if (!chat) return res.status(404).json({message: 'Chat not found'});
+    const isOwner = chat.role === 'BUYER';
+    const role = isOwner ? 'ESTATE_OWNER' : 'BUYER';
+    const id = isOwner ? chat.owner_user_id : chat.buyer_id;
+    const reviews = id == null
+      ? {average_rating: null, rating_count: 0, comments: []}
+      : await receivedCoconutReviews(id, role);
+    return res.json({
+      name: isOwner ? chat.owner_name || chat.estate_name : chat.buyer_name,
+      estate_name: isOwner ? chat.estate_name : null,
+      location: isOwner ? chat.estate_location : chat.buyer_location,
+      role,
+      ...reviews,
+    });
+  } catch (error) {
+    return serverError(res, 'Load chat profile', error);
+  }
 };
 
 /**
@@ -309,6 +332,7 @@ const summarise = (chat, messages, userId) => {
     order_id: chat.order_id,
     order_status: chat.order_status,
     my_role: role,
+    counterpart_user_id: role === "BUYER" ? chat.owner_user_id : chat.buyer_id,
     counterpart_name:
       role === "BUYER" ? chat.estate_name || chat.owner_name || "Estate" : chat.buyer_name,
     product_type: chat.product_type,
@@ -361,7 +385,7 @@ const listChats = async (db, userId) => {
       o.status AS order_status,
       o.final_price_per_unit AS order_price,
       pl.product_type, pl.quantity, pl.offer_price_per_unit AS listed_price,
-      eo.estate_name, eo.name AS owner_name,
+      eo.estate_name, eo.name AS owner_name, eo.user_id AS owner_user_id,
       u.name AS buyer_name
      FROM negotiations n
      JOIN product_listings pl ON pl.id = n.listing_id
@@ -673,6 +697,7 @@ const closeChat = async (req, res) => {
 };
 
 module.exports = {
+  getCounterpartProfile,
   getChats,
   getChat,
   sendChatMessage,

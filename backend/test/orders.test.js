@@ -126,6 +126,15 @@ test("activity: pending offers, negotiations, deals on both sides", async () => 
     "the buyer's chat offer waits for the owner, so it isn't the owner's pending"
   );
   assert.equal(theirs.pending[0].counterpart_name, "Lanka Mills");
+  assert.equal(theirs.pending[0].counterpart_trust_score, null);
+  const pendingProfile = `/api/sell-offers/${theirs.pending[0].id}/counterpart-profile`;
+  const pendingBuyer = await call("GET", pendingProfile, {token: owner.token});
+  assert.equal(pendingBuyer.status, 200);
+  assert.equal(pendingBuyer.data.name, "Lanka Mills");
+  assert.equal(pendingBuyer.data.average_rating, null);
+  const pendingSeller = await call("GET", pendingProfile, {token: buyer.token});
+  assert.equal(pendingSeller.status, 200);
+  assert.equal(pendingSeller.data.estate_name, "Kelani Palms");
   assert.equal(theirs.deals[0].counterpart_name, "Lanka Mills");
   assert.equal(theirs.deals[0].my_role, "ESTATE_OWNER");
 });
@@ -363,8 +372,9 @@ test('receipt confirmation is buyer-only, follows seller completion, and enables
   }
   assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: outsider.token, body: {rating: 5}})).status, 404);
   const beforeRating = (await call('GET', '/api/owner/summary', {token: owner.token})).data;
-  assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: buyer.token, body: {rating: 5}})).status, 200);
-  assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: owner.token, body: {rating: 4}})).status, 200);
+  assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: buyer.token, body: {rating: 5, note: 'x'.repeat(501)}})).status, 400);
+  assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: buyer.token, body: {rating: 5, note: '  Easy collection  '}})).status, 200);
+  assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: owner.token, body: {rating: 4, note: 'Arrived on time'}})).status, 200);
   assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: buyer.token, body: {rating: 3}})).status, 409);
   const mine = (await call('GET', '/api/activity', {token: buyer.token})).data.transactions.find(o => o.id === id);
   const theirs = (await call('GET', '/api/activity', {token: owner.token})).data.transactions.find(o => o.id === id);
@@ -372,6 +382,47 @@ test('receipt confirmation is buyer-only, follows seller completion, and enables
   assert.equal(mine.counterpart_rating, 4);
   assert.equal(theirs.my_rating, 4);
   assert.equal(theirs.counterpart_rating, 5);
+  assert.equal(mine.my_rating_note, 'Easy collection');
+  assert.equal(mine.counterpart_rating_note, 'Arrived on time');
+  assert.equal(theirs.my_rating_note, 'Arrived on time');
+  assert.equal(theirs.counterpart_rating_note, 'Easy collection');
+  assert.equal(mine.counterpart_trust_score, 5);
+  assert.equal(theirs.counterpart_trust_score, 4);
+  const reviewPath = '/api/coconut-reviews/me';
+  const buyerReviews = (await call('GET', reviewPath, {token: buyer.token})).data;
+  const ownerReviews = (await call('GET', reviewPath, {token: owner.token})).data;
+  assert.ok(buyerReviews.comments.some(review => review.comment === 'Arrived on time' && review.rating === 4));
+  assert.ok(ownerReviews.comments.some(review => review.comment === 'Easy collection' && review.rating === 5));
+  const profilePath = `/api/chats/${chat.id}/counterpart-profile`;
+  const buyerView = await call('GET', profilePath, {token: buyer.token});
+  const ownerView = await call('GET', profilePath, {token: owner.token});
+  assert.equal(buyerView.data.role, 'ESTATE_OWNER');
+  assert.equal(ownerView.data.role, 'BUYER');
+  assert.deepEqual(buyerView.data.comments, ownerReviews.comments);
+  assert.deepEqual(ownerView.data.comments, buyerReviews.comments);
+  assert.equal((await call('GET', profilePath, {token: outsider.token})).status, 404);
+  const orderProfile = `/api/orders/${id}/counterpart-profile`;
+  const buyerOrderView = await call('GET', orderProfile, {token: buyer.token});
+  const ownerOrderView = await call('GET', orderProfile, {token: owner.token});
+  assert.equal(buyerOrderView.status, 200);
+  assert.equal(ownerOrderView.status, 200);
+  assert.deepEqual(buyerOrderView.data.comments, ownerReviews.comments);
+  assert.deepEqual(ownerOrderView.data.comments, buyerReviews.comments);
+  assert.equal((await call('GET', orderProfile, {token: outsider.token})).status, 404);
+  const activeListing = (await call('POST', '/api/owner/listings', {token: owner.token, body: {
+    productType: 'RAW_COCONUT', quantity: 200, availableDate: '2026-12-12', offerPricePerUnit: 125,
+  }})).data.listing;
+  const market = (await call('GET', '/api/buyer/listings?sort=trust', {token: buyer.token})).data;
+  assert.equal(market.find(item => item.id === activeListing.id).trust_score, 5);
+  const listingProfile = `/api/buyer/listings/${activeListing.id}/counterpart-profile`;
+  assert.deepEqual((await call('GET', listingProfile, {token: buyer.token})).data.comments, ownerReviews.comments);
+  assert.equal((await call('GET', listingProfile, {token: owner.token})).status, 403);
+  const requests = (await call('GET', '/api/owner/buyer-requests?type=COCONUT_HUSK', {token: owner.token})).data;
+  assert.ok(requests.length);
+  assert.equal(requests[0].trust_score, 4);
+  const requestProfile = `/api/owner/buyer-requests/${requests[0].id}/counterpart-profile`;
+  assert.deepEqual((await call('GET', requestProfile, {token: owner.token})).data.comments, buyerReviews.comments);
+  assert.equal((await call('GET', requestProfile, {token: buyer.token})).status, 403);
   const afterRating = (await call('GET', '/api/owner/summary', {token: owner.token})).data;
   assert.equal(afterRating.rating_count, beforeRating.rating_count + 1);
   assert.equal(afterRating.average_rating, 5);

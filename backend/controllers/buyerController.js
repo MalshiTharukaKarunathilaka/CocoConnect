@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { coconutTrustScores, coconutCounterpartProfile } = require("./coconutReviewController");
 const {
   parseCoords,
   parseRadius,
@@ -36,7 +37,6 @@ const LISTING_COLUMNS = `
 const SORTS = {
   price_asc: "pl.offer_price_per_unit ASC",
   price_desc: "pl.offer_price_per_unit DESC",
-  trust: "eo.trust_score DESC NULLS LAST",
   newest: "pl.created_at DESC",
 };
 
@@ -68,7 +68,7 @@ const getListings = async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT ${LISTING_COLUMNS}, u.latitude, u.longitude
+      `SELECT ${LISTING_COLUMNS}, eo.user_id AS owner_user_id, u.latitude, u.longitude
        FROM product_listings pl
        LEFT JOIN estate_owners eo ON eo.id = pl.estate_owner_id
        LEFT JOIN users u ON u.id = eo.user_id
@@ -102,7 +102,16 @@ const getListings = async (req, res) => {
 
     if (sort === "nearest") rows.sort(byDistance);
 
-    return res.status(200).json(rows.map(hideCoords));
+    const ids = [...new Set(rows.map(row => row.owner_user_id).filter(id => id != null))];
+    const scores = await coconutTrustScores(ids, "ESTATE_OWNER");
+    const listings = rows.map(({owner_user_id, ...row}) => ({
+      ...hideCoords(row),
+      trust_score: scores.get(owner_user_id) ?? null,
+    }));
+    if (sort === "trust") {
+      listings.sort((a, b) => (b.trust_score ?? 0) - (a.trust_score ?? 0));
+    }
+    return res.status(200).json(listings);
   } catch (error) {
     return serverError(res, "Get listings", error);
   }
@@ -130,6 +139,28 @@ const getListing = async (req, res) => {
     return res.status(200).json(result.rows[0]);
   } catch (error) {
     return serverError(res, "Get listing", error);
+  }
+};
+
+const getListingProfile = async (req, res) => {
+  try {
+    const {rows: [listing]} = await pool.query(
+      `SELECT eo.user_id, eo.estate_name, eo.name, eo.location
+       FROM product_listings pl
+       JOIN estate_owners eo ON eo.id = pl.estate_owner_id
+       WHERE pl.id = $1 AND UPPER(COALESCE(pl.status, 'ACTIVE')) = 'ACTIVE'`,
+      [req.params.id],
+    );
+    if (!listing) return res.status(404).json({message: "Listing not found"});
+    const profile = await coconutCounterpartProfile(
+      listing.user_id, "ESTATE_OWNER", listing.name || listing.estate_name);
+    return res.json({
+      ...profile,
+      estate_name: listing.estate_name || profile.estate_name,
+      location: listing.location || profile.location,
+    });
+  } catch (error) {
+    return serverError(res, "Get listing profile", error);
   }
 };
 
@@ -246,7 +277,8 @@ const getRequestResponses = async (req, res) => {
         eo.estate_name,
         eo.name AS owner_name,
         eo.location,
-        eo.trust_score
+        eo.trust_score,
+        eo.user_id AS owner_user_id
        FROM sell_requests sr
        LEFT JOIN estate_owners eo ON eo.id = sr.estate_owner_id
        WHERE sr.buyer_request_id = $1
@@ -254,7 +286,11 @@ const getRequestResponses = async (req, res) => {
       [req.params.id]
     );
 
-    return res.status(200).json(result.rows);
+    const ids = [...new Set(result.rows.map(row => row.owner_user_id).filter(id => id != null))];
+    const scores = await coconutTrustScores(ids, "ESTATE_OWNER");
+    return res.status(200).json(result.rows.map(({owner_user_id, ...offer}) => ({
+      ...offer, counterpart_trust_score: scores.get(owner_user_id) ?? null,
+    })));
   } catch (error) {
     return serverError(res, "Get request responses", error);
   }
@@ -797,6 +833,7 @@ const completeOrder = async (req, res) => {
 };
 
 module.exports = {
+  getListingProfile,
   getListings,
   getListing,
   createRequest,

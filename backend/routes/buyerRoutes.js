@@ -3,6 +3,7 @@ const express = require("express");
 const {
   getListings,
   getListing,
+  getListingProfile,
   createRequest,
   getMyRequests,
   getSummary,
@@ -87,6 +88,7 @@ router.get("/listings/:id", getListing);
 
 // Everything below needs a logged-in buyer.
 router.use(requireAuth, requireRole("BUYER"));
+router.get("/listings/:id/counterpart-profile", getListingProfile);
 
 /**
  * @swagger

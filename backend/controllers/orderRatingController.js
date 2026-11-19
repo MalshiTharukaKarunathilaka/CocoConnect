@@ -3,9 +3,12 @@ const {myOrders} = require('./activityController');
 
 const rateOrder = async (req, res) => {
   try {
-    const rating = req.body.rating;
+    const {rating, note = ''} = req.body;
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
       return res.status(400).json({message: 'Choose a rating from 1 to 5 stars'});
+    }
+    if (typeof note !== 'string' || note.trim().length > 500) {
+      return res.status(400).json({message: 'Enter a rating note of up to 500 characters'});
     }
     const order = (await myOrders(req.user.id)).find(o => String(o.id) === String(req.params.id));
     if (!order) return res.status(404).json({message: 'Order not found'});
@@ -14,10 +17,13 @@ const rateOrder = async (req, res) => {
     }
     const column = order.my_role === 'BUYER' ? 'buyer_rating' : 'owner_rating';
     const timestamp = order.my_role === 'BUYER' ? 'buyer_rated_at' : 'owner_rated_at';
+    const noteColumn = order.my_role === 'BUYER' ? 'buyer_rating_note' : 'owner_rating_note';
+    const ratingNote = note.trim();
+    const noteUpdate = ratingNote ? `, ${noteColumn} = $4` : '';
     const result = await pool.query(
-      `UPDATE orders SET ${column} = $2, ${timestamp} = $3
+      `UPDATE orders SET ${column} = $2, ${timestamp} = $3${noteUpdate}
        WHERE id = $1 AND status = 'COMPLETED' AND ${column} IS NULL RETURNING id`,
-      [order.id, rating, new Date()]);
+      [order.id, rating, new Date(), ...(ratingNote ? [ratingNote] : [])]);
     if (!result.rows.length) return res.status(409).json({message: 'You have already rated this deal'});
     return res.json({message: 'Rating saved', rating});
   } catch (error) {

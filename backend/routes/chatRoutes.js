@@ -9,15 +9,21 @@ const {
   acceptListing,
   closeChat,
   cancelDeal,
+  getCounterpartProfile,
 } = require("../controllers/chatController");
 const { getNotifications } = require("../controllers/notificationController");
-const { getActivity } = require("../controllers/activityController");
+const { getActivity, getOrderCounterpart, getSellOfferCounterpart } = require("../controllers/activityController");
 const { requireAuth } = require("../middleware/auth");
+const { getMyCoconutReviews } = require("../controllers/coconutReviewController");
 
 const router = express.Router();
 
 router.use(requireAuth);
 router.put('/orders/:id/rating', require('../controllers/orderRatingController').rateOrder);
+router.get('/coconut-reviews/me', getMyCoconutReviews);
+router.get('/chats/:id/counterpart-profile', getCounterpartProfile);
+router.get('/orders/:id/counterpart-profile', getOrderCounterpart);
+router.get('/sell-offers/:id/counterpart-profile', getSellOfferCounterpart);
 
 /**
  * @swagger

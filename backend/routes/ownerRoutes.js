@@ -10,6 +10,7 @@ const {
   getMyListings,
   createListing,
   getBuyerRequests,
+  getBuyerRequestProfile,
   createSellRequest,
   getMySellRequests,
   getMyNegotiations,
@@ -154,6 +155,7 @@ router.post("/listings", createListing);
  *         description: Pending buyer requests (highest bid first by default), with distance_km
  */
 router.get("/buyer-requests", getBuyerRequests);
+router.get("/buyer-requests/:id/counterpart-profile", getBuyerRequestProfile);
 
 /**
  * @swagger
