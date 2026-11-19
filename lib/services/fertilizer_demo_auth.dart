@@ -36,7 +36,7 @@ class FertilizerDemoAuth {
   static const accounts = <FertDemoAccount>[
     FertDemoAccount(
       id: 901,
-      name: 'Demo Estate Owner',
+      name: 'Nimal Rathnayake',
       phone: '0711000001',
       password: passwordHint,
       role: 'ESTATE_OWNER',
@@ -60,8 +60,8 @@ class FertilizerDemoAuth {
     ),
     FertDemoAccount(
       id: 903,
-      name: 'CDO Mawathagama',
-      phone: '0372223344',
+      name: 'Sunil Bandara',
+      phone: '0772223344',
       password: passwordHint,
       role: 'CDO',
       roleLabel: 'CDO',
