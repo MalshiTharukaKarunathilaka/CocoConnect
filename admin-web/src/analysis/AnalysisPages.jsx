@@ -2514,14 +2514,6 @@ export function MarketVolumes({ stage }) {
                       {biggest && <em>Biggest {biggest.name} {nuts(vol(biggest))}</em>}
                     </div>
                   )}
-                  <div className="mp-ladder">
-                    {STEPS.map(([k, name]) => (
-                      <div key={k} className={k === stage ? 'on' : ''}>
-                        <small>{name}</small>
-                        <b>{compact(total(rowsHere, k))}</b>
-                      </div>
-                    ))}
-                  </div>
                 </>
               ) : (
                 <p className="pc-none">No coconut lands here yet.</p>
