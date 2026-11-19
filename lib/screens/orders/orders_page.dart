@@ -10,6 +10,7 @@ import '../../widgets/order_rating_dialog.dart';
 import '../buyer/buyer_format.dart';
 import '../buyer/coconut_type.dart';
 import '../chat/chat_page.dart';
+import '../chat/coconut_counterpart_profile_page.dart';
 import '../complete_deal_page.dart';
 import '../order_status_page.dart';
 import 'buyer_request_card.dart';
@@ -433,12 +434,16 @@ class _CardTop extends StatelessWidget {
 class _Who extends StatelessWidget {
   final String name;
   final String productType;
+  final double? trustScore;
+  final String profilePath;
   final VoidCallback? onChat;
   final int unread;
 
   const _Who({
     required this.name,
     required this.productType,
+    required this.trustScore,
+    required this.profilePath,
     this.onChat,
     this.unread = 0,
   });
@@ -452,13 +457,10 @@ class _Who extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: kOwnerInk,
-                ),
+              CoconutProfileLink(
+                name: name,
+                trustScore: trustScore,
+                profilePath: profilePath,
               ),
               const SizedBox(height: 3),
               Row(
@@ -692,6 +694,8 @@ class _DealCard extends StatelessWidget {
           const SizedBox(height: 10),
           _Who(
             name: deal.counterpartName,
+            trustScore: deal.counterpartTrustScore,
+            profilePath: '/api/orders/${deal.id}/counterpart-profile',
             productType: deal.productType,
             onChat: onChat,
           ),
@@ -784,6 +788,8 @@ class _NegotiationCard extends StatelessWidget {
             const SizedBox(height: 10),
             _Who(
               name: chat.counterpartName,
+              trustScore: chat.counterpartTrustScore,
+              profilePath: '/api/chats/${chat.id}/counterpart-profile',
               productType: chat.productType,
               onChat: onOpen,
               unread: chat.unreadCount,
@@ -848,6 +854,10 @@ class _PendingOfferCard extends StatelessWidget {
           const SizedBox(height: 10),
           _Who(
             name: offer.counterpartName,
+            trustScore: offer.counterpartTrustScore,
+            profilePath: offer.inChat
+                ? '/api/chats/${offer.negotiationId}/counterpart-profile'
+                : '/api/sell-offers/${offer.id}/counterpart-profile',
             productType: offer.productType,
             onChat: onChat,
           ),
@@ -910,6 +920,8 @@ class _TransactionCard extends StatelessWidget {
           const SizedBox(height: 10),
           _Who(
             name: order.counterpartName,
+            trustScore: order.counterpartTrustScore,
+            profilePath: '/api/orders/${order.id}/counterpart-profile',
             productType: order.productType,
             onChat: onChat,
           ),
@@ -966,10 +978,12 @@ class _TransactionCard extends StatelessWidget {
               icon: const Icon(Icons.star_outline),
               label: Text(order.iAmBuyer ? 'Rate seller' : 'Rate buyer'),
             ),
+          if (order.myRatingNote case final note?) Text(note),
           if (order.counterpartRating != null)
             Text(
               '${order.counterpartName} rated you ${order.counterpartRating}/5 stars',
             ),
+          if (order.counterpartRatingNote case final note?) Text(note),
         ],
       ),
     );

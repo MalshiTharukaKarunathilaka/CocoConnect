@@ -19,6 +19,7 @@ class _OrderRatingDialog extends StatefulWidget {
 
 class _OrderRatingDialogState extends State<_OrderRatingDialog> {
   int _rating = 0;
+  String _note = '';
   bool _saving = false;
   String? _error;
 
@@ -28,7 +29,7 @@ class _OrderRatingDialogState extends State<_OrderRatingDialog> {
       _error = null;
     });
     try {
-      await ActivityService.rateOrder(widget.order.id, _rating);
+      await ActivityService.rateOrder(widget.order.id, _rating, note: _note);
       if (mounted) Navigator.pop(context, true);
     } on ApiException catch (error) {
       if (mounted) {
@@ -66,6 +67,20 @@ class _OrderRatingDialogState extends State<_OrderRatingDialog> {
           ],
         ),
         Text(_rating == 0 ? 'Choose 1 to 5 stars' : '$_rating out of 5 stars'),
+        const SizedBox(height: 12),
+        TextField(
+          enabled: !_saving,
+          minLines: 2,
+          maxLines: 3,
+          maxLength: 500,
+          onChanged: (value) => _note = value.trim(),
+          decoration: const InputDecoration(
+            labelText: 'Comment (optional)',
+            helperText: 'Comments appear on the other person’s profile.',
+            helperMaxLines: 2,
+            border: OutlineInputBorder(),
+          ),
+        ),
         if (_error != null)
           Text(_error!, style: const TextStyle(color: Colors.red)),
       ],

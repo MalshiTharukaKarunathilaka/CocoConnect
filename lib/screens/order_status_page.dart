@@ -6,6 +6,7 @@ import '../services/owner_service.dart';
 import '../widgets/owner_widgets.dart';
 import 'buyer/buyer_format.dart';
 import 'buyer/coconut_type.dart';
+import 'chat/coconut_counterpart_profile_page.dart';
 import 'complete_deal_page.dart';
 
 /// "My Sell Requests": the offers this estate sent for buyer requests,
@@ -223,13 +224,16 @@ class _RequestCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            [
-              'Buyer: ${offer.buyerName ?? 'Buyer'}',
-              if (offer.createdAt != null) 'sent ${shortDate(offer.createdAt)}',
-            ].join('  ·  '),
-            style: const TextStyle(fontSize: 12.5, color: kOwnerMuted),
+          CoconutProfileLink(
+            name: offer.buyerName ?? 'Buyer',
+            trustScore: offer.counterpartTrustScore,
+            profilePath: '/api/sell-offers/${offer.id}/counterpart-profile',
           ),
+          if (offer.createdAt != null)
+            Text(
+              'Sent ${shortDate(offer.createdAt)}',
+              style: const TextStyle(fontSize: 12.5, color: kOwnerMuted),
+            ),
           if (offer.buyerBid != null) ...[
             const SizedBox(height: 2),
             Text(

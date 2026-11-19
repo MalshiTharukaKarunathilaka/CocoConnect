@@ -33,6 +33,7 @@ class ChatSummary {
   final String? orderStatus;
   final bool iAmBuyer;
   final String counterpartName;
+  final double? counterpartTrustScore;
   final String productType;
   final int quantity;
   final double listedPrice;
@@ -51,6 +52,7 @@ class ChatSummary {
     required this.orderStatus,
     required this.iAmBuyer,
     required this.counterpartName,
+    this.counterpartTrustScore,
     required this.productType,
     required this.quantity,
     required this.listedPrice,
@@ -71,6 +73,7 @@ class ChatSummary {
       orderStatus: json['order_status'] as String?,
       iAmBuyer: json['my_role'] == 'BUYER',
       counterpartName: json['counterpart_name'] as String? ?? '',
+      counterpartTrustScore: _numOrNull(json['counterpart_trust_score']),
       productType: json['product_type'] as String? ?? '',
       quantity: (json['quantity'] as num?)?.toInt() ?? 0,
       listedPrice: _numOrNull(json['listed_price']) ?? 0,

@@ -179,6 +179,7 @@ class SellOffer {
   final String ownerName;
   final String? location;
   final double? trustScore;
+  final double? counterpartTrustScore;
 
   // Filled in when a land owner lists the offers they sent.
   final String? buyerName;
@@ -201,6 +202,7 @@ class SellOffer {
     required this.ownerName,
     required this.location,
     required this.trustScore,
+    this.counterpartTrustScore,
     this.buyerName,
     this.requestedQuantity,
     this.buyerBid,
@@ -224,6 +226,7 @@ class SellOffer {
     ownerName: json['owner_name'] as String? ?? '',
     location: json['location'] as String?,
     trustScore: _rating(json['trust_score']),
+    counterpartTrustScore: _rating(json['counterpart_trust_score']),
     buyerName: json['buyer_name'] as String?,
     requestedQuantity: (json['requested_quantity'] as num?)?.toInt(),
     buyerBid: _toDoubleOrNull(json['bidding_price_per_unit']),

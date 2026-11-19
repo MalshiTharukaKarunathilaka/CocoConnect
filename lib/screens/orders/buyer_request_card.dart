@@ -1,3 +1,4 @@
+import '../../theme/app_theme.dart' show themedPicker;
 import '../../widgets/mobile_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import '../../services/buyer_service.dart';
 import '../../widgets/buyer_widgets.dart';
 import '../buyer/buyer_format.dart';
 import '../buyer/coconut_type.dart';
+import '../chat/coconut_counterpart_profile_page.dart';
 
 void _showSnack(BuildContext context, String text, {bool error = false}) {
   ScaffoldMessenger.of(context)
@@ -317,12 +319,13 @@ class _OffersSheetState extends State<_OffersSheet> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    offer.estateName,
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                  CoconutProfileLink(
+                                    name: offer.estateName.isEmpty
+                                        ? offer.ownerName
+                                        : offer.estateName,
+                                    trustScore: offer.counterpartTrustScore,
+                                    profilePath:
+                                        '/api/sell-offers/${offer.id}/counterpart-profile',
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
@@ -335,19 +338,14 @@ class _OffersSheetState extends State<_OffersSheet> {
                                     ),
                                   ),
                                   const SizedBox(height: 2),
-                                  Text(
-                                    [
-                                      if (offer.location != null)
-                                        offer.location!,
-                                      offer.trustScore == null
-                                          ? 'not rated yet'
-                                          : 'trust ${offer.trustScore}/5',
-                                    ].join('  ·  '),
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: kBuyerGrey,
+                                  if (offer.location case final location?)
+                                    Text(
+                                      location,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: kBuyerGrey,
+                                      ),
                                     ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -413,6 +411,7 @@ class _EditRequestDialogState extends State<_EditRequestDialog> {
   Future<void> _pickDate() async {
     final DateTime today = DateTime.now();
     final DateTime? picked = await showDatePicker(
+      builder: themedPicker,
       context: context,
       initialDate: _date != null && _date!.isAfter(today) ? _date! : today,
       firstDate: today,

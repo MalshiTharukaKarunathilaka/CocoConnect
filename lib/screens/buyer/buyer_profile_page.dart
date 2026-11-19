@@ -1,4 +1,5 @@
 import '../../widgets/profile_widgets.dart';
+import '../../widgets/coconut_reviews.dart';
 import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
@@ -110,6 +111,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                 return _StatsGrid(summary: snapshot.data!);
               },
             ),
+            const SizedBox(height: 18),
+            BuyerCard(child: MyCoconutReviews(key: ValueKey(_summary))),
             const SizedBox(height: 18),
             const ProfileSectionLabel('ACCOUNT'),
             const SizedBox(height: 8),

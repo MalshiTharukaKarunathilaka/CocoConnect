@@ -17,6 +17,21 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         var cancelled = false;
         final client = MockClient((request) async {
+          if (request.url.path.endsWith('/counterpart-profile')) {
+            return http.Response(
+              jsonEncode({
+                'name': 'Trading partner',
+                'role': role == 'BUYER' ? 'ESTATE_OWNER' : 'BUYER',
+                'location': 'Kurunegala',
+                'average_rating': 5,
+                'rating_count': 1,
+                'comments': [
+                  {'rating': 5, 'comment': 'Easy collection'},
+                ],
+              }),
+              200,
+            );
+          }
           if (request.url.path.endsWith('/cancel-deal')) {
             cancelled = true;
             return http.Response('{}', 200);
@@ -51,11 +66,28 @@ void main() {
           expect(tester.takeException(), isNull);
           final chat = tester.getSize(find.byType(Column).first);
           expect(chat.width, lessThanOrEqualTo(430));
+          await tester.tap(
+            role == 'BUYER'
+                ? find.byType(CircleAvatar).first
+                : find.text('A very long counterpart name for mobile testing'),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Trading partner'), findsOneWidget);
+          expect(
+            tester.getSize(find.byType(AppBar)).width,
+            lessThanOrEqualTo(430),
+          );
+          expect(find.text('5.0 / 5.0'), findsOneWidget);
+          expect(find.text('Easy collection'), findsOneWidget);
+          await tester.tap(find.byTooltip('Close profile'));
+          await tester.pumpAndSettle();
           expect(find.text('Cancel Deal').hitTestable(), findsOneWidget);
           await tester.tap(find.text('Cancel Deal'));
           await tester.pumpAndSettle();
           expect(cancelled, isFalse);
-          await tester.tap(find.widgetWithText(TextButton, 'Cancel Deal'));
+          await tester.tap(find.text('Issue with coconut quantity'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Submit Cancel'));
           await tester.pumpAndSettle();
           expect(cancelled, isTrue);
           expect(find.text('Deal cancelled'), findsWidgets);

@@ -11,6 +11,7 @@ import '../../widgets/owner_widgets.dart';
 import '../buyer/buyer_format.dart';
 import '../buyer/coconut_type.dart';
 import '../complete_deal_page.dart';
+import 'coconut_counterpart_profile_page.dart';
 
 const Color _green = Color(0xFF256B45);
 const Color _wallpaper = Color(0xFFEFE9DF);
@@ -284,6 +285,7 @@ class _ChatPageState extends State<ChatPage> {
         child: Column(
           children: [
             _ChatHeader(
+              chatId: widget.chatId,
               chat: chat,
               onClose: chat != null && chat.isOpen && !_busy
                   ? _closeChat
@@ -542,7 +544,9 @@ class _ChatHeader extends StatelessWidget {
   final ChatDetail? chat;
   final VoidCallback? onClose;
 
-  const _ChatHeader({required this.chat, required this.onClose});
+  const _ChatHeader({required this.chat, required this.onClose, required this.chatId});
+
+  final int chatId;
 
   @override
   Widget build(BuildContext context) {
@@ -571,40 +575,59 @@ class _ChatHeader extends StatelessWidget {
                 icon: const Icon(Icons.arrow_back, color: kOwnerInk),
                 onPressed: () => Navigator.pop(context),
               ),
-              CircleAvatar(
-                radius: 19,
-                backgroundColor: _green,
-                child: Text(
-                  name.isEmpty ? '?' : name[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name.isEmpty ? 'Chat' : name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _green,
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.bold,
+                child: InkWell(
+                  onTap: chat == null
+                      ? null
+                      : () => Navigator.push<void>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CoconutCounterpartProfilePage(
+                              profilePath: '/api/chats/$chatId/counterpart-profile',
+                              name: name,
+                            ),
+                          ),
+                        ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 19,
+                        backgroundColor: _green,
+                        child: Text(
+                          name.isEmpty ? '?' : name[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
-                    if (subtitle.isNotEmpty)
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: _muted, fontSize: 12),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name.isEmpty ? 'Chat' : name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _green,
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (subtitle.isNotEmpty)
+                              Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: _muted, fontSize: 12),
+                              ),
+                          ],
+                        ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               if (onClose != null)

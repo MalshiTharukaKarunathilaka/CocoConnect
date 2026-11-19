@@ -1,4 +1,5 @@
 import '../widgets/profile_widgets.dart';
+import '../widgets/coconut_reviews.dart';
 import '../widgets/buyer_widgets.dart';
 import '../widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
@@ -185,6 +186,8 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
                   ],
                 ),
               ],
+              const SizedBox(height: 16),
+              const MyCoconutReviews(showScore: false),
             ],
           ),
         ),

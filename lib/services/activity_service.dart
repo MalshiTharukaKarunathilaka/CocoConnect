@@ -18,6 +18,7 @@ class PendingOffer {
   final int? negotiationId;
   final int? requestId;
   final String counterpartName;
+  final double? counterpartTrustScore;
   final String productType;
   final int quantity;
   final double price;
@@ -35,6 +36,7 @@ class PendingOffer {
     required this.negotiationId,
     required this.requestId,
     required this.counterpartName,
+    this.counterpartTrustScore,
     required this.productType,
     required this.quantity,
     required this.price,
@@ -51,6 +53,7 @@ class PendingOffer {
     negotiationId: json['negotiation_id'] as int?,
     requestId: json['request_id'] as int?,
     counterpartName: json['counterpart_name'] as String? ?? '',
+    counterpartTrustScore: _numOrNull(json['counterpart_trust_score']),
     productType: json['product_type'] as String? ?? '',
     quantity: (json['quantity'] as num?)?.toInt() ?? 0,
     price: _numOrNull(json['price']) ?? 0,
@@ -68,6 +71,7 @@ class OrderItem {
   final bool iAmBuyer;
   final int? negotiationId;
   final String counterpartName;
+  final double? counterpartTrustScore;
   final String productType;
   final int quantity;
   final double pricePerUnit;
@@ -79,6 +83,8 @@ class OrderItem {
   final DateTime? completedAt;
   final int? myRating;
   final int? counterpartRating;
+  final String? myRatingNote;
+  final String? counterpartRatingNote;
 
   /// A different final price waiting for (or decided by) an admin.
   final double? disputePrice;
@@ -90,6 +96,7 @@ class OrderItem {
     required this.iAmBuyer,
     required this.negotiationId,
     required this.counterpartName,
+    this.counterpartTrustScore,
     required this.productType,
     required this.quantity,
     required this.pricePerUnit,
@@ -101,6 +108,8 @@ class OrderItem {
     required this.completedAt,
     this.myRating,
     this.counterpartRating,
+    this.myRatingNote,
+    this.counterpartRatingNote,
     required this.disputePrice,
     required this.disputeStatus,
   });
@@ -139,6 +148,7 @@ class OrderItem {
     iAmBuyer: json['my_role'] == 'BUYER',
     negotiationId: json['negotiation_id'] as int?,
     counterpartName: json['counterpart_name'] as String? ?? '',
+    counterpartTrustScore: _numOrNull(json['counterpart_trust_score']),
     productType: json['product_type'] as String? ?? '',
     quantity: (json['quantity'] as num?)?.toInt() ?? 0,
     pricePerUnit: _numOrNull(json['final_price_per_unit']) ?? 0,
@@ -150,6 +160,8 @@ class OrderItem {
     completedAt: _timeOrNull(json['completed_at']),
     myRating: (json['my_rating'] as num?)?.toInt(),
     counterpartRating: (json['counterpart_rating'] as num?)?.toInt(),
+    myRatingNote: json['my_rating_note'] as String?,
+    counterpartRatingNote: json['counterpart_rating_note'] as String?,
     disputePrice: _numOrNull(json['dispute_price_per_unit']),
     disputeStatus: json['dispute_status'] as String?,
   );
@@ -202,8 +214,11 @@ class ActivityService {
   static Future<void> confirmReceipt(int orderId) =>
       ApiClient.patch('/api/buyer/orders/$orderId/confirm-receipt', {});
 
-  static Future<void> rateOrder(int orderId, int rating) =>
-      ApiClient.put('/api/orders/$orderId/rating', {'rating': rating});
+  static Future<void> rateOrder(int orderId, int rating, {String note = ''}) =>
+      ApiClient.put('/api/orders/$orderId/rating', {
+        'rating': rating,
+        if (note.isNotEmpty) 'note': note,
+      });
 
   /// Throws an [ApiException] with code PRICE_REVIEW_REQUIRED's message if
   /// the price differs and [requestPriceReview] is false.
