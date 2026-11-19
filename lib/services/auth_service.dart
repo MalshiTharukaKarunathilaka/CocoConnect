@@ -62,6 +62,10 @@ class AuthService {
 
   static AppUser? currentUser;
 
+  /// Extra rows from fertilizer_suppliers / cdo_officers after login/signup.
+  static Map<String, dynamic>? fertilizerSupplierProfile;
+  static Map<String, dynamic>? cdoProfile;
+
   static Future<RegistrationStorage> registrationStorage() async {
     final data = await ApiClient.get('/api/health');
     return RegistrationStorage.fromJson(data as Map<String, dynamic>);
@@ -97,6 +101,8 @@ class AuthService {
     required double latitude,
     required double longitude,
     Map<String, dynamic>? serviceProvider,
+    Map<String, dynamic>? fertilizerSupplier,
+    Map<String, dynamic>? cdo,
   }) async {
     final data = await ApiClient.post('/api/auth/signup', {
       'name': name,
@@ -111,6 +117,8 @@ class AuthService {
       'latitude': latitude,
       'longitude': longitude,
       'service_provider': ?serviceProvider,
+      'fertilizer_supplier': ?fertilizerSupplier,
+      'cdo': ?cdo,
     });
     return _startSession(data as Map<String, dynamic>);
   }
@@ -123,7 +131,9 @@ class AuthService {
 
     try {
       final data = await ApiClient.get('/api/auth/me');
-      currentUser = AppUser.fromJson(data as Map<String, dynamic>);
+      final map = data as Map<String, dynamic>;
+      currentUser = AppUser.fromJson(map);
+      _cacheProfiles(map);
       return currentUser;
     } on ApiException catch (error) {
       if (error.isUnauthorized) await logout();
@@ -152,12 +162,61 @@ class AuthService {
 
   static Future<void> logout() async {
     currentUser = null;
+    fertilizerSupplierProfile = null;
+    cdoProfile = null;
     await ApiClient.clearToken();
   }
 
   static Future<AppUser> _startSession(Map<String, dynamic> data) async {
     await ApiClient.saveToken(data['token'] as String);
     currentUser = AppUser.fromJson(data['user'] as Map<String, dynamic>);
+    _cacheProfiles(data);
     return currentUser!;
+  }
+
+  static void _cacheProfiles(Map<String, dynamic> data) {
+    final supplier = data['fertilizer_supplier'];
+    fertilizerSupplierProfile =
+        supplier is Map ? Map<String, dynamic>.from(supplier) : null;
+    final cdo = data['cdo'];
+    cdoProfile = cdo is Map ? Map<String, dynamic>.from(cdo) : null;
+  }
+
+  static Future<Map<String, dynamic>> fetchSupplierProfile() async {
+    final data = await ApiClient.get('/api/auth/me/supplier');
+    fertilizerSupplierProfile = Map<String, dynamic>.from(
+      data as Map<String, dynamic>,
+    );
+    return fertilizerSupplierProfile!;
+  }
+
+  static Future<Map<String, dynamic>> saveSupplierProfile({
+    required String agentName,
+    required String phone,
+    required bool willingFar,
+    required String coverageNote,
+  }) async {
+    final data = await ApiClient.patch('/api/auth/me/supplier', {
+      'agent_name': agentName,
+      'phone': normalisePhone(phone),
+      'willing_far': willingFar,
+      'coverage_note': coverageNote,
+    });
+    final map = data as Map<String, dynamic>;
+    if (map['user'] is Map) {
+      currentUser = AppUser.fromJson(map['user'] as Map<String, dynamic>);
+    }
+    if (map['fertilizer_supplier'] is Map) {
+      fertilizerSupplierProfile = Map<String, dynamic>.from(
+        map['fertilizer_supplier'] as Map,
+      );
+    }
+    return fertilizerSupplierProfile ?? {};
+  }
+
+  static Future<Map<String, dynamic>> fetchCdoProfile() async {
+    final data = await ApiClient.get('/api/auth/me/cdo');
+    cdoProfile = Map<String, dynamic>.from(data as Map<String, dynamic>);
+    return cdoProfile!;
   }
 }

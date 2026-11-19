@@ -1,4 +1,3 @@
-import '../account_profile_page.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/owner_widgets.dart';
 import '../account_dialogs.dart';
@@ -29,19 +28,14 @@ class FertPage extends StatelessWidget {
   final Widget? bottom;
   final bool showLogout;
   final bool showBack;
-
-  /// Land-owner bell for supplier accept / cancel / negotiate alerts.
+  /// Estate-owner bell for supplier accept / cancel / negotiate alerts.
   final bool showAlerts;
-
   /// Supplier bell for new orders / disputes / low stock.
   final bool supplierAlerts;
-
-  /// CDO bell for land cancel / dispute / low warehouse stock.
+  /// CDO bell for estate cancel / dispute / low warehouse stock.
   final bool cdoAlerts;
-
   /// Notification Show → Stock tab.
   final VoidCallback? onOpenStock;
-
   /// Notification Show → Orders (or Messages for CDO) tab.
   final VoidCallback? onOpenOrders;
 
@@ -113,16 +107,6 @@ class FertPage extends StatelessWidget {
                 ),
               if (showLogout)
                 IconButton(
-                  tooltip: 'Profile',
-                  onPressed: () => openAccountProfile(context),
-                  icon: const Icon(
-                    Icons.account_circle_outlined,
-                    color: kOwnerGreen,
-                    size: 22,
-                  ),
-                ),
-              if (showLogout)
-                IconButton(
                   tooltip: 'Log out',
                   onPressed: () => confirmLogOut(context),
                   icon: const Icon(Icons.logout, color: kOwnerGreen, size: 22),
@@ -144,11 +128,14 @@ class FertTabBar extends StatelessWidget {
     required this.items,
     required this.current,
     required this.onTap,
+    this.badges = const {},
   });
 
   final List<(IconData, String)> items;
   final int current;
   final ValueChanged<int> onTap;
+  /// Tab index → unread count shown on the icon.
+  final Map<int, int> badges;
 
   static const Color _green = Color(0xFF256B45);
   static const Color _greenSoft = Color(0xFFDDEEE0);
@@ -168,52 +155,71 @@ class FertTabBar extends StatelessWidget {
         children: [
           for (int i = 0; i < items.length; i++)
             Expanded(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () => onTap(i),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: i == current
-                                ? _greenSoft
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Icon(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => onTap(i),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: i == current ? _greenSoft : Colors.transparent,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(
                             items[i].$1,
                             size: 22,
                             color: i == current ? _green : _grey,
                           ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          items[i].$2,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: items[i].$2.length > 11 ? 9.5 : 10.5,
-                            height: 1.1,
-                            fontWeight: i == current
-                                ? FontWeight.bold
-                                : FontWeight.w600,
-                            color: i == current ? _green : _grey,
-                          ),
-                        ),
-                      ],
+                          if ((badges[i] ?? 0) > 0)
+                            Positioned(
+                              right: -8,
+                              top: -4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFC62828),
+                                  borderRadius: BorderRadius.circular(99),
+                                ),
+                                child: Text(
+                                  '${badges[i]}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 3),
+                    Text(
+                      items[i].$2,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: items[i].$2.length > 11 ? 9.5 : 10.5,
+                        height: 1.1,
+                        fontWeight:
+                            i == current ? FontWeight.bold : FontWeight.w600,
+                        color: i == current ? _green : _grey,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

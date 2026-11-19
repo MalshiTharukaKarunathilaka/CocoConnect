@@ -17,11 +17,12 @@ String fertStatusLabel(String status) {
       return 'Cancelled';
     case 'Disputed':
       return 'Disputed';
-    case 'Delivered':
     case 'Distributed':
-      return 'Delivered';
+      return 'Awaiting confirm';
     case 'Completed':
       return 'Completed';
+    case 'Receipt Confirmed':
+      return 'Confirmed';
     default:
       return status;
   }
@@ -33,11 +34,10 @@ Color fertStatusColor(String status) {
     case 'Negotiating':
       return AppColors.dangerText;
     case 'Accepted':
-    case 'Completed':
-      return AppColors.green;
-    case 'Delivered':
     case 'Distributed':
-      return AppColors.info;
+    case 'Completed':
+    case 'Receipt Confirmed':
+      return AppColors.green;
     case 'Cancelled':
     case 'Disputed':
       return AppColors.dangerText;
@@ -82,9 +82,10 @@ class _FertProcessingBannerState extends State<FertProcessingBanner>
       valueListenable: store.ownerAlertTick,
       builder: (context, _, __) {
         final pending = store
-            .ownerOrders('Your Land')
+            .myOrders
             .where(
-              (o) => o.status == 'Pending Ack' || o.status == 'Negotiating',
+              (o) =>
+                  o.status == 'Pending Ack' || o.status == 'Negotiating',
             )
             .toList();
         if (pending.isEmpty) return const SizedBox.shrink();
@@ -177,7 +178,9 @@ class FertOrderStatusDot extends StatelessWidget {
           Icon(
             status == 'Pending Ack'
                 ? Icons.autorenew
-                : (status == 'Accepted' ? Icons.check_circle : Icons.circle),
+                : (status == 'Accepted'
+                    ? Icons.check_circle
+                    : Icons.circle),
             size: 11,
             color: c,
           ),

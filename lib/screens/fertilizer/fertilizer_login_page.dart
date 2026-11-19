@@ -32,7 +32,9 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
     _phoneController = TextEditingController(
       text: a == null ? '' : a.phone.replaceFirst(RegExp(r'^0'), ''),
     );
-    _passwordController = TextEditingController();
+    _passwordController = TextEditingController(
+      text: FertilizerDemoAuth.passwordHint,
+    );
   }
 
   @override
@@ -48,12 +50,37 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
     setState(() => _loading = true);
 
     try {
-      final user = await AuthService.login(
-        phone: _phoneController.text,
-        password: _passwordController.text,
-      );
+      AppUser? user;
+      final expected = widget.account?.role;
+
+      try {
+        user = await AuthService.login(
+          phone: _phoneController.text,
+          password: _passwordController.text,
+        );
+        if (expected != null &&
+            user.role != expected &&
+            !(expected == 'FERTILIZER_SUPPLIER' &&
+                user.role == 'SERVICE_PROVIDER')) {
+          await AuthService.logout();
+          throw const ApiException(
+            'This phone is registered as a different role.',
+          );
+        }
+      } on ApiException {
+        user = FertilizerDemoAuth.tryLogin(
+          phone: _phoneController.text,
+          password: _passwordController.text,
+          expectedRole: expected,
+        );
+        if (user == null) {
+          throw const ApiException('Incorrect phone number or password');
+        }
+        AuthService.currentUser = user;
+      }
+
       if (!mounted) return;
-      openHomeFor(context, user);
+      openHomeFor(context, user!);
     } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -145,7 +172,6 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
                   label: _loading ? 'Logging in...' : 'Login',
                   onPressed: _loading ? null : _submit,
                 ),
-                const SizedBox(height: 12),
               ],
             ),
           ),
@@ -158,9 +184,8 @@ class _FertilizerLoginPageState extends State<FertilizerLoginPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => FertilizerSignupPage(
-                  lockedRole: a,
-                ),
+                // Why: from direct login, let them pick Estate/Supplier/CDO/etc.
+                builder: (_) => FertilizerSignupPage(lockedRole: a),
               ),
             );
           },

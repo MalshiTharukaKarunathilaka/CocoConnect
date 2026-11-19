@@ -1,6 +1,6 @@
-import '../../widgets/mobile_sheet.dart';
-import 'live_fertilizer_orders_page.dart';
 import 'package:flutter/material.dart';
+import '../../services/api_client.dart';
+import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_cancel_reasons.dart';
@@ -11,9 +11,10 @@ import 'fertilizer_cdo_stock_page.dart';
 import 'fertilizer_chrome.dart';
 import 'fertilizer_data.dart';
 import 'fertilizer_dispute_sheet.dart';
-import 'fertilizer_receipt_rating.dart';
+import 'fertilizer_doc_viewer.dart';
+import 'fertilizer_rating_sheet.dart';
 import 'fertilizer_supplier_chat_page.dart';
-import 'fertilizer_talk_page.dart';
+import 'fertilizer_supplier_messages_page.dart';
 import 'supplier_calendar_page.dart';
 
 /// Supplier Agent / CDO shell with demo-style bottom tabs.
@@ -30,11 +31,13 @@ class _ProviderHubState extends State<ProviderHub> {
   final _store = FertilizerStore.instance;
   int _tab = 0;
   String _orderStatusFilter = 'all';
-
   /// Why: notification Show can open a specific CDO chat.
   String? _msgFocusId;
 
   bool get _isCdo => widget.mode == FertHomeMode.cdo;
+
+  Map<String, dynamic>? _cdoProfile = AuthService.cdoProfile;
+  bool _cdoProfileLoading = false;
 
   FertPlace get _shop => _store.myShop;
 
@@ -85,13 +88,41 @@ class _ProviderHubState extends State<ProviderHub> {
   @override
   void initState() {
     super.initState();
+    _store.syncTick.addListener(_onSync);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_isCdo) {
         _store.ensureCdoDemoAlerts();
+        _loadCdoProfile();
       } else {
         _store.checkLowStock(_shop);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _store.syncTick.removeListener(_onSync);
+    super.dispose();
+  }
+
+  void _onSync() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadCdoProfile() async {
+    if (_cdoProfile != null || _cdoProfileLoading) return;
+    setState(() => _cdoProfileLoading = true);
+    try {
+      final profile = await AuthService.fetchCdoProfile();
+      if (!mounted) return;
+      setState(() {
+        _cdoProfile = profile;
+        _cdoProfileLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _cdoProfileLoading = false);
+    }
   }
 
   @override
@@ -103,6 +134,7 @@ class _ProviderHubState extends State<ProviderHub> {
             (Icons.map_outlined, 'Area'),
             (Icons.warehouse_outlined, 'Stock'),
             (Icons.chat_bubble_outline, 'Messages'),
+            (Icons.person_outline, 'Profile'),
           ]
         : const [
             (Icons.calendar_month, 'Calendar'),
@@ -112,47 +144,39 @@ class _ProviderHubState extends State<ProviderHub> {
             (Icons.person_outline, 'Profile'),
           ];
 
+    final msgBadge = _isCdo ? 0 : _store.unreadSupplierMessages;
+
     return FertPage(
       title: tabs[_tab].$2,
-      subtitle: '${_isCdo ? 'CDO' : 'SUPPLIER'} \u00b7 ${_shop.company}'
-          .toUpperCase(),
+      subtitle:
+          '${_isCdo ? 'CDO' : 'SUPPLIER'} \u00b7 ${_shop.company}'.toUpperCase(),
       showLogout: true,
       supplierAlerts: !_isCdo,
       cdoAlerts: _isCdo,
       // Why: notification Show can jump to Stock, Orders, or CDO Messages.
       onOpenStock: () => setState(() => _tab = _isCdo ? 3 : 2),
       onOpenOrders: () => setState(() {
-        if (_isCdo) {
-          _msgFocusId = _store.consumePendingOpenGovId();
-          _tab = 4;
-        } else {
-          _tab = 1;
-        }
-      }),
+            if (_isCdo) {
+              _msgFocusId = _store.consumePendingOpenGovId();
+              _tab = 4;
+            } else {
+              _tab = 1;
+            }
+          }),
       bottom: FertTabBar(
         items: tabs,
         current: _tab,
+        badges: {
+          if (!_isCdo && msgBadge > 0) 3: msgBadge,
+        },
         onTap: (i) => setState(() {
-          _tab = i;
-          if (i != 4) _msgFocusId = null;
-        }),
+              _tab = i;
+              if (_isCdo && i != 4) _msgFocusId = null;
+              if (_isCdo && i == 5) _loadCdoProfile();
+              // Why: unread badge stays until the supplier opens a thread.
+            }),
       ),
-      child: Column(
-        children: [
-          if (_tab == 0)
-            TextButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const LiveFertilizerOrdersPage(),
-                ),
-              ),
-              icon: const Icon(Icons.receipt_long),
-              label: const Text('View fertilizer orders'),
-            ),
-          Expanded(child: _body()),
-        ],
-      ),
+      child: _body(),
     );
   }
 
@@ -170,6 +194,8 @@ class _ProviderHubState extends State<ProviderHub> {
           return const FertilizerCdoStockPage();
         case 4:
           return FertilizerCdoMessagesPage(focusRequestId: _msgFocusId);
+        case 5:
+          return _cdoProfilePage();
       }
     } else {
       switch (_tab) {
@@ -178,7 +204,9 @@ class _ProviderHubState extends State<ProviderHub> {
         case 2:
           return _supplierStockPage();
         case 3:
-          return const FertilizerMessagesPage(embedded: true);
+          return FertilizerSupplierMessagesPage(
+            onUnreadChanged: () => setState(() {}),
+          );
         case 4:
           return _profilePage();
       }
@@ -249,10 +277,8 @@ class _ProviderHubState extends State<ProviderHub> {
         ],
         const SizedBox(height: 12),
         if (list.isEmpty)
-          const Text(
-            'No orders in this filter.',
-            style: TextStyle(color: AppColors.muted),
-          )
+          const Text('No orders in this filter.',
+              style: TextStyle(color: AppColors.muted))
         else
           for (final o in list) _orderCard(o),
       ],
@@ -271,7 +297,7 @@ class _ProviderHubState extends State<ProviderHub> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Open View to read the land form. Accept or cancel only — no negotiation.',
+          'Open View to read the estate form. Accept or cancel only — no negotiation.',
           style: TextStyle(fontSize: 12.5, color: AppColors.muted),
         ),
         const SizedBox(height: 12),
@@ -332,7 +358,8 @@ class _ProviderHubState extends State<ProviderHub> {
   }
 
   Widget _cdoRequestCard(FertGovRequest r) {
-    final accepted = r.status == 'Accepted' || r.status == 'Receipt Confirmed';
+    final accepted =
+        r.status == 'Accepted' || r.status == 'Receipt Confirmed';
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -363,16 +390,47 @@ class _ProviderHubState extends State<ProviderHub> {
           ),
           if (r.nicCopy.isNotEmpty || r.landTitleCopy.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(
-              [
-                if (r.nicCopy.isNotEmpty) 'NIC attached',
-                if (r.landTitleCopy.isNotEmpty) 'Land title attached',
-              ].join(' · '),
-              style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.green,
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                if (r.nicCopy.isNotEmpty)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.green,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () => showFertDocViewer(
+                      context,
+                      title: 'NIC copy',
+                      fileName: r.nicCopy,
+                      path: r.nicCopyPath,
+                      bytes: r.nicBytes,
+                    ),
+                    icon: const Icon(Icons.visibility_outlined, size: 16),
+                    label: const Text('View NIC'),
+                  ),
+                if (r.landTitleCopy.isNotEmpty)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.green,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () => showFertDocViewer(
+                      context,
+                      title: 'Land title / deed',
+                      fileName: r.landTitleCopy,
+                      path: r.landTitleCopyPath,
+                      bytes: r.landTitleBytes,
+                    ),
+                    icon: const Icon(Icons.visibility_outlined, size: 16),
+                    label: const Text('View land title'),
+                  ),
+              ],
             ),
           ],
           const SizedBox(height: 10),
@@ -384,24 +442,25 @@ class _ProviderHubState extends State<ProviderHub> {
               OutlinedButton(
                 onPressed: () async {
                   final ok = await showModalBottomSheet<bool>(
-                    useSafeArea: true,
                     context: context,
                     isScrollControlled: true,
                     backgroundColor: Colors.transparent,
-                    builder: mobileSheetBuilder(
-                      (_) => FertilizerCdoRequestSheet(request: r),
-                    ),
+                    builder: (_) => FertilizerCdoRequestSheet(request: r),
                   );
                   if (ok == true && mounted) setState(() {});
                 },
                 child: const Text('View'),
               ),
               if (accepted) ...[
-                ...fertDeliveryActions(
-                  context: context,
-                  onChanged: () => setState(() {}),
-                  gov: r,
-                  asOwner: false,
+                ElevatedButton(
+                  onPressed: () {
+                    _store.markGovDelivered(r.id);
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${r.id} marked delivered')),
+                    );
+                  },
+                  child: const Text('Delivered'),
                 ),
                 TextButton(
                   style: TextButton.styleFrom(
@@ -417,21 +476,13 @@ class _ProviderHubState extends State<ProviderHub> {
                     _store.disputeGovRequest(r.id, reason: note);
                     setState(() {});
                     if (!mounted) return;
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('${r.id} disputed')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${r.id} disputed')),
+                    );
                   },
                   child: const Text('Dispute'),
                 ),
               ],
-              if (!accepted &&
-                  (r.awaitsOwnerConfirm || r.providerCanRate || r.isCompleted))
-                ...fertDeliveryActions(
-                  context: context,
-                  onChanged: () => setState(() {}),
-                  gov: r,
-                  asOwner: false,
-                ),
             ],
           ),
         ],
@@ -441,14 +492,13 @@ class _ProviderHubState extends State<ProviderHub> {
 
   Widget _orderCard(FertOrder o) {
     final disputed = o.status == 'Disputed' || _store.isDisputed(o.id);
-    final canAck =
-        !disputed &&
+    final canAck = !disputed &&
         (o.status == 'Pending Ack' ||
             o.status == 'Negotiating' ||
             o.status == 'Submitted');
     // Why: after dispute, Mark delivered must go away.
-    final canDeliver =
-        !disputed && (o.status == 'Accepted' || o.status == 'Stock Confirmed');
+    final canDeliver = !disputed &&
+        (o.status == 'Accepted' || o.status == 'Stock Confirmed');
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -501,9 +551,9 @@ class _ProviderHubState extends State<ProviderHub> {
                   onPressed: () {
                     _store.acceptOrder(o.id);
                     setState(() {});
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('${o.id} accepted')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${o.id} accepted')),
+                    );
                   },
                   child: const Text('Accept'),
                 ),
@@ -530,12 +580,17 @@ class _ProviderHubState extends State<ProviderHub> {
                       title: 'Cancel ${o.id}',
                     );
                     if (note == null) return;
-                    _store.cancelOrder(o.id, bySupplier: true, note: note);
+                    _store.cancelOrder(
+                      o.id,
+                      bySupplier: true,
+                      note: note,
+                    );
                     setState(() {});
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('${o.id} cancelled · land will see this'),
+                        content:
+                            Text('${o.id} cancelled · estate will see this'),
                       ),
                     );
                   },
@@ -543,11 +598,19 @@ class _ProviderHubState extends State<ProviderHub> {
                 ),
               ],
               if (canDeliver) ...[
-                ...fertDeliveryActions(
-                  context: context,
-                  onChanged: () => setState(() {}),
-                  order: o,
-                  asOwner: false,
+                ElevatedButton(
+                  onPressed: () {
+                    _store.markDelivered(o.id);
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '${o.id} marked delivered · waiting for owner confirm',
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('Mark delivered'),
                 ),
                 TextButton(
                   style: TextButton.styleFrom(
@@ -555,13 +618,12 @@ class _ProviderHubState extends State<ProviderHub> {
                   ),
                   onPressed: () async {
                     final ok = await showModalBottomSheet<bool>(
-                      useSafeArea: true,
                       context: context,
                       isScrollControlled: true,
                       backgroundColor: Colors.transparent,
-                      builder: mobileSheetBuilder(
-                        (_) =>
-                            FertilizerDisputeSheet(order: o, bySupplier: true),
+                      builder: (_) => FertilizerDisputeSheet(
+                        order: o,
+                        bySupplier: true,
                       ),
                     );
                     if (ok == true && mounted) setState(() {});
@@ -569,13 +631,33 @@ class _ProviderHubState extends State<ProviderHub> {
                   child: const Text('Dispute'),
                 ),
               ],
-              if (!canDeliver &&
-                  (o.awaitsOwnerConfirm || o.providerCanRate || o.isCompleted))
-                ...fertDeliveryActions(
-                  context: context,
-                  onChanged: () => setState(() {}),
-                  order: o,
-                  asOwner: false,
+              if (o.status == 'Completed' && o.supplierStars == null)
+                ElevatedButton(
+                  onPressed: () async {
+                    final ok = await showFertilizerRatingSheet(
+                      context,
+                      title: 'Rate ${o.owner}',
+                      subtitle: 'How was this estate for ${o.id}?',
+                      onSubmit: (stars, note) {
+                        _store.rateOrder(
+                          o.id,
+                          byOwner: false,
+                          stars: stars,
+                          note: note,
+                        );
+                      },
+                    );
+                    if (ok == true && mounted) setState(() {});
+                  },
+                  child: const Text('Rate estate'),
+                ),
+              if (o.supplierStars != null)
+                Text(
+                  'You rated this estate ${o.supplierStars}/5',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.muted,
+                  ),
                 ),
             ],
           ),
@@ -666,13 +748,14 @@ class _ProviderHubState extends State<ProviderHub> {
     final nameCtrl = TextEditingController();
 
     final ok = await showModalBottomSheet<bool>(
-      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: mobileSheetBuilder((ctx) {
+      builder: (ctx) {
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(ctx).bottom,
+          ),
           child: StatefulBuilder(
             builder: (ctx, setLocal) {
               return Align(
@@ -681,10 +764,9 @@ class _ProviderHubState extends State<ProviderHub> {
                   constraints: const BoxConstraints(maxWidth: 430),
                   child: Material(
                     color: AppColors.cream,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(22),
-                    ),
-                    child: SingleChildScrollView(
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(22)),
+                    child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -716,7 +798,8 @@ class _ProviderHubState extends State<ProviderHub> {
                               for (final t in kFertKinds)
                                 DropdownMenuItem(value: t, child: Text(t)),
                             ],
-                            onChanged: (v) => setLocal(() => type = v ?? type),
+                            onChanged: (v) =>
+                                setLocal(() => type = v ?? type),
                           ),
                           const SizedBox(height: 10),
                           DropdownButtonFormField<String>(
@@ -774,7 +857,7 @@ class _ProviderHubState extends State<ProviderHub> {
             },
           ),
         );
-      }),
+      },
     );
 
     final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
@@ -799,9 +882,9 @@ class _ProviderHubState extends State<ProviderHub> {
     });
     _store.checkLowStock(_shop);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Added $qty bags of $brand $type')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Added $qty bags of $brand $type')),
+    );
   }
 
   Widget _stockCard(FertItem item) {
@@ -844,23 +927,19 @@ class _ProviderHubState extends State<ProviderHub> {
             style: const TextStyle(fontSize: 12, color: AppColors.muted),
           ),
           const SizedBox(height: 10),
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 4,
+          Row(
             children: [
-              const Text(
-                'Bags (50 kg)',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+              const Text('Bags (50 kg)', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Spacer(),
               IconButton(
                 onPressed: item.stock <= 0
                     ? null
                     : () => setState(() {
-                        item.stock = (item.stock - 1).clamp(0, 9999);
-                        if (item.stock50 <= FertilizerStore.lowStockBags) {
-                          _store.checkLowStock(_shop);
-                        }
-                      }),
+                          item.stock = (item.stock - 1).clamp(0, 9999);
+                          if (item.stock50 <= FertilizerStore.lowStockBags) {
+                            _store.checkLowStock(_shop);
+                          }
+                        }),
                 icon: const Icon(Icons.remove_circle_outline),
               ),
               Text(
@@ -919,7 +998,6 @@ class _ProviderHubState extends State<ProviderHub> {
     final result = await showDialog<(int, String)?>(
       context: context,
       builder: (ctx) => AlertDialog(
-        scrollable: true,
         title: Text('Price · ${item.name}'),
         content: Form(
           key: formKey,
@@ -1094,7 +1172,7 @@ class _ProviderHubState extends State<ProviderHub> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Willing to deliver far'),
                 subtitle: const Text(
-                  'Lands outside your usual ring can still order',
+                  'Estates outside your usual ring can still order',
                   style: TextStyle(fontSize: 12),
                 ),
                 value: p.willingFar,
@@ -1102,9 +1180,8 @@ class _ProviderHubState extends State<ProviderHub> {
                 onChanged: (v) => setState(() => p.willingFar = v),
               ),
               TextFormField(
-                initialValue: p.coverageNote.isEmpty
-                    ? defaultNote
-                    : p.coverageNote,
+                initialValue:
+                    p.coverageNote.isEmpty ? defaultNote : p.coverageNote,
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Coverage note',
@@ -1114,11 +1191,30 @@ class _ProviderHubState extends State<ProviderHub> {
               ),
               const SizedBox(height: 14),
               ElevatedButton(
-                onPressed: () {
-                  setState(() {});
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Profile saved')),
-                  );
+                onPressed: () async {
+                  try {
+                    await AuthService.saveSupplierProfile(
+                      agentName: p.who,
+                      phone: p.phone,
+                      willingFar: p.willingFar,
+                      coverageNote: p.coverageNote.isEmpty
+                          ? defaultNote
+                          : p.coverageNote,
+                    );
+                    if (!mounted) return;
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Profile saved')),
+                    );
+                  } on ApiException catch (error) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(error.message),
+                        backgroundColor: const Color(0xFFC62828),
+                      ),
+                    );
+                  }
                 },
                 child: const Text('Save profile'),
               ),
@@ -1128,4 +1224,395 @@ class _ProviderHubState extends State<ProviderHub> {
       ],
     );
   }
+
+  Widget _cdoProfilePage() {
+    final user = AuthService.currentUser;
+    final profile = _cdoProfile;
+    if (_cdoProfileLoading && profile == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final name = user?.name ?? _shop.who;
+    final phone = user?.phone ?? _shop.phone;
+    final location = user?.location ?? '—';
+    final nic = '${profile?['identity_number'] ?? '—'}';
+    final email = '${profile?['email'] ?? '—'}';
+    final employeeId = '${profile?['employee_id'] ?? '—'}';
+    final designation =
+        '${profile?['designation'] ?? 'Coconut Development Officer'}';
+    final office = '${profile?['regional_office'] ?? '—'}';
+    final district = '${profile?['assigned_district'] ?? '—'}';
+    final areasRaw = '${profile?['assigned_divisional_areas'] ?? ''}';
+    final areas = areasRaw
+        .split(RegExp(r'[,·|]'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    final idCard = '${profile?['id_card_filename'] ?? ''}';
+    final employment = '${profile?['employment_doc_filename'] ?? ''}';
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF1F5F3D),
+                Color(0xFF2F7A52),
+                Color(0xFF3F8F63),
+              ],
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33256B45),
+                blurRadius: 18,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.18),
+                      border: Border.all(color: Colors.white54),
+                    ),
+                    child: Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : 'C',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            height: 1.15,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          designation,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.88),
+                            fontSize: 12.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: const Text(
+                            'Verified CDO officer',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _cdoHeroStat(
+                      Icons.phone_outlined,
+                      phone,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _cdoHeroStat(
+                      Icons.place_outlined,
+                      location,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _cdoSectionCard(
+          title: 'Identity',
+          icon: Icons.badge_outlined,
+          children: [
+            _cdoInfoTile(Icons.person_outline, 'Full name', name),
+            _cdoInfoTile(Icons.credit_card_outlined, 'NIC number', nic),
+            _cdoInfoTile(Icons.mail_outline, 'Official email', email),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _cdoSectionCard(
+          title: 'Employment',
+          icon: Icons.work_outline,
+          children: [
+            _cdoInfoTile(Icons.tag_outlined, 'Employee ID', employeeId),
+            _cdoInfoTile(Icons.apartment_outlined, 'Regional office', office),
+            _cdoInfoTile(Icons.map_outlined, 'Assigned district', district),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _cdoSectionCard(
+          title: 'Coverage areas',
+          icon: Icons.holiday_village_outlined,
+          children: [
+            if (areas.isEmpty)
+              const Text(
+                'No divisional areas on file yet.',
+                style: TextStyle(color: AppColors.muted, fontSize: 13),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final a in areas)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.greenSoft,
+                        borderRadius: BorderRadius.circular(99),
+                        border: Border.all(color: const Color(0xFFC9DFD0)),
+                      ),
+                      child: Text(
+                        a,
+                        style: const TextStyle(
+                          color: AppColors.green,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _cdoSectionCard(
+          title: 'Documents',
+          icon: Icons.folder_open_outlined,
+          children: [
+            _cdoDocTile(
+              'CDO ID card',
+              idCard.isEmpty ? 'Not uploaded' : idCard,
+              uploaded: idCard.isNotEmpty,
+            ),
+            const SizedBox(height: 8),
+            _cdoDocTile(
+              'Employment document',
+              employment.isEmpty ? 'Not uploaded' : employment,
+              uploaded: employment.isNotEmpty,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Official records are managed by CDO admin. Contact your regional office to update employment details.',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.muted.withValues(alpha: 0.95),
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _cdoHeroStat(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cdoSectionCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.line),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.greenSoft,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 18, color: AppColors.green),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _cdoInfoTile(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppColors.greenMid),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.muted,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cdoDocTile(String title, String subtitle, {required bool uploaded}) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: uploaded ? AppColors.greenSoft : const Color(0xFFF7F5F0),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: uploaded ? const Color(0xFFC9DFD0) : AppColors.line,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            uploaded ? Icons.check_circle : Icons.upload_file_outlined,
+            color: uploaded ? AppColors.green : AppColors.muted,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.5,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: uploaded ? AppColors.green : AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 }

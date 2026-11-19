@@ -4,7 +4,7 @@ import '../../widgets/owner_widgets.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
 
-/// Supplier ↔ land chat for one order. Approve from inside this chat.
+/// Supplier ↔ estate chat for one order. Approve from inside this chat.
 class FertilizerSupplierChatPage extends StatefulWidget {
   const FertilizerSupplierChatPage({super.key, required this.order});
 
@@ -23,12 +23,13 @@ class _FertilizerSupplierChatPageState
 
   FertOrder get o => widget.order;
 
-  bool get _canAct => o.status == 'Pending Ack' || o.status == 'Negotiating';
+  bool get _canAct =>
+      o.status == 'Pending Ack' || o.status == 'Negotiating';
 
   @override
   void initState() {
     super.initState();
-    // Open negotiation so the land card updates.
+    // Open negotiation so the estate card updates.
     if (o.status == 'Pending Ack') {
       _store.startNegotiation(
         o.id,
@@ -59,17 +60,19 @@ class _FertilizerSupplierChatPageState
   void _send([String? preset]) {
     final text = (preset ?? _ctrl.text).trim();
     if (text.isEmpty) return;
-    o.negotiation.add(FertChat(o.agent, text, TimeOfDay.now().format(context)));
-    if (o.status == 'Pending Ack') {
-      o.status = 'Negotiating';
-    }
-    o.message = text;
-    _store.notifyOwner(
-      title: '${o.company} sent a message',
-      body: '${o.id} · $text',
-      kind: 'negotiating',
-      orderId: o.id,
+    // Why: same transcript the estate sees on Negotiation / supplier Messages.
+    _store.sendShopChat(
+      o.placeId,
+      from: o.company,
+      text: text,
+      fromOwner: false,
+      ownerKey: o.owner,
     );
+    if (o.negotiation.isEmpty || o.negotiation.last.text != text) {
+      o.negotiation.add(
+        FertChat(o.agent, text, TimeOfDay.now().format(context)),
+      );
+    }
     _ctrl.clear();
     setState(() {});
     _toEnd();
@@ -78,9 +81,9 @@ class _FertilizerSupplierChatPageState
   void _approve() {
     _store.acceptOrder(o.id);
     setState(() {});
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${o.id} approved')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${o.id} approved')),
+    );
     Navigator.pop(context, true);
   }
 
@@ -140,9 +143,8 @@ class _FertilizerSupplierChatPageState
                 final m = msgs[i];
                 final mine = m.from == o.agent;
                 return Align(
-                  alignment: mine
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
+                  alignment:
+                      mine ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.symmetric(
@@ -219,7 +221,7 @@ class _FertilizerSupplierChatPageState
                     controller: _ctrl,
                     enabled: _canAct,
                     decoration: const InputDecoration(
-                      hintText: 'Message the land…',
+                      hintText: 'Message the estate…',
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),

@@ -4,9 +4,12 @@ import '../buyer/buyer_format.dart';
 import 'fertilizer_cancel_reasons.dart';
 import 'fertilizer_data.dart';
 
-/// CDO ↔ land chat threads (mobile width). Delivery date/time shown in chat.
+/// CDO ↔ estate chat threads (mobile width). Delivery date/time shown in chat.
 class FertilizerCdoMessagesPage extends StatefulWidget {
-  const FertilizerCdoMessagesPage({super.key, this.focusRequestId});
+  const FertilizerCdoMessagesPage({
+    super.key,
+    this.focusRequestId,
+  });
 
   /// Why: notification Show can jump straight into this chat.
   final String? focusRequestId;
@@ -100,9 +103,9 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
     _store.disputeGovRequest(r.id, reason: note);
     setState(() {});
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${r.id} disputed')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${r.id} disputed')),
+    );
   }
 
   @override
@@ -122,7 +125,7 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Chat with lands about applications and delivery date / time.',
+          'Chat with estates about applications and delivery date / time.',
           style: TextStyle(fontSize: 12.5, color: AppColors.muted),
         ),
         const SizedBox(height: 14),
@@ -226,7 +229,7 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
   }
 
   Widget _chat(FertGovRequest r) {
-    final land = r.estateName.isNotEmpty ? r.estateName : r.owner;
+    final estate = r.estateName.isNotEmpty ? r.estateName : r.owner;
     final cdoName = r.cdo;
     // Why: Dispute only for accepted orders, and only at the bottom of the chat.
     final canDispute = r.status == 'Accepted';
@@ -245,7 +248,7 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      land,
+                      estate,
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
@@ -278,11 +281,7 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
             ),
             child: Row(
               children: [
-                const Icon(
-                  Icons.event_available,
-                  size: 18,
-                  color: AppColors.info,
-                ),
+                const Icon(Icons.event_available, size: 18, color: AppColors.info),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -306,14 +305,17 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
                 const Padding(
                   padding: EdgeInsets.all(24),
                   child: Text(
-                    'No messages yet. Say hello to the land.',
+                    'No messages yet. Say hello to the estate.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppColors.muted),
                   ),
                 )
               else
                 for (final m in r.chat) ...[
-                  _bubble(m, mine: m.from == cdoName || m.from.contains('CDO')),
+                  _bubble(
+                    m,
+                    mine: m.from == cdoName || m.from.contains('CDO'),
+                  ),
                   const SizedBox(height: 8),
                 ],
             ],
@@ -357,7 +359,7 @@ class _FertilizerCdoMessagesPageState extends State<FertilizerCdoMessagesPage> {
                   minLines: 1,
                   maxLines: 3,
                   decoration: const InputDecoration(
-                    hintText: 'Message the land…',
+                    hintText: 'Message the estate…',
                     isDense: true,
                     border: OutlineInputBorder(),
                   ),

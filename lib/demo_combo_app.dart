@@ -1,27 +1,12 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'screens/auth_gate.dart';
 import 'screens/fertilizer/fertilizer_login_page.dart';
 import 'theme/app_theme.dart';
 
-/// Fertilizer combo: role logins → shared store (orders sync across roles).
+/// Fertilizer combo: phone login → shared store (orders sync across roles).
 void main() {
   fertilizerComboMode = true;
   runApp(const ComboApp());
-}
-
-/// Why: on Flutter web, mouse/trackpad must be allowed or sheets/tabs feel “dead”.
-class _AppScrollBehavior extends MaterialScrollBehavior {
-  const _AppScrollBehavior();
-
-  @override
-  Set<PointerDeviceKind> get dragDevices => {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.trackpad,
-        PointerDeviceKind.stylus,
-      };
 }
 
 class ComboApp extends StatelessWidget {
@@ -33,16 +18,7 @@ class ComboApp extends StatelessWidget {
       title: 'KapConnect Fertilizer',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
-      scrollBehavior: const _AppScrollBehavior(),
-      // Why: keep web pointer routing stable across desktop browsers.
-      builder: (context, child) {
-        if (!kIsWeb) return child ?? const SizedBox.shrink();
-        return ScrollConfiguration(
-          behavior: const _AppScrollBehavior(),
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-      // Why: skip the role-picker screen — login with phone + password only.
+      // Why: skip the role-card list — go straight to phone + password login.
       home: const FertilizerLoginPage(),
     );
   }

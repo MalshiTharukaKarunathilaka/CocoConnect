@@ -1,26 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import '../../services/auth_service.dart';
+import '../../services/fertilizer_sync.dart';
 
-/// Demo fertilizer catalogue + orders for the land-owner / supplier flow.
-/// Same logic as the HTML demo: 50 kg base unit, Pending Ack, one shop login.
+/// Fertilizer catalogue + live ops data (orders / chats / gov) synced via Supabase.
 
 /// Which home calendar to show after login.
 enum FertHomeMode { supplier, cdo }
 
 /// The standard fertilizer types people search by.
-const List<String> kFertKinds = [
-  'APM',
-  'YPM',
-  'MOP',
-  'ERP',
-  'TSP',
-  'Urea',
-  'Dolomite',
-];
+const List<String> kFertKinds = ['APM', 'YPM', 'MOP', 'ERP', 'TSP', 'Urea', 'Dolomite'];
 
 /// Brand filter chips on the map (same idea as Distance / Fertilizer).
-/// Private-brand filter only (CCB stays under Government supplier filter).
+/// Private-brand filter only (CDO stays under Government supplier filter).
 const List<String> kFertBrands = ['CIC', 'Hayleys', 'Baurs'];
 
 class FertItem {
@@ -77,6 +71,9 @@ class FertPlace {
     required this.items,
     this.phone = '',
     this.coverageNote = '',
+    this.absLat,
+    this.absLng,
+    this.region = 'kurunegala',
   });
 
   final String id;
@@ -86,14 +83,18 @@ class FertPlace {
   final bool physical;
   bool willingFar;
   final List<String> brands;
-  final double distanceKm;
+  double distanceKm;
   final double dLat;
   final double dLng;
   final List<FertItem> items;
   String phone;
-
   /// Free-text coverage note the supplier can edit on Profile.
   String coverageNote;
+  /// Absolute map pin (Colombo / Puttalam / …). Null = offset from estate.
+  final double? absLat;
+  final double? absLng;
+  /// Which demo region this outlet belongs to.
+  final String region;
 
   bool get isGov => kind == 'cdo';
   int get minPrice50 =>
@@ -106,6 +107,18 @@ class CartLine {
   final FertItem item;
   int qty50;
   int get lineTotal => item.price50 * qty50;
+}
+
+/// One row in the supplier Messages inbox.
+class FertSupplierThread {
+  const FertSupplierThread({
+    required this.owner,
+    required this.preview,
+    required this.unread,
+  });
+  final String owner;
+  final String preview;
+  final int unread;
 }
 
 class FertOrder {
@@ -124,10 +137,10 @@ class FertOrder {
     required this.status,
     required this.message,
     List<FertChat>? negotiation,
-    this.deliveredAt,
-    this.confirmedAt,
-    this.ratingFromOwner,
-    this.ratingFromProvider,
+    this.ownerStars,
+    this.supplierStars,
+    this.ownerRateNote = '',
+    this.supplierRateNote = '',
   }) : negotiation = List<FertChat>.from(negotiation ?? const []);
 
   final String id;
@@ -141,45 +154,36 @@ class FertOrder {
   int price;
   DateTime preferredDate;
   String slot;
-
-  /// Pending Ack | Accepted | Cancelled | Negotiating | Delivered | Completed | Disputed
+  /// Pending Ack | Negotiating | Accepted | Distributed | Completed | Cancelled | Disputed
   String status;
   String message;
-
-  /// Chat notes between land and supplier on this order.
+  /// Chat notes between estate and supplier on this order.
   final List<FertChat> negotiation;
-  DateTime? deliveredAt;
-  DateTime? confirmedAt;
+  /// Owner rates the supplier after completion (1–5).
+  int? ownerStars;
+  /// Supplier rates the estate owner after completion (1–5).
+  int? supplierStars;
+  String ownerRateNote;
+  String supplierRateNote;
 
-  /// Land rates the supplier (1–5) after completion.
-  int? ratingFromOwner;
-
-  /// Supplier rates the land (1–5) after completion.
-  int? ratingFromProvider;
-
-  bool get awaitsOwnerConfirm =>
-      status == 'Delivered' || status == 'Distributed';
-
-  bool get isCompleted => status == 'Completed';
-
-  bool get ownerCanRate => isCompleted && ratingFromOwner == null;
-
-  bool get providerCanRate => isCompleted && ratingFromProvider == null;
-
-  /// Why: cancelled / disputed / finished jobs leave the supplier calendar.
+  /// Why: cancelled / disputed / delivered / completed jobs leave the calendar.
   bool get showsOnCalendar =>
       status != 'Cancelled' &&
       status != 'Disputed' &&
       status != 'Distributed' &&
-      status != 'Delivered' &&
       status != 'Completed';
 
-  bool get isPendingAck => status == 'Pending Ack' || status == 'Submitted';
+  bool get isPendingAck =>
+      status == 'Pending Ack' || status == 'Submitted';
 
   bool get isNegotiating => status == 'Negotiating';
 
   bool get isAcceptedOnCalendar =>
       status == 'Accepted' || status == 'Stock Confirmed';
+
+  bool get awaitingOwnerConfirm => status == 'Distributed';
+
+  bool get isCompleted => status == 'Completed';
 
   /// Why: after the owner changes bag counts, total bags and price must match the lines.
   void refreshTotals() {
@@ -199,7 +203,7 @@ class FertChat {
   final String time;
 }
 
-/// Alert for the land owner when a supplier accepts, cancels, negotiates, etc.
+/// Alert for the estate owner when a supplier accepts, cancels, negotiates, etc.
 class FertOwnerAlert {
   FertOwnerAlert({
     required this.id,
@@ -214,7 +218,6 @@ class FertOwnerAlert {
   final String id;
   final String title;
   final String body;
-
   /// new_order | cancelled | estate_dispute | low_stock | (legacy kinds ignored for supplier bell)
   final String kind;
   final DateTime at;
@@ -256,8 +259,8 @@ class GovOrderDraft {
       lines.map((l) => '${l.item.name} \u00d7 ${l.qty50}').join(', ');
 }
 
-/// Logged-in owner's land card used to auto-fill the CCB fertilizer form.
-/// Why: Annex 01 land/size fields come from the account — owners cannot type them.
+/// Logged-in owner's estate card used to auto-fill the CDO fertilizer form.
+/// Why: Annex 01 estate/size fields come from the account — owners cannot type them.
 class FertOwnerProfile {
   const FertOwnerProfile({
     required this.fullName,
@@ -273,7 +276,7 @@ class FertOwnerProfile {
     required this.coconutSaplings,
     required this.annualHarvestNuts,
     this.district = 'Kurunegala',
-    this.estateName = 'Your Land',
+    this.estateName = 'Mawathagama Palm Estate',
   });
 
   final String fullName;
@@ -314,7 +317,11 @@ class FertGovRequest {
     this.estateName = '',
     this.acres = 0,
     this.nicCopy = '',
+    this.nicCopyPath = '',
+    this.nicBytes,
     this.landTitleCopy = '',
+    this.landTitleCopyPath = '',
+    this.landTitleBytes,
     this.outlet = '',
     this.preferred = '',
     this.beneficiaryName = '',
@@ -329,9 +336,8 @@ class FertGovRequest {
     this.coconutSaplings = 0,
     this.annualHarvestNuts = 0,
     this.deliveryAt,
-    this.confirmedAt,
-    this.ratingFromOwner,
-    this.ratingFromProvider,
+    this.ownerStars,
+    this.ownerRateNote = '',
     List<FertChat>? chat,
   }) : chat = List<FertChat>.from(chat ?? const []);
 
@@ -345,31 +351,20 @@ class FertGovRequest {
   final String district;
   int approved;
   int distributed;
-
-  /// Planned / confirmed delivery moment shown in CDO ↔ land chat.
+  /// Planned / confirmed delivery moment shown in CDO ↔ estate chat.
   DateTime? deliveryAt;
-  DateTime? confirmedAt;
-  int? ratingFromOwner;
-  int? ratingFromProvider;
-
-  /// CDO ↔ land messages for this government application.
+  /// CDO ↔ estate messages for this government application.
   final List<FertChat> chat;
 
-  bool get awaitsOwnerConfirm =>
-      status == 'Delivered' || status == 'Distributed';
-
-  bool get isCompleted => status == 'Completed';
-
-  bool get ownerCanRate => isCompleted && ratingFromOwner == null;
-
-  bool get providerCanRate => isCompleted && ratingFromProvider == null;
-
-  // From the request form (Annex 01 / RH/AGRI/CCB/01)
+  // From the request form (Annex 01 / RH/AGRI/CDO/01)
   final String estateName;
   final double acres;
   final String nicCopy; // file name of the attached NIC copy
-  final String
-  landTitleCopy; // file name of the attached land title / deed copy
+  final String nicCopyPath; // local path when available
+  final List<int>? nicBytes; // image bytes so CDO can open the NIC
+  final String landTitleCopy; // file name of the attached land title / deed copy
+  final String landTitleCopyPath;
+  final List<int>? landTitleBytes;
   final String outlet; // the government outlet it was ordered from
   final String preferred; // preferred date and time slot
   final String beneficiaryName;
@@ -383,17 +378,19 @@ class FertGovRequest {
   final int coconutTrees;
   final int coconutSaplings;
   final int annualHarvestNuts;
+  /// Estate rates the government / CDO after receipt.
+  int? ownerStars;
+  String ownerRateNote;
 
   /// Why: delivered / cancelled / disputed leave the CDO calendar.
   bool get showsOnCalendar =>
       status != 'Cancelled' &&
       status != 'Disputed' &&
       status != 'Distributed' &&
-      status != 'Delivered' &&
-      status != 'Completed' &&
       distributed == 0;
 
-  bool get isPendingAck => status == 'Pending Ack' || status == 'Submitted';
+  bool get isPendingAck =>
+      status == 'Pending Ack' || status == 'Submitted';
 
   bool get isAcceptedOnCalendar =>
       status == 'Accepted' || status == 'Receipt Confirmed';
@@ -407,7 +404,7 @@ class FertComplaint {
     required this.status,
     required this.date,
     required this.description,
-    this.owner = 'Your Land',
+    this.owner = 'Mawathagama Palm Estate',
     this.district = 'Kurunegala',
   });
 
@@ -421,10 +418,16 @@ class FertComplaint {
   final String district;
 }
 
-/// In-memory session store (demo only).
+/// Session store hydrated from Supabase (with local demo fallback).
 class FertilizerStore {
   FertilizerStore._();
   static final FertilizerStore instance = FertilizerStore._();
+
+  /// When true, mutations are written to Supabase and polled back.
+  bool cloudSync = true;
+  bool cloudHydrated = false;
+  final ValueNotifier<int> syncTick = ValueNotifier<int>(0);
+  Timer? _pollTimer;
 
   /// Logged-in supplier shop (one login = one shop).
   String agentShopId = 'PL4';
@@ -432,15 +435,21 @@ class FertilizerStore {
   /// Logged-in CDO place (government office).
   String cdoPlaceId = 'PL5';
 
+  /// Estate name key for the logged-in owner (orders / complaints / gov).
+  String boundOwnerKey = 'Mawathagama Palm Estate';
+
+  /// Demo region for map filtering: kurunegala | colombo | puttalam.
+  String ownerRegion = 'kurunegala';
+
   FertHomeMode homeMode = FertHomeMode.supplier;
 
-  /// Land-owner alerts (supplier accept / cancel / negotiate…).
+  /// Estate-owner alerts (supplier accept / cancel / negotiate…).
   final List<FertOwnerAlert> ownerAlerts = [];
 
   /// Supplier alerts (new order, dispute, low stock…).
   final List<FertOwnerAlert> supplierAlerts = [];
 
-  /// CDO desk alerts (land cancel / dispute, low warehouse stock, new request).
+  /// CDO desk alerts (estate cancel / dispute, low warehouse stock, new request).
   final List<FertOwnerAlert> cdoAlerts = [];
 
   /// Bumps whenever a new alert arrives so the hub bell can refresh.
@@ -449,7 +458,6 @@ class FertilizerStore {
   final ValueNotifier<int> cdoAlertTick = ValueNotifier<int>(0);
 
   int get unreadOwnerAlerts => ownerAlerts.where((a) => !a.read).length;
-
   /// Only attention-needed alerts for the supplier bell.
   List<FertOwnerAlert> get importantSupplierAlerts =>
       supplierAlerts.where((a) => a.isImportantForSupplier).toList();
@@ -468,18 +476,17 @@ class FertilizerStore {
     required String kind,
     String orderId = '',
   }) {
-    ownerAlerts.insert(
-      0,
-      FertOwnerAlert(
-        id: 'AL-${ownerAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
-        title: title,
-        body: body,
-        kind: kind,
-        at: DateTime.now(),
-        orderId: orderId,
-      ),
+    final alert = FertOwnerAlert(
+      id: 'AL-${ownerAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
+      title: title,
+      body: body,
+      kind: kind,
+      at: DateTime.now(),
+      orderId: orderId,
     );
+    ownerAlerts.insert(0, alert);
     ownerAlertTick.value++;
+    _persistAlert(alert, 'owner');
   }
 
   void notifySupplier({
@@ -488,18 +495,17 @@ class FertilizerStore {
     required String kind,
     String orderId = '',
   }) {
-    supplierAlerts.insert(
-      0,
-      FertOwnerAlert(
-        id: 'SA-${supplierAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
-        title: title,
-        body: body,
-        kind: kind,
-        at: DateTime.now(),
-        orderId: orderId,
-      ),
+    final alert = FertOwnerAlert(
+      id: 'SA-${supplierAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
+      title: title,
+      body: body,
+      kind: kind,
+      at: DateTime.now(),
+      orderId: orderId,
     );
+    supplierAlerts.insert(0, alert);
     supplierAlertTick.value++;
+    _persistAlert(alert, 'supplier');
   }
 
   void notifyCdo({
@@ -508,18 +514,17 @@ class FertilizerStore {
     required String kind,
     String orderId = '',
   }) {
-    cdoAlerts.insert(
-      0,
-      FertOwnerAlert(
-        id: 'CA-${cdoAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
-        title: title,
-        body: body,
-        kind: kind,
-        at: DateTime.now(),
-        orderId: orderId,
-      ),
+    final alert = FertOwnerAlert(
+      id: 'CA-${cdoAlerts.length + 1}-${DateTime.now().millisecondsSinceEpoch}',
+      title: title,
+      body: body,
+      kind: kind,
+      at: DateTime.now(),
+      orderId: orderId,
     );
+    cdoAlerts.insert(0, alert);
     cdoAlertTick.value++;
+    _persistAlert(alert, 'cdo');
   }
 
   void markOwnerAlertsRead() {
@@ -551,7 +556,9 @@ class FertilizerStore {
       if (item.stock50 > 0 && item.stock50 <= lowStockBags) {
         final title = 'Low stock · ${item.name}';
         // Why: avoid flooding the bell every time the Stock tab opens.
-        final already = supplierAlerts.any((a) => a.title == title && !a.read);
+        final already = supplierAlerts.any(
+          (a) => a.title == title && !a.read,
+        );
         if (already) continue;
         notifySupplier(
           title: title,
@@ -580,13 +587,13 @@ class FertilizerStore {
     }
   }
 
-  /// Auto-filled CCB form details for the logged-in land owner (demo values).
+  /// Auto-filled CDO form details for the logged-in estate owner (demo values).
   FertOwnerProfile ownerProfile = const FertOwnerProfile(
-    fullName: 'Demo Land Owner',
+    fullName: 'Demo Estate Owner',
     address: 'No. 12, Temple Road, Mawathagama',
     phone: '0711000001',
     nicNumber: '198512345678',
-    landAddress: 'Your Land, Mawathagama, Kurunegala',
+    landAddress: 'Mawathagama Palm Estate, Mawathagama, Kurunegala',
     deedNumber: 'KUR/MWT/2018/0456',
     acres: 8,
     roods: 0,
@@ -595,8 +602,33 @@ class FertilizerStore {
     coconutSaplings: 80,
     annualHarvestNuts: 42000,
     district: 'Kurunegala',
-    estateName: 'Your Land',
+    estateName: 'Mawathagama Palm Estate',
   );
+
+  /// Demo estate cards keyed by last-9 phone digits (Kurunegala only).
+  static const Map<String, FertOwnerProfile> demoOwnerProfiles = {
+    '711000001': FertOwnerProfile(
+      fullName: 'Demo Estate Owner',
+      address: 'No. 12, Temple Road, Mawathagama',
+      phone: '0711000001',
+      nicNumber: '198512345678',
+      landAddress: 'Mawathagama Palm Estate, Mawathagama, Kurunegala',
+      deedNumber: 'KUR/MWT/2018/0456',
+      acres: 8,
+      coconutTrees: 640,
+      coconutSaplings: 80,
+      annualHarvestNuts: 42000,
+      district: 'Kurunegala',
+      estateName: 'Mawathagama Palm Estate',
+    ),
+  };
+
+  static String regionForDistrict(String district) {
+    final d = district.toLowerCase();
+    if (d.contains('colombo')) return 'colombo';
+    if (d.contains('puttalam')) return 'puttalam';
+    return 'kurunegala';
+  }
 
   static String _last9(String phone) {
     final digits = phone.replaceAll(RegExp(r'\D'), '');
@@ -605,32 +637,55 @@ class FertilizerStore {
   }
 
   /// Tie the fertilizer demo store to the real login (phone / role).
-  /// Why: one phone should only see that person's shop or CDO desk.
+  /// Why: one phone should only see that person's shop, CDO desk, or estate.
   void bindUser(AppUser user) {
     final key = _last9(user.phone);
-    // Keep CCB form details in sync with the logged-in person.
-    if (user.role == 'ESTATE_OWNER' || user.name.trim().isNotEmpty) {
+    if (user.role == 'ESTATE_OWNER') {
+      final demo = demoOwnerProfiles[key];
+      final estateName = demo?.estateName ??
+          (user.name.trim().isEmpty
+              ? 'My Estate'
+              : "${user.name.trim()}'s Estate");
       ownerProfile = FertOwnerProfile(
-        fullName: user.name.trim().isEmpty ? ownerProfile.fullName : user.name,
+        fullName: user.name.trim().isEmpty
+            ? (demo?.fullName ?? ownerProfile.fullName)
+            : user.name.trim(),
         address: (user.location ?? '').trim().isEmpty
-            ? ownerProfile.address
+            ? (demo?.address ?? ownerProfile.address)
             : user.location!.trim(),
         phone: user.phone,
-        nicNumber: ownerProfile.nicNumber,
-        landAddress: ownerProfile.landAddress,
-        deedNumber: ownerProfile.deedNumber,
-        acres: ownerProfile.acres,
-        roods: ownerProfile.roods,
-        perches: ownerProfile.perches,
-        coconutTrees: ownerProfile.coconutTrees,
-        coconutSaplings: ownerProfile.coconutSaplings,
-        annualHarvestNuts: ownerProfile.annualHarvestNuts,
-        district: ownerProfile.district,
-        estateName: ownerProfile.estateName,
+        nicNumber: demo?.nicNumber ?? ownerProfile.nicNumber,
+        landAddress: demo?.landAddress ??
+            '$estateName, ${user.location ?? ownerProfile.district}',
+        deedNumber: demo?.deedNumber ?? ownerProfile.deedNumber,
+        acres: demo?.acres ?? ownerProfile.acres,
+        roods: demo?.roods ?? ownerProfile.roods,
+        perches: demo?.perches ?? ownerProfile.perches,
+        coconutTrees: demo?.coconutTrees ?? ownerProfile.coconutTrees,
+        coconutSaplings: demo?.coconutSaplings ?? ownerProfile.coconutSaplings,
+        annualHarvestNuts:
+            demo?.annualHarvestNuts ?? ownerProfile.annualHarvestNuts,
+        district: demo?.district ??
+            ((user.location ?? '').trim().isEmpty
+                ? ownerProfile.district
+                : user.location!.trim()),
+        estateName: estateName,
       );
+      boundOwnerKey = estateName;
+      ownerRegion = regionForDistrict(ownerProfile.district);
+      if (user.latitude != null && user.longitude != null) {
+        estateGeo[estateName] = LatLng(user.latitude!, user.longitude!);
+      }
+      return;
     }
     if (user.role == 'CDO') {
       homeMode = FertHomeMode.cdo;
+      final profile = AuthService.cdoProfile;
+      final district = '${profile?['assigned_district'] ?? user.location ?? ''}';
+      ownerRegion = regionForDistrict(
+        district.isEmpty ? 'Kurunegala' : district,
+      );
+      _ensureRegisteredCdoPlace(user);
       final match = places.where(
         (p) => p.kind == 'cdo' && _last9(p.phone) == key,
       );
@@ -642,6 +697,9 @@ class FertilizerStore {
     }
 
     homeMode = FertHomeMode.supplier;
+    if (user.role == 'FERTILIZER_SUPPLIER') {
+      _ensureRegisteredSupplierPlace(user);
+    }
     final match = places.where(
       (p) => p.kind == 'shop' && _last9(p.phone) == key,
     );
@@ -650,11 +708,112 @@ class FertilizerStore {
         : places.firstWhere((p) => p.kind == 'shop').id;
   }
 
+  /// New supplier accounts from the API get their own map pin + profile.
+  void _ensureRegisteredSupplierPlace(AppUser user) {
+    final key = _last9(user.phone);
+    final existing = places.where(
+      (p) => p.kind == 'shop' && _last9(p.phone) == key,
+    );
+    final profile = AuthService.fertilizerSupplierProfile;
+    if (existing.isNotEmpty) {
+      final p = existing.first;
+      if (profile != null) {
+        p.who = user.name;
+        p.phone = user.phone;
+        p.willingFar = profile['willing_far'] == true;
+        p.coverageNote = '${profile['coverage_note'] ?? ''}';
+      }
+      return;
+    }
+    if (profile == null) return;
+    final brands = '${profile['brands'] ?? ''}'
+        .split(RegExp(r'[,+/]| and '))
+        .map((b) => b.trim())
+        .where((b) => b.isNotEmpty)
+        .toList();
+    final radius = (profile['radius_km'] as num?)?.toDouble() ?? 5;
+    places.add(
+      FertPlace(
+        id: 'PL-U-${user.id}',
+        company: '${profile['shop_name'] ?? user.name}',
+        who: user.name,
+        kind: 'shop',
+        physical: profile['shop_type'] != 'Delivery-only',
+        willingFar: profile['willing_far'] == true,
+        brands: brands.isEmpty ? const ['CIC'] : brands,
+        distanceKm: radius,
+        dLat: 0.01,
+        dLng: -0.01,
+        phone: user.phone,
+        coverageNote: '${profile['coverage_note'] ?? ''}',
+        items: [
+          FertItem(
+            name: '${brands.isEmpty ? 'CIC' : brands.first} Urea',
+            brand: brands.isEmpty ? 'CIC' : brands.first,
+            type: 'Urea',
+            price: 5900,
+            unit: '50 kg bag',
+            stock: 20,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// New CDO accounts from the API get a single CDO desk pin.
+  void _ensureRegisteredCdoPlace(AppUser user) {
+    final key = _last9(user.phone);
+    final existing = places.where(
+      (p) => p.kind == 'cdo' && _last9(p.phone) == key,
+    );
+    final profile = AuthService.cdoProfile;
+    if (existing.isNotEmpty) {
+      final p = existing.first;
+      if (profile != null) {
+        final district = '${profile['assigned_district'] ?? ''}';
+        p.who = district.isEmpty
+            ? user.name
+            : 'CDO - ${district.split(',').first.trim()}';
+        p.phone = user.phone;
+      }
+      return;
+    }
+    if (profile == null) return;
+    final district = '${profile['assigned_district'] ?? 'Kurunegala'}';
+    final who = 'CDO - $district';
+    places.add(
+      FertPlace(
+        id: 'PL-CDO-${user.id}',
+        company: 'CDO',
+        who: who,
+        kind: 'cdo',
+        physical: true,
+        willingFar: false,
+        brands: const ['CDO'],
+        distanceKm: 4,
+        dLat: -0.02,
+        dLng: 0.015,
+        phone: user.phone,
+        items: [
+          FertItem(
+            name: 'ERP Coconut Fertilizer',
+            brand: 'CDO',
+            type: 'Government',
+            price: 6000,
+            unit: '50 kg bag',
+            stock: 100,
+          ),
+        ],
+      ),
+    );
+    cdoPlaceId = 'PL-CDO-${user.id}';
+  }
+
   final List<FertPlace> places = [
-    // three suppliers right next to the land, so the 1 km view is never empty
+    // three suppliers right next to the estate, so the 1 km view is never empty
     FertPlace(
       id: 'PL0a',
-      company: 'Land Gate Agro',
+      company: 'Estate Gate Agro',
       who: 'Saman Kumara',
       kind: 'shop',
       physical: true,
@@ -714,162 +873,7 @@ class FertilizerStore {
         ),
       ],
     ),
-    FertPlace(
-      id: 'PL0c',
-      company: 'CCB',
-      who: 'Government outlet',
-      kind: 'cdo',
-      physical: true,
-      willingFar: false,
-      brands: const ['CCB'],
-      distanceKm: 0.9,
-      dLat: -0.006,
-      dLng: 0.005,
-      phone: '037 222 1100',
-      items: [
-        FertItem(
-          name: 'ERP Coconut Fertilizer',
-          brand: 'CCB',
-          type: 'Government',
-          price: 6000,
-          unit: '50 kg bag',
-          stock: 90,
-        ),
-        FertItem(
-          name: 'Urea subsidy',
-          brand: 'CCB',
-          type: 'Urea',
-          price: 4200,
-          unit: '50 kg bag',
-          stock: 60,
-        ),
-      ],
-    ),
-    // more government outlets around the land
-    FertPlace(
-      id: 'PL0d',
-      company: 'CCB',
-      who: 'Government outlet',
-      kind: 'cdo',
-      physical: true,
-      willingFar: false,
-      brands: const ['CCB'],
-      distanceKm: 1.2,
-      dLat: 0.008,
-      dLng: -0.011,
-      phone: '037 222 2301',
-      items: [
-        FertItem(
-          name: 'ERP Coconut Fertilizer',
-          brand: 'CCB',
-          type: 'Government',
-          price: 5900,
-          unit: '50 kg bag',
-          stock: 120,
-        ),
-        FertItem(
-          name: 'MOP subsidy',
-          brand: 'CCB',
-          type: 'MOP',
-          price: 5400,
-          unit: '50 kg bag',
-          stock: 70,
-        ),
-      ],
-    ),
-    FertPlace(
-      id: 'PL0e',
-      company: 'CCB',
-      who: 'Government outlet',
-      kind: 'cdo',
-      physical: true,
-      willingFar: false,
-      brands: const ['CCB'],
-      distanceKm: 2.1,
-      dLat: -0.012,
-      dLng: -0.014,
-      phone: '037 222 3345',
-      items: [
-        FertItem(
-          name: 'TSP subsidy',
-          brand: 'CCB',
-          type: 'TSP',
-          price: 5600,
-          unit: '50 kg bag',
-          stock: 55,
-        ),
-        FertItem(
-          name: 'Dolomite subsidy',
-          brand: 'CCB',
-          type: 'Dolomite',
-          price: 1900,
-          unit: '50 kg bag',
-          stock: 100,
-        ),
-      ],
-    ),
-    FertPlace(
-      id: 'PL0f',
-      company: 'CCB',
-      who: 'Government outlet',
-      kind: 'cdo',
-      physical: true,
-      willingFar: false,
-      brands: const ['CCB'],
-      distanceKm: 3.4,
-      dLat: 0.02,
-      dLng: 0.016,
-      phone: '037 222 4410',
-      items: [
-        FertItem(
-          name: 'Urea subsidy',
-          brand: 'CCB',
-          type: 'Urea',
-          price: 4300,
-          unit: '50 kg bag',
-          stock: 80,
-        ),
-        FertItem(
-          name: 'ERP Coconut Fertilizer',
-          brand: 'CCB',
-          type: 'Government',
-          price: 6100,
-          unit: '50 kg bag',
-          stock: 60,
-        ),
-      ],
-    ),
-    FertPlace(
-      id: 'PL0g',
-      company: 'CCB',
-      who: 'Government outlet',
-      kind: 'cdo',
-      physical: true,
-      willingFar: false,
-      brands: const ['CCB'],
-      distanceKm: 7.5,
-      dLat: -0.04,
-      dLng: 0.03,
-      phone: '037 222 5522',
-      items: [
-        FertItem(
-          name: 'YPM subsidy',
-          brand: 'CCB',
-          type: 'YPM',
-          price: 5800,
-          unit: '50 kg bag',
-          stock: 45,
-        ),
-        FertItem(
-          name: 'APM subsidy',
-          brand: 'CCB',
-          type: 'APM',
-          price: 5700,
-          unit: '50 kg bag',
-          stock: 45,
-        ),
-      ],
-    ),
+    // Why: only one CDO pin on the estate map (PL5 below).
     FertPlace(
       id: 'PL4',
       company: 'Nadeesha Stores',
@@ -1020,21 +1024,22 @@ class FertilizerStore {
     ),
     FertPlace(
       id: 'PL5',
-      company: 'CCB',
+      company: 'CDO',
       who: 'CDO - Mawathagama',
       kind: 'cdo',
       physical: true,
-      // Why: government programme only lists CCB near the land — not far willing-to-travel offices.
+      // Why: government programme only lists one CDO near the estate.
       willingFar: false,
-      brands: const ['CCB'],
-      distanceKm: 10,
-      dLat: 0.055,
-      dLng: 0.04,
+      brands: const ['CDO'],
+      distanceKm: 3.2,
+      dLat: -0.018,
+      dLng: 0.012,
+      region: 'kurunegala',
       phone: '037 222 3344',
       items: [
         FertItem(
           name: 'ERP Coconut Fertilizer',
-          brand: 'CCB',
+          brand: 'CDO',
           type: 'Government',
           price: 6000,
           unit: '50 kg bag',
@@ -1042,11 +1047,27 @@ class FertilizerStore {
         ),
         FertItem(
           name: 'Urea subsidy',
-          brand: 'CCB',
+          brand: 'CDO',
           type: 'Urea',
           price: 4200,
           unit: '50 kg bag',
           stock: 80,
+        ),
+        FertItem(
+          name: 'MOP subsidy',
+          brand: 'CDO',
+          type: 'MOP',
+          price: 5400,
+          unit: '50 kg bag',
+          stock: 70,
+        ),
+        FertItem(
+          name: 'TSP subsidy',
+          brand: 'CDO',
+          type: 'TSP',
+          price: 5600,
+          unit: '50 kg bag',
+          stock: 55,
         ),
       ],
     ),
@@ -1061,6 +1082,9 @@ class FertilizerStore {
       distanceKm: 86,
       dLat: 0.09,
       dLng: 0.06,
+      region: 'colombo',
+      absLat: 6.9271,
+      absLng: 79.8612,
       items: [
         FertItem(
           name: 'Coconut Fertilizer Mix',
@@ -1072,6 +1096,344 @@ class FertilizerStore {
         ),
       ],
     ),
+    // --- Colombo suppliers (for Colombo Palm Estate) ---
+    FertPlace(
+      id: 'PL-CMB-1',
+      company: 'Colombo Agro Mart',
+      who: 'Ravi Jayasuriya',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['CIC', 'Baurs'],
+      distanceKm: 2.1,
+      dLat: 0,
+      dLng: 0,
+      region: 'colombo',
+      absLat: 6.9350,
+      absLng: 79.8700,
+      phone: '0772100001',
+      items: [
+        FertItem(
+          name: 'CIC Urea',
+          brand: 'CIC',
+          type: 'Urea',
+          price: 5950,
+          unit: '50 kg bag',
+          stock: 24,
+        ),
+        FertItem(
+          name: 'Baurs YPM',
+          brand: 'Baurs',
+          type: 'YPM',
+          price: 6900,
+          unit: '50 kg bag',
+          stock: 12,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-CMB-2',
+      company: 'Green Leaf Colombo',
+      who: 'Sithara Perera',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['Hayleys'],
+      distanceKm: 3.4,
+      dLat: 0,
+      dLng: 0,
+      region: 'colombo',
+      absLat: 6.9150,
+      absLng: 79.8800,
+      phone: '0772100002',
+      items: [
+        FertItem(
+          name: 'Hayleys Organic',
+          brand: 'Hayleys',
+          type: 'Organic',
+          price: 5200,
+          unit: '25 kg bag',
+          stock: 18,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-CMB-3',
+      company: 'CIC Point Colombo',
+      who: 'Nuwan Dias',
+      kind: 'shop',
+      physical: true,
+      willingFar: true,
+      brands: const ['CIC'],
+      distanceKm: 4.8,
+      dLat: 0,
+      dLng: 0,
+      region: 'colombo',
+      absLat: 6.9450,
+      absLng: 79.8500,
+      phone: '0772100003',
+      items: [
+        FertItem(
+          name: 'CIC MOP',
+          brand: 'CIC',
+          type: 'MOP',
+          price: 6600,
+          unit: '50 kg bag',
+          stock: 15,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-CMB-4',
+      company: 'Baurs Depot Colombo',
+      who: 'Malsha Fernando',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['Baurs'],
+      distanceKm: 5.5,
+      dLat: 0,
+      dLng: 0,
+      region: 'colombo',
+      absLat: 6.9000,
+      absLng: 79.8900,
+      phone: '0772100004',
+      items: [
+        FertItem(
+          name: 'Baurs Coconut Blend',
+          brand: 'Baurs',
+          type: 'Coconut mix',
+          price: 7000,
+          unit: '50 kg bag',
+          stock: 20,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-CMB-5',
+      company: 'Hayleys Colombo Hub',
+      who: 'Ishara Gunasekara',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['Hayleys', 'CIC'],
+      distanceKm: 6.2,
+      dLat: 0,
+      dLng: 0,
+      region: 'colombo',
+      absLat: 6.9600,
+      absLng: 79.8700,
+      phone: '0772100005',
+      items: [
+        FertItem(
+          name: 'Hayleys Dolomite',
+          brand: 'Hayleys',
+          type: 'Dolomite',
+          price: 2400,
+          unit: '50 kg bag',
+          stock: 40,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-CDO-CMB',
+      company: 'CDO',
+      who: 'CDO - Colombo',
+      kind: 'cdo',
+      physical: true,
+      willingFar: false,
+      brands: const ['CDO'],
+      distanceKm: 3.0,
+      dLat: 0,
+      dLng: 0,
+      region: 'colombo',
+      absLat: 6.9300,
+      absLng: 79.8650,
+      phone: '0772300001',
+      items: [
+        FertItem(
+          name: 'ERP Coconut Fertilizer',
+          brand: 'CDO',
+          type: 'Government',
+          price: 6000,
+          unit: '50 kg bag',
+          stock: 100,
+        ),
+        FertItem(
+          name: 'Urea subsidy',
+          brand: 'CDO',
+          type: 'Urea',
+          price: 4200,
+          unit: '50 kg bag',
+          stock: 70,
+        ),
+      ],
+    ),
+    // --- Puttalam suppliers (for Puttalam Coast Estate) ---
+    FertPlace(
+      id: 'PL-PUT-1',
+      company: 'Puttalam Fertilizer',
+      who: 'Ajith Bandara',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['CIC'],
+      distanceKm: 1.8,
+      dLat: 0,
+      dLng: 0,
+      region: 'puttalam',
+      absLat: 8.0400,
+      absLng: 79.8350,
+      phone: '0772200001',
+      items: [
+        FertItem(
+          name: 'CIC Urea',
+          brand: 'CIC',
+          type: 'Urea',
+          price: 5900,
+          unit: '50 kg bag',
+          stock: 22,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-PUT-2',
+      company: 'Chilaw Agro',
+      who: 'Dilani Wijesinghe',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['Baurs', 'Hayleys'],
+      distanceKm: 2.9,
+      dLat: 0,
+      dLng: 0,
+      region: 'puttalam',
+      absLat: 8.0200,
+      absLng: 79.8500,
+      phone: '0772200002',
+      items: [
+        FertItem(
+          name: 'Baurs YPM',
+          brand: 'Baurs',
+          type: 'YPM',
+          price: 6850,
+          unit: '50 kg bag',
+          stock: 14,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-PUT-3',
+      company: 'Coastline Supplies',
+      who: 'Pradeep Silva',
+      kind: 'shop',
+      physical: true,
+      willingFar: true,
+      brands: const ['CIC', 'Hayleys'],
+      distanceKm: 4.1,
+      dLat: 0,
+      dLng: 0,
+      region: 'puttalam',
+      absLat: 8.0550,
+      absLng: 79.8200,
+      phone: '0772200003',
+      items: [
+        FertItem(
+          name: 'CIC TSP',
+          brand: 'CIC',
+          type: 'TSP',
+          price: 8700,
+          unit: '50 kg bag',
+          stock: 10,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-PUT-4',
+      company: 'Palm Care Puttalam',
+      who: 'Nadeeka Rathnayake',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['Baurs'],
+      distanceKm: 5.0,
+      dLat: 0,
+      dLng: 0,
+      region: 'puttalam',
+      absLat: 8.0100,
+      absLng: 79.8600,
+      phone: '0772200004',
+      items: [
+        FertItem(
+          name: 'Baurs Coconut Blend',
+          brand: 'Baurs',
+          type: 'Coconut mix',
+          price: 7050,
+          unit: '50 kg bag',
+          stock: 16,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-PUT-5',
+      company: 'Wennappuwa Agro',
+      who: 'Kasun Mendis',
+      kind: 'shop',
+      physical: true,
+      willingFar: false,
+      brands: const ['Hayleys'],
+      distanceKm: 6.5,
+      dLat: 0,
+      dLng: 0,
+      region: 'puttalam',
+      absLat: 8.0700,
+      absLng: 79.8400,
+      phone: '0772200005',
+      items: [
+        FertItem(
+          name: 'Hayleys Organic',
+          brand: 'Hayleys',
+          type: 'Organic',
+          price: 5100,
+          unit: '25 kg bag',
+          stock: 25,
+        ),
+      ],
+    ),
+    FertPlace(
+      id: 'PL-CDO-PUT',
+      company: 'CDO',
+      who: 'CDO - Puttalam',
+      kind: 'cdo',
+      physical: true,
+      willingFar: false,
+      brands: const ['CDO'],
+      distanceKm: 2.5,
+      dLat: 0,
+      dLng: 0,
+      region: 'puttalam',
+      absLat: 8.0350,
+      absLng: 79.8300,
+      phone: '0772300002',
+      items: [
+        FertItem(
+          name: 'ERP Coconut Fertilizer',
+          brand: 'CDO',
+          type: 'Government',
+          price: 6000,
+          unit: '50 kg bag',
+          stock: 90,
+        ),
+        FertItem(
+          name: 'Urea subsidy',
+          brand: 'CDO',
+          type: 'Urea',
+          price: 4200,
+          unit: '50 kg bag',
+          stock: 60,
+        ),
+      ],
+    ),
   ];
 
   late final List<FertOrder> orders = [
@@ -1080,7 +1442,7 @@ class FertilizerStore {
       placeId: 'PL4',
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
-      owner: 'Your Land',
+      owner: 'Mawathagama Palm Estate',
       product: 'CIC Urea (50 kg)',
       items: [
         CartLine(
@@ -1100,7 +1462,7 @@ class FertilizerStore {
       placeId: 'PL4',
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
-      owner: 'Green Palm Land',
+      owner: 'Green Palm Estate',
       product: 'Baurs Coconut Blend (50 kg)',
       items: [
         CartLine(
@@ -1116,7 +1478,7 @@ class FertilizerStore {
       message: 'Can you deliver Friday afternoon?',
       negotiation: const [
         FertChat(
-          'Green Palm Land',
+          'Green Palm Estate',
           'Can you do Friday afternoon and confirm Baurs bag size?',
           '10:05',
         ),
@@ -1132,7 +1494,7 @@ class FertilizerStore {
       placeId: 'PL4',
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
-      owner: 'Land A',
+      owner: 'Estate A',
       product: 'CIC Urea (50 kg), Baurs Coconut Blend (50 kg)',
       items: [
         CartLine(
@@ -1149,14 +1511,14 @@ class FertilizerStore {
       preferredDate: DateTime(2026, 11, 9),
       slot: 'Morning 8–11',
       status: 'Pending Ack',
-      message: 'Mixed cart for 8-acre land.',
+      message: 'Mixed cart for 8-acre estate.',
     ),
     FertOrder(
       id: 'PO-413',
       placeId: 'PL4',
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
-      owner: 'Land F',
+      owner: 'Estate F',
       product: 'CIC Urea (50 kg)',
       items: [
         CartLine(
@@ -1176,7 +1538,7 @@ class FertilizerStore {
       placeId: 'PL4',
       company: 'Nadeesha Stores',
       agent: 'Nadeesha Perera',
-      owner: 'Your Land',
+      owner: 'Mawathagama Palm Estate',
       product: 'CIC Urea (50 kg)',
       items: [
         CartLine(
@@ -1188,14 +1550,13 @@ class FertilizerStore {
       price: 35400,
       preferredDate: DateTime(2026, 11, 7),
       slot: 'Morning 8–11',
-      status: 'Delivered',
-      message: 'Supplier marked delivered · waiting for your confirm',
-      deliveredAt: DateTime(2026, 11, 17, 15, 30),
+      status: 'Accepted',
+      message: 'Already accepted sample order.',
     ),
     FertOrder(
       id: 'PO-501',
       placeId: 'PL5',
-      company: 'CCB',
+      company: 'CDO',
       agent: 'CDO - Mawathagama',
       owner: 'Smallholder Group B',
       product: 'ERP Coconut Fertilizer (50 kg)',
@@ -1215,9 +1576,9 @@ class FertilizerStore {
     FertOrder(
       id: 'PO-502',
       placeId: 'PL5',
-      company: 'CCB',
+      company: 'CDO',
       agent: 'CDO - Mawathagama',
-      owner: 'Land Co-op',
+      owner: 'Estate Co-op',
       product: 'Urea subsidy (50 kg)',
       items: [
         CartLine(
@@ -1231,6 +1592,139 @@ class FertilizerStore {
       slot: 'Afternoon 12–3',
       status: 'Pending Ack',
       message: 'Please confirm pickup window.',
+    ),
+    // --- Rich demo: Nushrath (Colombo) ↔ Colombo Agro Mart ---
+    FertOrder(
+      id: 'PO-610',
+      placeId: 'PL-CMB-1',
+      company: 'Colombo Agro Mart',
+      agent: 'Ravi Jayasuriya',
+      owner: 'Colombo Palm Estate',
+      product: 'CIC Urea (50 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL-CMB-1').items.first,
+          qty50: 8,
+        ),
+      ],
+      qty50: 8,
+      price: 47600,
+      preferredDate: DateTime(2026, 11, 19),
+      slot: 'Morning 8–11',
+      status: 'Pending Ack',
+      message: 'Need urea for the Kaduwela block this week.',
+    ),
+    FertOrder(
+      id: 'PO-611',
+      placeId: 'PL-CMB-1',
+      company: 'Colombo Agro Mart',
+      agent: 'Ravi Jayasuriya',
+      owner: 'Colombo Palm Estate',
+      product: 'Baurs YPM (50 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL-CMB-1').items[1],
+          qty50: 5,
+        ),
+      ],
+      qty50: 5,
+      price: 34500,
+      preferredDate: DateTime(2026, 11, 20),
+      slot: 'Afternoon 12–3',
+      status: 'Negotiating',
+      message: 'Can you do a better price for 5 bags?',
+      negotiation: const [
+        FertChat('You', 'Can you do Rs. 6,500 / bag for Baurs YPM?', '10:05'),
+        FertChat(
+          'Colombo Agro Mart',
+          'I can do Rs. 6,700 if you take 5 bags this week.',
+          '10:12',
+        ),
+      ],
+    ),
+    FertOrder(
+      id: 'PO-612',
+      placeId: 'PL-CMB-1',
+      company: 'Colombo Agro Mart',
+      agent: 'Ravi Jayasuriya',
+      owner: 'Colombo Palm Estate',
+      product: 'CIC Urea (50 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL-CMB-1').items.first,
+          qty50: 4,
+        ),
+      ],
+      qty50: 4,
+      price: 23800,
+      preferredDate: DateTime(2026, 11, 18),
+      slot: 'Morning 8–11',
+      status: 'Accepted',
+      message: 'Accepted · awaiting delivery',
+    ),
+    FertOrder(
+      id: 'PO-613',
+      placeId: 'PL-CMB-1',
+      company: 'Colombo Agro Mart',
+      agent: 'Ravi Jayasuriya',
+      owner: 'Colombo Palm Estate',
+      product: 'Baurs YPM (50 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL-CMB-1').items[1],
+          qty50: 3,
+        ),
+      ],
+      qty50: 3,
+      price: 20700,
+      preferredDate: DateTime(2026, 11, 15),
+      slot: 'Morning 8–11',
+      status: 'Distributed',
+      message: 'Marked delivered · waiting for owner to confirm',
+    ),
+    FertOrder(
+      id: 'PO-614',
+      placeId: 'PL-CMB-1',
+      company: 'Colombo Agro Mart',
+      agent: 'Ravi Jayasuriya',
+      owner: 'Colombo Palm Estate',
+      product: 'CIC Urea (50 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL-CMB-1').items.first,
+          qty50: 10,
+        ),
+      ],
+      qty50: 10,
+      price: 59500,
+      preferredDate: DateTime(2026, 11, 10),
+      slot: 'Afternoon 12–3',
+      status: 'Completed',
+      message: 'Owner confirmed receipt · order completed',
+      ownerStars: 5,
+      supplierStars: 4,
+      ownerRateNote: 'On time and bags were sealed.',
+      supplierRateNote: 'Clear instructions and easy access.',
+    ),
+    FertOrder(
+      id: 'PO-615',
+      placeId: 'PL-CMB-2',
+      company: 'Green Leaf Colombo',
+      agent: 'Sithara Perera',
+      owner: 'Colombo Palm Estate',
+      product: 'Hayleys Organic (25 kg)',
+      items: [
+        CartLine(
+          item: places.firstWhere((p) => p.id == 'PL-CMB-2').items.first,
+          qty50: 6,
+        ),
+      ],
+      qty50: 6,
+      price: 31200,
+      preferredDate: DateTime(2026, 11, 22),
+      slot: 'Morning 8–11',
+      status: 'Cancelled',
+      message: 'Cancelled by estate · changed plan',
     ),
   ];
 
@@ -1251,6 +1745,33 @@ class FertilizerStore {
         '9:18',
       ),
     ],
+    'PL-CMB-1': [
+      const FertChat(
+        'You',
+        'Hi Ravi — what colour are the CIC bags, and your phone number?',
+        '9:40',
+      ),
+      const FertChat(
+        'Colombo Agro Mart',
+        'Green and white bags. Call 077 210 0001 anytime.',
+        '9:45',
+      ),
+      const FertChat(
+        'You',
+        'Can you deliver 8 × CIC Urea on 19 Nov morning?',
+        '9:50',
+      ),
+      const FertChat(
+        'Colombo Agro Mart',
+        'Yes — I can confirm after you place the order.',
+        '9:55',
+      ),
+      const FertChat(
+        'You',
+        'Also looking at Baurs YPM — can you do a better price for 5 bags?',
+        '10:05',
+      ),
+    ],
   };
 
   /// Northern districts the Regional Manager can see in the demo.
@@ -1259,25 +1780,25 @@ class FertilizerStore {
   final List<FertGovRequest> govRequests = [
     FertGovRequest(
       id: 'FR-1099',
-      owner: 'Your Land',
+      owner: 'Mawathagama Palm Estate',
       fertilizer: 'ERP Coconut Fertilizer (50 kg)',
       requested: 12,
       status: 'Pending Ack',
       cdo: 'CDO - Mawathagama',
       date: DateTime(2026, 11, 8),
       district: 'Kurunegala',
-      // Why: CDO View must show the filled Annex 01 form the land uploaded.
-      estateName: 'Your Land',
+      // Why: CDO View must show the filled Annex 01 form the estate uploaded.
+      estateName: 'Mawathagama Palm Estate',
       acres: 8,
       nicCopy: 'nic_demo_owner.jpg',
       landTitleCopy: 'deed_KUR_MWT_2018_0456.pdf',
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '08 Nov 2026 · Morning',
-      beneficiaryName: 'Demo Land Owner',
+      beneficiaryName: 'Demo Estate Owner',
       address: 'No. 12, Temple Road, Mawathagama',
       phone: '0711000001',
       nicNumber: '198512345678',
-      landAddress: 'Your Land, Mawathagama, Kurunegala',
+      landAddress: 'Mawathagama Palm Estate, Mawathagama, Kurunegala',
       deedNumber: 'KUR/MWT/2018/0456',
       coconutTrees: 640,
       coconutSaplings: 80,
@@ -1285,7 +1806,7 @@ class FertilizerStore {
       deliveryAt: DateTime(2026, 11, 18, 10, 30),
       chat: const [
         FertChat(
-          'Your Land',
+          'Mawathagama Palm Estate',
           'We submitted Annex 01 for 12 bags of ERP.',
           '08 Nov · 09:12',
         ),
@@ -1298,26 +1819,26 @@ class FertilizerStore {
     ),
     FertGovRequest(
       id: 'FR-1100',
-      owner: 'Land A',
+      owner: 'Estate A',
       fertilizer: 'ERP Coconut Fertilizer (50 kg)',
       requested: 20,
       approved: 20,
       distributed: 20,
-      status: 'Delivered',
+      status: 'Distributed',
       cdo: 'CDO - Mawathagama',
       date: DateTime(2026, 10, 12),
       district: 'Kurunegala',
-      estateName: 'Land A',
+      estateName: 'Estate A',
       acres: 12,
       nicCopy: 'nic_nimal.jpg',
       landTitleCopy: 'deed_estate_a.pdf',
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '12 Oct 2026 · Morning',
       beneficiaryName: 'Nimal Perera',
-      address: 'Land A road, Mawathagama',
+      address: 'Estate A road, Mawathagama',
       phone: '0712233445',
       nicNumber: '197812345V',
-      landAddress: 'Land A, Mawathagama',
+      landAddress: 'Estate A, Mawathagama',
       deedNumber: 'KUR/MWT/2015/0211',
       coconutTrees: 900,
       coconutSaplings: 40,
@@ -1325,8 +1846,8 @@ class FertilizerStore {
       deliveryAt: DateTime(2026, 10, 20, 14, 0),
       chat: const [
         FertChat(
-          'Land A',
-          'Please confirm morning delivery near the land gate.',
+          'Estate A',
+          'Please confirm morning delivery near the estate gate.',
           '12 Oct · 08:20',
         ),
         FertChat(
@@ -1334,30 +1855,34 @@ class FertilizerStore {
           'Confirmed. Delivery set for 20 Oct at 2:00 PM.',
           '13 Oct · 16:05',
         ),
-        FertChat('Land A', 'Bags received. Thank you.', '20 Oct · 14:40'),
+        FertChat(
+          'Estate A',
+          'Bags received. Thank you.',
+          '20 Oct · 14:40',
+        ),
       ],
     ),
     FertGovRequest(
       id: 'FR-1101',
-      owner: 'Land A',
+      owner: 'Estate A',
       fertilizer: 'Urea subsidy (50 kg)',
       requested: 8,
       status: 'Pending Ack',
       cdo: 'CDO - Mawathagama',
       date: DateTime(2026, 11, 10),
       district: 'Kurunegala',
-      estateName: 'Land A',
+      estateName: 'Estate A',
       acres: 12,
       nicCopy: 'nic_nimal.jpg',
       landTitleCopy: 'deed_estate_a.pdf',
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '10 Nov 2026 · Afternoon',
       beneficiaryName: 'Nimal Perera',
       phone: '0712233445',
       deliveryAt: DateTime(2026, 11, 22, 9, 0),
       chat: const [
         FertChat(
-          'Land A',
+          'Estate A',
           'New urea request for 8 bags. Documents already on file.',
           '10 Nov · 15:02',
         ),
@@ -1365,16 +1890,16 @@ class FertilizerStore {
     ),
     FertGovRequest(
       id: 'FR-1102',
-      owner: 'Land F',
+      owner: 'Estate F',
       fertilizer: 'ERP Coconut Fertilizer (50 kg)',
       requested: 10,
       status: 'Cancelled',
       cdo: 'CDO - Mawathagama',
       date: DateTime(2026, 9, 22),
       district: 'Kurunegala',
-      estateName: 'Land F',
+      estateName: 'Estate F',
       acres: 6,
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '22 Sep 2026 · Morning',
       beneficiaryName: 'Sunil Fernando',
       phone: '0715566778',
@@ -1388,7 +1913,7 @@ class FertilizerStore {
     ),
     FertGovRequest(
       id: 'FR-1103',
-      owner: 'River Bend Land',
+      owner: 'River Bend Estate',
       fertilizer: 'ERP Coconut Fertilizer (50 kg)',
       requested: 15,
       approved: 15,
@@ -1397,18 +1922,18 @@ class FertilizerStore {
       cdo: 'CDO - Mawathagama',
       date: DateTime(2026, 11, 5),
       district: 'Kurunegala',
-      estateName: 'River Bend Land',
+      estateName: 'River Bend Estate',
       acres: 9,
       nicCopy: 'nic_ranjith.jpg',
       landTitleCopy: 'deed_river_bend.pdf',
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '05 Nov 2026 · Morning',
       beneficiaryName: 'Ranjith Jayasuriya',
       phone: '0761122334',
       deliveryAt: DateTime(2026, 11, 19, 11, 0),
       chat: const [
         FertChat(
-          'River Bend Land',
+          'River Bend Estate',
           'When can we collect the 15 bags?',
           '05 Nov · 09:30',
         ),
@@ -1421,7 +1946,7 @@ class FertilizerStore {
     ),
     FertGovRequest(
       id: 'FR-N-1001',
-      owner: 'Northern Land J',
+      owner: 'Northern Estate J',
       fertilizer: 'ERP Coconut Fertilizer',
       requested: 18,
       approved: 18,
@@ -1433,7 +1958,7 @@ class FertilizerStore {
     ),
     FertGovRequest(
       id: 'FR-N-1002',
-      owner: 'Northern Land M',
+      owner: 'Northern Estate M',
       fertilizer: 'ERP Coconut Fertilizer',
       requested: 24,
       approved: 20,
@@ -1445,7 +1970,7 @@ class FertilizerStore {
     ),
     FertGovRequest(
       id: 'FR-N-1003',
-      owner: 'Northern Land ML',
+      owner: 'Northern Estate ML',
       fertilizer: 'ERP Coconut Fertilizer',
       requested: 15,
       approved: 15,
@@ -1454,6 +1979,184 @@ class FertilizerStore {
       cdo: 'CDO - Mullaitivu (demo)',
       date: DateTime(2026, 10, 20),
       district: 'Mullaitivu',
+    ),
+    // --- Rich demo: Nushrath ↔ CDO Colombo ---
+    FertGovRequest(
+      id: 'FR-COL-2001',
+      owner: 'Colombo Palm Estate',
+      fertilizer: 'ERP Coconut Fertilizer (50 kg)',
+      requested: 10,
+      status: 'Pending Ack',
+      cdo: 'CDO - Colombo',
+      date: DateTime(2026, 11, 17),
+      district: 'Colombo',
+      estateName: 'Colombo Palm Estate',
+      acres: 6,
+      nicCopy: 'nic_nushrath.jpg',
+      landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
+      outlet: 'CDO',
+      preferred: '17 Nov 2026 · Morning',
+      beneficiaryName: 'Nushrath Silva',
+      address: '42 Marine Drive, Colombo 03',
+      phone: '0712000011',
+      nicNumber: '199012345678',
+      landAddress: 'Colombo Palm Estate, Kaduwela, Colombo',
+      deedNumber: 'COL/KDW/2020/1188',
+      coconutTrees: 480,
+      coconutSaplings: 60,
+      annualHarvestNuts: 28000,
+      deliveryAt: DateTime(2026, 11, 25, 10, 0),
+      chat: const [
+        FertChat(
+          'Colombo Palm Estate',
+          'Submitted Annex 01 for 10 bags of ERP for Kaduwela block.',
+          '17 Nov · 09:05',
+        ),
+      ],
+    ),
+    FertGovRequest(
+      id: 'FR-COL-2002',
+      owner: 'Colombo Palm Estate',
+      fertilizer: 'Urea subsidy (50 kg)',
+      requested: 6,
+      approved: 6,
+      status: 'Negotiation',
+      cdo: 'CDO - Colombo',
+      date: DateTime(2026, 11, 14),
+      district: 'Colombo',
+      estateName: 'Colombo Palm Estate',
+      acres: 6,
+      nicCopy: 'nic_nushrath.jpg',
+      landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
+      outlet: 'CDO',
+      preferred: '14 Nov 2026 · Afternoon',
+      beneficiaryName: 'Nushrath Silva',
+      phone: '0712000011',
+      deliveryAt: DateTime(2026, 11, 21, 14, 0),
+      chat: const [
+        FertChat(
+          'Colombo Palm Estate',
+          'Can we collect urea on 21 Nov afternoon?',
+          '14 Nov · 11:20',
+        ),
+        FertChat(
+          'CDO - Colombo',
+          'Checking stock at CDO. Can you take morning instead?',
+          '14 Nov · 15:40',
+        ),
+        FertChat(
+          'Colombo Palm Estate',
+          'Morning also works if afternoon is tight.',
+          '14 Nov · 16:05',
+        ),
+      ],
+    ),
+    FertGovRequest(
+      id: 'FR-COL-2003',
+      owner: 'Colombo Palm Estate',
+      fertilizer: 'ERP Coconut Fertilizer (50 kg)',
+      requested: 8,
+      approved: 8,
+      distributed: 0,
+      status: 'Accepted',
+      cdo: 'CDO - Colombo',
+      date: DateTime(2026, 11, 8),
+      district: 'Colombo',
+      estateName: 'Colombo Palm Estate',
+      acres: 6,
+      nicCopy: 'nic_nushrath.jpg',
+      landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
+      outlet: 'CDO',
+      preferred: '08 Nov 2026 · Morning',
+      beneficiaryName: 'Nushrath Silva',
+      phone: '0712000011',
+      deliveryAt: DateTime(2026, 11, 19, 10, 30),
+      chat: const [
+        FertChat(
+          'CDO - Colombo',
+          'Accepted. Delivery on 19 Nov at 10:30 AM.',
+          '09 Nov · 10:12',
+        ),
+      ],
+    ),
+    FertGovRequest(
+      id: 'FR-COL-2004',
+      owner: 'Colombo Palm Estate',
+      fertilizer: 'ERP Coconut Fertilizer (50 kg)',
+      requested: 12,
+      approved: 12,
+      distributed: 12,
+      status: 'Distributed',
+      cdo: 'CDO - Colombo',
+      date: DateTime(2026, 10, 28),
+      district: 'Colombo',
+      estateName: 'Colombo Palm Estate',
+      acres: 6,
+      nicCopy: 'nic_nushrath.jpg',
+      landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
+      outlet: 'CDO',
+      preferred: '28 Oct 2026 · Morning',
+      beneficiaryName: 'Nushrath Silva',
+      phone: '0712000011',
+      deliveryAt: DateTime(2026, 11, 5, 11, 0),
+      chat: const [
+        FertChat(
+          'CDO - Colombo',
+          'Marked as delivered · please confirm you received the 12 bags.',
+          '05 Nov · 11:20',
+        ),
+      ],
+    ),
+    FertGovRequest(
+      id: 'FR-COL-2005',
+      owner: 'Colombo Palm Estate',
+      fertilizer: 'Urea subsidy (50 kg)',
+      requested: 5,
+      approved: 5,
+      distributed: 5,
+      status: 'Receipt Confirmed',
+      cdo: 'CDO - Colombo',
+      date: DateTime(2026, 10, 5),
+      district: 'Colombo',
+      estateName: 'Colombo Palm Estate',
+      acres: 6,
+      nicCopy: 'nic_nushrath.jpg',
+      landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
+      outlet: 'CDO',
+      preferred: '05 Oct 2026 · Morning',
+      beneficiaryName: 'Nushrath Silva',
+      phone: '0712000011',
+      deliveryAt: DateTime(2026, 10, 12, 9, 30),
+      chat: const [
+        FertChat(
+          'Colombo Palm Estate',
+          'Bags received in good condition. Thank you.',
+          '12 Oct · 10:05',
+        ),
+      ],
+    ),
+    FertGovRequest(
+      id: 'FR-COL-2006',
+      owner: 'Colombo Palm Estate',
+      fertilizer: 'ERP Coconut Fertilizer (50 kg)',
+      requested: 4,
+      status: 'Cancelled',
+      cdo: 'CDO - Colombo',
+      date: DateTime(2026, 9, 18),
+      district: 'Colombo',
+      estateName: 'Colombo Palm Estate',
+      acres: 6,
+      outlet: 'CDO',
+      preferred: '18 Sep 2026 · Afternoon',
+      beneficiaryName: 'Nushrath Silva',
+      phone: '0712000011',
+      chat: const [
+        FertChat(
+          'CDO - Colombo',
+          'Cancelled · land title scan was unclear. Please re-upload.',
+          '19 Sep · 09:40',
+        ),
+      ],
     ),
   ];
 
@@ -1465,7 +2168,7 @@ class FertilizerStore {
       status: 'Submitted',
       date: DateTime(2026, 10, 16),
       description: 'Sample complaint for demonstration.',
-      owner: 'Your Land',
+      owner: 'Mawathagama Palm Estate',
       district: 'Kurunegala',
     ),
     FertComplaint(
@@ -1475,7 +2178,7 @@ class FertilizerStore {
       status: 'Submitted',
       date: DateTime(2026, 10, 18),
       description: 'Sample Northern-region complaint.',
-      owner: 'Northern Land J',
+      owner: 'Northern Estate J',
       district: 'Jaffna',
     ),
     FertComplaint(
@@ -1485,16 +2188,28 @@ class FertilizerStore {
       status: 'Under Review',
       date: DateTime(2026, 10, 19),
       description: 'Sample Northern-region complaint.',
-      owner: 'Northern Land M',
+      owner: 'Northern Estate M',
       district: 'Mannar',
+    ),
+    FertComplaint(
+      id: 'QC-COL-301',
+      category: 'Product quality',
+      product: 'CIC Urea (50 kg)',
+      status: 'Submitted',
+      date: DateTime(2026, 11, 12),
+      description: 'One bag from PO-614 had a torn seal. Rest were fine.',
+      owner: 'Colombo Palm Estate',
+      district: 'Colombo',
     ),
   ];
 
-  static const estateGeo = {
-    'Your Land': LatLng(7.4863, 80.3647),
-    'Green Palm Land': LatLng(7.5010, 80.3520),
-    'Land A': LatLng(7.4720, 80.3810),
-    'Land F': LatLng(7.4550, 80.3480),
+  static final Map<String, LatLng> estateGeo = {
+    'Mawathagama Palm Estate': LatLng(7.4863, 80.3647),
+    'Colombo Palm Estate': LatLng(6.9271, 79.8612),
+    'Puttalam Coast Estate': LatLng(8.0362, 79.8283),
+    'Green Palm Estate': LatLng(7.5010, 80.3520),
+    'Estate A': LatLng(7.4720, 80.3810),
+    'Estate F': LatLng(7.4550, 80.3480),
   };
 
   FertPlace? placeById(String id) {
@@ -1525,11 +2240,29 @@ class FertilizerStore {
   List<FertOrder> ownerOrders(String owner) =>
       orders.where((o) => o.owner == owner).toList();
 
+  /// Orders that belong to the logged-in estate owner only.
+  List<FertOrder> get myOrders => ownerOrders(boundOwnerKey);
+
+  List<FertGovRequest> get myGovRequests {
+    final phone = _last9(ownerProfile.phone);
+    return govRequests
+        .where(
+          (r) =>
+              r.owner == boundOwnerKey ||
+              r.estateName == boundOwnerKey ||
+              (phone.isNotEmpty && _last9(r.phone) == phone),
+        )
+        .toList();
+  }
+
+  List<FertComplaint> get myComplaints =>
+      complaints.where((c) => c.owner == boundOwnerKey).toList();
+
   String nextId() => 'PO-${410 + orders.length + 1}';
 
   void placeOrder(FertOrder order) {
     orders.insert(0, order);
-    // Why: land hub banner shows “processing” right after Order now.
+    // Why: estate hub banner shows “processing” right after Order now.
     notifyOwner(
       title: 'Order placed · processing',
       body: '${order.id} sent to ${order.company}. Waiting for accept.',
@@ -1543,6 +2276,7 @@ class FertilizerStore {
       kind: 'new_order',
       orderId: order.id,
     );
+    persistOrder(order);
   }
 
   void cancelOrder(String id, {bool bySupplier = false, String? note}) {
@@ -1550,16 +2284,20 @@ class FertilizerStore {
       if (o.id == id &&
           (o.status == 'Pending Ack' || o.status == 'Negotiating')) {
         o.status = 'Cancelled';
-        // Why: land My orders must show who cancelled — supplier or owner.
+        // Why: estate My orders must show who cancelled — supplier or owner.
         o.message = bySupplier
             ? (note?.trim().isNotEmpty == true
-                  ? 'Cancelled by supplier · ${note!.trim()}'
-                  : 'Cancelled by supplier')
+                ? 'Cancelled by supplier · ${note!.trim()}'
+                : 'Cancelled by supplier')
             : (note?.trim().isNotEmpty == true
-                  ? 'Cancelled by land · ${note!.trim()}'
-                  : 'Cancelled by land');
+                ? 'Cancelled by estate · ${note!.trim()}'
+                : 'Cancelled by estate');
         o.negotiation.add(
-          FertChat(bySupplier ? o.agent : o.owner, o.message, _nowStamp()),
+          FertChat(
+            bySupplier ? o.agent : o.owner,
+            o.message,
+            _nowStamp(),
+          ),
         );
         if (bySupplier) {
           notifyOwner(
@@ -1569,14 +2307,15 @@ class FertilizerStore {
             orderId: o.id,
           );
         } else {
-          // Why: supplier must hear when the land cancels — that needs attention.
+          // Why: supplier must hear when the estate cancels — that needs attention.
           notifySupplier(
-            title: 'Land cancelled ${o.id}',
+            title: 'Estate cancelled ${o.id}',
             body: '${o.owner} · ${o.product}. ${o.message}',
             kind: 'cancelled',
             orderId: o.id,
           );
         }
+        persistOrder(o);
         return;
       }
     }
@@ -1588,20 +2327,22 @@ class FertilizerStore {
           (o.status == 'Pending Ack' || o.status == 'Negotiating')) {
         o.status = 'Accepted';
         o.message = 'Accepted by supplier · awaiting delivery';
-        o.negotiation.add(FertChat(o.agent, 'Order accepted.', _nowStamp()));
+        o.negotiation.add(
+          FertChat(o.agent, 'Order accepted.', _nowStamp()),
+        );
         notifyOwner(
           title: '${o.company} accepted your order',
-          body:
-              '${o.id} · ${o.product} · ${o.qty50} bags. Payment is after delivery setup.',
+          body: '${o.id} · ${o.product} · ${o.qty50} bags. Payment is after delivery setup.',
           kind: 'accepted',
           orderId: o.id,
         );
+        persistOrder(o);
         return;
       }
     }
   }
 
-  /// Supplier opens a price / date talk — land sees Negotiating.
+  /// Supplier opens a price / date talk — estate sees Negotiating.
   void startNegotiation(String id, {String? note}) {
     for (final o in orders) {
       if (o.id == id &&
@@ -1618,6 +2359,7 @@ class FertilizerStore {
           kind: 'negotiating',
           orderId: o.id,
         );
+        persistOrder(o);
         return;
       }
     }
@@ -1635,80 +2377,247 @@ class FertilizerStore {
     for (final o in orders) {
       if (o.id == id &&
           (o.status == 'Accepted' || o.status == 'Stock Confirmed')) {
-        o.status = 'Delivered';
-        o.deliveredAt = DateTime.now();
-        o.message = 'Supplier marked delivered · waiting for your confirm';
-        o.negotiation.add(
-          FertChat(o.agent, 'Goods marked as delivered.', _nowStamp()),
-        );
+        o.status = 'Distributed';
+        o.message = 'Marked delivered by supplier · waiting for owner to confirm';
         notifyOwner(
-          title: 'Confirm delivery · ${o.id}',
-          body: '${o.company} says ${o.product} was delivered. Tap to confirm.',
+          title: '${o.company} marked delivered',
+          body: '${o.id} · Confirm when you receive the bags.',
           kind: 'delivered',
           orderId: o.id,
         );
+        persistOrder(o);
         return;
       }
     }
   }
 
-  /// Land confirms bags arrived → order completed → both can rate.
-  void confirmOrderReceipt(String id) {
+  /// Estate owner confirms bags arrived → order is completed.
+  void confirmReceived(String id) {
     for (final o in orders) {
-      if (o.id == id && o.awaitsOwnerConfirm) {
+      if (o.id == id && o.status == 'Distributed') {
         o.status = 'Completed';
-        o.confirmedAt = DateTime.now();
-        o.message = 'Delivery confirmed · order completed';
-        o.negotiation.add(
-          FertChat(o.owner, 'I received the goods. Thank you.', _nowStamp()),
+        o.message = 'Owner confirmed receipt · order completed';
+        notifySupplier(
+          title: '${o.owner} confirmed receipt',
+          body: '${o.id} · completed. Please rate each other.',
+          kind: 'accepted',
+          orderId: o.id,
         );
         notifyOwner(
-          title: 'Order completed · rate ${o.company}',
-          body: '${o.id} · please leave a star rating.',
-          kind: 'delivered',
+          title: 'Order ${o.id} completed',
+          body: 'You confirmed receipt. Rate ${o.company}.',
+          kind: 'accepted',
           orderId: o.id,
         );
-        notifySupplier(
-          title: 'Land confirmed · ${o.id}',
-          body: '${o.owner} received the goods. You can rate them.',
-          kind: 'delivered',
-          orderId: o.id,
-        );
+        persistOrder(o);
         return;
       }
     }
   }
 
-  void rateOrder(String id, {required int stars, required bool byOwner}) {
+  /// Either side rates the other after completion.
+  void rateOrder(
+    String id, {
+    required bool byOwner,
+    required int stars,
+    String note = '',
+  }) {
     final s = stars.clamp(1, 5);
     for (final o in orders) {
-      if (o.id != id || !o.isCompleted) continue;
+      if (o.id != id || o.status != 'Completed') continue;
       if (byOwner) {
-        if (o.ratingFromOwner != null) return;
-        o.ratingFromOwner = s;
-        notifySupplier(
-          title: 'You got $s★ from ${o.owner}',
-          body: '${o.id} · ${o.product}',
-          kind: 'info',
-          orderId: o.id,
-        );
+        o.ownerStars = s;
+        o.ownerRateNote = note;
       } else {
-        if (o.ratingFromProvider != null) return;
-        o.ratingFromProvider = s;
-        notifyOwner(
-          title: 'You got $s★ from ${o.company}',
-          body: '${o.id} · thank you for confirming delivery.',
-          kind: 'info',
-          orderId: o.id,
-        );
+        o.supplierStars = s;
+        o.supplierRateNote = note;
       }
+      persistOrder(o);
       return;
     }
   }
 
+  /// CDO marks government bags delivered → owner must confirm.
+  void markGovDelivered(String id, {int? bags}) {
+    for (final r in govRequests) {
+      if (r.id == id &&
+          (r.status == 'Accepted' || r.status == 'Stock Confirmed')) {
+        r.status = 'Distributed';
+        r.distributed = bags ?? (r.approved > 0 ? r.approved : r.requested);
+        r.chat.add(
+          FertChat(
+            r.cdo,
+            'Marked delivered · ${r.distributed} bags. Please confirm receipt.',
+            _nowStamp(),
+          ),
+        );
+        notifyOwner(
+          title: '${r.cdo} marked delivered',
+          body: '${r.id} · Confirm when you receive the subsidy bags.',
+          kind: 'delivered',
+          orderId: r.id,
+        );
+        persistGov(r);
+        return;
+      }
+    }
+  }
+
+  /// Estate owner confirms government delivery → then can rate CDO.
+  void confirmGovReceipt(String id) {
+    for (final r in govRequests) {
+      if (r.id == id && r.status == 'Distributed') {
+        r.status = 'Completed';
+        r.chat.add(
+          FertChat(
+            r.estateName.isNotEmpty ? r.estateName : r.owner,
+            'Confirmed receipt of ${r.distributed} bags.',
+            _nowStamp(),
+          ),
+        );
+        notifyCdo(
+          title: '${r.owner} confirmed receipt',
+          body: '${r.id} · government order completed · awaiting rating.',
+          kind: 'accepted',
+          orderId: r.id,
+        );
+        persistGov(r);
+        return;
+      }
+    }
+  }
+
+  /// Estate rates the government / CDO desk after a completed subsidy order.
+  void rateGovRequest(
+    String id, {
+    required int stars,
+    String note = '',
+  }) {
+    final s = stars.clamp(1, 5);
+    for (final r in govRequests) {
+      if (r.id != id || r.status != 'Completed') continue;
+      r.ownerStars = s;
+      r.ownerRateNote = note;
+      notifyCdo(
+        title: '${r.owner} rated government supply',
+        body: '${r.id} · $s/5${note.isEmpty ? '' : ' · $note'}',
+        kind: 'accepted',
+        orderId: r.id,
+      );
+      persistGov(r);
+      return;
+    }
+  }
+
+  // --- Shop chat (owner map negotiation ↔ supplier Messages) ---
+
+  /// Unread owner→supplier messages per placeId.
+  /// Why: Nadeesha Stores starts with unread owner chat so the Messages badge shows.
+  final Map<String, int> shopTalkUnread = {
+    'PL4': 2,
+  };
+
+  List<FertChat> shopMessages(String placeId) =>
+      List<FertChat>.from(shopTalks[placeId] ?? const []);
+
+  void sendShopChat(
+    String placeId, {
+    required String from,
+    required String text,
+    required bool fromOwner,
+    String? ownerKey,
+  }) {
+    final list = List<FertChat>.from(shopTalks[placeId] ?? const []);
+    list.add(FertChat(from, text, _nowStamp()));
+    shopTalks[placeId] = list;
+    if (fromOwner) {
+      shopTalkUnread[placeId] = (shopTalkUnread[placeId] ?? 0) + 1;
+      notifySupplier(
+        title: 'New message from ${ownerKey ?? boundOwnerKey}',
+        body: text,
+        kind: 'negotiating',
+      );
+      // Mirror into the latest open order with this shop, if any.
+      for (final o in myOrders) {
+        if (o.placeId == placeId &&
+            (o.status == 'Pending Ack' || o.status == 'Negotiating')) {
+          o.status = 'Negotiating';
+          o.negotiation.add(FertChat(from, text, _nowStamp()));
+          o.message = text;
+          break;
+        }
+      }
+    } else {
+      notifyOwner(
+        title: '$from replied',
+        body: text,
+        kind: 'negotiating',
+      );
+      for (final o in orders) {
+        if (o.placeId == placeId &&
+            o.owner == (ownerKey ?? boundOwnerKey) &&
+            (o.status == 'Pending Ack' || o.status == 'Negotiating')) {
+          o.status = 'Negotiating';
+          o.negotiation.add(FertChat(from, text, _nowStamp()));
+          o.message = text;
+          persistOrder(o);
+          break;
+        }
+      }
+    }
+    // Persist owner-side negotiation mirror too.
+    if (fromOwner) {
+      for (final o in myOrders) {
+        if (o.placeId == placeId &&
+            (o.status == 'Pending Ack' || o.status == 'Negotiating')) {
+          persistOrder(o);
+          break;
+        }
+      }
+    }
+    persistShopTalk(placeId, ownerKey: ownerKey ?? boundOwnerKey);
+  }
+
+  void markShopTalkRead(String placeId, {String? owner}) {
+    shopTalkUnread[placeId] = 0;
+    persistShopTalk(placeId, ownerKey: owner ?? boundOwnerKey);
+  }
+
+  int get unreadSupplierMessages => shopTalkUnread[agentShopId] ?? 0;
+
+  List<FertSupplierThread> supplierMessageThreads(String placeId) {
+    final msgs = shopTalks[placeId] ?? const <FertChat>[];
+    if (msgs.isEmpty &&
+        myShopOrders.every((o) => o.negotiation.isEmpty)) {
+      return const [];
+    }
+    // Group by owner from matching orders; fallback single thread.
+    final owners = <String>{};
+    for (final o in myShopOrders) {
+      owners.add(o.owner);
+    }
+    if (owners.isEmpty) {
+      owners.add('Estate owner');
+    }
+    final unread = shopTalkUnread[placeId] ?? 0;
+    final preview = msgs.isNotEmpty
+        ? msgs.last.text
+        : (myShopOrders.isNotEmpty && myShopOrders.first.negotiation.isNotEmpty
+            ? myShopOrders.first.negotiation.last.text
+            : 'Open to chat');
+    return [
+      for (final owner in owners)
+        FertSupplierThread(
+          owner: owner,
+          preview: preview,
+          unread: unread,
+        ),
+    ];
+  }
+
   void placeGovRequest(FertGovRequest request) {
     govRequests.insert(0, request);
-    // Why: CDO bell should light up when an land sends a new board request.
+    // Why: CDO bell should light up when an estate sends a new board request.
     notifyCdo(
       title: 'New request ${request.id}',
       body:
@@ -1716,6 +2625,7 @@ class FertilizerStore {
       kind: 'new_order',
       orderId: request.id,
     );
+    persistGov(request);
   }
 
   /// Government requests for the logged-in CDO desk (matched by officer name).
@@ -1738,8 +2648,7 @@ class FertilizerStore {
         r.status = 'Accepted';
         r.approved = r.requested;
         final fallback = DateTime.now().add(const Duration(days: 7));
-        r.deliveryAt =
-            deliveryAt ??
+        r.deliveryAt = deliveryAt ??
             DateTime(fallback.year, fallback.month, fallback.day, 10, 0);
         r.chat.add(
           FertChat(
@@ -1754,6 +2663,7 @@ class FertilizerStore {
               '${r.id} · delivery ${_formatDelivery(r.deliveryAt!)} · ${r.fertilizer}',
           kind: 'accepted',
         );
+        persistGov(r);
         break;
       }
     }
@@ -1764,9 +2674,7 @@ class FertilizerStore {
       if (r.id == id &&
           (r.status == 'Pending Ack' || r.status == 'Submitted')) {
         r.status = 'Cancelled';
-        final who = byCdo
-            ? r.cdo
-            : (r.estateName.isNotEmpty ? r.estateName : r.owner);
+        final who = byCdo ? r.cdo : (r.estateName.isNotEmpty ? r.estateName : r.owner);
         final why = note?.trim().isNotEmpty == true
             ? note!.trim()
             : 'Cancelled by $who';
@@ -1779,105 +2687,21 @@ class FertilizerStore {
             orderId: r.id,
           );
         } else {
-          // Why: CDO must hear when the land pulls a pending application.
+          // Why: CDO must hear when the estate pulls a pending application.
           notifyCdo(
-            title: 'Land cancelled ${r.id}',
+            title: 'Estate cancelled ${r.id}',
             body: '$who · ${r.fertilizer}. $why',
             kind: 'cancelled',
             orderId: r.id,
           );
         }
+        persistGov(r);
         break;
       }
     }
   }
 
-  /// Why: CDO marks bags as delivered so the request leaves the calendar.
-  void markGovDelivered(String id) {
-    for (final r in govRequests) {
-      if (r.id == id &&
-          (r.status == 'Accepted' || r.status == 'Receipt Confirmed')) {
-        r.status = 'Delivered';
-        r.distributed = r.approved > 0 ? r.approved : r.requested;
-        r.deliveryAt ??= DateTime.now();
-        r.chat.add(
-          FertChat(
-            r.cdo,
-            'Marked delivered by CDO. Please confirm receipt.',
-            _nowStamp(),
-          ),
-        );
-        notifyOwner(
-          title: 'Confirm delivery · ${r.id}',
-          body: '${r.cdo} delivered ${r.distributed} bags. Tap to confirm.',
-          kind: 'delivered',
-          orderId: r.id,
-        );
-        break;
-      }
-    }
-  }
-
-  void confirmGovReceipt(String id) {
-    for (final r in govRequests) {
-      if (r.id == id && r.awaitsOwnerConfirm) {
-        r.status = 'Completed';
-        r.confirmedAt = DateTime.now();
-        if (r.distributed <= 0) {
-          r.distributed = r.approved > 0 ? r.approved : r.requested;
-        }
-        r.chat.add(
-          FertChat(
-            r.estateName.isNotEmpty ? r.estateName : r.owner,
-            'I received the fertilizer. Order completed.',
-            _nowStamp(),
-          ),
-        );
-        notifyOwner(
-          title: 'Request completed · rate ${r.cdo}',
-          body: '${r.id} · leave a star rating.',
-          kind: 'delivered',
-          orderId: r.id,
-        );
-        notifyCdo(
-          title: 'Land confirmed · ${r.id}',
-          body: 'Delivery confirmed. You can rate the land.',
-          kind: 'delivered',
-          orderId: r.id,
-        );
-        break;
-      }
-    }
-  }
-
-  void rateGovRequest(String id, {required int stars, required bool byOwner}) {
-    final s = stars.clamp(1, 5);
-    for (final r in govRequests) {
-      if (r.id != id || !r.isCompleted) continue;
-      if (byOwner) {
-        if (r.ratingFromOwner != null) return;
-        r.ratingFromOwner = s;
-        notifyCdo(
-          title: 'You got $s★ from land',
-          body: '${r.id} · ${r.fertilizer}',
-          kind: 'info',
-          orderId: r.id,
-        );
-      } else {
-        if (r.ratingFromProvider != null) return;
-        r.ratingFromProvider = s;
-        notifyOwner(
-          title: 'You got $s★ from ${r.cdo}',
-          body: '${r.id} · thank you.',
-          kind: 'info',
-          orderId: r.id,
-        );
-      }
-      break;
-    }
-  }
-
-  /// Why: CDO or land can dispute; the other side gets a bell alert.
+  /// Why: CDO or estate can dispute; the other side gets a bell alert.
   void disputeGovRequest(
     String id, {
     required String reason,
@@ -1889,8 +2713,6 @@ class FertilizerStore {
       if (r.id == id &&
           (r.status == 'Accepted' ||
               r.status == 'Receipt Confirmed' ||
-              r.status == 'Delivered' ||
-              r.status == 'Distributed' ||
               r.status == 'Pending Ack' ||
               r.status == 'Submitted')) {
         r.status = 'Disputed';
@@ -1919,12 +2741,13 @@ class FertilizerStore {
           );
         } else {
           notifyCdo(
-            title: 'Land disputed ${r.id}',
+            title: 'Estate disputed ${r.id}',
             body: '$who · ${r.fertilizer}. $why',
             kind: 'estate_dispute',
             orderId: r.id,
           );
         }
+        persistGov(r);
         break;
       }
     }
@@ -1936,6 +2759,7 @@ class FertilizerStore {
     for (final r in govRequests) {
       if (r.id == id) {
         r.chat.add(FertChat(from, t, _nowStamp()));
+        persistGov(r);
         return;
       }
     }
@@ -1952,11 +2776,7 @@ class FertilizerStore {
 
   /// CDO warehouse stock (bags). Receiving stock increases these counts.
   final List<FertCdoStockLine> cdoStock = [
-    FertCdoStockLine(
-      type: 'ERP Coconut Fertilizer',
-      bags: 120,
-      packPrice: 6200,
-    ),
+    FertCdoStockLine(type: 'ERP Coconut Fertilizer', bags: 120, packPrice: 6200),
     FertCdoStockLine(type: 'Urea subsidy', bags: 8, packPrice: 5900),
     FertCdoStockLine(type: 'MOP', bags: 0, packPrice: 5400),
     FertCdoStockLine(type: 'Dolomite', bags: 45, packPrice: 2800),
@@ -1975,14 +2795,14 @@ class FertilizerStore {
     _cdoAlertsSeeded = true;
     if (cdoAlerts.isNotEmpty) return;
     notifyCdo(
-      title: 'Land cancelled FR-1102',
-      body: 'Land F · ERP Coconut Fertilizer. Land title copy was missing.',
+      title: 'Estate cancelled FR-1102',
+      body: 'Estate F · ERP Coconut Fertilizer. Land title copy was missing.',
       kind: 'cancelled',
       orderId: 'FR-1102',
     );
     notifyCdo(
-      title: 'Land disputed FR-1101',
-      body: 'Land A · Wrong bag count on delivery note.',
+      title: 'Estate disputed FR-1101',
+      body: 'Estate A · Wrong bag count on delivery note.',
       kind: 'estate_dispute',
       orderId: 'FR-1101',
     );
@@ -2017,7 +2837,10 @@ class FertilizerStore {
     }
   }
 
-  void addComplaint(FertComplaint complaint) => complaints.insert(0, complaint);
+  void addComplaint(FertComplaint complaint) {
+    complaints.insert(0, complaint);
+    persistComplaint(complaint);
+  }
 
   /// Demo CDO area stock summary (same idea as the HTML demo).
   final List<Map<String, dynamic>> areaStock = [
@@ -2038,11 +2861,11 @@ class FertilizerStore {
   ];
 
   static const eligibleEstates = [
-    ('Your Land', '8 acres', 'Mawathagama', true),
-    ('Land A', '12 acres', 'Mawathagama', true),
-    ('Land F', '6 acres', 'Kuliyapitiya', true),
-    ('Green Palm Land', '5 acres', 'Narammala', true),
-    ('Sunrise Land', '3 acres', 'Gampaha', false),
+    ('Mawathagama Palm Estate', '8 acres', 'Mawathagama', true),
+    ('Estate A', '12 acres', 'Mawathagama', true),
+    ('Estate F', '6 acres', 'Kuliyapitiya', true),
+    ('Green Palm Estate', '5 acres', 'Narammala', true),
+    ('Sunrise Estate', '3 acres', 'Gampaha', false),
   ];
 
   /// Areas under each CDO desk — used by the Area tab.
@@ -2055,13 +2878,13 @@ class FertilizerStore {
       cdoWho: 'CDO - Mawathagama',
       estates: [
         FertCdoEstate(
-          name: 'Your Land',
+          name: 'Mawathagama Palm Estate',
           acresLabel: '8 acres',
-          ownerName: 'Demo Land Owner',
+          ownerName: 'Demo Estate Owner',
           phone: '0711000001',
         ),
         FertCdoEstate(
-          name: 'Land A',
+          name: 'Estate A',
           acresLabel: '12 acres',
           ownerName: 'Nimal Perera',
           phone: '0712233445',
@@ -2082,13 +2905,13 @@ class FertilizerStore {
       cdoWho: 'CDO - Mawathagama',
       estates: [
         FertCdoEstate(
-          name: 'Land F',
+          name: 'Estate F',
           acresLabel: '6 acres',
           ownerName: 'Sunil Fernando',
           phone: '0715566778',
         ),
         FertCdoEstate(
-          name: 'River Bend Land',
+          name: 'River Bend Estate',
           acresLabel: '9 acres',
           ownerName: 'Ranjith Jayasuriya',
           phone: '0761122334',
@@ -2103,10 +2926,40 @@ class FertilizerStore {
       cdoWho: 'CDO - Mawathagama',
       estates: [
         FertCdoEstate(
-          name: 'Green Palm Land',
+          name: 'Green Palm Estate',
           acresLabel: '5 acres',
           ownerName: 'Anusha Wijesinghe',
           phone: '0709988776',
+        ),
+      ],
+    ),
+    FertCdoArea(
+      id: 'A-COL-1',
+      name: 'Area 01 · Kaduwela',
+      town: 'Kaduwela',
+      district: 'Colombo',
+      cdoWho: 'CDO - Colombo',
+      estates: [
+        FertCdoEstate(
+          name: 'Colombo Palm Estate',
+          acresLabel: '6 acres',
+          ownerName: 'Nushrath Silva',
+          phone: '0712000011',
+        ),
+      ],
+    ),
+    FertCdoArea(
+      id: 'A-PUT-1',
+      name: 'Area 01 · Chilaw',
+      town: 'Chilaw',
+      district: 'Puttalam',
+      cdoWho: 'CDO - Puttalam',
+      estates: [
+        FertCdoEstate(
+          name: 'Puttalam Coast Estate',
+          acresLabel: '10 acres',
+          ownerName: 'Kamal Fernando',
+          phone: '0712000022',
         ),
       ],
     ),
@@ -2118,7 +2971,7 @@ class FertilizerStore {
     return cdoAreas.where((a) => a.cdoWho == who).toList();
   }
 
-  /// All government requests for one land under this CDO.
+  /// All government requests for one estate under this CDO.
   List<FertGovRequest> requestsForEstate(String estateName) {
     final who = myShop.who;
     return govRequests
@@ -2159,6 +3012,320 @@ class FertilizerStore {
       cancelled: cancelled,
       bagsDistributed: bags,
     );
+  }
+
+  // --- Supabase sync -----------------------------------------------------
+
+  Future<void> ensureCloudSync() async {
+    if (!cloudSync) return;
+    await pullFromServer();
+    startSyncPolling();
+  }
+
+  void startSyncPolling() {
+    _pollTimer?.cancel();
+    if (!cloudSync) return;
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      unawaited(pullFromServer(silent: true));
+    });
+  }
+
+  void stopSyncPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+  }
+
+  DateTime _parseDate(dynamic value, [DateTime? fallback]) {
+    if (value == null) return fallback ?? DateTime.now();
+    if (value is DateTime) return value;
+    return DateTime.tryParse(value.toString()) ?? fallback ?? DateTime.now();
+  }
+
+  int _asInt(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse('$value') ?? 0;
+  }
+
+  List<FertChat> _parseChats(dynamic raw) {
+    if (raw is! List) return const [];
+    return [
+      for (final m in raw)
+        if (m is Map)
+          FertChat(
+            '${m['from'] ?? ''}',
+            '${m['text'] ?? ''}',
+            '${m['time'] ?? ''}',
+          ),
+    ];
+  }
+
+  List<CartLine> _parseItems(dynamic raw) {
+    if (raw is! List) return const [];
+    return [
+      for (final row in raw)
+        if (row is Map)
+          CartLine(
+            item: FertItem(
+              name: '${row['name'] ?? 'Item'}',
+              brand: '${row['brand'] ?? ''}',
+              type: '${row['type'] ?? ''}',
+              price: (row['price'] is num)
+                  ? (row['price'] as num).toInt()
+                  : int.tryParse('${row['price']}') ?? 0,
+              unit: '${row['unit'] ?? '50 kg bag'}',
+              stock: (row['stock'] is num)
+                  ? (row['stock'] as num).toInt()
+                  : int.tryParse('${row['stock']}') ?? 0,
+            ),
+            qty50: (row['qty50'] is num)
+                ? (row['qty50'] as num).toInt()
+                : int.tryParse('${row['qty50']}') ?? 0,
+          ),
+    ];
+  }
+
+  FertOrder _orderFromJson(Map raw) {
+    final items = _parseItems(raw['items']);
+    return FertOrder(
+      id: '${raw['id']}',
+      placeId: '${raw['place_id'] ?? raw['placeId'] ?? ''}',
+      company: '${raw['company'] ?? ''}',
+      agent: '${raw['agent'] ?? ''}',
+      owner: '${raw['owner'] ?? ''}',
+      product: '${raw['product'] ?? ''}',
+      items: items,
+      qty50: (raw['qty50'] is num)
+          ? (raw['qty50'] as num).toInt()
+          : int.tryParse('${raw['qty50']}') ?? 0,
+      price: (raw['price'] is num)
+          ? (raw['price'] as num).toInt()
+          : int.tryParse('${raw['price']}') ?? 0,
+      preferredDate: _parseDate(raw['preferred_date'] ?? raw['preferredDate']),
+      slot: '${raw['slot'] ?? ''}',
+      status: '${raw['status'] ?? 'Pending Ack'}',
+      message: '${raw['message'] ?? ''}',
+      negotiation: _parseChats(raw['negotiation']),
+      ownerStars: raw['owner_stars'] == null && raw['ownerStars'] == null
+          ? null
+          : (raw['owner_stars'] ?? raw['ownerStars'] as num?)?.toInt(),
+      supplierStars: raw['supplier_stars'] == null && raw['supplierStars'] == null
+          ? null
+          : (raw['supplier_stars'] ?? raw['supplierStars'] as num?)?.toInt(),
+      ownerRateNote: '${raw['owner_rate_note'] ?? raw['ownerRateNote'] ?? ''}',
+      supplierRateNote:
+          '${raw['supplier_rate_note'] ?? raw['supplierRateNote'] ?? ''}',
+    );
+  }
+
+  FertGovRequest _govFromJson(Map raw) {
+    return FertGovRequest(
+      id: '${raw['id']}',
+      owner: '${raw['owner'] ?? ''}',
+      fertilizer: '${raw['fertilizer'] ?? ''}',
+      requested: (raw['requested'] is num)
+          ? (raw['requested'] as num).toInt()
+          : int.tryParse('${raw['requested']}') ?? 0,
+      status: '${raw['status'] ?? 'Pending Ack'}',
+      cdo: '${raw['cdo'] ?? ''}',
+      date: _parseDate(raw['date'] ?? raw['request_date']),
+      district: '${raw['district'] ?? ''}',
+      approved: (raw['approved'] is num)
+          ? (raw['approved'] as num).toInt()
+          : int.tryParse('${raw['approved']}') ?? 0,
+      distributed: (raw['distributed'] is num)
+          ? (raw['distributed'] as num).toInt()
+          : int.tryParse('${raw['distributed']}') ?? 0,
+      estateName: '${raw['estate_name'] ?? raw['estateName'] ?? ''}',
+      acres: (raw['acres'] is num)
+          ? (raw['acres'] as num).toDouble()
+          : double.tryParse('${raw['acres']}') ?? 0,
+      nicCopy: '${raw['nic_copy'] ?? raw['nicCopy'] ?? ''}',
+      landTitleCopy: '${raw['land_title_copy'] ?? raw['landTitleCopy'] ?? ''}',
+      outlet: '${raw['outlet'] ?? 'CDO'}',
+      preferred: '${raw['preferred'] ?? ''}',
+      beneficiaryName:
+          '${raw['beneficiary_name'] ?? raw['beneficiaryName'] ?? ''}',
+      address: '${raw['address'] ?? ''}',
+      phone: '${raw['phone'] ?? ''}',
+      nicNumber: '${raw['nic_number'] ?? raw['nicNumber'] ?? ''}',
+      landAddress: '${raw['land_address'] ?? raw['landAddress'] ?? ''}',
+      deedNumber: '${raw['deed_number'] ?? raw['deedNumber'] ?? ''}',
+      coconutTrees: _asInt(raw['coconut_trees'] ?? raw['coconutTrees']),
+      coconutSaplings: _asInt(raw['coconut_saplings'] ?? raw['coconutSaplings']),
+      annualHarvestNuts:
+          _asInt(raw['annual_harvest_nuts'] ?? raw['annualHarvestNuts']),
+      deliveryAt: raw['delivery_at'] == null && raw['deliveryAt'] == null
+          ? null
+          : _parseDate(raw['delivery_at'] ?? raw['deliveryAt']),
+      ownerStars: raw['owner_stars'] == null && raw['ownerStars'] == null
+          ? null
+          : (raw['owner_stars'] ?? raw['ownerStars'] as num?)?.toInt(),
+      ownerRateNote:
+          '${raw['owner_rate_note'] ?? raw['ownerRateNote'] ?? ''}',
+      chat: _parseChats(raw['chat']),
+    );
+  }
+
+  Future<void> pullFromServer({bool silent = false}) async {
+    if (!cloudSync) return;
+    final data = await FertilizerSync.bootstrap();
+    if (data == null) return;
+
+    final role = '${data['role'] ?? ''}';
+    final serverOrders = <FertOrder>[
+      for (final row in (data['orders'] as List? ?? const []))
+        if (row is Map) _orderFromJson(row),
+    ];
+    final serverGov = <FertGovRequest>[
+      for (final row in (data['gov_requests'] as List? ?? const []))
+        if (row is Map) _govFromJson(row),
+    ];
+    final serverComplaints = <FertComplaint>[
+      for (final row in (data['complaints'] as List? ?? const []))
+        if (row is Map)
+          FertComplaint(
+            id: '${row['id']}',
+            category: '${row['category'] ?? ''}',
+            product: '${row['product'] ?? ''}',
+            status: '${row['status'] ?? 'Submitted'}',
+            date: _parseDate(row['date']),
+            description: '${row['description'] ?? ''}',
+            owner: '${row['owner'] ?? ''}',
+            district: '${row['district'] ?? ''}',
+          ),
+    ];
+
+    if (role == 'ESTATE_OWNER') {
+      final key = '${data['owner_key'] ?? boundOwnerKey}';
+      boundOwnerKey = key;
+      orders.removeWhere((o) => o.owner == key);
+      orders.addAll(serverOrders);
+      govRequests.removeWhere(
+        (r) => r.owner == key || r.estateName == key,
+      );
+      govRequests.addAll(serverGov);
+      complaints.removeWhere((c) => c.owner == key);
+      complaints.addAll(serverComplaints);
+    } else if (role == 'FERTILIZER_SUPPLIER') {
+      final places = [
+        for (final p in (data['place_ids'] as List? ?? const [])) '$p',
+      ];
+      if (places.isNotEmpty) agentShopId = places.first;
+      orders.removeWhere(
+        (o) => places.contains(o.placeId) || o.placeId == agentShopId,
+      );
+      orders.addAll(serverOrders);
+    } else if (role == 'CDO') {
+      final label = '${data['cdo_label'] ?? myShop.who}';
+      govRequests.removeWhere((r) => r.cdo == label);
+      govRequests.addAll(serverGov);
+    }
+
+    for (final row in (data['shop_talks'] as List? ?? const [])) {
+      if (row is! Map) continue;
+      final placeId = '${row['place_id'] ?? ''}';
+      if (placeId.isEmpty) continue;
+      shopTalks[placeId] = _parseChats(row['messages']);
+      shopTalkUnread[placeId] =
+          (row['unread_supplier'] is num)
+              ? (row['unread_supplier'] as num).toInt()
+              : int.tryParse('${row['unread_supplier']}') ?? 0;
+    }
+
+    for (final row in (data['alerts'] as List? ?? const [])) {
+      if (row is! Map) continue;
+      final alert = FertOwnerAlert(
+        id: '${row['id']}',
+        title: '${row['title'] ?? ''}',
+        body: '${row['body'] ?? ''}',
+        kind: '${row['kind'] ?? 'info'}',
+        at: _parseDate(row['at']),
+        orderId: '${row['order_id'] ?? ''}',
+        read: row['read'] == true,
+      );
+      final audience = '${row['audience'] ?? ''}';
+      final list = audience == 'supplier'
+          ? supplierAlerts
+          : audience == 'cdo'
+              ? cdoAlerts
+              : ownerAlerts;
+      list.removeWhere((a) => a.id == alert.id);
+      list.add(alert);
+    }
+
+    cloudHydrated = true;
+    syncTick.value++;
+    ownerAlertTick.value++;
+    supplierAlertTick.value++;
+    cdoAlertTick.value++;
+    if (!silent) {
+      debugPrint('FertilizerStore hydrated from Supabase ($role)');
+    }
+  }
+
+  void _persistAlert(FertOwnerAlert alert, String audience) {
+    if (!cloudSync) return;
+    unawaited(() async {
+      try {
+        await FertilizerSync.upsertAlert(alert, audience);
+      } catch (e) {
+        debugPrint('persist alert failed: $e');
+      }
+    }());
+  }
+
+  void persistOrder(FertOrder order) {
+    if (!cloudSync) return;
+    syncTick.value++;
+    unawaited(() async {
+      try {
+        await FertilizerSync.upsertOrder(order);
+      } catch (e) {
+        debugPrint('persist order failed: $e');
+      }
+    }());
+  }
+
+  void persistGov(FertGovRequest request) {
+    if (!cloudSync) return;
+    syncTick.value++;
+    unawaited(() async {
+      try {
+        await FertilizerSync.upsertGov(request);
+      } catch (e) {
+        debugPrint('persist gov failed: $e');
+      }
+    }());
+  }
+
+  void persistShopTalk(String placeId, {String? ownerKey}) {
+    if (!cloudSync) return;
+    syncTick.value++;
+    final key = ownerKey ?? boundOwnerKey;
+    unawaited(() async {
+      try {
+        await FertilizerSync.upsertShopTalk(
+          placeId: placeId,
+          ownerKey: key,
+          messages: shopTalks[placeId] ?? const [],
+          unreadSupplier: shopTalkUnread[placeId] ?? 0,
+        );
+      } catch (e) {
+        debugPrint('persist shop talk failed: $e');
+      }
+    }());
+  }
+
+  void persistComplaint(FertComplaint complaint) {
+    if (!cloudSync) return;
+    syncTick.value++;
+    unawaited(() async {
+      try {
+        await FertilizerSync.upsertComplaint(complaint);
+      } catch (e) {
+        debugPrint('persist complaint failed: $e');
+      }
+    }());
   }
 }
 
@@ -2223,7 +3390,6 @@ class FertCdoStockLine {
 
   final String type;
   int bags;
-
   /// Board pack price shown read-only on the CDO stock card.
   final int packPrice;
 

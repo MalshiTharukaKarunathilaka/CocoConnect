@@ -10,8 +10,13 @@ const Color kAuthPrefixFill = Color(0xFFF8F6F1);
 
 class AuthScaffold extends StatelessWidget {
   final List<Widget> children;
+  final ScrollController? scrollController;
 
-  const AuthScaffold({super.key, required this.children});
+  const AuthScaffold({
+    super.key,
+    required this.children,
+    this.scrollController,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +29,7 @@ class AuthScaffold extends StatelessWidget {
           color: Colors.white,
           child: SafeArea(
             child: SingleChildScrollView(
+              controller: scrollController,
               padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -122,6 +128,7 @@ class AuthTextField extends StatelessWidget {
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
   final Widget? prefixIcon;
+  final TextInputAction? textInputAction;
 
   /// For fields filled by tapping, like the location picker.
   final bool readOnly;
@@ -136,6 +143,7 @@ class AuthTextField extends StatelessWidget {
     this.keyboardType = TextInputType.text,
     this.validator,
     this.prefixIcon,
+    this.textInputAction,
     this.readOnly = false,
     this.onTap,
   });
@@ -148,6 +156,7 @@ class AuthTextField extends StatelessWidget {
       onTap: onTap,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      textInputAction: textInputAction,
       validator: validator,
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(

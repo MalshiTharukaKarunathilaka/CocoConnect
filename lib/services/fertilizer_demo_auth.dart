@@ -1,8 +1,7 @@
 import 'auth_service.dart';
 
 /// Demo fertilizer accounts that work even if the API is offline.
-/// Why: you can log in as owner / supplier / CDO with the same password and
-/// share one in-memory FertilizerStore so orders sync across roles.
+/// Why: Kurunegala-focused demo — Estate / Supplier / CDO with one shared store.
 class FertDemoAccount {
   const FertDemoAccount({
     required this.id,
@@ -37,12 +36,13 @@ class FertilizerDemoAuth {
   static const accounts = <FertDemoAccount>[
     FertDemoAccount(
       id: 901,
-      name: 'Demo Land Owner',
+      name: 'Demo Estate Owner',
       phone: '0711000001',
       password: passwordHint,
       role: 'ESTATE_OWNER',
-      roleLabel: 'Land Owner',
-      blurb: 'Map & orders',
+      roleLabel: 'Estate Owner',
+      blurb: 'Kurunegala map & orders',
+      location: 'Kurunegala',
       latitude: 7.4863,
       longitude: 80.3647,
     ),
@@ -53,7 +53,8 @@ class FertilizerDemoAuth {
       password: passwordHint,
       role: 'FERTILIZER_SUPPLIER',
       roleLabel: 'Supplier Agent',
-      blurb: 'Shop calendar',
+      blurb: 'Nadeesha Stores · Kurunegala',
+      location: 'Kurunegala',
       latitude: 7.4980,
       longitude: 80.3560,
     ),
@@ -64,27 +65,10 @@ class FertilizerDemoAuth {
       password: passwordHint,
       role: 'CDO',
       roleLabel: 'CDO',
-      blurb: 'Stock & distribution',
+      blurb: 'Kurunegala · Mawathagama',
+      location: 'Kurunegala',
       latitude: 7.5400,
       longitude: 80.4000,
-    ),
-    FertDemoAccount(
-      id: 904,
-      name: 'Regional Manager',
-      phone: '0702000001',
-      password: passwordHint,
-      role: 'REGIONAL_MANAGER',
-      roleLabel: 'Regional Manager',
-      blurb: 'Regional monitoring',
-    ),
-    FertDemoAccount(
-      id: 905,
-      name: 'Board Chairman',
-      phone: '0703000001',
-      password: passwordHint,
-      role: 'CHAIRMAN',
-      roleLabel: 'Chairman',
-      blurb: 'Board overview',
     ),
   ];
 

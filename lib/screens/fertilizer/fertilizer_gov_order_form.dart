@@ -1,9 +1,3 @@
-import '../../widgets/auto_filled_field.dart';
-import '../../widgets/mobile_sheet.dart';
-import 'dart:convert';
-import '../../services/owner_service.dart';
-import '../../services/api_client.dart';
-import 'live_fertilizer_orders_page.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -20,7 +14,6 @@ Future<void> showGovSentDialog(BuildContext context, FertGovRequest r) {
   return showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
-      scrollable: true,
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       contentPadding: const EdgeInsets.fromLTRB(22, 22, 22, 6),
@@ -84,8 +77,8 @@ Future<void> showGovSentDialog(BuildContext context, FertGovRequest r) {
   );
 }
 
-/// CCB Annex 01 (RH/AGRI/CCB/01) — Application for Obtaining Fertilizer.
-/// Land / land size fields are filled from the owner profile and locked.
+/// CDO Annex 01 (RH/AGRI/CDO/01) — Application for Obtaining Fertilizer.
+/// Estate / land size fields are filled from the owner profile and locked.
 class FertilizerGovOrderForm extends StatefulWidget {
   const FertilizerGovOrderForm({
     super.key,
@@ -118,39 +111,34 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
 
   Future<void> _pick(bool nic) async {
     final source = await showModalBottomSheet<ImageSource>(
-      isScrollControlled: true,
-      useSafeArea: true,
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: mobileSheetBuilder(
-        (ctx) => SafeArea(
-          child: ListView(
-            primary: false,
-            shrinkWrap: true,
-            children: [
-              const SizedBox(height: 8),
-              ListTile(
-                leading: const Icon(
-                  Icons.photo_camera_outlined,
-                  color: AppColors.green,
-                ),
-                title: const Text('Take a photo'),
-                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(
+                Icons.photo_camera_outlined,
+                color: AppColors.green,
               ),
-              ListTile(
-                leading: const Icon(
-                  Icons.photo_library_outlined,
-                  color: AppColors.green,
-                ),
-                title: const Text('Choose from gallery'),
-                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.photo_library_outlined,
+                color: AppColors.green,
               ),
-              const SizedBox(height: 8),
-            ],
-          ),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
         ),
       ),
     );
@@ -176,10 +164,7 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
     }
   }
 
-  bool _sending = false;
-
   Future<void> _submit() async {
-    if (_sending) return;
     String? err;
     if (_nic == null) {
       err = 'Attach a copy of your National Identity Card';
@@ -193,70 +178,52 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
       return;
     }
 
-    setState(() => _sending = true);
+    final store = FertilizerStore.instance;
+    final p = _profile;
+    // Why: keep bytes so the CDO office can open/view the NIC, not only the name.
+    List<int>? nicBytes;
+    List<int>? titleBytes;
     try {
-      final nicBytes = await _nic!.readAsBytes();
-      final titleBytes = await _title!.readAsBytes();
-      if (nicBytes.length > 5 * 1024 * 1024 ||
-          titleBytes.length > 5 * 1024 * 1024) {
-        throw const ApiException(
-          'Choose identity card and land title images smaller than 5 MB each',
-        );
-      }
-      final land = await OwnerService.getEstate();
-      if (!mounted) return;
-      final saved = await submitFertilizerOrder(
-        context,
-        product: widget.draft.summary,
-        quantity: widget.draft.bags,
-        total: widget.draft.total,
-        date: widget.draft.date,
-        slot: widget.draft.slot,
-        government: true,
-        application: {
-          'owner_name': AuthService.currentUser?.name ?? land.ownerName,
-          'land_name': land.estateName,
-          'location': land.location,
-          'nic_copy': base64Encode(nicBytes),
-          'land_title_copy': base64Encode(titleBytes),
-          'declaration_accepted': true,
-        },
-      );
-      if (saved == null || !mounted) return;
-      final p = _profile;
-      final req = FertGovRequest(
-        id: 'FO-${saved['id']}',
-        owner: p.estateName,
-        fertilizer: widget.draft.summary,
-        requested: widget.draft.bags,
-        status: 'Pending Ack',
-        cdo: '${saved['supplier_name']}',
-        date: DateTime.now(),
-        district: p.district,
-        estateName: p.estateName,
-        acres: p.acres.toDouble(),
-        nicCopy: _nic!.name,
-        landTitleCopy: _title!.name,
-        outlet: widget.place.company,
-        preferred: '${shortDate(widget.draft.date)} · ${widget.draft.slot}',
-        beneficiaryName: p.fullName,
-        address: p.address,
-        phone: p.phone,
-        nicNumber: p.nicNumber,
-        landAddress: p.landAddress,
-        deedNumber: p.deedNumber,
-        roods: p.roods,
-        perches: p.perches,
-        coconutTrees: p.coconutTrees,
-        coconutSaplings: p.coconutSaplings,
-        annualHarvestNuts: p.annualHarvestNuts,
-      );
-      Navigator.pop(context, req);
-    } on ApiException catch (error) {
-      if (mounted) setState(() => _error = error.message);
-    } finally {
-      if (mounted) setState(() => _sending = false);
+      nicBytes = await _nic!.readAsBytes();
+      titleBytes = await _title!.readAsBytes();
+    } catch (_) {
+      nicBytes = null;
+      titleBytes = null;
     }
+    final req = FertGovRequest(
+      id: 'FR-${1000 + store.govRequests.length + 1}',
+      owner: p.estateName,
+      fertilizer: widget.draft.summary,
+      requested: widget.draft.bags,
+      status: 'Pending Ack',
+      cdo: widget.place.who,
+      date: DateTime.now(),
+      district: p.district,
+      estateName: p.estateName,
+      acres: p.acres.toDouble(),
+      nicCopy: _nic!.name,
+      nicCopyPath: _nic!.path,
+      nicBytes: nicBytes,
+      landTitleCopy: _title!.name,
+      landTitleCopyPath: _title!.path,
+      landTitleBytes: titleBytes,
+      outlet: widget.place.company,
+      preferred: '${shortDate(widget.draft.date)} · ${widget.draft.slot}',
+      beneficiaryName: p.fullName,
+      address: p.address,
+      phone: p.phone,
+      nicNumber: p.nicNumber,
+      landAddress: p.landAddress,
+      deedNumber: p.deedNumber,
+      roods: p.roods,
+      perches: p.perches,
+      coconutTrees: p.coconutTrees,
+      coconutSaplings: p.coconutSaplings,
+      annualHarvestNuts: p.annualHarvestNuts,
+    );
+    store.placeGovRequest(req);
+    if (!mounted) return;
+    Navigator.pop(context, req);
   }
 
   Widget _header() {
@@ -279,10 +246,7 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
                   color: AppColors.greenSoft,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.account_balance,
-                  color: AppColors.green,
-                ),
+                child: const Icon(Icons.account_balance, color: AppColors.green),
               ),
               const SizedBox(width: 10),
               const Expanded(
@@ -297,7 +261,7 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
                       ),
                     ),
                     Text(
-                      'Annex 01 · RH/AGRI/CCB/01',
+                      'Annex 01 · RH/AGRI/CDO/01',
                       style: TextStyle(fontSize: 11.5, color: AppColors.muted),
                     ),
                   ],
@@ -315,11 +279,7 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
           const Text(
             'Conducted with the Department of Agrarian Services / Kapruka Society or other registered coconut grower societies',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11.5,
-              color: AppColors.muted,
-              height: 1.3,
-            ),
+            style: TextStyle(fontSize: 11.5, color: AppColors.muted, height: 1.3),
           ),
           const SizedBox(height: 8),
           Container(
@@ -378,39 +338,80 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
     );
   }
 
-  /// Locked field — filled from the land account, not typed by the owner.
-  Widget _locked(String label, String value) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: AutoFilledValue(label: label, value: value),
-  );
+  /// Locked field — filled from the estate account, not typed by the owner.
+  Widget _locked(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.muted,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F1EA),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.line),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const Icon(Icons.lock_outline, size: 16, color: AppColors.muted),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _sizeGrid() {
     final p = _profile;
     Widget cell(String label, String value) => Expanded(
-      child: Container(
-        margin: const EdgeInsets.only(right: 6, bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.autoFilledBackground,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.line),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 10.5, color: AppColors.muted),
+          child: Container(
+            margin: const EdgeInsets.only(right: 6, bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F1EA),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.line),
             ),
-            const SizedBox(height: 2),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 10.5, color: AppColors.muted),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
+          ),
+        );
     return Column(
       children: [
         Row(
@@ -572,7 +573,7 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
                     child: Padding(
                       padding: EdgeInsets.only(left: 10),
                       child: Text(
-                        'CCB fertilizer application',
+                        'CDO fertilizer application',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
@@ -596,7 +597,7 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
                     _header(),
                     const SizedBox(height: 8),
                     Text(
-                      'Outlet: ${widget.place.company}. Land details and land size are taken from your account and cannot be edited here.',
+                      'Outlet: ${widget.place.company}. Estate details and land size are taken from your account and cannot be edited here.',
                       style: const TextStyle(
                         fontSize: 12.5,
                         color: AppColors.muted,
@@ -613,10 +614,7 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
                     _sectionTitle('3', 'Telephone number'),
                     _locked('Phone', p.phone),
 
-                    _sectionTitle(
-                      '4',
-                      'National Identity Card (N.I.C.) number',
-                    ),
+                    _sectionTitle('4', 'National Identity Card (N.I.C.) number'),
                     _locked('NIC number', p.nicNumber),
 
                     _sectionTitle('5', 'Address of the land'),
@@ -778,10 +776,7 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
                       activeColor: AppColors.green,
                       title: const Text(
                         'I have read and agree to the declarations above (applicant confirmation).',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                       ),
                     ),
                     Text(

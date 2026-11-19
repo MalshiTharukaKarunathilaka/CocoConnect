@@ -1,4 +1,3 @@
-import '../../widgets/mobile_sheet.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
@@ -41,7 +40,7 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Tap an area to open the lands registered there.',
+          'Tap an area to open the estates registered there.',
           style: TextStyle(fontSize: 12.5, color: AppColors.muted),
         ),
         const SizedBox(height: 12),
@@ -61,8 +60,7 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
       children: [
         _subHeader(
           title: area.name,
-          subtitle:
-              '${area.town} · ${area.district} · ${area.estates.length} lands',
+          subtitle: '${area.town} · ${area.district} · ${area.estates.length} estates',
           onBack: () => setState(() {
             _area = null;
             _estate = null;
@@ -74,12 +72,12 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
             children: [
               _softBanner(
                 Icons.map_outlined,
-                'Lands in this area',
+                'Estates in this area',
                 'Open View for request history, pending work and bags already handed over.',
               ),
               const SizedBox(height: 14),
-              for (final land in area.estates) ...[
-                _estateCard(area, land),
+              for (final estate in area.estates) ...[
+                _estateCard(area, estate),
                 const SizedBox(height: 12),
               ],
             ],
@@ -89,9 +87,9 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
     );
   }
 
-  Widget _estateHistory(FertCdoArea area, FertCdoEstate land) {
-    final all = _store.requestsForEstate(land.name);
-    final stats = _store.statsForEstate(land.name);
+  Widget _estateHistory(FertCdoArea area, FertCdoEstate estate) {
+    final all = _store.requestsForEstate(estate.name);
+    final stats = _store.statsForEstate(estate.name);
     final list = all.where((r) {
       switch (_filter) {
         case 'pending':
@@ -112,8 +110,8 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
     return Column(
       children: [
         _subHeader(
-          title: land.name,
-          subtitle: '${area.town} · ${land.acresLabel} · ${land.ownerName}',
+          title: estate.name,
+          subtitle: '${area.town} · ${estate.acresLabel} · ${estate.ownerName}',
           onBack: () => setState(() {
             _estate = null;
             _filter = 'all';
@@ -123,7 +121,7 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
             children: [
-              _estateProfile(land, stats),
+              _estateProfile(estate, stats),
               const SizedBox(height: 14),
               const Text(
                 'Requests & progress',
@@ -144,10 +142,7 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
                       Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: FilterChip(
-                          label: Text(
-                            e.$2,
-                            style: const TextStyle(fontSize: 12),
-                          ),
+                          label: Text(e.$2, style: const TextStyle(fontSize: 12)),
                           selected: _filter == e.$1,
                           onSelected: (_) => setState(() => _filter = e.$1),
                           selectedColor: AppColors.greenSoft,
@@ -251,7 +246,7 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    _miniStat('${area.estates.length}', 'Lands'),
+                    _miniStat('${area.estates.length}', 'Estates'),
                     _miniStat('$requests', 'Requests'),
                     _miniStat('$pending', 'Pending'),
                     _miniStat('$bags', 'Bags out'),
@@ -265,8 +260,8 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
     );
   }
 
-  Widget _estateCard(FertCdoArea area, FertCdoEstate land) {
-    final stats = _store.statsForEstate(land.name);
+  Widget _estateCard(FertCdoArea area, FertCdoEstate estate) {
+    final stats = _store.statsForEstate(estate.name);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -283,7 +278,7 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
                 radius: 22,
                 backgroundColor: AppColors.infoSoft,
                 child: Text(
-                  land.name[0].toUpperCase(),
+                  estate.name[0].toUpperCase(),
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     color: AppColors.info,
@@ -296,14 +291,14 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      land.name,
+                      estate.name,
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
                       ),
                     ),
                     Text(
-                      '${land.ownerName} · ${land.acresLabel}',
+                      '${estate.ownerName} · ${estate.acresLabel}',
                       style: const TextStyle(
                         fontSize: 12.5,
                         color: AppColors.muted,
@@ -315,7 +310,7 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
               OutlinedButton(
                 onPressed: () => setState(() {
                   _area = area;
-                  _estate = land;
+                  _estate = estate;
                   _filter = 'all';
                 }),
                 child: const Text('View'),
@@ -425,13 +420,10 @@ class _FertilizerCdoAreaPageState extends State<FertilizerCdoAreaPage> {
             child: TextButton(
               onPressed: () async {
                 await showModalBottomSheet<bool>(
-                  useSafeArea: true,
                   context: context,
                   isScrollControlled: true,
                   backgroundColor: Colors.transparent,
-                  builder: mobileSheetBuilder(
-                    (_) => FertilizerCdoRequestSheet(request: r),
-                  ),
+                  builder: (_) => FertilizerCdoRequestSheet(request: r),
                 );
                 if (mounted) setState(() {});
               },
@@ -485,7 +477,7 @@ Widget _subHeader({
   );
 }
 
-Widget _estateProfile(FertCdoEstate land, FertEstateOrderStats stats) {
+Widget _estateProfile(FertCdoEstate estate, FertEstateOrderStats stats) {
   return Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
@@ -498,7 +490,7 @@ Widget _estateProfile(FertCdoEstate land, FertEstateOrderStats stats) {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          land.ownerName,
+          estate.ownerName,
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w800,
@@ -506,7 +498,7 @@ Widget _estateProfile(FertCdoEstate land, FertEstateOrderStats stats) {
           ),
         ),
         Text(
-          '${land.phone} · ${land.acresLabel}',
+          '${estate.phone} · ${estate.acresLabel}',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.85),
             fontSize: 12.5,
@@ -654,13 +646,9 @@ Widget _emptyOrders() {
         ),
         SizedBox(height: 4),
         Text(
-          'When this land submits a government fertilizer form, it will show here with progress.',
+          'When this estate submits a government fertilizer form, it will show here with progress.',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12.5,
-            color: AppColors.muted,
-            height: 1.35,
-          ),
+          style: TextStyle(fontSize: 12.5, color: AppColors.muted, height: 1.35),
         ),
       ],
     ),
