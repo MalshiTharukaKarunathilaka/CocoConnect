@@ -314,10 +314,13 @@ const openOfferChat = async (db, { estateId, ownerUserId, offer, request }) => {
 };
 
 /** One row for the chats list, from the caller's side. */
-const summarise = (chat, messages, userId) => {
+const summarise = (chat, messages, userId, includeUnreadMessages) => {
   const role = chat.buyer_id === userId ? "BUYER" : "ESTATE_OWNER";
   const lastRead = time(chat[lastReadColumn(role)]);
   const statused = withOfferStatus(messages, chat, chat.order_price);
+  const unread = statused.filter(
+    (m) => m.sender_id !== userId && time(m.created_at) > lastRead
+  );
   const last = statused[statused.length - 1];
   const waiting = statused
     .filter((m) => m.sender_id !== userId && m.offer_status === "PENDING")
@@ -351,9 +354,12 @@ const summarise = (chat, messages, userId) => {
         }
       : null,
     last_activity_at: last ? last.created_at : chat.created_at,
-    unread_count: statused.filter(
-      (m) => m.sender_id !== userId && time(m.created_at) > lastRead
-    ).length,
+    unread_count: unread.length,
+    ...(includeUnreadMessages ? {
+      unread_messages: unread.filter(m => !hasPrice(m)).map(m => ({
+        id: m.id, text: collectionMessage(m.message), created_at: m.created_at,
+      })),
+    } : {}),
     // An offer from the other side is waiting for my answer.
     offer_waiting: chat.status === "OPEN" && Boolean(waiting),
     waiting_offer:
@@ -377,7 +383,7 @@ const summarise = (chat, messages, userId) => {
 };
 
 /** Every chat the user is in, newest activity first. Shared with notifications. */
-const listChats = async (db, userId) => {
+const listChats = async (db, userId, {includeUnreadMessages = false} = {}) => {
   const chats = await db.query(
     `SELECT
       n.id, n.status, n.order_id, n.created_at, n.buyer_id, n.sell_request_id,
@@ -415,7 +421,7 @@ const listChats = async (db, userId) => {
   }
 
   return chats.rows
-    .map((chat) => summarise(chat, byChat.get(chat.id) || [], userId))
+    .map((chat) => summarise(chat, byChat.get(chat.id) || [], userId, includeUnreadMessages))
     .sort(
       (a, b) => time(b.last_activity_at) - time(a.last_activity_at) || b.id - a.id
     );

@@ -189,6 +189,14 @@ test("alerts show new chat messages, not deliveries", async () => {
   assert.equal(message.body, "Harvest is ready tomorrow");
   assert.ok(buyerNotes.every((n) => n.type !== "DELIVERY"));
 
+  for (let index = 2; index <= 5; index++) {
+    await say(owner, later, {message: `Harvest update ${index}`});
+  }
+  const burst = (await call("GET", "/api/notifications", {token: buyer.token})).data
+    .filter(note => note.negotiation_id === later);
+  assert.equal(new Set(burst.map(note => note.key)).size, 5);
+  assert.ok(burst.every(note => note.sender_id === owner.user.id && note.sender_name === "Kelani Palms"));
+
   // Reading the chat clears the alert.
   await chatOf(buyer, later);
   const after = (await call("GET", "/api/notifications", { token: buyer.token })).data;

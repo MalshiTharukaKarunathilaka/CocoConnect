@@ -30,7 +30,7 @@ const nuts = (n) => Number(n || 0).toLocaleString("en-US");
 const rupees = (n) => `Rs. ${Number(n || 0).toLocaleString("en-US")}`;
 
 const chatItems = async (userId) => {
-  const chats = await listChats(pool, userId);
+  const chats = await listChats(pool, userId, {includeUnreadMessages: true});
   const items = [];
 
   for (const chat of chats) {
@@ -45,34 +45,38 @@ const chatItems = async (userId) => {
           "Accept or reject it in the chat.",
         at: chat.waiting_offer.created_at,
         negotiation_id: chat.id,
+        order_id: chat.order_id,
+        urgent: true,
       });
     }
 
-    // Plain messages; an unanswered offer above already covers its own.
-    const last = chat.last_message;
-    if (
-      chat.unread_count > 0 &&
-      last &&
-      !last.is_mine &&
-      last.offer_price_per_unit == null
-    ) {
+    for (const message of chat.unread_messages) {
+      const accepted = message.text?.startsWith('Deal accepted by ');
+      const cancelled = message.text?.startsWith('Deal cancelled by ');
+      const awaitingCollection = message.text?.startsWith('Transaction marked complete by ');
+      const collected = message.text?.startsWith('Nuts marked as received by ');
+      const isMessage = !(accepted || cancelled || awaitingCollection || collected);
       items.push({
-        key: `chat-${last.id}`,
+        key: `chat-${message.id}`,
         type: "CHAT",
-        title: last.text?.startsWith('Deal accepted by ')
+        title: accepted
           ? `${chat.counterpart_name} accepted your deal`
-          : last.text?.startsWith('Deal cancelled by ')
+          : cancelled
           ? `${chat.counterpart_name} cancelled the deal`
-          : last.text?.startsWith('Transaction marked complete by ')
+          : awaitingCollection
           ? `${chat.counterpart_name} marked transaction complete - mark nuts received`
-          : last.text?.startsWith('Nuts marked as received by ')
+          : collected
           ? `${chat.counterpart_name} confirmed collection - deal complete`
-          : chat.unread_count === 1
-            ? `New message from ${chat.counterpart_name}`
-            : `${chat.unread_count} new messages from ${chat.counterpart_name}`,
-        body: last.text || "",
-        at: last.created_at,
+          : `New message from ${chat.counterpart_name}`,
+        body: message.text || "",
+        at: message.created_at,
         negotiation_id: chat.id,
+        order_id: chat.order_id,
+        urgent: Boolean(cancelled || awaitingCollection),
+        ...(isMessage ? {
+          sender_id: chat.counterpart_user_id,
+          sender_name: chat.counterpart_name,
+        } : {}),
       });
     }
   }
@@ -104,6 +108,7 @@ const sellOfferItems = async (userId) => {
         `${productName(row.product_type)}. Accept it under Orders.`,
       at: row.created_at,
       request_id: row.request_id,
+      urgent: true,
     }));
 };
 
