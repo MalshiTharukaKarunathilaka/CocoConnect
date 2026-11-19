@@ -1,4 +1,4 @@
-/// District → CCB divisional areas for CDO registration auto-fill.
+/// District → CDO divisional areas for CDO registration auto-fill.
 /// Keep in sync with backend/utils/cdoDistrictAreas.js
 const List<String> kCdoRegionalOffices = [
   'Kurunegala Regional Office',

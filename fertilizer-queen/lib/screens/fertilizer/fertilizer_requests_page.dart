@@ -55,7 +55,8 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
       case 'delivered':
         return r.distributed > 0 ||
             r.status == 'Distributed' ||
-            r.status == 'Receipt Confirmed';
+            r.status == 'Receipt Confirmed' ||
+            r.status == 'Completed';
       case 'disputed':
         return _store.complaints.any((c) => c.description.contains(r.id));
       default:
@@ -640,26 +641,40 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                             ),
                           if (o.status == 'Distributed')
                             TextButton(
-                              onPressed: () {
-                                _store.confirmReceived(o.id);
+                              onPressed: () async {
+                                final id = o.id;
+                                final company = o.company;
+                                _store.confirmReceived(id);
                                 setState(() {});
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      '${o.id} completed · please rate ${o.company}',
-                                    ),
-                                  ),
+                                // Why: rating should open right after confirm — no extra tap.
+                                if (!mounted) return;
+                                await showFertilizerRatingSheet(
+                                  context,
+                                  title: 'Rate supplier',
+                                  subtitle:
+                                      'How was $company for order $id?',
+                                  onSubmit: (stars, note) {
+                                    _store.rateOrder(
+                                      id,
+                                      byOwner: true,
+                                      stars: stars,
+                                      note: note,
+                                    );
+                                  },
                                 );
+                                if (mounted) setState(() {});
                               },
                               child: const Text('Confirm received'),
                             ),
+                          // Fallback only if they closed the rating sheet without submitting.
                           if (o.status == 'Completed' && o.ownerStars == null)
                             TextButton(
                               onPressed: () async {
                                 final ok = await showFertilizerRatingSheet(
                                   context,
-                                  title: 'Rate ${o.company}',
-                                  subtitle: 'How was this delivery for ${o.id}?',
+                                  title: 'Rate supplier',
+                                  subtitle:
+                                      'How was ${o.company} for order ${o.id}?',
                                   onSubmit: (stars, note) {
                                     _store.rateOrder(
                                       o.id,
@@ -884,19 +899,69 @@ class _FertilizerRequestsPageState extends State<FertilizerRequestsPage> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: ElevatedButton(
-                            onPressed: () {
-                              _store.confirmGovReceipt(r.id);
+                            onPressed: () async {
+                              final id = r.id;
+                              _store.confirmGovReceipt(id);
                               setState(() {});
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('${r.id} receipt confirmed'),
-                                ),
+                              // Why: open rating popup immediately after confirm.
+                              if (!mounted) return;
+                              await showFertilizerRatingSheet(
+                                context,
+                                title: 'Rate government / CDO',
+                                subtitle:
+                                    'How was the subsidy supply for $id?',
+                                onSubmit: (stars, note) {
+                                  _store.rateGovRequest(
+                                    id,
+                                    stars: stars,
+                                    note: note,
+                                  );
+                                },
                               );
+                              if (mounted) setState(() {});
                             },
                             child: const Text('Confirm received'),
                           ),
                         ),
                       ],
+                      // Fallback only if they closed the rating sheet without submitting.
+                      if (r.status == 'Completed' && r.ownerStars == null) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () async {
+                              final ok = await showFertilizerRatingSheet(
+                                context,
+                                title: 'Rate government / CDO',
+                                subtitle:
+                                    'How was the subsidy supply for ${r.id}?',
+                                onSubmit: (stars, note) {
+                                  _store.rateGovRequest(
+                                    r.id,
+                                    stars: stars,
+                                    note: note,
+                                  );
+                                },
+                              );
+                              if (ok == true && mounted) setState(() {});
+                            },
+                            child: const Text('Rate government'),
+                          ),
+                        ),
+                      ],
+                      if (r.ownerStars != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            'You rated government ${r.ownerStars}/5'
+                            '${r.ownerRateNote.isEmpty ? '' : ' · ${r.ownerRateNote}'}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

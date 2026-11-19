@@ -113,26 +113,25 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     return p.brands.any(_brands.contains);
   }
 
-  /// Hub Government tab stays on CCB — owner cannot switch to private shops there.
+  /// Hub Government tab stays on CDO — owner cannot switch to private shops there.
   bool get _govProgramme => widget.channel == 'gov';
 
   String get _activeChannel => _govProgramme ? 'gov' : _channel;
 
-  bool _isCcbOutlet(FertPlace p) => p.isGov && p.brands.contains('CCB');
+  bool _isCcbOutlet(FertPlace p) =>
+      p.isGov && (p.brands.contains('CDO') || p.brands.contains('CCB'));
 
   List<FertPlace> get _visible {
     final q = _search.text.trim().toLowerCase();
     final channel = _activeChannel;
     final list = _store.places.where((p) {
       final km = _km(p);
-      // Why: Colombo / Puttalam owners only see outlets in their region (or absolute nearby).
-      if (p.absLat == null &&
-          p.region != _store.ownerRegion &&
-          p.region != 'all') {
+      // Why: keep the map on the logged-in estate's district (Kurunegala demo default).
+      if (p.region != _store.ownerRegion && p.region != 'all') {
         return false;
       }
       if (channel == 'private' && p.isGov) return false;
-      // Why: government programme shows only CCB — no CIC / Hayleys / Baurs shops.
+      // Why: government programme shows only CDO — no CIC / Hayleys / Baurs shops.
       if (channel == 'gov') {
         if (!_isCcbOutlet(p)) return false;
         if (km > _radiusKm) return false;
@@ -154,11 +153,11 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
       return p.willingFar;
     }).toList()
       ..sort((a, b) => _km(a).compareTo(_km(b)));
-    // Why: the estate map must show only one CCB pin (Hub + Government).
+    // Why: the estate map must show only one CDO pin (Hub + Government).
     return _withSingleCcb(list);
   }
 
-  /// Keep private shops as-is, but collapse every CCB/government outlet to the nearest one.
+  /// Keep private shops as-is, but collapse every CDO/government outlet to the nearest one.
   List<FertPlace> _withSingleCcb(List<FertPlace> list) {
     FertPlace? ccb;
     final others = <FertPlace>[];
@@ -203,7 +202,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   }
 
   String _pinMark(FertPlace p) {
-    if (p.isGov) return 'CCB';
+    if (p.isGov) return 'CDO';
     final b = p.brands.first;
     return b.length <= 3 ? b : b.substring(0, 3);
   }
@@ -232,7 +231,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                   children: [
                     Text(
                       _activeChannel == 'gov'
-                          ? 'CCB near your estate'
+                          ? 'CDO near your estate'
                           : 'Suppliers near you',
                       style: const TextStyle(
                         fontSize: 17,
@@ -1052,9 +1051,9 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: [
-                    // Government programme: locked to CCB — no All / Private switch.
+                    // Government programme: locked to CDO — no All / Private switch.
                     if (_govProgramme)
-                      _drop('supplier', 'Supplier', 'CCB only', active: true)
+                      _drop('supplier', 'Supplier', 'CDO only', active: true)
                     else
                       _drop(
                         'supplier',
@@ -1076,7 +1075,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                         active: _brands.isNotEmpty,
                       )
                     else
-                      _drop('brand', 'Brand', 'CCB', active: true),
+                      _drop('brand', 'Brand', 'CDO', active: true),
                     _drop(
                       'kinds',
                       'Fertilizer',
@@ -1121,7 +1120,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   }
 
   void _setChannel(String c) {
-    // Why: Government tab must stay CCB-only — ignore All / Private here.
+    // Why: Government tab must stay CDO-only — ignore All / Private here.
     if (_govProgramme && c != 'gov') {
       setState(() => _menu = null);
       return;
@@ -1289,7 +1288,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
         body = const Padding(
           padding: EdgeInsets.all(8),
           child: Text(
-            'This programme lists Coconut Cultivation Board (CCB) outlets only. Private suppliers are on the Suppliers tab.',
+            'This programme lists Coconut Development Officer (CDO) programme outlets only. Private suppliers are on the Suppliers tab.',
             style: TextStyle(fontSize: 12.5, color: AppColors.muted),
           ),
         );
@@ -1314,7 +1313,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
             ),
             _option(
               Icons.account_balance,
-              'CCB only',
+              'CDO only',
               n('gov'),
               _channel == 'gov',
               () => _setChannel('gov'),
@@ -1340,7 +1339,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
         body = const Padding(
           padding: EdgeInsets.all(8),
           child: Text(
-            'Brand is fixed to CCB. Private brands are not shown in this programme.',
+            'Brand is fixed to CDO. Private brands are not shown in this programme.',
             style: TextStyle(fontSize: 12.5, color: AppColors.muted),
           ),
         );
@@ -1491,7 +1490,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   Widget _nearPill() {
     final n = _within().length;
     final what = _activeChannel == 'gov'
-        ? 'CCB'
+        ? 'CDO'
         : (_activeChannel == 'private' ? 'private' : '');
     return Padding(
       padding: const EdgeInsets.only(top: 6),
@@ -1530,9 +1529,9 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     final talking = places.any(
       (p) => (_store.shopTalks[p.id] ?? const []).isNotEmpty,
     );
-    // Why: government pins always say CCB; private pins keep the shop name.
+    // Why: government pins always say CDO; private pins keep the shop name.
     final label = places.first.isGov
-        ? 'CCB'
+        ? 'CDO'
         : (places.length == 1
             ? places.first.company
             : places.map((p) => p.company).join(' · '));
@@ -1734,7 +1733,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                     ),
                   ),
                   title: Text(
-                    p.isGov ? 'CCB' : p.company,
+                    p.isGov ? 'CDO' : p.company,
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   subtitle: Text(

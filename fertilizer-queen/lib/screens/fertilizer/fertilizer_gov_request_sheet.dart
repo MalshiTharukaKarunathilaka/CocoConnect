@@ -81,7 +81,7 @@ class _FertilizerGovRequestSheetState extends State<FertilizerGovRequestSheet> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Text(
-              'Sample stock and area labels only — not official CCB inventory.',
+              'Sample stock and area labels only — not official CDO inventory.',
               style: TextStyle(fontSize: 12.5, color: AppColors.warning),
             ),
           ),

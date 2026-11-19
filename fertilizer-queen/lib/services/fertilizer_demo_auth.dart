@@ -1,8 +1,7 @@
 import 'auth_service.dart';
 
 /// Demo fertilizer accounts that work even if the API is offline.
-/// Why: you can log in as owner / supplier / CDO with the same password and
-/// share one in-memory FertilizerStore so orders sync across roles.
+/// Why: Kurunegala-focused demo — Estate / Supplier / CDO with one shared store.
 class FertDemoAccount {
   const FertDemoAccount({
     required this.id,
@@ -48,63 +47,16 @@ class FertilizerDemoAuth {
       longitude: 80.3647,
     ),
     FertDemoAccount(
-      id: 911,
-      name: 'Nushrath Silva',
-      phone: '0712000011',
-      password: passwordHint,
-      role: 'ESTATE_OWNER',
-      roleLabel: 'Estate Owner',
-      blurb: 'Colombo Palm Estate',
-      location: 'Colombo',
-      latitude: 6.9271,
-      longitude: 79.8612,
-    ),
-    FertDemoAccount(
-      id: 912,
-      name: 'Kamal Fernando',
-      phone: '0712000022',
-      password: passwordHint,
-      role: 'ESTATE_OWNER',
-      roleLabel: 'Estate Owner',
-      blurb: 'Puttalam Coast Estate',
-      location: 'Puttalam',
-      latitude: 8.0362,
-      longitude: 79.8283,
-    ),
-    FertDemoAccount(
       id: 902,
       name: 'Nadeesha Perera',
       phone: '0771112233',
       password: passwordHint,
       role: 'FERTILIZER_SUPPLIER',
       roleLabel: 'Supplier Agent',
-      blurb: 'Shop calendar',
+      blurb: 'Nadeesha Stores · Kurunegala',
+      location: 'Kurunegala',
       latitude: 7.4980,
       longitude: 80.3560,
-    ),
-    FertDemoAccount(
-      id: 921,
-      name: 'Ravi Jayasuriya',
-      phone: '0772100001',
-      password: passwordHint,
-      role: 'FERTILIZER_SUPPLIER',
-      roleLabel: 'Supplier Agent',
-      blurb: 'Colombo Agro Mart',
-      location: 'Colombo',
-      latitude: 6.9350,
-      longitude: 79.8700,
-    ),
-    FertDemoAccount(
-      id: 922,
-      name: 'Asanka Silva',
-      phone: '0772200001',
-      password: passwordHint,
-      role: 'FERTILIZER_SUPPLIER',
-      roleLabel: 'Supplier Agent',
-      blurb: 'Puttalam Fertilizer',
-      location: 'Puttalam',
-      latitude: 8.0400,
-      longitude: 79.8300,
     ),
     FertDemoAccount(
       id: 903,
@@ -117,30 +69,6 @@ class FertilizerDemoAuth {
       location: 'Kurunegala',
       latitude: 7.5400,
       longitude: 80.4000,
-    ),
-    FertDemoAccount(
-      id: 931,
-      name: 'CDO Colombo',
-      phone: '0772300001',
-      password: passwordHint,
-      role: 'CDO',
-      roleLabel: 'CDO',
-      blurb: 'Colombo district',
-      location: 'Colombo',
-      latitude: 6.9300,
-      longitude: 79.8650,
-    ),
-    FertDemoAccount(
-      id: 932,
-      name: 'CDO Puttalam',
-      phone: '0772300002',
-      password: passwordHint,
-      role: 'CDO',
-      roleLabel: 'CDO',
-      blurb: 'Puttalam district',
-      location: 'Puttalam',
-      latitude: 8.0350,
-      longitude: 79.8300,
     ),
   ];
 
