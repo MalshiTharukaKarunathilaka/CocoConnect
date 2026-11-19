@@ -98,7 +98,9 @@ export default function DrillMap({
     if (!badge) return []
     const centreOf = (feats) => {
       const cs = feats.map((f) => f.properties.c).filter(Boolean)
-      return [cs.reduce((a, c) => a + c[0], 0) / cs.length, cs.reduce((a, c) => a + c[1], 0) / cs.length]
+      const mid = [cs.reduce((a, c) => a + c[0], 0) / cs.length, cs.reduce((a, c) => a + c[1], 0) / cs.length]
+      // the average of the centres can fall in a neighbouring province, so use the district centre nearest to it: the badge then sits inside its own province
+      return cs.reduce((best, c) => (Math.hypot(c[0] - mid[0], c[1] - mid[1]) < Math.hypot(best[0] - mid[0], best[1] - mid[1]) ? c : best), cs[0])
     }
     const out = []
     if (level === 0) {
@@ -155,7 +157,7 @@ export default function DrillMap({
     if (chosen && subGeo) return { ...base, fillColor: rampFor(prov)[0], fillOpacity: 0.3, weight: 2.5, color: '#15201a' }
     return {
       ...base,
-      fillColor: colorFor(values[name] || 0, max, rampFor(prov), min),
+      fillColor: PROVINCE_COLORS[prov], // the whole province in its own colour; the badges carry the values
       weight: chosen ? 3 : 1.2,
       color: chosen ? '#15201a' : '#ffffff',
     }
@@ -284,13 +286,11 @@ export default function DrillMap({
           <span>Less</span>
           <span>{fmt(max)} {unit}</span>
         </div>
-        {level === 0 && (
-          <div className="an-prov-legend">
-            {Object.entries(PROVINCE_COLORS).map(([p, c]) => (
-              <span key={p}><i style={{ background: c }} />{p}</span>
-            ))}
-          </div>
-        )}
+        <div className="an-prov-legend">
+          {Object.entries(PROVINCE_COLORS).map(([p, c]) => (
+            <button type="button" key={p} className={sel.province === p ? 'on' : ''} onClick={() => onSel(sel.province === p && !sel.district ? {} : { province: p })} title={`Show ${p} Province`}><i style={{ background: c }} />{p}</button>
+          ))}
+        </div>
         {legend.map((l) => (
           <div key={l.text} className="an-leg-row">
             {l.icon ? <span className="an-leg-ic" dangerouslySetInnerHTML={{ __html: glyphHtml(l.icon, l.color, 24) }} /> : <i style={{ background: l.color }} />} {l.text}

@@ -23,7 +23,7 @@ sub-distributed.jpg, fert-sold.jpg
 sub-waiting.jpg   "Queuing for seeds and fertiliser (5951463948).jpg". CC BY 2.0.
 sub-farmers.jpg   "Farmers in a Paddy field.jpg". CC BY-SA 4.0.
 sub-districts.jpg "Sri lanka southern province aerial view.jpg". CC BY-SA 3.0.
-fert-revenue.jpg  "Harvesting hope for the future (5951468176).jpg". CC BY 2.0.
+fert-revenue.jpg  "Coconut farm.jpg" by Challiyan (Wikimedia Commons), cropped. CC BY 3.0.
 fert-orders.jpg   "Queuing for seeds and fertiliser (5951463948).jpg". CC BY 2.0.
 fert-farmers.jpg  "An Indian farmer spreading fertilizer over a crop.jpg". CC BY-SA 2.0.
 fert-province.jpg "Saaraketha Farmer-1.jpg". CC BY-SA 4.0.

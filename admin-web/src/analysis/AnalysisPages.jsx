@@ -256,14 +256,14 @@ function AgeCard({ age, title = 'Age', noun = 'workers' }) {
   )
 }
 
-function Trend({ data, keys, colors = PALETTE, fmt = compact, axisFmt, height = 240, area, tight, mark }) {
+function Trend({ data, keys, colors = PALETTE, fmt = compact, axisFmt, height = 240, area, tight, mark, gap }) {
   const Ch = area ? AreaChart : LineChart
   return (
     <div className="an-trend">
     <Chart height={height}>
       <Ch data={data} margin={{ left: -8, right: 14, top: 6 }}>
         <CartesianGrid stroke="#dfe5df" strokeDasharray="2 5" vertical={false} />
-        <XAxis dataKey="name" {...ax} />
+        <XAxis dataKey="name" {...ax} interval={gap} />
         <YAxis {...ax} tickFormatter={axisFmt || fmt} domain={tight ? [(m) => Math.floor(m - 3), (m) => Math.ceil(m + 3)] : undefined} />
         {tipEl(fmt)}
         {mark && <ReferenceLine x={mark.x} stroke="#1f6b3d" strokeWidth={2} strokeDasharray="4 3" label={{ value: mark.text, position: 'top', fontSize: 11, fill: '#1f6b3d' }} />}
@@ -795,6 +795,7 @@ function ownerProfile(e) {
 const ordersOf = (e) => Math.min(7, Math.floor(Math.pow(rnd(e.id, 'ord'), 1.3) * 8))
 
 const landCols = (isCoco) => ['Land ID', 'Land', 'Owner', 'District', 'CDO region', 'CDO area', 'Province', 'Acres', isCoco ? 'Palms' : 'Crop', 'Plan', 'Orders', 'Registered']
+const peopleOf = (e) => [e, ...(e.coOwners || [])]
 const ownerText = (e) => (e.coOwners?.length ? `${e.owner} + ${e.coOwners.length} more` : e.owner)
 const landRow = (e, isCoco) => [e.id, e.name, ownerText(e), label(e.district), e.region ? label(e.district) : '-', e.region || '-', e.province, e.acres, isCoco ? num(e.palms) : e.crop, e.plan, ordersOf(e), e.registeredOn]
 
@@ -815,7 +816,7 @@ function OwnerModal({ open, onClose }) {
           <p className="an-prof-note">Private information. For admin use only.</p>
           <div className="an-prof">
             <h4>Personal</h4>
-            {[['Full name', open.owner], ...(open.coOwners?.length ? [['Joint owners', open.coOwners.map((o) => `${o.owner} (${GENDERS[o.ownerGender]})`).join(', ')]] : []), ['Gender', p.gender], ['Religion', p.religion], ['Date of birth', `${p.dob} (age ${p.age})`], ['NIC number', p.nic], ['Passport', p.passport], ['Mobile', p.mobile]].map(([k, v]) => <div key={k}><span>{k}</span><b>{v}</b></div>)}
+            {[['Full name', open.owner], ['Age group', AGE_GROUPS[open.ownerAge]], ...(open.coOwners?.length ? [['Joint owners', open.coOwners.map((o) => `${o.owner} (${GENDERS[o.ownerGender]}, ${AGE_GROUPS[o.ownerAge]})`).join(', ')]] : []), ['Gender', p.gender], ['Religion', p.religion], ['Date of birth', `${p.dob} (age ${p.age})`], ['NIC number', p.nic], ['Passport', p.passport], ['Mobile', p.mobile]].map(([k, v]) => <div key={k}><span>{k}</span><b>{v}</b></div>)}
             <h4>Addresses</h4>
             {[['Home address', p.home], ['Estate address', p.estateAddress], ['Estate GPS location', p.gps]].map(([k, v]) => <div key={k}><span>{k}</span><b>{v}</b></div>)}
             <h4>Land</h4>
@@ -927,6 +928,7 @@ function LandsTable({ estates, isCoco, scope }) {
           <b>{hover.e.name}</b>
           <span>{hover.e.id} · {hover.e.crop} · {hover.e.plan}</span>
           <span>Owner {ownerText(hover.e)}</span>
+          <span>{peopleOf(hover.e).map((o) => `${GENDERS[o.ownerGender]} ${AGE_GROUPS[o.ownerAge]}`).join(' · ')}</span>
           <span>{hover.e.acres} acres{isCoco ? ` · ${num(hover.e.palms)} palms` : ''}</span>
           <span>{label(hover.e.district)}{hover.e.region ? ` · ${hover.e.region} CDO area` : ''}</span>
           <span>{ordersOf(hover.e)} orders · registered {hover.e.registeredOn}</span>
@@ -975,7 +977,7 @@ export function Overview({ d, sel, setSel, mode = 'coconut' }) {
         {isCoco
           ? <Kpi photo="koku_nagula" icon="palm" tone="brown" label="Coconut palms" value={compact(sumBy(estates, (e) => e.palms))} sub={`${num(estates.length)} coconut lands`} />
           : <Kpi photo="koku_nagula" icon="palm" tone="brown" label="Most grown crop" value={topCrop && topCrop.value ? topCrop.name : '-'} sub={topCrop && topCrop.value ? `${num(topCrop.value)} lands` : ''} />}
-        <Kpi photo="slasher" icon="users" tone="amber" label="Land owners" value={num(estates.length)} sub={`${pct(estates.filter((e) => e.ownerGender === 1).length, estates.length)} women`} />
+        <Kpi photo="slasher" icon="users" tone="amber" label="Land owners" value={num(sumBy(estates, (e) => peopleOf(e).length))} sub={`${pct(sumBy(estates, (e) => peopleOf(e).filter((o) => o.ownerGender === 1).length), sumBy(estates, (e) => peopleOf(e).length))} women · ${num(estates.length)} lands`} />
         <Kpi photo="disc_plough" icon="pin" tone="blue" label="Average land size" value={`${(sumBy(estates, (e) => e.acres) / (estates.length || 1)).toFixed(1)} ac`} sub={`largest ${Math.max(0, ...estates.map((e) => e.acres))} acres`} />
       </div>
       <ProvinceStrip startOpen byD={perD} fmt={num} unit="lands" sel={sel} setSel={setSel} {...landStrip({ ...d, estates: mine }, sel, setSel, perD)} />
@@ -1012,27 +1014,28 @@ export function Overview({ d, sel, setSel, mode = 'coconut' }) {
 }
 
 const LAND_TYPES = ['Non-systematic cultivation', 'Systematic cultivation', 'Institutional plantation']
-const LAND_TYPE_SIZE = { 'Non-systematic cultivation': 'under 5 acres', 'Systematic cultivation': '5 to 25 acres', 'Institutional plantation': 'over 25 acres' }
+const LAND_TYPE_SIZE = { 'Non-systematic cultivation': '5 acres or less', 'Systematic cultivation': 'over 5 to 25 acres', 'Institutional plantation': 'over 25 acres' }
 
 function Owners({ d, sel, setSel }) {
   const [landType, setLandType] = useState('')
   const [ownerOpen, setOwnerOpen] = useState(null)
   const lands = useMemo(() => d.estates.filter((e) => !landType || e.plan === landType), [d, landType])
   const estates = useMemo(() => lands.filter((e) => inScope(sel, e.district) && (!sel.region || e.region === sel.region)), [lands, sel])
-  const perD = useMemo(() => byDistrict(lands, () => 1), [lands])
+  const perD = useMemo(() => byDistrict(lands, (e) => 1 + (e.coOwners?.length || 0)), [lands])
   const inScopeAll = d.estates.filter((e) => inScope(sel, e.district) && (!sel.region || e.region === sel.region))
   const typeCount = (t) => inScopeAll.filter((e) => e.plan === t).length
   const typeAcres = (t) => sumBy(inScopeAll.filter((e) => e.plan === t), (e) => e.acres)
-  const ownerAge = AGE_GROUPS.map((a, i) => ({ name: a, value: estates.filter((e) => e.ownerAge === i).length }))
-  const ownerGender = GENDERS.slice(0, 2).map((g, i) => ({ name: g, value: estates.filter((e) => e.ownerGender === i).length, color: ['#256b45', '#d9741a'][i] }))
+  const people = estates.flatMap(peopleOf) // every owner, joint owners included
+  const ownerAge = AGE_GROUPS.map((a, i) => ({ name: a, value: people.filter((e) => e.ownerAge === i).length }))
+  const ownerGender = GENDERS.slice(0, 2).map((g, i) => ({ name: g, value: people.filter((e) => e.ownerGender === i).length, color: ['#256b45', '#d9741a'][i] }))
   const ageByGender = AGE_GROUPS.map((a, i) => ({
     name: a,
-    Male: estates.filter((e) => e.ownerAge === i && e.ownerGender === 0).length,
-    Female: estates.filter((e) => e.ownerAge === i && e.ownerGender === 1).length,
+    Male: people.filter((e) => e.ownerAge === i && e.ownerGender === 0).length,
+    Female: people.filter((e) => e.ownerAge === i && e.ownerGender === 1).length,
   }))
   const wRows = d.workers.filter((w) => inScope(sel, w.district))
   const workerAgeTotal = sumBy(wRows, (w) => w.total) || 1
-  const ownerTotal = estates.length || 1
+  const ownerTotal = people.length || 1
   const ownersVsWorkers = AGE_GROUPS.map((a, i) => ({
     name: a,
     Owners: Math.round((ownerAge[i].value / ownerTotal) * 1000) / 10,
@@ -1041,7 +1044,7 @@ function Owners({ d, sel, setSel }) {
   const women = ownerGender[1].value
 
   const topAge = [...ownerAge].sort((a, b) => b.value - a.value)[0]
-  const allOf = (e) => [e, ...(e.coOwners || [])]
+  const allOf = peopleOf
   const rows = [...estates].reverse().map((e) => [e.id, allOf(e).map((o) => o.owner).join(' + '), allOf(e).length, allOf(e).map((o) => GENDERS[o.ownerGender]).join(', '), allOf(e).map((o) => AGE_GROUPS[o.ownerAge]).join(', '), e.name, label(e.district), e.region || '-', e.acres])
   const sections = () => [
     { title: `Land owners - ${scopeName(sel)}`, columns: ['Land ID', 'Owner', 'Owners', 'Gender', 'Age group', 'Land', 'District', 'CDO area', 'Acres'], rows },
@@ -1055,7 +1058,7 @@ function Owners({ d, sel, setSel }) {
       </div>
       <PhotoRow
         items={landType ? [
-          ['rotary', 'users', 'green', `${landType} owners`, num(estates.length), LAND_TYPE_SIZE[landType]],
+          ['rotary', 'users', 'green', `${landType} owners`, num(people.length), `${num(estates.length)} lands · ${LAND_TYPE_SIZE[landType]}`],
           ['koku_nagula', 'pin', 'brown', 'Land in total', `${num(sumBy(estates, (e) => e.acres))} ac`, `${num(sumBy(estates, (e) => e.palms))} coconut palms`],
           ['disc_plough', 'pin', 'blue', 'Average land size', `${(sumBy(estates, (e) => e.acres) / (estates.length || 1)).toFixed(1)} ac`, `largest ${Math.max(0, ...estates.map((e) => e.acres))} acres`],
           ['slasher', 'trophy', 'amber', 'Share of all lands', pct(estates.length, inScopeAll.length), `of ${num(inScopeAll.length)} registered lands`],
@@ -1063,13 +1066,13 @@ function Owners({ d, sel, setSel }) {
           ['rotary', 'users', 'green', 'Non-systematic cultivation', num(typeCount('Non-systematic cultivation')), `${LAND_TYPE_SIZE['Non-systematic cultivation']} \u00b7 ${num(typeAcres('Non-systematic cultivation'))} acres`],
           ['koku_nagula', 'users', 'brown', 'Systematic cultivation', num(typeCount('Systematic cultivation')), `${LAND_TYPE_SIZE['Systematic cultivation']} \u00b7 ${num(typeAcres('Systematic cultivation'))} acres`],
           ['slasher', 'trophy', 'amber', 'Institutional plantation', num(typeCount('Institutional plantation')), `${LAND_TYPE_SIZE['Institutional plantation']} \u00b7 ${num(typeAcres('Institutional plantation'))} acres`],
-          ['disc_plough', 'pin', 'blue', 'Average land size', `${(sumBy(estates, (e) => e.acres) / (estates.length || 1)).toFixed(1)} ac`, `${num(estates.length)} owners \u00b7 largest ${Math.max(0, ...estates.map((e) => e.acres))} acres`],
+          ['disc_plough', 'pin', 'blue', 'Average land size', `${(sumBy(estates, (e) => e.acres) / (estates.length || 1)).toFixed(1)} ac`, `${num(people.length)} owners on ${num(estates.length)} lands · largest ${Math.max(0, ...estates.map((e) => e.acres))} acres`],
         ]}
       />
       <FigTiles
         items={[
-          ['Women', pct(women, estates.length), `${num(women)} owners`, <Character gender="F" stage={2} height={190} />],
-          ['Men', pct(estates.length - women, estates.length), `${num(estates.length - women)} owners`, <Character gender="M" stage={2} height={190} />],
+          ['Women', pct(women, people.length), `${num(women)} owners`, <Character gender="F" stage={2} height={190} />],
+          ['Men', pct(people.length - women, people.length), `${num(people.length - women)} owners`, <Character gender="M" stage={2} height={190} />],
           ['Most common age', topAge && topAge.value ? topAge.name : '-', topAge && topAge.value ? `${num(topAge.value)} owners` : '', <Pair stage={Math.max(0, ownerAge.indexOf(topAge))} height={190} />],
         ]}
       />
@@ -1087,7 +1090,7 @@ function Owners({ d, sel, setSel }) {
           </>
         }
       />
-      <Card title="Age and gender compared" sub={`${estates.length} owners \u00b7 ${pct(women, estates.length)} women`}>
+      <Card title="Age and gender compared" sub={`${people.length} owners on ${estates.length} lands · ${pct(women, people.length)} women`}>
         <Bars data={ageByGender} keys={['Male', 'Female']} colors={['#256b45', '#d9741a']} height={240} fmt={num} />
       </Card>
       <Card title={`${landType || 'Land'} owners \u00b7 ${scopeName(sel)}`} sub={`${estates.length} lands, newest first. A land can have more than one owner (joint owners are listed together)`}>
@@ -1693,10 +1696,8 @@ function Donations({ d, sel, setSel, tabs, pickedId, onPickId, kindBar, kind, ca
   const rows = useMemo(() => (don ? don.areas : []), [don])
   const perD = useMemo(() => byDistrict(rows, (r) => r.kg), [rows])
   const inArea = rows.filter((r) => inScope(sel, r.district))
-  const delivered = sumBy(inArea, (r) => r.kg)
-  const farmers = sumBy(inArea, (r) => r.farmers)
   const island = !sel.province
-  const left = don ? don.kg - don.delivered : 0
+  const inRegion = !!sel.region
   const maxKg = Math.max(...rows.map((r) => r.kg), 1)
   const byArea = areaBars(sel, perD)
 
@@ -1716,6 +1717,11 @@ function Donations({ d, sel, setSel, tabs, pickedId, onPickId, kindBar, kind, ca
   }, [d, rows])
   const estHere = estates.filter((x) => inScope(sel, x.e.district) && (!sel.region || x.e.region === sel.region))
   const estMax = Math.max(1, ...estHere.map((x) => x.kg))
+  // figures for whatever is picked on the map: island, province, district or CDO area
+  const delivered = inRegion ? sumBy(estHere, (x) => x.kg) : sumBy(inArea, (r) => r.kg)
+  const farmers = inRegion ? sumBy(estHere, (x) => x.farmers) : sumBy(inArea, (r) => r.farmers)
+  const allocated = don ? (island || !don.delivered ? don.kg : (don.kg * delivered) / don.delivered) : 0 // this area's share of the donation, in proportion to what it received
+  const left = Math.max(0, allocated - delivered)
   const cdoVal = Object.fromEntries((d.cdo ? d.cdo.features.map((f) => f.properties.region) : []).map((n) => [n, (perD.Kurunegala || 0) * areaShare(d, 'Kurunegala', n)]))
 
   // districts on the island view; the estates themselves once a province is open
@@ -1761,11 +1767,11 @@ function Donations({ d, sel, setSel, tabs, pickedId, onPickId, kindBar, kind, ca
       {don && (
         <>
           <div className="an-kpis">
-            <Kpi photo="sub-donated" icon="gift" tone="blue" label="Allocated" value={kd.fmt(don.kg)} sub={`${don.donor} · ${don.type}${don.usd ? ` · ${usdText(don.usd)}` : ''}`} />
-            <Kpi photo="sub-distributed" icon="truck" label="Distributed" value={kd.fmt(island ? don.delivered : delivered)} sub={island ? `${pct(don.delivered, don.kg)} of this donation` : scopeName(sel)} />
-            <Kpi photo="sub-waiting" icon="clock" tone="amber" label="Yet to distribute" value={kd.fmt(left)} sub={`${pct(left, don.kg)} still waiting`} />
+            <Kpi photo="sub-donated" icon="gift" tone="blue" label="Allocated" value={kd.fmt(allocated)} sub={island ? `${don.donor} · ${don.type}${don.usd ? ` · ${usdText(don.usd)}` : ''}` : `${don.donor} · ${scopeName(sel)}`} />
+            <Kpi photo="sub-distributed" icon="truck" label="Distributed" value={kd.fmt(delivered)} sub={island ? `${pct(delivered, don.kg)} of this donation` : scopeName(sel)} />
+            <Kpi photo="sub-waiting" icon="clock" tone="amber" label="Yet to distribute" value={kd.fmt(left)} sub={`${pct(left, allocated)} still waiting`} />
             <Kpi photo="sub-farmers" icon="users" tone="purple" label="Farmers reached" value={num(farmers)} sub={farmers ? (kd.perFarmer ? kd.perFarmer(delivered / farmers) : `${Math.round(delivered / farmers)} kg per farmer`) : scopeName(sel)} />
-            <Kpi photo="sub-districts" icon="pin" tone="brown" label="Districts reached" value={`${island ? rows.length : inArea.length} of ${island ? DISTRICTS.length : districtsOf(sel.province).length}`} sub={island ? 'across the island' : scopeName(sel)} />
+            <Kpi photo="sub-districts" icon="pin" tone="brown" label="Districts reached" value={`${island ? rows.length : inArea.length} of ${island ? DISTRICTS.length : districtsOf(sel.province).length}`} sub={island ? 'across the island' : inRegion ? `${sel.region} is in ${label(inArea[0]?.district || sel.district || '')}` : scopeName(sel)} />
           </div>
           <Split
             map={
@@ -1778,8 +1784,8 @@ function Donations({ d, sel, setSel, tabs, pickedId, onPickId, kindBar, kind, ca
             }
             side={
               <>
-                <Card title="Distributed vs remaining" sub={`${don.donor} · ${kd.fmt(don.kg)} donated`}>
-                  <Donut data={[{ name: 'Distributed', value: don.delivered, color: '#256b45' }, { name: 'Yet to distribute', value: left, color: '#e0b45a' }]} height={170} fmt={kd.fmt} />
+                <Card title="Distributed vs remaining" sub={`${don.donor} · ${kd.fmt(allocated)} ${island ? 'donated' : `for ${scopeName(sel)}`}`}>
+                  <Donut data={[{ name: 'Distributed', value: delivered, color: '#256b45' }, { name: 'Yet to distribute', value: left, color: '#e0b45a' }]} height={170} fmt={kd.fmt} />
                 </Card>
                 <Card title={sel.province ? 'By district' : 'By province'} sub={`${kd.name} delivered`}>
                   <Bars data={byArea} horizontal single height={Math.max(200, byArea.length * 28)} fmt={kd.fmt} axisFmt={kd.axis} />
@@ -2253,6 +2259,15 @@ function periodInfo(period, now) {
   return { pd, text }
 }
 
+// history helpers: the last n days, and a gentle year-on-year drift (prices up a little each year, volumes up more)
+const lastDays = (now, n) => Array.from({ length: n }, (_, i) => { const t = new Date(now); t.setDate(t.getDate() - (n - 1 - i)); return t })
+const dayName = (t) => `${t.getDate()} ${t.toLocaleString('en-GB', { month: 'short' })}`
+const yearDrift = (k, rate) => Math.max(0.4, 1 - rate * Math.max(0, k))
+const dayMark = (pd, now, days) => {
+  if (pd.kind === 'today') return { x: dayName(now), text: 'Today' }
+  if (pd.kind === 'day' && days.some((t) => dayName(t) === dayName(pd.date) && t.getFullYear() === pd.date.getFullYear())) return { x: dayName(pd.date), text: 'Selected' }
+  return null
+}
 const markOf = (pd, now) => ({ x: MONTHS[pd.kind === 'today' ? now.getMonth() : pd.m], text: pd.kind === 'today' ? 'Today' : pd.kind === 'day' ? pd.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Selected' })
 
 function PricePicker({ period, setPeriod, now }) {
@@ -2310,6 +2325,7 @@ export function MarketPrices({ stage }) {
   const { data: d } = useData()
   const [sel, setSel] = useState({})
   const [landId, setLandId] = useState(null)
+  const [grain, setGrain] = useState('month')
   const [tick, setTick] = useState(0)
   const [period, setPeriod] = usePeriod()
   useEffect(() => {
@@ -2349,13 +2365,20 @@ export function MarketPrices({ stage }) {
   const wiggleAt = (t) => 1 + 0.006 * Math.sin((t.getFullYear() * 372 + t.getMonth() * 31 + t.getDate()) * 1.7)
   const yFactor = wiggleAt(dayAgo(1)) / wiggleAt(now)
   const pd = parsePeriod(period)
-  const pf = pd.kind === 'today' ? 1 : pd.kind === 'day' ? wiggleAt(pd.date) / wiggleAt(now) : season[pd.m] / season[now.getMonth()]
+  const yfP = (k) => yearDrift(k, 0.055)
+  const pf = pd.kind === 'today' ? 1 : (pd.kind === 'day' ? wiggleAt(pd.date) / wiggleAt(now) : season[pd.m] / season[now.getMonth()]) * yfP(now.getFullYear() - pd.y)
   const dayText = (t) => t.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   const whenText = pd.kind === 'today' ? `Today · ${dayText(now)}` : pd.kind === 'day' ? dayText(pd.date) : `${new Date(pd.y, pd.m, 1).toLocaleString('en-GB', { month: 'long', year: 'numeric' })} · monthly average`
   const isToday = pd.kind === 'today'
   const shown = here != null ? here * pf : null
   const priceRows = land ? [land] : scoped
-  const priceSeries = MONTHS.map((m, i) => ({ name: m, Deal: avgOf(priceRows, 'deal') * season[i] }))
+  const nowM = now.getMonth()
+  const baseDeal = avgOf(priceRows, 'deal')
+  const priceSeries = MONTHS.map((m, i) => ({ name: m, Deal: (baseDeal * season[i]) / season[nowM] * yfP(0) }))
+  const days30 = lastDays(now, 30)
+  const dailyP = days30.map((t) => ({ name: dayName(t), Deal: (baseDeal * wiggleAt(t)) / wiggleAt(now) }))
+  const thisYear = now.getFullYear()
+  const yearAvgP = [2, 1, 0].map((k) => { const ms = season.slice(0, k === 0 ? nowM + 1 : 12); return { name: k === 0 ? `${thisYear} so far` : String(thisYear - k), value: (baseDeal * (sumBy(ms, (w) => w) / ms.length)) / season[nowM] * yfP(k) } })
   const priceBars = land
     ? STEPS.map(([k, name]) => ({ name, value: land.price[k] }))
     : sel.province
@@ -2412,9 +2435,17 @@ export function MarketPrices({ stage }) {
       <PriceSpread rows={scoped} stage={stage} place={place} pf={pf} when={whenText} />
       <div className="an-grid2 mv-graphs">
         <div className="mv-graph">
-          <b>Price each month · {place}</b>
-          <small>Deal price, rupees per nut. Sample figures; a little higher in the dry months</small>
-          <Trend data={priceSeries} keys={['Deal']} colors={['#d99a0b']} mark={markOf(pd, now)} fmt={(v) => `Rs. ${v.toFixed(0)}`} height={230} tight />
+          <div className="mv-head">
+            <b>Price each {grain} · {place}</b>
+            <Segmented value={grain} onChange={setGrain} options={[['day', 'Day'], ['month', 'Month'], ['year', 'Year']]} />
+          </div>
+          <small>{grain === 'day' ? 'Deal price, rupees per nut, for the last 30 days' : grain === 'year' ? 'Average deal price, rupees per nut, for each year' : 'Deal price, rupees per nut. Sample figures; a little higher in the dry months'}</small>
+          <Trend
+            data={grain === 'day' ? dailyP : grain === 'year' ? yearAvgP.map((r) => ({ name: r.name, Deal: r.value })) : priceSeries}
+            keys={['Deal']} colors={['#d99a0b']}
+            mark={grain === 'day' ? dayMark(pd, now, days30) : grain === 'month' ? markOf(pd, now) : null}
+            fmt={(v) => (grain === 'day' ? `Rs. ${v.toFixed(2)}` : `Rs. ${v.toFixed(0)}`)} axisFmt={(v) => `Rs. ${v.toFixed(0)}`} height={230} tight gap={grain === 'day' ? 4 : undefined}
+          />
         </div>
         <div className="mv-graph">
           <b>{land ? 'Price at each step' : sel.province ? `Average price by district · ${sel.province}` : 'Average price by province'}</b>
@@ -2447,6 +2478,7 @@ export function MarketVolumes({ stage }) {
   const { data: d } = useData()
   const [sel, setSel] = useState({})
   const [landId, setLandId] = useState(null)
+  const [grain, setGrain] = useState('month')
   const [period, setPeriod] = usePeriod()
   const lands = useMemo(() => (d ? d.estates.filter((e) => e.volume) : []), [d])
   if (!d) return <Loading />
@@ -2456,7 +2488,8 @@ export function MarketVolumes({ stage }) {
   const vSeason = [0.9, 0.85, 0.95, 1, 1.1, 1.1, 1.05, 1, 1, 1.05, 1, 0.95]
   const vWiggle = (t) => 1 + 0.04 * Math.sin((t.getFullYear() * 372 + t.getMonth() * 31 + t.getDate()) * 2.3)
   const { pd, text: whenText } = periodInfo(period, now)
-  const vf = pd.kind === 'today' ? 1 : pd.kind === 'day' ? vWiggle(pd.date) / vWiggle(now) : vSeason[pd.m] / vSeason[now.getMonth()]
+  const yfV = (k) => yearDrift(k, 0.12)
+  const vf = pd.kind === 'today' ? 1 : (pd.kind === 'day' ? vWiggle(pd.date) / vWiggle(now) : vSeason[pd.m] / vSeason[now.getMonth()]) * yfV(now.getFullYear() - pd.y)
   const vol = (e, st = stage) => e.volume[st] * vf
   const total = (rows, st = stage) => sumBy(rows, (e) => vol(e, st))
   const perD = Object.fromEntries(DISTRICTS.map((x) => [x.name, total(lands.filter((e) => e.district === x.name))]))
@@ -2477,8 +2510,14 @@ export function MarketVolumes({ stage }) {
   const badge = { html: (v) => `<b>${v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k' : Math.round(v || 0)}</b>` }
   const rows = land ? [land] : [...scoped].sort((a, b) => vol(b) - vol(a)).slice(0, 8)
   const season = [0.9, 0.85, 0.95, 1, 1.1, 1.1, 1.05, 1, 1, 1.05, 1, 0.95]
-  const seasonSum = sumBy(season, (w) => w)
-  const monthSeries = MONTHS.map((m, i) => ({ name: m, Deal: (total(rowsHere, 'deal') * season[i]) / seasonSum }))
+  const nowM = now.getMonth()
+  const thisYear = now.getFullYear()
+  const baseV = sumBy(rowsHere, (e) => e.volume.deal) // this month's deal volume, before the date picked
+  const monthOf = (i, k) => (baseV * season[i]) / season[nowM] * yfV(k)
+  const monthSeries = MONTHS.map((m, i) => ({ name: m, Deal: monthOf(i, 0) }))
+  const days30 = lastDays(now, 30)
+  const dailyV = days30.map((t) => ({ name: dayName(t), Deal: (baseV * vWiggle(t)) / vWiggle(now) }))
+  const yearTotalV = [2, 1, 0].map((k) => ({ name: k === 0 ? `${thisYear} so far` : String(thisYear - k), value: MONTHS.slice(0, k === 0 ? nowM + 1 : 12).reduce((a, m, i) => a + monthOf(i, k), 0) }))
 
   return (
     <div className="an-card mp">
@@ -2524,9 +2563,17 @@ export function MarketVolumes({ stage }) {
       </div>
       <div className="an-grid2 mv-graphs">
         <div className="mv-graph">
-          <b>Volume each month · {place}</b>
-          <small>Deal volume, nuts a month. Sample figures; peaks in the dry months</small>
-          <Trend data={monthSeries} keys={['Deal']} colors={['#d99a0b']} mark={markOf(pd, now)} fmt={compact} height={230} />
+          <div className="mv-head">
+            <b>Volume each {grain} · {place}</b>
+            <Segmented value={grain} onChange={setGrain} options={[['day', 'Day'], ['month', 'Month'], ['year', 'Year']]} />
+          </div>
+          <small>{grain === 'day' ? "Deal volume, nuts a month at that day's pace, for the last 30 days" : grain === 'year' ? 'Deal volume added up for each year' : 'Deal volume, nuts a month. Sample figures; peaks in the dry months'}</small>
+          <Trend
+            data={grain === 'day' ? dailyV : grain === 'year' ? yearTotalV.map((r) => ({ name: r.name, Deal: r.value })) : monthSeries}
+            keys={['Deal']} colors={['#d99a0b']}
+            mark={grain === 'day' ? dayMark(pd, now, days30) : grain === 'month' ? markOf(pd, now) : null}
+            fmt={compact} height={230} gap={grain === 'day' ? 4 : undefined}
+          />
         </div>
         <div className="mv-graph">
           <b>{land ? 'Volume at each step' : sel.province ? `Volume by district · ${sel.province}` : 'Volume by province'}</b>
