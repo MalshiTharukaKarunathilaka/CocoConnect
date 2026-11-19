@@ -2,11 +2,12 @@
 
 enum DealCancellationType {
   coconut('Cancel Coconut Deal', [
-    'Coconuts are no longer available',
-    'Agreed quantity is unavailable',
-    'Coconut quality or grade differs from the agreement',
-    'Collection or transport fell through',
-    'Price or payment disagreement',
+    'Issue with coconut quantity',
+    'Issue with coconut quality or condition',
+    'Issue with the agreed price',
+    'Issue with the collection date or time',
+    'Issue with transport or the collection location',
+    'Personal or business circumstances changed',
   ]),
   machinery('Cancel Machinery Booking', [
     'Machine broke down or is unavailable',
