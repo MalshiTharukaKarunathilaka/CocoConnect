@@ -14,7 +14,7 @@ enum FertHomeMode { supplier, cdo }
 const List<String> kFertKinds = ['APM', 'YPM', 'MOP', 'ERP', 'TSP', 'Urea', 'Dolomite'];
 
 /// Brand filter chips on the map (same idea as Distance / Fertilizer).
-/// Private-brand filter only (CCB stays under Government supplier filter).
+/// Private-brand filter only (CDO stays under Government supplier filter).
 const List<String> kFertBrands = ['CIC', 'Hayleys', 'Baurs'];
 
 class FertItem {
@@ -259,7 +259,7 @@ class GovOrderDraft {
       lines.map((l) => '${l.item.name} \u00d7 ${l.qty50}').join(', ');
 }
 
-/// Logged-in owner's estate card used to auto-fill the CCB fertilizer form.
+/// Logged-in owner's estate card used to auto-fill the CDO fertilizer form.
 /// Why: Annex 01 estate/size fields come from the account — owners cannot type them.
 class FertOwnerProfile {
   const FertOwnerProfile({
@@ -317,7 +317,11 @@ class FertGovRequest {
     this.estateName = '',
     this.acres = 0,
     this.nicCopy = '',
+    this.nicCopyPath = '',
+    this.nicBytes,
     this.landTitleCopy = '',
+    this.landTitleCopyPath = '',
+    this.landTitleBytes,
     this.outlet = '',
     this.preferred = '',
     this.beneficiaryName = '',
@@ -332,6 +336,8 @@ class FertGovRequest {
     this.coconutSaplings = 0,
     this.annualHarvestNuts = 0,
     this.deliveryAt,
+    this.ownerStars,
+    this.ownerRateNote = '',
     List<FertChat>? chat,
   }) : chat = List<FertChat>.from(chat ?? const []);
 
@@ -350,11 +356,15 @@ class FertGovRequest {
   /// CDO ↔ estate messages for this government application.
   final List<FertChat> chat;
 
-  // From the request form (Annex 01 / RH/AGRI/CCB/01)
+  // From the request form (Annex 01 / RH/AGRI/CDO/01)
   final String estateName;
   final double acres;
   final String nicCopy; // file name of the attached NIC copy
+  final String nicCopyPath; // local path when available
+  final List<int>? nicBytes; // image bytes so CDO can open the NIC
   final String landTitleCopy; // file name of the attached land title / deed copy
+  final String landTitleCopyPath;
+  final List<int>? landTitleBytes;
   final String outlet; // the government outlet it was ordered from
   final String preferred; // preferred date and time slot
   final String beneficiaryName;
@@ -368,6 +378,9 @@ class FertGovRequest {
   final int coconutTrees;
   final int coconutSaplings;
   final int annualHarvestNuts;
+  /// Estate rates the government / CDO after receipt.
+  int? ownerStars;
+  String ownerRateNote;
 
   /// Why: delivered / cancelled / disputed leave the CDO calendar.
   bool get showsOnCalendar =>
@@ -574,7 +587,7 @@ class FertilizerStore {
     }
   }
 
-  /// Auto-filled CCB form details for the logged-in estate owner (demo values).
+  /// Auto-filled CDO form details for the logged-in estate owner (demo values).
   FertOwnerProfile ownerProfile = const FertOwnerProfile(
     fullName: 'Demo Estate Owner',
     address: 'No. 12, Temple Road, Mawathagama',
@@ -592,7 +605,7 @@ class FertilizerStore {
     estateName: 'Mawathagama Palm Estate',
   );
 
-  /// Demo estate cards keyed by last-9 phone digits.
+  /// Demo estate cards keyed by last-9 phone digits (Kurunegala only).
   static const Map<String, FertOwnerProfile> demoOwnerProfiles = {
     '711000001': FertOwnerProfile(
       fullName: 'Demo Estate Owner',
@@ -607,34 +620,6 @@ class FertilizerStore {
       annualHarvestNuts: 42000,
       district: 'Kurunegala',
       estateName: 'Mawathagama Palm Estate',
-    ),
-    '712000011': FertOwnerProfile(
-      fullName: 'Nushrath Silva',
-      address: '42 Marine Drive, Colombo 03',
-      phone: '0712000011',
-      nicNumber: '199012345678',
-      landAddress: 'Colombo Palm Estate, Kaduwela, Colombo',
-      deedNumber: 'COL/KDW/2020/1188',
-      acres: 6,
-      coconutTrees: 480,
-      coconutSaplings: 60,
-      annualHarvestNuts: 28000,
-      district: 'Colombo',
-      estateName: 'Colombo Palm Estate',
-    ),
-    '712000022': FertOwnerProfile(
-      fullName: 'Kamal Fernando',
-      address: '15 Beach Road, Puttalam',
-      phone: '0712000022',
-      nicNumber: '198712345678',
-      landAddress: 'Puttalam Coast Estate, Chilaw, Puttalam',
-      deedNumber: 'PUT/CHW/2019/0771',
-      acres: 10,
-      coconutTrees: 820,
-      coconutSaplings: 100,
-      annualHarvestNuts: 51000,
-      district: 'Puttalam',
-      estateName: 'Puttalam Coast Estate',
     ),
   };
 
@@ -775,7 +760,7 @@ class FertilizerStore {
     );
   }
 
-  /// New CDO accounts from the API get a single CCB desk pin.
+  /// New CDO accounts from the API get a single CDO desk pin.
   void _ensureRegisteredCdoPlace(AppUser user) {
     final key = _last9(user.phone);
     final existing = places.where(
@@ -799,12 +784,12 @@ class FertilizerStore {
     places.add(
       FertPlace(
         id: 'PL-CDO-${user.id}',
-        company: 'CCB',
+        company: 'CDO',
         who: who,
         kind: 'cdo',
         physical: true,
         willingFar: false,
-        brands: const ['CCB'],
+        brands: const ['CDO'],
         distanceKm: 4,
         dLat: -0.02,
         dLng: 0.015,
@@ -812,7 +797,7 @@ class FertilizerStore {
         items: [
           FertItem(
             name: 'ERP Coconut Fertilizer',
-            brand: 'CCB',
+            brand: 'CDO',
             type: 'Government',
             price: 6000,
             unit: '50 kg bag',
@@ -888,7 +873,7 @@ class FertilizerStore {
         ),
       ],
     ),
-    // Why: only one CCB pin on the estate map (PL5 below).
+    // Why: only one CDO pin on the estate map (PL5 below).
     FertPlace(
       id: 'PL4',
       company: 'Nadeesha Stores',
@@ -1039,13 +1024,13 @@ class FertilizerStore {
     ),
     FertPlace(
       id: 'PL5',
-      company: 'CCB',
+      company: 'CDO',
       who: 'CDO - Mawathagama',
       kind: 'cdo',
       physical: true,
-      // Why: government programme only lists one CCB near the estate.
+      // Why: government programme only lists one CDO near the estate.
       willingFar: false,
-      brands: const ['CCB'],
+      brands: const ['CDO'],
       distanceKm: 3.2,
       dLat: -0.018,
       dLng: 0.012,
@@ -1054,7 +1039,7 @@ class FertilizerStore {
       items: [
         FertItem(
           name: 'ERP Coconut Fertilizer',
-          brand: 'CCB',
+          brand: 'CDO',
           type: 'Government',
           price: 6000,
           unit: '50 kg bag',
@@ -1062,7 +1047,7 @@ class FertilizerStore {
         ),
         FertItem(
           name: 'Urea subsidy',
-          brand: 'CCB',
+          brand: 'CDO',
           type: 'Urea',
           price: 4200,
           unit: '50 kg bag',
@@ -1070,7 +1055,7 @@ class FertilizerStore {
         ),
         FertItem(
           name: 'MOP subsidy',
-          brand: 'CCB',
+          brand: 'CDO',
           type: 'MOP',
           price: 5400,
           unit: '50 kg bag',
@@ -1078,7 +1063,7 @@ class FertilizerStore {
         ),
         FertItem(
           name: 'TSP subsidy',
-          brand: 'CCB',
+          brand: 'CDO',
           type: 'TSP',
           price: 5600,
           unit: '50 kg bag',
@@ -1251,13 +1236,13 @@ class FertilizerStore {
       ],
     ),
     FertPlace(
-      id: 'PL-CCB-CMB',
-      company: 'CCB',
+      id: 'PL-CDO-CMB',
+      company: 'CDO',
       who: 'CDO - Colombo',
       kind: 'cdo',
       physical: true,
       willingFar: false,
-      brands: const ['CCB'],
+      brands: const ['CDO'],
       distanceKm: 3.0,
       dLat: 0,
       dLng: 0,
@@ -1268,7 +1253,7 @@ class FertilizerStore {
       items: [
         FertItem(
           name: 'ERP Coconut Fertilizer',
-          brand: 'CCB',
+          brand: 'CDO',
           type: 'Government',
           price: 6000,
           unit: '50 kg bag',
@@ -1276,7 +1261,7 @@ class FertilizerStore {
         ),
         FertItem(
           name: 'Urea subsidy',
-          brand: 'CCB',
+          brand: 'CDO',
           type: 'Urea',
           price: 4200,
           unit: '50 kg bag',
@@ -1416,13 +1401,13 @@ class FertilizerStore {
       ],
     ),
     FertPlace(
-      id: 'PL-CCB-PUT',
-      company: 'CCB',
+      id: 'PL-CDO-PUT',
+      company: 'CDO',
       who: 'CDO - Puttalam',
       kind: 'cdo',
       physical: true,
       willingFar: false,
-      brands: const ['CCB'],
+      brands: const ['CDO'],
       distanceKm: 2.5,
       dLat: 0,
       dLng: 0,
@@ -1433,7 +1418,7 @@ class FertilizerStore {
       items: [
         FertItem(
           name: 'ERP Coconut Fertilizer',
-          brand: 'CCB',
+          brand: 'CDO',
           type: 'Government',
           price: 6000,
           unit: '50 kg bag',
@@ -1441,7 +1426,7 @@ class FertilizerStore {
         ),
         FertItem(
           name: 'Urea subsidy',
-          brand: 'CCB',
+          brand: 'CDO',
           type: 'Urea',
           price: 4200,
           unit: '50 kg bag',
@@ -1571,7 +1556,7 @@ class FertilizerStore {
     FertOrder(
       id: 'PO-501',
       placeId: 'PL5',
-      company: 'CCB',
+      company: 'CDO',
       agent: 'CDO - Mawathagama',
       owner: 'Smallholder Group B',
       product: 'ERP Coconut Fertilizer (50 kg)',
@@ -1591,7 +1576,7 @@ class FertilizerStore {
     FertOrder(
       id: 'PO-502',
       placeId: 'PL5',
-      company: 'CCB',
+      company: 'CDO',
       agent: 'CDO - Mawathagama',
       owner: 'Estate Co-op',
       product: 'Urea subsidy (50 kg)',
@@ -1807,7 +1792,7 @@ class FertilizerStore {
       acres: 8,
       nicCopy: 'nic_demo_owner.jpg',
       landTitleCopy: 'deed_KUR_MWT_2018_0456.pdf',
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '08 Nov 2026 · Morning',
       beneficiaryName: 'Demo Estate Owner',
       address: 'No. 12, Temple Road, Mawathagama',
@@ -1847,7 +1832,7 @@ class FertilizerStore {
       acres: 12,
       nicCopy: 'nic_nimal.jpg',
       landTitleCopy: 'deed_estate_a.pdf',
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '12 Oct 2026 · Morning',
       beneficiaryName: 'Nimal Perera',
       address: 'Estate A road, Mawathagama',
@@ -1890,7 +1875,7 @@ class FertilizerStore {
       acres: 12,
       nicCopy: 'nic_nimal.jpg',
       landTitleCopy: 'deed_estate_a.pdf',
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '10 Nov 2026 · Afternoon',
       beneficiaryName: 'Nimal Perera',
       phone: '0712233445',
@@ -1914,7 +1899,7 @@ class FertilizerStore {
       district: 'Kurunegala',
       estateName: 'Estate F',
       acres: 6,
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '22 Sep 2026 · Morning',
       beneficiaryName: 'Sunil Fernando',
       phone: '0715566778',
@@ -1941,7 +1926,7 @@ class FertilizerStore {
       acres: 9,
       nicCopy: 'nic_ranjith.jpg',
       landTitleCopy: 'deed_river_bend.pdf',
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '05 Nov 2026 · Morning',
       beneficiaryName: 'Ranjith Jayasuriya',
       phone: '0761122334',
@@ -2009,7 +1994,7 @@ class FertilizerStore {
       acres: 6,
       nicCopy: 'nic_nushrath.jpg',
       landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '17 Nov 2026 · Morning',
       beneficiaryName: 'Nushrath Silva',
       address: '42 Marine Drive, Colombo 03',
@@ -2043,7 +2028,7 @@ class FertilizerStore {
       acres: 6,
       nicCopy: 'nic_nushrath.jpg',
       landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '14 Nov 2026 · Afternoon',
       beneficiaryName: 'Nushrath Silva',
       phone: '0712000011',
@@ -2056,7 +2041,7 @@ class FertilizerStore {
         ),
         FertChat(
           'CDO - Colombo',
-          'Checking stock at CCB. Can you take morning instead?',
+          'Checking stock at CDO. Can you take morning instead?',
           '14 Nov · 15:40',
         ),
         FertChat(
@@ -2081,7 +2066,7 @@ class FertilizerStore {
       acres: 6,
       nicCopy: 'nic_nushrath.jpg',
       landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '08 Nov 2026 · Morning',
       beneficiaryName: 'Nushrath Silva',
       phone: '0712000011',
@@ -2109,7 +2094,7 @@ class FertilizerStore {
       acres: 6,
       nicCopy: 'nic_nushrath.jpg',
       landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '28 Oct 2026 · Morning',
       beneficiaryName: 'Nushrath Silva',
       phone: '0712000011',
@@ -2137,7 +2122,7 @@ class FertilizerStore {
       acres: 6,
       nicCopy: 'nic_nushrath.jpg',
       landTitleCopy: 'deed_COL_KDW_2020_1188.pdf',
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '05 Oct 2026 · Morning',
       beneficiaryName: 'Nushrath Silva',
       phone: '0712000011',
@@ -2161,7 +2146,7 @@ class FertilizerStore {
       district: 'Colombo',
       estateName: 'Colombo Palm Estate',
       acres: 6,
-      outlet: 'CCB',
+      outlet: 'CDO',
       preferred: '18 Sep 2026 · Afternoon',
       beneficiaryName: 'Nushrath Silva',
       phone: '0712000011',
@@ -2478,11 +2463,11 @@ class FertilizerStore {
     }
   }
 
-  /// Estate owner confirms government delivery.
+  /// Estate owner confirms government delivery → then can rate CDO.
   void confirmGovReceipt(String id) {
     for (final r in govRequests) {
       if (r.id == id && r.status == 'Distributed') {
-        r.status = 'Receipt Confirmed';
+        r.status = 'Completed';
         r.chat.add(
           FertChat(
             r.estateName.isNotEmpty ? r.estateName : r.owner,
@@ -2492,7 +2477,7 @@ class FertilizerStore {
         );
         notifyCdo(
           title: '${r.owner} confirmed receipt',
-          body: '${r.id} · government order completed.',
+          body: '${r.id} · government order completed · awaiting rating.',
           kind: 'accepted',
           orderId: r.id,
         );
@@ -2502,12 +2487,34 @@ class FertilizerStore {
     }
   }
 
+  /// Estate rates the government / CDO desk after a completed subsidy order.
+  void rateGovRequest(
+    String id, {
+    required int stars,
+    String note = '',
+  }) {
+    final s = stars.clamp(1, 5);
+    for (final r in govRequests) {
+      if (r.id != id || r.status != 'Completed') continue;
+      r.ownerStars = s;
+      r.ownerRateNote = note;
+      notifyCdo(
+        title: '${r.owner} rated government supply',
+        body: '${r.id} · $s/5${note.isEmpty ? '' : ' · $note'}',
+        kind: 'accepted',
+        orderId: r.id,
+      );
+      persistGov(r);
+      return;
+    }
+  }
+
   // --- Shop chat (owner map negotiation ↔ supplier Messages) ---
 
   /// Unread owner→supplier messages per placeId.
-  /// Why: Colombo Agro Mart starts with unread owner chat so the Messages badge shows.
+  /// Why: Nadeesha Stores starts with unread owner chat so the Messages badge shows.
   final Map<String, int> shopTalkUnread = {
-    'PL-CMB-1': 2,
+    'PL4': 2,
   };
 
   List<FertChat> shopMessages(String placeId) =>
@@ -3134,7 +3141,7 @@ class FertilizerStore {
           : double.tryParse('${raw['acres']}') ?? 0,
       nicCopy: '${raw['nic_copy'] ?? raw['nicCopy'] ?? ''}',
       landTitleCopy: '${raw['land_title_copy'] ?? raw['landTitleCopy'] ?? ''}',
-      outlet: '${raw['outlet'] ?? 'CCB'}',
+      outlet: '${raw['outlet'] ?? 'CDO'}',
       preferred: '${raw['preferred'] ?? ''}',
       beneficiaryName:
           '${raw['beneficiary_name'] ?? raw['beneficiaryName'] ?? ''}',
@@ -3150,6 +3157,11 @@ class FertilizerStore {
       deliveryAt: raw['delivery_at'] == null && raw['deliveryAt'] == null
           ? null
           : _parseDate(raw['delivery_at'] ?? raw['deliveryAt']),
+      ownerStars: raw['owner_stars'] == null && raw['ownerStars'] == null
+          ? null
+          : (raw['owner_stars'] ?? raw['ownerStars'] as num?)?.toInt(),
+      ownerRateNote:
+          '${raw['owner_rate_note'] ?? raw['ownerRateNote'] ?? ''}',
       chat: _parseChats(raw['chat']),
     );
   }

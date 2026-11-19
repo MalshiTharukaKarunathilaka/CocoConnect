@@ -3,6 +3,7 @@ import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_cancel_reasons.dart';
 import 'fertilizer_data.dart';
+import 'fertilizer_doc_viewer.dart';
 
 /// CDO reads the estate Annex 01 application.
 /// Pending → Accept / Cancel. Accepted → Delivered / Dispute.
@@ -90,7 +91,7 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
                     children: [
                       _formCard(r),
                       const SizedBox(height: 12),
-                      _docsCard(r),
+                      _docsCard(context, r),
                     ],
                   ),
                 ),
@@ -315,7 +316,7 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
     );
   }
 
-  Widget _docsCard(FertGovRequest r) {
+  Widget _docsCard(BuildContext context, FertGovRequest r) {
     final hasNic = r.nicCopy.isNotEmpty;
     final hasTitle = r.landTitleCopy.isNotEmpty;
     return Container(
@@ -339,10 +340,23 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
               style: TextStyle(color: AppColors.muted, fontSize: 12.5),
             )
           else ...[
-            if (hasNic) _docTile('NIC copy', r.nicCopy),
+            if (hasNic)
+              _docTile(
+                context,
+                'NIC copy',
+                r.nicCopy,
+                path: r.nicCopyPath,
+                bytes: r.nicBytes,
+              ),
             if (hasTitle) ...[
               if (hasNic) const SizedBox(height: 8),
-              _docTile('Land title / deed', r.landTitleCopy),
+              _docTile(
+                context,
+                'Land title / deed',
+                r.landTitleCopy,
+                path: r.landTitleCopyPath,
+                bytes: r.landTitleBytes,
+              ),
             ],
           ],
         ],
@@ -350,37 +364,60 @@ class FertilizerCdoRequestSheet extends StatelessWidget {
     );
   }
 
-  Widget _docTile(String label, String fileName) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.greenSoft,
+  Widget _docTile(
+    BuildContext context,
+    String label,
+    String fileName, {
+    String path = '',
+    List<int>? bytes,
+  }) {
+    return Material(
+      color: AppColors.greenSoft,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.green.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.description_outlined, color: AppColors.green),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                  ),
-                ),
-                Text(
-                  fileName,
-                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
-                ),
-              ],
-            ),
+        onTap: () => showFertDocViewer(
+          context,
+          title: label,
+          fileName: fileName,
+          path: path,
+          bytes: bytes,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.green.withValues(alpha: 0.35)),
           ),
-        ],
+          child: Row(
+            children: [
+              const Icon(Icons.description_outlined, color: AppColors.green),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      fileName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.visibility_outlined, color: AppColors.green),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -77,7 +77,7 @@ Future<void> showGovSentDialog(BuildContext context, FertGovRequest r) {
   );
 }
 
-/// CCB Annex 01 (RH/AGRI/CCB/01) — Application for Obtaining Fertilizer.
+/// CDO Annex 01 (RH/AGRI/CDO/01) — Application for Obtaining Fertilizer.
 /// Estate / land size fields are filled from the owner profile and locked.
 class FertilizerGovOrderForm extends StatefulWidget {
   const FertilizerGovOrderForm({
@@ -164,7 +164,7 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     String? err;
     if (_nic == null) {
       err = 'Attach a copy of your National Identity Card';
@@ -180,6 +180,16 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
 
     final store = FertilizerStore.instance;
     final p = _profile;
+    // Why: keep bytes so the CDO office can open/view the NIC, not only the name.
+    List<int>? nicBytes;
+    List<int>? titleBytes;
+    try {
+      nicBytes = await _nic!.readAsBytes();
+      titleBytes = await _title!.readAsBytes();
+    } catch (_) {
+      nicBytes = null;
+      titleBytes = null;
+    }
     final req = FertGovRequest(
       id: 'FR-${1000 + store.govRequests.length + 1}',
       owner: p.estateName,
@@ -192,7 +202,11 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
       estateName: p.estateName,
       acres: p.acres.toDouble(),
       nicCopy: _nic!.name,
+      nicCopyPath: _nic!.path,
+      nicBytes: nicBytes,
       landTitleCopy: _title!.name,
+      landTitleCopyPath: _title!.path,
+      landTitleBytes: titleBytes,
       outlet: widget.place.company,
       preferred: '${shortDate(widget.draft.date)} · ${widget.draft.slot}',
       beneficiaryName: p.fullName,
@@ -208,6 +222,7 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
       annualHarvestNuts: p.annualHarvestNuts,
     );
     store.placeGovRequest(req);
+    if (!mounted) return;
     Navigator.pop(context, req);
   }
 
@@ -246,7 +261,7 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
                       ),
                     ),
                     Text(
-                      'Annex 01 · RH/AGRI/CCB/01',
+                      'Annex 01 · RH/AGRI/CDO/01',
                       style: TextStyle(fontSize: 11.5, color: AppColors.muted),
                     ),
                   ],
@@ -558,7 +573,7 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
                     child: Padding(
                       padding: EdgeInsets.only(left: 10),
                       child: Text(
-                        'CCB fertilizer application',
+                        'CDO fertilizer application',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,

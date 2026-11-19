@@ -11,6 +11,7 @@ import 'fertilizer_cdo_stock_page.dart';
 import 'fertilizer_chrome.dart';
 import 'fertilizer_data.dart';
 import 'fertilizer_dispute_sheet.dart';
+import 'fertilizer_doc_viewer.dart';
 import 'fertilizer_rating_sheet.dart';
 import 'fertilizer_supplier_chat_page.dart';
 import 'fertilizer_supplier_messages_page.dart';
@@ -389,16 +390,47 @@ class _ProviderHubState extends State<ProviderHub> {
           ),
           if (r.nicCopy.isNotEmpty || r.landTitleCopy.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(
-              [
-                if (r.nicCopy.isNotEmpty) 'NIC attached',
-                if (r.landTitleCopy.isNotEmpty) 'Land title attached',
-              ].join(' · '),
-              style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.green,
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                if (r.nicCopy.isNotEmpty)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.green,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () => showFertDocViewer(
+                      context,
+                      title: 'NIC copy',
+                      fileName: r.nicCopy,
+                      path: r.nicCopyPath,
+                      bytes: r.nicBytes,
+                    ),
+                    icon: const Icon(Icons.visibility_outlined, size: 16),
+                    label: const Text('View NIC'),
+                  ),
+                if (r.landTitleCopy.isNotEmpty)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.green,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () => showFertDocViewer(
+                      context,
+                      title: 'Land title / deed',
+                      fileName: r.landTitleCopy,
+                      path: r.landTitleCopyPath,
+                      bytes: r.landTitleBytes,
+                    ),
+                    icon: const Icon(Icons.visibility_outlined, size: 16),
+                    label: const Text('View land title'),
+                  ),
+              ],
             ),
           ],
           const SizedBox(height: 10),
@@ -1299,7 +1331,7 @@ class _ProviderHubState extends State<ProviderHub> {
                             borderRadius: BorderRadius.circular(99),
                           ),
                           child: const Text(
-                            'Verified CCB officer',
+                            'Verified CDO officer',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 11,
@@ -1398,7 +1430,7 @@ class _ProviderHubState extends State<ProviderHub> {
           icon: Icons.folder_open_outlined,
           children: [
             _cdoDocTile(
-              'CCB ID card',
+              'CDO ID card',
               idCard.isEmpty ? 'Not uploaded' : idCard,
               uploaded: idCard.isNotEmpty,
             ),
@@ -1412,7 +1444,7 @@ class _ProviderHubState extends State<ProviderHub> {
         ),
         const SizedBox(height: 14),
         Text(
-          'Official records are managed by CCB admin. Contact your regional office to update employment details.',
+          'Official records are managed by CDO admin. Contact your regional office to update employment details.',
           style: TextStyle(
             fontSize: 12,
             color: AppColors.muted.withValues(alpha: 0.95),

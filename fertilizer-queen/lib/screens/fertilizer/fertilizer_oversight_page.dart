@@ -830,7 +830,7 @@ class _FertilizerOversightPageState extends State<FertilizerOversightPage> {
                     left: 12,
                     bottom: 12,
                     child: Text(
-                      'Sample data · not official CCB boundaries',
+                      'Sample data · not official CDO boundaries',
                       style: TextStyle(fontSize: 10, color: AppColors.muted),
                     ),
                   ),
