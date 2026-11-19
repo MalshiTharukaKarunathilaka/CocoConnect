@@ -215,6 +215,10 @@ class AppNotification {
   final int? orderId;
   final int? dayJobChatId;
   final int? dayJobId;
+  final int? senderId;
+  final String? senderName;
+
+  bool get isChatMessage => type == NotificationType.chat && senderName != null;
 
   const AppNotification({
     required this.key,
@@ -228,6 +232,8 @@ class AppNotification {
     required this.orderId,
     required this.dayJobChatId,
     this.dayJobId,
+    this.senderId,
+    this.senderName,
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> json) =>
@@ -249,6 +255,8 @@ class AppNotification {
         orderId: json['order_id'] as int?,
         dayJobChatId: json['day_job_chat_id'] as int?,
         dayJobId: json['day_job_id'] as int?,
+        senderId: json['sender_id'] as int?,
+        senderName: json['sender_name'] as String?,
       );
 }
 
@@ -312,16 +320,28 @@ class ChatService {
     }
   }
 
-  static Future<int> unseenCount(List<AppNotification> items) async {
+  static Future<List<AppNotification>> unseenNotifications(
+    List<AppNotification> items,
+  ) async {
     final Set<String> seen = await _seen();
-    return items.where((item) => !seen.contains(item.key)).length;
+    return items.where((item) => !seen.contains(item.key)).toList();
   }
 
+  static Future<int> unseenCount(List<AppNotification> items) async =>
+      (await unseenNotifications(items)).length;
+
   static Future<void> markSeen(List<AppNotification> items) async {
+    final storageKey = _seenKey;
     try {
       final prefs = await SharedPreferences.getInstance();
-      // Only keep keys that still exist, so the list doesn't grow forever.
-      await prefs.setStringList(_seenKey, [for (final item in items) item.key]);
+      final seen = {
+        ...?prefs.getStringList(storageKey),
+        for (final item in items) item.key,
+      };
+      await prefs.setStringList(
+        storageKey,
+        seen.skip(seen.length > 2000 ? seen.length - 2000 : 0).toList(),
+      );
     } catch (_) {
       // Badges just stay on; nothing else depends on this.
     }
