@@ -12,7 +12,7 @@ import 'marketplace_page.dart';
 const Map<String, String> _photos = {
   'RAW_COCONUT': 'assets/images/raw_coconuts_green.jpg',
   'DEHUSKED_COCONUT': 'assets/images/dehusked_coconuts.jpg',
-  'COCONUT_HUSK': 'assets/images/coconut_husks_per_nut.png',
+  'COCONUT_HUSK': 'assets/images/only_husks.jpg',
 };
 
 /// Sits between Buying Categories and the marketplace - the buyer picks
