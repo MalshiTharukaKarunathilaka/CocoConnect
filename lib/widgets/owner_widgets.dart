@@ -23,12 +23,14 @@ class OwnerPage extends StatelessWidget {
   final Widget child;
   final Widget? bottom;
   final AppTab currentTab;
+  final bool showMainNavigation;
 
   const OwnerPage({
     super.key,
     required this.child,
     this.bottom,
     this.currentTab = AppTab.dashboard,
+    this.showMainNavigation = true,
   });
 
   @override
@@ -56,7 +58,9 @@ class OwnerPage extends StatelessWidget {
                       ),
                       child: SingleChildScrollView(child: bottom!),
                     ),
-                  if (supportsMainNavigation && bottom is! AppBottomNav)
+                  if (showMainNavigation &&
+                      supportsMainNavigation &&
+                      bottom is! AppBottomNav)
                     AppBottomNav(current: currentTab),
                 ],
               ),

@@ -91,6 +91,7 @@ class _FertilizerSupplierChatPageState
   Widget build(BuildContext context) {
     final msgs = o.negotiation;
     return OwnerPage(
+      showMainNavigation: false,
       child: Column(
         children: [
           OwnerHeader(

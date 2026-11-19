@@ -80,6 +80,7 @@ class FertPage extends StatelessWidget {
 
   Widget _frame(BuildContext context) {
     return OwnerPage(
+      showMainNavigation: false,
       bottom: bottom,
       child: Column(
         children: [

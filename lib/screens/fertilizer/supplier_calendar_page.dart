@@ -287,7 +287,7 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
     if (widget.embedded) {
       return ColoredBox(color: AppColors.cream, child: body);
     }
-    return OwnerPage(child: body);
+    return OwnerPage(showMainNavigation: false, child: body);
   }
 
   Widget _pendingCard(FertOrder o) {

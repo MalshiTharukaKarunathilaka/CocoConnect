@@ -54,6 +54,7 @@ class _FertilizerTalkPageState extends State<FertilizerTalkPage> {
   Widget build(BuildContext context) {
     final msgs = _msgs;
     return OwnerPage(
+      showMainNavigation: false,
       child: Column(
         children: [
           OwnerHeader(

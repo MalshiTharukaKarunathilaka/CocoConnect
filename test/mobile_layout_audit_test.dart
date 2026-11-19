@@ -19,6 +19,8 @@ import 'package:kapconnect_mobile/screens/fertilizer/live_fertilizer_orders_page
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kapconnect_mobile/widgets/app_bottom_nav.dart';
+import 'package:kapconnect_mobile/screens/fertilizer/fertilizer_chrome.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -329,6 +331,44 @@ final client = MockClient((request) async {
   return http.Response(jsonEncode(result), 200);
 });
 void main() {
+  testWidgets('Estate owner fertilizer uses only its own navigation', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    AuthService.currentUser = AppUser(
+      id: 1,
+      name: 'Estate owner',
+      phone: '0771234567',
+      role: 'ESTATE_OWNER',
+    );
+    addTearDown(() => AuthService.currentUser = null);
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    int? selected;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FertPage(
+          title: 'My orders',
+          bottom: FertTabBar(
+            items: const [
+              (Icons.receipt_long_outlined, 'My orders'),
+              (Icons.flag_outlined, 'Complaints'),
+            ],
+            current: 0,
+            onTap: (index) => selected = index,
+          ),
+          child: const SizedBox.shrink(),
+        ),
+      ),
+    );
+    expect(find.byType(FertTabBar), findsOneWidget);
+    expect(find.byType(AppBottomNav), findsNothing);
+    await tester.tap(find.text('Complaints'));
+    expect(selected, 1);
+  });
+
   final cases = <(String, String, Widget Function())>[
     ('00 LoginPage BUYER', 'BUYER', () => p0.LoginPage()),
     ('01 SignupPage ESTATE_OWNER', 'ESTATE_OWNER', () => p1.SignupPage()),

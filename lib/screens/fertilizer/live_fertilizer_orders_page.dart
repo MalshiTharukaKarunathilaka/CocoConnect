@@ -220,6 +220,7 @@ class _LiveFertilizerOrdersPageState extends State<LiveFertilizerOrdersPage> {
     return widget.embedded
         ? body
         : OwnerPage(
+            showMainNavigation: false,
             child: Column(
               children: [
                 const OwnerHeader(title: 'My fertilizer orders'),
