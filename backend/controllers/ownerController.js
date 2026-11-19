@@ -345,11 +345,13 @@ const getBuyerRequests = async (req, res) => {
     const ids = [...new Set(rows.map(row => row.buyer_id).filter(id => id != null))];
     const scores = await coconutTrustScores(ids, "BUYER");
     // Buyers' coordinates stay on the server; owners only see the distance.
-    return res
-      .status(200)
-      .json(rows.map(({ latitude, longitude, ...row }) => ({
-        ...row, trust_score: scores.get(row.buyer_id) ?? null,
-      })));
+    const requests = rows.map(({ latitude, longitude, ...row }) => ({
+      ...row, trust_score: scores.get(row.buyer_id) ?? null,
+    }));
+    if (req.query.sort === "trust") {
+      requests.sort((a, b) => (b.trust_score ?? 0) - (a.trust_score ?? 0));
+    }
+    return res.status(200).json(requests);
   } catch (error) {
     return serverError(res, "Get buyer requests", error);
   }

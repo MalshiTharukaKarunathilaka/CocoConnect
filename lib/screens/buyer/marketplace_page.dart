@@ -56,8 +56,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
     final _RequestMatch? match = _match;
     return BuyerService.getListings(
       productType: widget.type.code,
-      // Matches are always cheapest first.
-      sort: match == null ? _sort : ListingSort.priceLow,
+      sort: _sort,
       latitude: me?.latitude,
       longitude: me?.longitude,
       radiusKm: _radiusKm,
@@ -141,6 +140,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
         color: kBuyerGreen,
       );
       _match = _RequestMatch(nuts, _requiredDate!, price);
+      _sort = ListingSort.priceLow;
       _reloadListings();
       _nutsController.text = '0';
       _dateController.clear();
@@ -184,10 +184,6 @@ class _MarketplacePageState extends State<MarketplacePage> {
   }
 
   Future<void> _openFilter() async {
-    if (_match != null) {
-      _showSnack('Matching listings are sorted cheapest first');
-      return;
-    }
     final ListingSort? picked = await showModalBottomSheet<ListingSort>(
       isScrollControlled: true,
       useSafeArea: true,
@@ -363,7 +359,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
           Text(
             '${withCommas(match.quantity)} nuts or more  ·  available '
             '${shortDate(match.requiredDate)} to '
-            '${shortDate(match.latestDate)}  ·  cheapest first',
+            '${shortDate(match.latestDate)}  ·  ${_sort.label}',
             style: const TextStyle(
               fontSize: 12,
               height: 1.4,
@@ -602,10 +598,10 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
             const SizedBox(height: 8),
 
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
                   _sortChip(
                     label: 'Best Price',
                     selected: _sort == ListingSort.priceLow || _sort == ListingSort.priceHigh,
@@ -616,7 +612,6 @@ class _MarketplacePageState extends State<MarketplacePage> {
                       });
                     },
                   ),
-                  const SizedBox(width: 8),
                   _sortChip(
                     label: 'Earliest Pickup Date',
                     selected: _sort == ListingSort.newest,
@@ -627,7 +622,6 @@ class _MarketplacePageState extends State<MarketplacePage> {
                       });
                     },
                   ),
-                  const SizedBox(width: 8),
                   _sortChip(
                     label: 'Nearest Location',
                     selected: _sort == ListingSort.nearest,
@@ -638,8 +632,15 @@ class _MarketplacePageState extends State<MarketplacePage> {
                       });
                     },
                   ),
-                ],
-              ),
+                  _sortChip(
+                    label: 'Highest Trust Score',
+                    selected: _sort == ListingSort.trust,
+                    onTap: () {
+                      _sort = ListingSort.trust;
+                      _reloadListings();
+                    },
+                  ),
+              ],
             ),
 
             const SizedBox(height: 10),

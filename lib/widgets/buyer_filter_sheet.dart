@@ -40,6 +40,7 @@ class _BuyerFilterSheetState extends State<_BuyerFilterSheet> {
     'price': 'Best price',
     'date': 'Earliest pickup date',
     'nearest': 'Nearest location',
+    'trust': 'Highest trust score',
   };
 
   Widget _title(String text) => Padding(

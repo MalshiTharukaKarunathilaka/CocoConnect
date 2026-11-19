@@ -412,14 +412,25 @@ test('receipt confirmation is buyer-only, follows seller completion, and enables
   const activeListing = (await call('POST', '/api/owner/listings', {token: owner.token, body: {
     productType: 'RAW_COCONUT', quantity: 200, availableDate: '2026-12-12', offerPricePerUnit: 125,
   }})).data.listing;
+  const newSeller = await signup('New Estate', '0710000054', 'ESTATE_OWNER');
+  const unratedListing = (await call('POST', '/api/owner/listings', {token: newSeller.token, body: {
+    productType: 'RAW_COCONUT', quantity: 200, availableDate: '2026-12-12', offerPricePerUnit: 100,
+  }})).data.listing;
   const market = (await call('GET', '/api/buyer/listings?sort=trust', {token: buyer.token})).data;
   assert.equal(market.find(item => item.id === activeListing.id).trust_score, 5);
+  assert.ok(market.findIndex(item => item.id === activeListing.id) <
+    market.findIndex(item => item.id === unratedListing.id));
   const listingProfile = `/api/buyer/listings/${activeListing.id}/counterpart-profile`;
   assert.deepEqual((await call('GET', listingProfile, {token: buyer.token})).data.comments, ownerReviews.comments);
   assert.equal((await call('GET', listingProfile, {token: owner.token})).status, 403);
-  const requests = (await call('GET', '/api/owner/buyer-requests?type=COCONUT_HUSK', {token: owner.token})).data;
+  const unratedRequest = (await call('POST', '/api/buyer/requests', {token: outsider.token, body: {
+    productType: 'COCONUT_HUSK', requestedQuantity: 100,
+    requiredDate: '2026-12-12', biddingPricePerUnit: 999,
+  }})).data.buyerRequest;
+  const requests = (await call('GET', '/api/owner/buyer-requests?type=COCONUT_HUSK&sort=trust', {token: owner.token})).data;
   assert.ok(requests.length);
   assert.equal(requests[0].trust_score, 4);
+  assert.equal(requests.at(-1).id, unratedRequest.id);
   const requestProfile = `/api/owner/buyer-requests/${requests[0].id}/counterpart-profile`;
   assert.deepEqual((await call('GET', requestProfile, {token: owner.token})).data.comments, buyerReviews.comments);
   assert.equal((await call('GET', requestProfile, {token: buyer.token})).status, 403);

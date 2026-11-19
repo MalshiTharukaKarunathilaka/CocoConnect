@@ -488,6 +488,11 @@ class _DehuskedCoconutsPageState extends State<DehuskedCoconutsPage> {
                             isActive: buyerSort == 'nearest',
                             onTap: () => sortBuyers('nearest'),
                           ),
+                          FilterChipButton(
+                            text: 'Highest Trust Score',
+                            isActive: buyerSort == 'trust',
+                            onTap: () => sortBuyers('trust'),
+                          ),
                         ],
                       ),
 
