@@ -684,7 +684,7 @@ class _ProviderHubState extends State<ProviderHub> {
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(22),
                     ),
-                    child: Padding(
+                    child: SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,

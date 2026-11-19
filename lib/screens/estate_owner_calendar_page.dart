@@ -944,7 +944,7 @@ class _DayActionsSheet extends StatelessWidget {
         '${_months[date.month - 1]} ${date.year}';
 
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 14, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,

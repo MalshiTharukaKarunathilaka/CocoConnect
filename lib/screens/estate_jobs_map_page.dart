@@ -379,8 +379,9 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
           showDragHandle: true,
           builder: mobileSheetBuilder(
             (_) => SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              child: ListView(
+                primary: false,
+                shrinkWrap: true,
                 children: [
                   Text(
                     '${group.estates.length} nearby lands',
@@ -590,7 +591,7 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
       showDragHandle: true,
       builder: mobileSheetBuilder(
         (sheetContext) => SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
             child: Column(
               mainAxisSize: MainAxisSize.min,

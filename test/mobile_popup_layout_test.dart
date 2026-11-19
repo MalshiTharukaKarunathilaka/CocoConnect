@@ -6,6 +6,7 @@ import 'package:kapconnect_mobile/services/auth_service.dart';
 import 'package:kapconnect_mobile/services/owner_service.dart';
 import 'package:kapconnect_mobile/services/activity_service.dart';
 import 'package:kapconnect_mobile/widgets/buyer_filter_sheet.dart';
+import 'package:kapconnect_mobile/widgets/deal_cancellation_dialog.dart';
 import 'package:kapconnect_mobile/widgets/order_rating_dialog.dart';
 import 'package:kapconnect_mobile/widgets/land_owner_rating_dialog.dart';
 import 'package:kapconnect_mobile/screens/account_dialogs.dart';
@@ -74,7 +75,11 @@ void main() {
     (
       'send machinery booking request',
       (context) {
-        showReviseRequestDialog(context, fixtures.booking, initialRequest: true);
+        showReviseRequestDialog(
+          context,
+          fixtures.booking,
+          initialRequest: true,
+        );
       },
     ),
     (
@@ -89,6 +94,34 @@ void main() {
         showOrderRating(
           context,
           OrderItem.fromJson({...fixtures.order, 'status': 'COMPLETED'}),
+        );
+      },
+    ),
+    (
+      'cancel coconut deal',
+      (context) {
+        showDealCancellationDialog(context, type: DealCancellationType.coconut);
+      },
+    ),
+    (
+      'select date',
+      (context) {
+        showDatePicker(
+          context: context,
+          builder: themedPicker,
+          initialDate: DateTime(2030, 1, 1),
+          firstDate: DateTime(2030),
+          lastDate: DateTime(2031),
+        );
+      },
+    ),
+    (
+      'select time',
+      (context) {
+        showTimePicker(
+          context: context,
+          builder: themedPicker,
+          initialTime: const TimeOfDay(hour: 9, minute: 0),
         );
       },
     ),
@@ -154,6 +187,7 @@ void main() {
     (320.0, 640.0, 260.0),
     (360.0, 740.0, 0.0),
     (412.0, 892.0, 300.0),
+    (1280.0, 800.0, 0.0),
   ]) {
     for (final item in cases) {
       testWidgets('${item.$1} at ${viewport.$1}, keyboard ${viewport.$3}', (
@@ -201,6 +235,24 @@ void main() {
             await tester.tap(find.text('Open popup'));
             await tester.pump();
             await tester.pump(const Duration(milliseconds: 500));
+            final dialog = find.byType(Dialog);
+            final isDialog = dialog.evaluate().isNotEmpty;
+            final surface = find
+                .descendant(
+                  of: isDialog ? dialog : find.byType(BottomSheet),
+                  matching: find.byType(Material),
+                )
+                .first;
+            expect(surface, findsOneWidget);
+            final bounds = tester.getRect(surface);
+            expect(bounds.width, lessThanOrEqualTo(isDialog ? 398 : 430));
+            expect(bounds.top, greaterThanOrEqualTo(0));
+            if (isDialog) {
+              expect(
+                bounds.bottom,
+                lessThanOrEqualTo(viewport.$2 - viewport.$3 + 1),
+              );
+            }
             final scrolls = find.byType(Scrollable).hitTestable();
             if (scrolls.evaluate().isNotEmpty) {
               await tester.drag(scrolls.last, const Offset(0, -250));

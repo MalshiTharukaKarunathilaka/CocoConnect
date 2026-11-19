@@ -5,15 +5,18 @@ import 'package:flutter/material.dart';
 WidgetBuilder mobileSheetBuilder(WidgetBuilder builder) => (context) {
   final media = MediaQuery.of(context);
   final keyboard = media.viewInsets.bottom;
-  final height = (media.size.height - keyboard).clamp(0.0, media.size.height);
   return Padding(
     padding: EdgeInsets.only(bottom: keyboard),
-    child: MediaQuery(
-      data: media.copyWith(
-        viewInsets: EdgeInsets.zero,
-        size: Size(media.size.width, height),
+    child: SafeArea(
+      top: false,
+      child: LayoutBuilder(
+        builder: (context, constraints) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(viewInsets: EdgeInsets.zero, size: constraints.biggest),
+          child: Builder(builder: builder),
+        ),
       ),
-      child: Builder(builder: builder),
     ),
   );
 };

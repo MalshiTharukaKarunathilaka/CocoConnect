@@ -127,8 +127,9 @@ class _FertilizerGovOrderFormState extends State<FertilizerGovOrderForm> {
       ),
       builder: mobileSheetBuilder(
         (ctx) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: ListView(
+            primary: false,
+            shrinkWrap: true,
             children: [
               const SizedBox(height: 8),
               ListTile(

@@ -2411,6 +2411,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('Complete this job?'),
         content: Text(
           'You are marking the ${job.category} job on '

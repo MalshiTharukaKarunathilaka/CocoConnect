@@ -420,7 +420,7 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: mobileSheetBuilder(
-        (ctx) => Padding(
+        (ctx) => SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -483,7 +483,7 @@ class _SupplierCalendarPageState extends State<SupplierCalendarPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: mobileSheetBuilder(
-        (ctx) => Padding(
+        (ctx) => SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,

@@ -154,9 +154,10 @@ class AppThemeScope extends StatelessWidget {
         ),
       ),
       dialogTheme: DialogThemeData(
+        constraints: AppTheme.dialogConstraints,
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        insetPadding: AppTheme.dialogInsets,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.callout),
         ),
@@ -164,7 +165,7 @@ class AppThemeScope extends StatelessWidget {
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
-        constraints: BoxConstraints(maxWidth: 430),
+        constraints: AppTheme.sheetConstraints,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppRadius.callout),
@@ -286,20 +287,40 @@ Future<T?> showThemedBottomSheet<T>({
 
 /// The pickers take their theme from here.
 Widget themedPicker(BuildContext context, Widget? child) =>
-    AppThemeScope(child: child ?? const SizedBox.shrink());
+    AppThemeScope(
+      child: Builder(
+        builder: (context) {
+          final media = MediaQuery.of(context);
+          return MediaQuery(
+            data: media.copyWith(
+              size: Size(
+                media.size.width.clamp(0.0, AppTheme.sheetConstraints.maxWidth),
+                media.size.height,
+              ),
+            ),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+      ),
+    );
 
 /// The app-wide theme, the same look as before (Material 3 with Arial).
 class AppTheme {
   AppTheme._();
 
+  static const dialogInsets = EdgeInsets.symmetric(horizontal: 12, vertical: 12);
+  static const dialogConstraints = BoxConstraints(maxWidth: 398);
+  static const sheetConstraints = BoxConstraints(maxWidth: 430);
+
   static ThemeData light() => ThemeData(
     useMaterial3: true,
     fontFamily: 'Arial',
     dialogTheme: const DialogThemeData(
-      insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      insetPadding: dialogInsets,
+      constraints: dialogConstraints,
     ),
     bottomSheetTheme: const BottomSheetThemeData(
-      constraints: BoxConstraints(maxWidth: 430),
+      constraints: sheetConstraints,
     ),
   );
 }

@@ -50,6 +50,7 @@ class _FertilizerOrderEditSheetState extends State<FertilizerOrderEditSheet> {
 
   Future<void> _pickDate() async {
     final d = await showDatePicker(
+      builder: themedPicker,
       context: context,
       initialDate: _date,
       firstDate: DateTime.now(),
