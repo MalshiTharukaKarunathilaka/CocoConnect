@@ -17,6 +17,25 @@ const { getHealth } = require("./controllers/healthController");
 const app = express();
 
 app.use(cors());
+// Log each client request so phone connectivity can be checked from the
+// backend terminal. HTTP only shows a device when it makes a request; it
+// cannot detect when the device joins or leaves the Wi-Fi hotspot.
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+  const deviceId = req.get("x-device-id") || "unknown-client";
+  const devicePlatform = req.get("x-device-platform") || "unknown";
+  const userAgent = req.get("user-agent") || "unknown";
+
+  res.on("finish", () => {
+    console.log(
+      `[${new Date().toISOString()}] CLIENT REQUEST IP=${clientIp} ` +
+      `DEVICE_ID=${deviceId} PLATFORM=${devicePlatform} ${req.method} ${req.path} ` +
+      `STATUS=${res.statusCode} DURATION=${Date.now() - startedAt}ms UA="${userAgent}"`
+    );
+  });
+  next();
+});
 app.use('/api/fertilizer', express.json({limit: '16mb'}));
 app.use(express.json());
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));

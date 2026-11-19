@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -42,6 +43,7 @@ class ApiClient {
   }
 
   static const _tokenKey = 'auth_token';
+  static const _deviceIdKey = 'install_device_id';
   // Completion acknowledgements update the job and its accepted applications
   // in one transaction, which can take longer on a cold backend connection.
   static const _timeout = Duration(seconds: 45);
@@ -66,49 +68,68 @@ class ApiClient {
     await prefs.remove(_tokenKey);
   }
 
-  static Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    if (_token != null) 'Authorization': 'Bearer $_token',
-  };
-
-  static Future<dynamic> get(String path, {Map<String, String>? query}) {
-    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
-    return _send(() => http.get(uri, headers: _headers));
+  static Future<Map<String, String>> _headers() async {
+    final prefs = await SharedPreferences.getInstance();
+    var deviceId = prefs.getString(_deviceIdKey);
+    if (deviceId == null) {
+      final random = Random.secure();
+      deviceId = List.generate(
+        16,
+        (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+      ).join();
+      await prefs.setString(_deviceIdKey, deviceId);
+    }
+    return {
+      'Content-Type': 'application/json',
+      'X-Device-ID': deviceId,
+      'X-Device-Platform': Platform.operatingSystem,
+      if (_token != null) 'Authorization': 'Bearer $_token',
+    };
   }
 
-  static Future<dynamic> post(String path, [Map<String, dynamic>? body]) {
+  static Future<dynamic> get(String path, {Map<String, String>? query}) async {
+    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
+    final headers = await _headers();
+    return _send(() => http.get(uri, headers: headers));
+  }
+
+  static Future<dynamic> post(String path, [Map<String, dynamic>? body]) async {
+    final headers = await _headers();
     return _send(
       () => http.post(
         Uri.parse('$baseUrl$path'),
-        headers: _headers,
+        headers: headers,
         body: jsonEncode(body ?? {}),
       ),
     );
   }
 
-  static Future<dynamic> patch(String path, [Map<String, dynamic>? body]) {
+  static Future<dynamic> patch(String path, [Map<String, dynamic>? body]) async {
+    final headers = await _headers();
     return _send(
       () => http.patch(
         Uri.parse('$baseUrl$path'),
-        headers: _headers,
+        headers: headers,
         body: jsonEncode(body ?? {}),
       ),
     );
   }
 
-  static Future<dynamic> put(String path, [Map<String, dynamic>? body]) {
+  static Future<dynamic> put(String path, [Map<String, dynamic>? body]) async {
+    final headers = await _headers();
     return _send(
       () => http.put(
         Uri.parse('$baseUrl$path'),
-        headers: _headers,
+        headers: headers,
         body: jsonEncode(body ?? {}),
       ),
     );
   }
 
-  static Future<dynamic> delete(String path) {
+  static Future<dynamic> delete(String path) async {
+    final headers = await _headers();
     return _send(
-      () => http.delete(Uri.parse('$baseUrl$path'), headers: _headers),
+      () => http.delete(Uri.parse('$baseUrl$path'), headers: headers),
     );
   }
 
