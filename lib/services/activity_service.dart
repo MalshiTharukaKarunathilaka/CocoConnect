@@ -197,6 +197,11 @@ class Activity {
 class ActivityService {
   ActivityService._();
 
+  static Future<int> ownerHandoversDueToday() async {
+    final data = await ApiClient.get('/api/owner/orders/due-today');
+    return (data['count'] as num).toInt();
+  }
+
   static Future<Activity> load() async {
     final data = await ApiClient.get('/api/activity');
     return Activity.fromJson(data as Map<String, dynamic>);

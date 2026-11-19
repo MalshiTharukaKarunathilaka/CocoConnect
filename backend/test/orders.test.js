@@ -487,3 +487,39 @@ test('profile averages only received buyer ratings on completed orders across bo
   assert.equal(result.rating_count, 2, 'each rated order counts once; owner-given ratings do not count');
   assert.notEqual(result.estate.id, (await call('GET', '/api/owner/summary', {token: owner.token})).data.estate.id);
 });
+
+test('owner badge counts only accepted handovers due today in Sri Lanka', async () => {
+  const seller = await signup('Handover Estate', '0710000048', 'ESTATE_OWNER');
+  const pool = require('../config/db');
+  const {addDays} = require('../utils/geo');
+  const today = new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Colombo'}).format(new Date());
+  const addOrder = async (date, status) => {
+    const listing = await call('POST', '/api/owner/listings', {
+      token: seller.token,
+      body: {
+        productType: 'RAW_COCONUT', quantity: 100,
+        availableDate: date, offerPricePerUnit: 120,
+      },
+    });
+    assert.equal(listing.status, 201);
+    const {rows: [order]} = await pool.query(
+      'INSERT INTO orders (listing_id, buyer_id, status) VALUES ($1, $2, $3) RETURNING id',
+      [listing.data.listing.id, buyer.user.id, status],
+    );
+    return order.id;
+  };
+  const first = await addOrder(today, 'ACCEPTED');
+  await addOrder(today, 'ACCEPTED');
+  await addOrder(today, 'AWAITING_RECEIPT');
+  await addOrder(today, 'COMPLETED');
+  await addOrder(today, 'CANCELLED');
+  await addOrder(addDays(today, 1), 'ACCEPTED');
+  await addOrder(addDays(today, -1), 'ACCEPTED');
+
+  const endpoint = '/api/owner/orders/due-today';
+  assert.deepEqual((await call('GET', endpoint, {token: seller.token})).data, {count: 2});
+  assert.deepEqual((await call('GET', endpoint, {token: owner.token})).data, {count: 0});
+  assert.equal((await call('GET', endpoint, {token: buyer.token})).status, 403);
+  await pool.query("UPDATE orders SET status = 'AWAITING_RECEIPT' WHERE id = $1", [first]);
+  assert.deepEqual((await call('GET', endpoint, {token: seller.token})).data, {count: 1});
+});

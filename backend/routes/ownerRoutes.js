@@ -28,6 +28,7 @@ const {
   rateDayJobWorker,
 } = require("../controllers/ownerController");
 const { requireAuth, requireRole } = require("../middleware/auth");
+const { getOwnerHandoverCount } = require("../controllers/activityController");
 
 const router = express.Router();
 
@@ -312,6 +313,7 @@ router.post("/negotiations/:id/accept", acceptNegotiation);
  *         description: Orders from chats and from accepted offers
  */
 router.get("/orders", getMyOrders);
+router.get("/orders/due-today", getOwnerHandoverCount);
 
 /**
  * @swagger

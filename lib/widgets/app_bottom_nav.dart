@@ -6,6 +6,7 @@ import '../screens/chat/notifications_page.dart';
 import '../screens/estate_owner_profile_page.dart';
 import '../screens/estate_owner_jobs_page.dart';
 import '../screens/orders/orders_page.dart';
+import '../services/activity_service.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
 import '../services/day_job_chat_service.dart';
@@ -43,6 +44,7 @@ class Unread {
   static int _refreshId = 0;
   static int? _userId;
   static final alertAttention = NotificationAttention();
+  static final ownerHandovers = ValueNotifier(0);
 
   static void _attach() {
     _bars++;
@@ -65,9 +67,13 @@ class Unread {
     if (_userId != user?.id) {
       _userId = user?.id;
       alertAttention.clear();
+      ownerHandovers.value = 0;
       counts.value = (chats: 0, coconutChats: 0, dayJobChats: 0, alerts: 0);
     }
     if (user == null) return;
+    if (user.role == 'ESTATE_OWNER') {
+      unawaited(_refreshOwnerHandovers(user.id, requestId));
+    }
     try {
       final role = user.role;
       final chats = await ChatService.getChats();
@@ -96,6 +102,20 @@ class Unread {
       );
     } catch (_) {
       // Keep the last counts if the server can't be reached.
+    }
+  }
+
+  static Future<void> _refreshOwnerHandovers(int userId, int requestId) async {
+    try {
+      final count = await ActivityService.ownerHandoversDueToday();
+      final user = AuthService.currentUser;
+      if (requestId == _refreshId &&
+          user?.id == userId &&
+          user?.role == 'ESTATE_OWNER') {
+        ownerHandovers.value = count;
+      }
+    } catch (_) {
+      // Keep the last count when the orders endpoint is unavailable.
     }
   }
 }
@@ -207,11 +227,17 @@ class _AppBottomNavState extends State<AppBottomNav> {
             ),
             if (widget.onProviderTab == null &&
                 widget.chatScope != ChatScope.dayJobs)
-              _item(
-                AppTab.orders,
-                Icons.receipt_long_outlined,
-                Icons.receipt_long,
-                'Orders',
+              ValueListenableBuilder(
+                valueListenable: Unread.ownerHandovers,
+                builder: (context, count, _) => _item(
+                  AppTab.orders,
+                  Icons.receipt_long_outlined,
+                  Icons.receipt_long,
+                  'Orders',
+                  badge: AuthService.currentUser?.role == 'ESTATE_OWNER'
+                      ? count
+                      : 0,
+                ),
               ),
             if (widget.onProviderTab == null &&
                 AuthService.currentUser?.role == 'ESTATE_OWNER' &&

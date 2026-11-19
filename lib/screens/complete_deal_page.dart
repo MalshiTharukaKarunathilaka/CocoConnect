@@ -117,6 +117,7 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
         requestPriceReview: diff != 0,
         disputeNote: _noteController.text.trim(),
       );
+      Unread.refresh();
       if (!mounted) return;
       _snack(
         diff == 0

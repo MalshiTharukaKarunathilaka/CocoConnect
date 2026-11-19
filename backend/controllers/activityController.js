@@ -216,4 +216,29 @@ const getSellOfferCounterpart = async (req, res) => {
   }
 };
 
-module.exports = { getActivity, myOrders, getOrderCounterpart, getSellOfferCounterpart };
+const sriLankaDate = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Colombo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+const getOwnerHandoverCount = async (req, res) => {
+  try {
+    const today = sriLankaDate.format(new Date());
+    const orders = await myOrders(req.user.id);
+    const due = new Set(orders.filter(order =>
+      order.my_role === "ESTATE_OWNER" &&
+      order.status === "ACCEPTED" &&
+      order.due_date === today
+    ).map(order => order.id));
+    return res.json({count: due.size});
+  } catch (error) {
+    return serverError(res, "Get orders to hand over today", error);
+  }
+};
+
+module.exports = {
+  getActivity, myOrders, getOrderCounterpart, getSellOfferCounterpart,
+  getOwnerHandoverCount,
+};
