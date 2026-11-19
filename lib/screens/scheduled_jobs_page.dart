@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/owner_service.dart';
 import '../widgets/owner_widgets.dart';
+import '../widgets/role_navigation_page.dart';
 import 'job_detail_page.dart';
 import 'post_day_job_page.dart';
 
@@ -96,26 +97,30 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return OwnerPage(
-      child: FutureBuilder<List<DayJob>>(
-        future: _jobs,
-        builder: (context, snapshot) {
-          final jobs = snapshot.data ?? const <DayJob>[];
-          return Column(
-            children: [
-              _header(jobs),
-              Expanded(
-                child: snapshot.connectionState == ConnectionState.waiting
-                    ? const Center(
-                        child: CircularProgressIndicator(color: _green),
-                      )
-                    : snapshot.hasError
-                    ? _errorState()
-                    : _content(jobs),
-              ),
-            ],
-          );
-        },
+    return RoleNavigationPage(
+      chatScope: ChatScope.dayJobs,
+      current: AppTab.jobs,
+      child: OwnerPage(
+        child: FutureBuilder<List<DayJob>>(
+          future: _jobs,
+          builder: (context, snapshot) {
+            final jobs = snapshot.data ?? const <DayJob>[];
+            return Column(
+              children: [
+                _header(jobs),
+                Expanded(
+                  child: snapshot.connectionState == ConnectionState.waiting
+                      ? const Center(
+                          child: CircularProgressIndicator(color: _green),
+                        )
+                      : snapshot.hasError
+                      ? _errorState()
+                      : _content(jobs),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

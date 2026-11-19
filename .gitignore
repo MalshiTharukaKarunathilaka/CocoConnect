@@ -98,3 +98,6 @@ fertilizer-queen/.flutter-plugins-dependencies
 fertilizer-queen/backend/node_modules/
 kapconnect-web/backend/node_modules/
 kapconnect-web/backend/data/
+# Node / admin-web
+**/node_modules/
+admin-web/dist/

@@ -4,6 +4,7 @@ import '../screens/buyer/buyer_profile_page.dart';
 import '../screens/chat/chats_page.dart';
 import '../screens/chat/notifications_page.dart';
 import '../screens/estate_owner_profile_page.dart';
+import '../screens/estate_owner_jobs_page.dart';
 import '../screens/orders/orders_page.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
@@ -13,7 +14,7 @@ const Color _green = Color(0xFF256B45);
 const Color _greenSoft = Color(0xFFDDEEE0);
 const Color _grey = Color(0xFF7A7A7A);
 
-enum AppTab { dashboard, orders, chats, alerts, profile }
+enum AppTab { dashboard, orders, jobs, chats, alerts, profile }
 
 enum ChatScope { all, coconut, dayJobs }
 
@@ -97,6 +98,7 @@ void openTab(
   final Widget? page = switch (tab) {
     AppTab.dashboard => null,
     AppTab.orders => OrdersPage(initialTab: ordersTab),
+    AppTab.jobs => const EstateOwnerJobsPage(),
     AppTab.chats => ChatsPage(scope: chatScope),
     AppTab.alerts => const NotificationsPage(),
     AppTab.profile => switch (role) {
@@ -186,12 +188,23 @@ class _AppBottomNavState extends State<AppBottomNav> {
               Icons.dashboard,
               'Dashboard',
             ),
-            if (widget.onProviderTab == null) _item(
-              AppTab.orders,
-              Icons.receipt_long_outlined,
-              Icons.receipt_long,
-              'Orders',
-            ),
+            if (widget.onProviderTab == null &&
+                widget.chatScope != ChatScope.dayJobs)
+              _item(
+                AppTab.orders,
+                Icons.receipt_long_outlined,
+                Icons.receipt_long,
+                'Orders',
+              ),
+            if (widget.onProviderTab == null &&
+                AuthService.currentUser?.role == 'ESTATE_OWNER' &&
+                widget.chatScope == ChatScope.dayJobs)
+              _item(
+                AppTab.jobs,
+                Icons.work_outline,
+                Icons.work,
+                'Jobs',
+              ),
             _item(
               AppTab.chats,
               Icons.chat_bubble_outline,
