@@ -10,6 +10,7 @@ const ownerRoutes = require("./routes/ownerRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const swaggerDocument = require("./config/swagger");
+const { getPublicProducts } = require("./controllers/adminController");
 
 const app = express();
 
@@ -26,6 +27,8 @@ app.get("/", (req, res) => {
   });
 });
 
+// the products the admin added, for the mobile app (no login needed)
+app.get("/api/products", getPublicProducts);
 app.use("/api/listings", listingRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/buyer", buyerRoutes);

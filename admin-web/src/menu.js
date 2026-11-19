@@ -48,8 +48,8 @@ export const MENU = [
     id: 'marketplace',
     label: 'Marketplace',
     items: [
-      ['orders', 'Orders', 'Machinery and service orders'],
       ['deal', 'Deals', 'Offers being negotiated'],
+      ['orders', 'Orders', 'Machinery and service orders'],
       ['transactions', 'Transactions', 'Completed payments'],
       ['disputes', 'Dispute Management', 'Open and resolved disputes'],
     ],
@@ -60,7 +60,8 @@ export const MENU = [
     items: [
       ['users', 'User Management', 'Users and verification'],
       ['soon-error-correction', 'Error Correction', 'Fix wrong records'],
-      ['regions', 'Product Setup', 'Regions and price bands'],
+      ['regions', 'Product Setup', 'Add the products shown in the mobile app'],
+      ['prices', 'Price Bands', 'Coconut price band of each district'],
       ['soon-audit-trail', 'Audit Trail', 'Who changed what'],
       ['reports', 'Reports', 'Summary and export'],
     ],

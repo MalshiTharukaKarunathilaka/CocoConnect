@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import DrillMap from './DrillMap'
 import { glyphHtml } from './pins'
 import { Bars, Donations, Donut, FigTiles, Overview, PhotoRow, ProvinceStrip, Split, areaBars, glyphRow, landStrip } from './AnalysisPages'
-import { MONTHS, compact, inScope, kgText, label, num, pct, rs, scopeName, sumBy } from './data'
+import { MONTHS, USD_LKR, compact, inScope, kgText, label, num, pct, rs, scopeName, sumBy } from './data'
 import PlatformPage from './PlatformPages'
 import { Card, Chips, DataTable, PageHead, Segmented } from './ui'
 
@@ -24,7 +24,7 @@ const monthly = (total, weights) => {
   const s = sumBy(weights, (w) => w) || 1
   return weights.map((w) => (total * w) / s)
 }
-const t1 = (n) => `${(Math.round(n * 10) / 10).toLocaleString('en-US')} t`
+const t1 = (n) => `${(Math.round(n * 10) / 10).toLocaleString('en-US')} MT`
 
 const TOUR = [
   { name: 'Plantation tour', color: '#2f8a4f', glyph: 'tent', price: 2500 },
@@ -97,16 +97,59 @@ const SUBS = [
   { name: 'Fertilizer', color: '#2f8a4f', glyph: 'sack', p: 0.5, schemes: ['Free issue', 'Reduced price', 'Cash grant'], amt: (a, r) => a * (4000 + r * 5000) },
   { name: 'Machinery', color: '#8e44ad', glyph: 'tractor', p: 0.15, schemes: ['Tractor subsidy', 'Hand tractor grant', 'Hire voucher'], amt: (a, r) => 40000 + r * 110000 },
   { name: 'Instruments', color: '#8b4a1c', glyph: 'wrench', p: 0.3, schemes: ['Harvesting tools', 'Climbing gear', 'Hand tools'], amt: (a, r) => 8000 + r * 17000 },
-  { name: 'Irrigation Equipment', color: '#0288d1', glyph: 'drop', p: 0.2, schemes: ['Drip kit', 'Sprinklers', 'Pump grant'], amt: (a, r) => a * (6000 + r * 6000) },
+  { name: 'Irrigation Equipment', color: '#0288d1', glyph: 'irrigation', p: 0.2, schemes: ['Drip kit', 'Sprinklers', 'Pump grant'], amt: (a, r) => a * (6000 + r * 6000) },
   { name: 'Guns', color: '#d9741a', glyph: 'spraygun', p: 0.25, schemes: ['Sprayer gun', 'Knapsack sprayer', 'Fogger'], amt: (a, r) => 12000 + r * 33000 },
-  { name: 'Planting Materials', color: '#43a047', glyph: 'sprouts', p: 0.35, schemes: ['Seedlings', 'Tissue-culture plants', 'Hybrid seed nuts'], amt: (a, r) => a * (5000 + r * 9000) },
+  { name: 'Planting Materials', color: '#43a047', glyph: 'seedlings', p: 0.35, schemes: ['Seedlings', 'Tissue-culture plants', 'Hybrid seed nuts'], amt: (a, r) => a * (5000 + r * 9000) },
   { name: 'Chemicals', color: '#c0392b', glyph: 'flask', p: 0.4, schemes: ['Pesticide', 'Fungicide', 'Weedicide'], amt: (a, r) => a * (2500 + r * 2500) },
 ]
+
+// The farm-input pages under Resources: what lands bought, from whom, and how much it cost.
+const RES = {
+  instruments: { p: 0.3, unit: 'items', suppliers: ['Ceylon Tools', 'Coco Gear Lanka', 'Agro Hardware', 'Kandy Farm Supplies'], cats: [
+    { name: 'Harvesting pole', color: '#8b4a1c', glyph: 'harvestpole', price: 3800, lo: 1, hi: 8, unit: 'poles' },
+    { name: 'Climbing gear', color: '#d9741a', glyph: 'climbgear', price: 9500, lo: 1, hi: 5, unit: 'sets' },
+    { name: 'Machete', color: '#607d8b', glyph: 'machete', price: 1800, lo: 2, hi: 12, unit: 'machetes' },
+    { name: 'Husking spike', color: '#8e44ad', glyph: 'wrench', price: 2600, lo: 1, hi: 6, unit: 'spikes' },
+  ] },
+  irrigation: { p: 0.2, unit: 'sets', suppliers: ['AquaFarm Lanka', 'Rainbird Agro', 'Water Wise Ceylon', 'Southern Irrigation'], cats: [
+    { name: 'Drip kit', color: '#0288d1', glyph: 'irrigation', price: 24000, lo: 1, hi: 10, unit: 'kits' },
+    { name: 'Sprinkler', color: '#26a69a', glyph: 'drop', price: 6500, lo: 2, hi: 20, unit: 'sprinklers' },
+    { name: 'Water pump', color: '#d9741a', glyph: 'drop', price: 68000, lo: 1, hi: 3, unit: 'pumps' },
+    { name: 'Pipes and fittings', color: '#5d4037', glyph: 'drop', price: 1200, lo: 20, hi: 200, unit: 'lengths' },
+  ] },
+  guns: { p: 0.25, unit: 'sprayers', suppliers: ['SprayTech Lanka', 'Agro Machines', 'Green Shield', 'Farm Power Ceylon'], cats: [
+    { name: 'Knapsack sprayer', color: '#d9741a', glyph: 'spraygun', price: 14500, lo: 1, hi: 6, unit: 'sprayers' },
+    { name: 'Power sprayer', color: '#c0392b', glyph: 'spraygun', price: 46000, lo: 1, hi: 3, unit: 'sprayers' },
+    { name: 'Fogger', color: '#8e44ad', glyph: 'spraygun', price: 62000, lo: 1, hi: 2, unit: 'foggers' },
+    { name: 'Hand sprayer', color: '#0288d1', glyph: 'spraygun', price: 3200, lo: 2, hi: 10, unit: 'sprayers' },
+  ] },
+  planting: { p: 0.35, unit: 'plants', suppliers: ['Coconut Research Nursery', 'Green Plant Lanka', 'Ceylon Seed Co.', 'Spice Nursery Matale'], cats: [
+    { name: 'Coconut seedlings', color: '#43a047', glyph: 'seedlings', price: 180, lo: 40, hi: 600, unit: 'seedlings' },
+    { name: 'Hybrid seed nuts', color: '#8b4a1c', glyph: 'shell', price: 95, lo: 100, hi: 1500, unit: 'nuts' },
+    { name: 'Tissue-culture plants', color: '#2f8a4f', glyph: 'sprouts', price: 420, lo: 20, hi: 300, unit: 'plants' },
+    { name: 'Pepper plants', color: '#9c2a23', glyph: 'pepperplant', price: 150, lo: 50, hi: 800, unit: 'plants' },
+  ] },
+  chemicals: { p: 0.4, unit: 'litres', suppliers: ['CIC Agribusiness', 'Hayleys Agriculture', 'Baurs Lanka', 'Agro Chem Ceylon'], cats: [
+    { name: 'Pesticide', color: '#c0392b', glyph: 'flask', price: 1600, lo: 5, hi: 60, unit: 'litres' },
+    { name: 'Fungicide', color: '#8e44ad', glyph: 'flask', price: 1400, lo: 5, hi: 50, unit: 'kg' },
+    { name: 'Weedicide', color: '#0288d1', glyph: 'flask', price: 1300, lo: 10, hi: 120, unit: 'litres' },
+    { name: 'Soil lime', color: '#9e9e9e', glyph: 'flask', price: 60, lo: 100, hi: 2000, unit: 'kg' },
+  ] },
+}
 
 const cache = new WeakMap()
 function topicRows(d) {
   if (cache.has(d)) return cache.get(d)
-  const out = { cult: [], tour: [], aqua: [], animal: [], energy: [], env: [], loans: [], insure: [], carbon: [] }
+  const out = { cult: [], tour: [], aqua: [], animal: [], energy: [], env: [], loans: [], insure: [], carbon: [], instruments: [], irrigation: [], guns: [], planting: [], chemicals: [] }
+  for (const e of d.estates) {
+    // farm inputs: each land buys some of each kind, from one supplier
+    for (const [key, cfg] of Object.entries(RES)) {
+      if (hr(e.id, key) >= cfg.p) continue
+      const c = pickOf(cfg.cats, hr(e.id, key + '1'))
+      const qty = Math.round(c.lo + hr(e.id, key + '2') * (c.hi - c.lo))
+      out[key].push({ e, cat: c.name, qty, unit: c.unit, supplier: pickOf(cfg.suppliers, hr(e.id, key + '3')), money: Math.round((qty * c.price * (0.9 + hr(e.id, key + '4') * 0.2)) / 10) * 10 })
+    }
+  }
   for (const e of d.estates) {
     const a = e.acres
     // loans: about two lands in five
@@ -590,10 +633,54 @@ export const LAND_TOPICS = {
   'soon-environment': 'env',
   'an-finance': 'finance',
   'an-subsidies': 'subsidies',
+  'soon-instruments': 'instruments',
+  'soon-irrigation': 'irrigation',
+  'soon-guns': 'guns',
+  'soon-planting-materials': 'planting',
+  'soon-chemicals': 'chemicals',
   'soon-error-correction': 'platform',
   'soon-audit-trail': 'platform',
 }
 
+
+
+// ----------------------------------------------------------------------------- the farm-input pages
+const resSpec = (key, cfg) => {
+  const R = RES[key]
+  return {
+    title: cfg.title, sub: cfg.sub, name: cfg.title, noun: cfg.noun, unit: 'lands',
+    rows: (t) => t[key], cats: R.cats, catTitle: cfg.catTitle, donutTitle: cfg.donutTitle, color: cfg.color, scale: cfg.scale,
+    mapTitle: cfg.mapTitle, mapSub: 'Each pin is a land that bought these, shown by what it bought.',
+    tip: (r) => `${num(r.qty)} ${r.unit} \u00b7 ${rs(r.money)}`,
+    rank: (r) => r.money, rankFmt: rs, topTitle: 'Biggest buyers', topSub: 'Spent over the year',
+    kpis: (s) => [
+      ['rotary', 'palm', 'green', 'Lands buying', num(s.length), 'lands that bought these'],
+      ['koku_nagula', 'users', 'amber', cfg.qtyLabel, compact(sumBy(s, (r) => r.qty)), 'bought in the year'],
+      ['disc_plough', 'wallet', 'blue', 'Spent', rs(sumBy(s, (r) => r.money)), 'in a year'],
+      ['trailer', 'gift', 'purple', 'Average per land', rs(s.length ? sumBy(s, (r) => r.money) / s.length : 0), 'in a year'],
+    ],
+    figs: (s) => {
+      const t = top1(tally(s, R.cats, (r) => r.money))
+      const c = t && R.cats.find((x) => x.name === t.name)
+      return [
+        ['Most bought', t && t.value ? t.name : '-', t && t.value ? `${rs(t.value)} spent` : '', glyphRow([c ? c.glyph : R.cats[0].glyph], [c ? c.color : cfg.color], 62)],
+        ['Suppliers used', num(new Set(s.map((r) => r.supplier)).size), 'different suppliers', glyphRow(R.cats.slice(0, 2).map((x) => x.glyph), R.cats.slice(0, 2).map((x) => x.color), 50)],
+      ]
+    },
+    month: {
+      title: `${cfg.title} bought each month`, sub: 'Rupees spent. Sample figures; more before the planting seasons', keys: ['Spent'], colors: [cfg.color], fmt: rs,
+      data: (s) => monthRows(['Spent'], [monthly(sumBy(s, (r) => r.money), [0.9, 0.85, 1, 1.15, 1.1, 1, 0.95, 0.95, 1.05, 1.1, 1, 0.95])]),
+    },
+    second: { title: 'Spent on each kind', sub: 'Rupees over the year', fmt: rs, data: (s) => tally(s, R.cats, (r) => r.money).sort((a, b) => b.value - a.value) },
+    cols: ['ID', 'Land', 'Owner', 'District', 'Kind', 'Quantity', 'Supplier', 'Spent'],
+    row: (r) => [r.e.id, r.e.name, r.e.owner, label(r.e.district), r.cat, `${num(r.qty)} ${r.unit}`, r.supplier, rs(r.money)],
+  }
+}
+SPECS.instruments = resSpec('instruments', { title: 'Instruments', sub: 'Harvesting poles, climbing gear and hand tools bought by registered lands', noun: 'Lands with tools', qtyLabel: 'Tools bought', catTitle: 'Tool', donutTitle: 'Kinds of tool', color: '#8b4a1c', scale: ['#f6e8df', '#e8c5ad', '#d49a73', '#b46a3f', '#7d3f1c'], mapTitle: 'Where the tools went' })
+SPECS.irrigation = resSpec('irrigation', { title: 'Irrigation equipment', sub: 'Drip kits, sprinklers, pumps and pipes bought by registered lands', noun: 'Lands with irrigation', qtyLabel: 'Sets bought', catTitle: 'Equipment', donutTitle: 'Kinds of equipment', color: '#0288d1', scale: ['#e4eff5', '#bad7e6', '#86b6cf', '#4f8fb0', '#25607f'], mapTitle: 'Where the water systems went' })
+SPECS.guns = resSpec('guns', { title: 'Guns', sub: 'Spray guns, power sprayers and foggers bought by registered lands', noun: 'Lands with sprayers', qtyLabel: 'Sprayers bought', catTitle: 'Sprayer', donutTitle: 'Kinds of sprayer', color: '#d9741a', scale: ['#fbefe0', '#f3d2a8', '#e8a95e', '#cf7a26', '#8f4d0d'], mapTitle: 'Where the sprayers went' })
+SPECS.planting = resSpec('planting', { title: 'Planting materials', sub: 'Seedlings, seed nuts, tissue-culture and pepper plants bought by registered lands', noun: 'Lands planting', qtyLabel: 'Plants bought', catTitle: 'Material', donutTitle: 'Kinds of planting material', color: '#43a047', scale: ['#e6f3e8', '#bfe0c5', '#8ec99a', '#4ea963', '#25703a'], mapTitle: 'Where new plants went' })
+SPECS.chemicals = resSpec('chemicals', { title: 'Chemicals', sub: 'Pesticides, fungicides, weedicides and soil lime bought by registered lands', noun: 'Lands using chemicals', qtyLabel: 'Quantity bought', catTitle: 'Chemical', donutTitle: 'Kinds of chemical', color: '#c0392b', scale: ['#fbe9e6', '#f2c2bb', '#e0867a', '#c4503f', '#8a2b1d'], mapTitle: 'Where the chemicals went' })
 
 // Each subsidy reuses the donation page: the same funding sources, counted in that subsidy's own unit.
 const SUB_UNITS = { Machinery: ['machines', 2500], Instruments: ['tool sets', 120], 'Irrigation Equipment': ['kits', 400], Guns: ['sprayers', 300], 'Planting Materials': ['plants', 0.2], Chemicals: ['litres', 1] }
@@ -607,10 +694,18 @@ function subsidyKind(name) {
   const fmt = all ? (v) => rs(v) : (v) => `${num(v)} ${unit}`
   subKinds[name] = {
     name: all ? 'All subsidies' : k.name, page: 'Subsidies', glyph: all ? 'gift' : k.glyph, color: all ? '#d99a0b' : k.color, noun: all ? 'subsidies' : k.name.toLowerCase(),
-    types, typeLabel: 'Scheme', fmt, axis: (v) => compact(v),
+    perFarmer: all ? (v) => `${rs(v)} per farmer` : (v) => `${num(Math.round(v * 10) / 10)} ${unit} per farmer`,
+    types: name === 'Planting Materials' ? [...types, 'Pepper plants'] : types, typeLabel: 'Scheme', fmt, axis: (v) => compact(v),
     derive: (x) => {
-      const areas = x.areas.map((a) => ({ ...a, kg: Math.round(a.kg / scale) })).filter((a) => a.kg > 0)
-      return { ...x, kg: Math.round(x.kg / scale), delivered: sumBy(areas, (a) => a.kg), areas, type: all ? 'All subsidies' : pickOf(k.schemes, hr(x.id, `dk${name}`)) }
+      // a donor given in dollars is counted in rupees on the All page, so the cards show the real amount
+      const base = Math.round(x.kg / scale)
+      const fixed = x.usd ? x.usd * USD_LKR : x.lkr // an amount given in dollars or rupees
+      const factor = all && fixed ? fixed / (base || 1) : 1
+      // a funder does not reach every district with every kind of subsidy, so each pick reaches its own districts and farmers
+      const reach = (a) => (all ? 1 : hr(x.id, `reach${name}${a.district}`) < 0.78 ? 0.45 + 0.55 * hr(x.id, `far${name}${a.district}`) : 0)
+      const areas = x.areas.map((a) => ({ ...a, kg: Math.round((a.kg / scale) * factor), farmers: all ? a.farmers : Math.round(a.farmers * reach(a)) })).filter((a) => a.kg > 0 && (all || reach(a) > 0))
+      const type = all ? (x.scheme || (x.only ? x.only.join(' + ') : 'All subsidies')) : x.scheme || pickOf(k.schemes, hr(x.id, `dk${name}`))
+      return { ...x, kg: all && fixed ? Math.round(fixed) : base, delivered: sumBy(areas, (a) => a.kg), areas, type }
     },
   }
   return subKinds[name]
@@ -619,15 +714,21 @@ function subsidyKind(name) {
 function Subsidies({ d, sel, setSel }) {
   const [kind, setKind] = useState('')
   const [pickedId, setPickedId] = useState(d.donations[0]?.id)
-  const chips = <Chips value={kind} onChange={setKind} options={SUBS.map((x) => x.name)} all="All" />
+  // pick the funder first; the subsidy types that follow are the ones that funder gives
+  const donor = d.donations.find((x) => x.id === pickedId)
+  const kinds = SUBS.map((x) => x.name)
+  const allowed = donor?.only ? kinds.filter((k) => donor.only.includes(k)) : kinds
+  const nameOf = (k) => (donor?.scheme && k === 'Planting Materials' ? donor.scheme : k) // the ADB only gives pepper plants
+  const here = allowed.includes(kind) ? kind : ''
+  const chips = <Chips value={here ? nameOf(here) : ''} onChange={(v) => setKind(v ? allowed.find((k) => nameOf(k) === v) || '' : '')} options={allowed.map(nameOf)} all="All" />
   const kindBar = (
     <div className="an-filterbar">
       <span>Subsidy</span>
       {chips}
     </div>
   )
-  if (kind === 'Fertilizer') return <Donations d={d} sel={sel} setSel={setSel} pickedId={pickedId} onPickId={setPickedId} kindBar={kindBar} />
-  return <Donations key={kind} d={d} sel={sel} setSel={setSel} pickedId={pickedId} onPickId={setPickedId} kindBar={kindBar} kind={subsidyKind(kind)} />
+  if (here === 'Fertilizer') return <Donations d={d} sel={sel} setSel={setSel} pickedId={pickedId} onPickId={setPickedId} kindBar={kindBar} cardKind={subsidyKind('')} />
+  return <Donations key={here} d={d} sel={sel} setSel={setSel} pickedId={pickedId} onPickId={setPickedId} kindBar={kindBar} kind={subsidyKind(here)} cardKind={subsidyKind('')} />
 }
 
 const FIN_TABS = [['loans', 'Loans'], ['insure', 'Insurance'], ['carbon', 'Carbon credits']]

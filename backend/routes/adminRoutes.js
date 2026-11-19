@@ -21,6 +21,10 @@ const {
   getRegions,
   getDistrictPrices,
   putRegionBand,
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
   getReports,
   getSettings,
   putSettings,
@@ -83,6 +87,11 @@ router.post("/disputes/:id/reject", rejectDispute);
 router.get("/regions", getRegions);
 router.get("/prices/districts", getDistrictPrices);
 router.put("/regions/band", putRegionBand);
+
+router.get("/products", getProducts);
+router.post("/products", createProduct);
+router.patch("/products/:id", updateProduct);
+router.delete("/products/:id", deleteProduct);
 
 router.get("/reports", getReports);
 router.get("/settings", getSettings);

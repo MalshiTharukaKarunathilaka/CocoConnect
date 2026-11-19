@@ -740,6 +740,159 @@ const putRegionBand = async (req, res) => {
   }
 };
 
+/* ── Catalogue products (added by the admin, read by the mobile app) ───── */
+
+let productsReady = null;
+const ensureProducts = () => {
+  productsReady ||= pool
+    .query(
+      `CREATE TABLE IF NOT EXISTS catalog_products (
+         id SERIAL PRIMARY KEY,
+         code VARCHAR NOT NULL UNIQUE,
+         name VARCHAR NOT NULL,
+         category VARCHAR NOT NULL DEFAULT 'Other',
+         unit VARCHAR NOT NULL DEFAULT 'item',
+         min_price NUMERIC,
+         max_price NUMERIC,
+         description TEXT,
+         image_url TEXT,
+         active BOOLEAN NOT NULL DEFAULT TRUE,
+         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+       )`
+    )
+    .catch((e) => {
+      productsReady = null;
+      throw e;
+    });
+  return productsReady;
+};
+
+const productOut = (r) => ({
+  id: r.id,
+  code: r.code,
+  name: r.name,
+  category: r.category,
+  unit: r.unit,
+  minPrice: r.min_price == null ? null : Number(r.min_price),
+  maxPrice: r.max_price == null ? null : Number(r.max_price),
+  description: r.description || "",
+  imageUrl: r.image_url || "",
+  active: r.active,
+  createdAt: r.created_at,
+});
+
+const priceOrNull = (v) => {
+  if (v === undefined || v === null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : NaN;
+};
+
+const getProducts = async (_req, res) => {
+  try {
+    await ensureProducts();
+    const r = await pool.query(`SELECT * FROM catalog_products ORDER BY created_at DESC, id DESC`);
+    return res.status(200).json(r.rows.map(productOut));
+  } catch (error) {
+    return serverError(res, "Admin products", error);
+  }
+};
+
+const createProduct = async (req, res) => {
+  try {
+    await ensureProducts();
+    const name = String(req.body.name || "").trim();
+    if (!name) return res.status(400).json({ message: "Product name is required" });
+    const min = priceOrNull(req.body.minPrice);
+    const max = priceOrNull(req.body.maxPrice);
+    if (Number.isNaN(min) || Number.isNaN(max)) {
+      return res.status(400).json({ message: "Prices must be numbers" });
+    }
+    if (min != null && max != null && min > max) {
+      return res.status(400).json({ message: "The lowest price cannot be above the highest" });
+    }
+    const code = name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+    if (!code) return res.status(400).json({ message: "Product name needs letters or numbers" });
+    const r = await pool.query(
+      `INSERT INTO catalog_products (code, name, category, unit, min_price, max_price, description, image_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        code,
+        name,
+        String(req.body.category || "Other").trim() || "Other",
+        String(req.body.unit || "item").trim() || "item",
+        min,
+        max,
+        String(req.body.description || "").trim() || null,
+        String(req.body.imageUrl || "").trim() || null,
+      ]
+    );
+    return res.status(201).json(productOut(r.rows[0]));
+  } catch (error) {
+    if (error.code === "23505") {
+      return res.status(409).json({ message: "A product with this name already exists" });
+    }
+    return serverError(res, "Create product", error);
+  }
+};
+
+const updateProduct = async (req, res) => {
+  try {
+    await ensureProducts();
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ message: "Bad product id" });
+    const fields = [];
+    const values = [];
+    const set = (col, val) => {
+      values.push(val);
+      fields.push(`${col} = $${values.length}`);
+    };
+    if (req.body.active !== undefined) set("active", !!req.body.active);
+    if (req.body.name !== undefined && String(req.body.name).trim()) set("name", String(req.body.name).trim());
+    if (req.body.category !== undefined) set("category", String(req.body.category).trim() || "Other");
+    if (req.body.unit !== undefined) set("unit", String(req.body.unit).trim() || "item");
+    if (req.body.description !== undefined) set("description", String(req.body.description).trim() || null);
+    if (req.body.imageUrl !== undefined) set("image_url", String(req.body.imageUrl).trim() || null);
+    if (req.body.minPrice !== undefined) set("min_price", priceOrNull(req.body.minPrice));
+    if (req.body.maxPrice !== undefined) set("max_price", priceOrNull(req.body.maxPrice));
+    if (!fields.length) return res.status(400).json({ message: "Nothing to change" });
+    values.push(id);
+    const r = await pool.query(
+      `UPDATE catalog_products SET ${fields.join(", ")}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
+      values
+    );
+    if (!r.rows[0]) return res.status(404).json({ message: "Product not found" });
+    return res.status(200).json(productOut(r.rows[0]));
+  } catch (error) {
+    return serverError(res, "Update product", error);
+  }
+};
+
+const deleteProduct = async (req, res) => {
+  try {
+    await ensureProducts();
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ message: "Bad product id" });
+    const r = await pool.query(`DELETE FROM catalog_products WHERE id = $1 RETURNING id`, [id]);
+    if (!r.rows[0]) return res.status(404).json({ message: "Product not found" });
+    return res.status(200).json({ id });
+  } catch (error) {
+    return serverError(res, "Delete product", error);
+  }
+};
+
+// Open to the mobile app: only the products the admin has switched on.
+const getPublicProducts = async (_req, res) => {
+  try {
+    await ensureProducts();
+    const r = await pool.query(`SELECT * FROM catalog_products WHERE active ORDER BY category, name`);
+    return res.status(200).json(r.rows.map(productOut));
+  } catch (error) {
+    return serverError(res, "Public products", error);
+  }
+};
+
 /* ── Reports & settings ────────────────────────────────────────────────── */
 
 const getReports = async (_req, res) => {
@@ -844,6 +997,11 @@ module.exports = {
   getRegions,
   getDistrictPrices,
   putRegionBand,
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getPublicProducts,
   getReports,
   getSettings,
   putSettings,

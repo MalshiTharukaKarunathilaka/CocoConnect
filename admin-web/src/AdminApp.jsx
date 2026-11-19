@@ -4,6 +4,8 @@ import './AdminApp.css'
 import { LAND_TOPICS } from './analysis/LandTopics'
 import { glyphHtml } from './analysis/pins'
 import ProductSetup from './analysis/ProductSetup'
+import ProductCatalog from './analysis/ProductCatalog'
+import ReportsCatalog from './analysis/ReportsCatalog'
 import Analysis, { MarketPrices, MarketVolumes, SubscriptionGrowth } from './analysis/AnalysisPages'
 import DisputeFlow from './DisputeFlow'
 import { DealVsPaid, FaultBoard, OrderBook } from './analysis/MarketBook'
@@ -13,6 +15,23 @@ import { MENU, menuOf, itemLabel } from './menu'
 import './SideNav.css'
 
 const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`
+function saveCsv(name, head, body) {
+  const quote = (v) => `"${String(v ?? '').replaceAll('"', '""')}"`
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([String.fromCharCode(0xfeff) + [head, ...body].map((r) => r.map(quote).join(',')).join(String.fromCharCode(13, 10))], { type: 'text/csv;charset=utf-8' }))
+  a.download = name
+  a.click()
+}
+
+function TableTools({ value, onChange, onExport, count }) {
+  return (
+    <div className="adm-tools">
+      <input className="adm-search" placeholder="Search category, district, status" value={value} onChange={(e) => onChange(e.target.value)} />
+      <button className="adm-btn green" onClick={onExport}>Export CSV ({count})</button>
+    </div>
+  )
+}
+
 const shortDate = (value) => (value ? new Date(value).toLocaleDateString() : '—')
 // A picture for a marketplace category, in place of its name (the name shows on hover).
 const CAT_ICONS = [['coconut', 'palm', '#2f8a4f'], ['husk', 'shell', '#8b5a2b'], ['spice', 'leaf', '#c0572b'], ['pepper', 'leaf', '#c0572b'], ['vegetable', 'sprout', '#4c9a3a'], ['livestock', 'cow', '#8b4a1c'], ['animal', 'cow', '#8b4a1c'], ['honey', 'hive', '#d99a0b'], ['fertili', 'sack', '#2f8a4f'], ['machin', 'tractor', '#8e44ad'], ['fish', 'fish', '#0288d1']]
@@ -47,7 +66,7 @@ const GROUPS = [
 const groupOf = (v) => GROUPS.find((g) => g.tabs.some(([id]) => id === v))
 
 const TITLES = {
-  'an-overview': 'Analysis dashboard',
+  'an-overview': 'Dashboard',
   'an-workers': 'Analysis · Day workers',
   'an-fert': 'Analysis · Fertilizer',
   'an-mach': 'Analysis · Machinery',
@@ -59,7 +78,8 @@ const TITLES = {
   deal: 'Deal',
   transactions: 'Transactions',
   disputes: 'Disputes',
-  regions: 'Regions & prices',
+  regions: 'Product Setup',
+  prices: 'Price Bands',
   reports: 'Reports',
   settings: 'Settings',
 }
@@ -111,6 +131,12 @@ export default function AdminApp({ user: account, logout }) {
   const [drawer, setDrawer] = useState(false)
   const [userFilter, setUserFilter] = useState('all')
   const [dealFilter, setDealFilter] = useState('ALL')
+  const [dealQ, setDealQ] = useState('')
+  const [reqQ, setReqQ] = useState('')
+  const [lisQ, setLisQ] = useState('')
+  const [dealCat, setDealCat] = useState('')
+  const [dealFrom, setDealFrom] = useState('')
+  const [dealTo, setDealTo] = useState('')
   const [selectedRegion, setSelectedRegion] = useState(null)
   const [bandDraft, setBandDraft] = useState('')
   const [issueForm, setIssueForm] = useState(null)
@@ -224,8 +250,24 @@ export default function AdminApp({ user: account, logout }) {
     let rows = data.deals.filter((o) => DEAL_STATUSES.includes(o.status) || o.status === 'DISPUTED')
     if (dealFilter !== 'ALL') rows = rows.filter((o) => o.status === dealFilter)
     if (q) rows = rows.filter((o) => o.code.toLowerCase().includes(q) || (o.category || '').toLowerCase().includes(q))
+    const t = dealQ.trim().toLowerCase()
+    if (t) rows = rows.filter((o) => `${o.code} ${o.category || ''} ${o.status}`.toLowerCase().includes(t))
+    if (dealCat) rows = rows.filter((o) => o.category === dealCat)
+    const day = (o) => (o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : '')
+    if (dealFrom) rows = rows.filter((o) => day(o) >= dealFrom)
+    if (dealTo) rows = rows.filter((o) => day(o) <= dealTo)
     return rows
-  }, [data.deals, dealFilter, q])
+  }, [data.deals, dealFilter, q, dealQ, dealCat, dealFrom, dealTo])
+  const dealCats = useMemo(() => [...new Set(data.deals.map((o) => o.category).filter(Boolean))].sort(), [data.deals])
+  const exportDeals = () => {
+    const quote = (v) => `"${String(v ?? '').replaceAll('"', '""')}"`
+    const head = ['Deal', 'Date', 'Category', 'Quantity', 'Unit price', 'Status']
+    const body = dealRows.map((o) => [o.code, o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : '', o.category, o.quantity, o.unitPrice, o.status])
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob(['﻿' + [head, ...body].map((r) => r.map(quote).join(',')).join(String.fromCharCode(13, 10))], { type: 'text/csv;charset=utf-8' }))
+    a.download = `kapconnect-deals-${dealFilter.toLowerCase()}.csv`
+    a.click()
+  }
 
   const transactionRows = useMemo(() => {
     let rows = data.transactions
@@ -244,6 +286,9 @@ export default function AdminApp({ user: account, logout }) {
     if (q) rows = rows.filter((l) => l.district?.toLowerCase().includes(q) || l.location?.toLowerCase().includes(q) || l.category?.toLowerCase().includes(q))
     return rows
   }, [data.listings, q])
+  const hit = (qq, r) => !qq.trim() || `${r.category || ''} ${r.district || ''} ${r.status || ''} ${r.quantity ?? ''}`.toLowerCase().includes(qq.trim().toLowerCase())
+  const reqShown = requestRows.filter((r) => hit(reqQ, r))
+  const lisShown = listingRows.filter((l) => hit(lisQ, l))
 
   async function setUserStatus(id, status) {
     await api(`/admin/users/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
@@ -469,11 +514,12 @@ export default function AdminApp({ user: account, logout }) {
         </p>
         <div className="adm-orders-split">
           <div className="adm-card">
-            <div className="adm-card-h"><h2>Buy requests</h2><span className="adm-count">{requestRows.length}</span></div>
+            <div className="adm-card-h"><h2>Buy requests</h2><span className="adm-count">{reqShown.length}</span></div>
+            <TableTools value={reqQ} onChange={setReqQ} count={reqShown.length} onExport={() => saveCsv('kapconnect-buy-requests.csv', ['Category', 'Quantity', 'Bid', 'District', 'Status'], reqShown.map((r) => [r.category, r.quantity, r.bidPrice, r.district, r.status]))} />
             <table className="adm-table">
               <thead><tr><th>Category</th><th>Qty</th><th>Bid</th><th>District</th><th>Status</th><th></th></tr></thead>
               <tbody>
-                {requestRows.map((r) => (
+                {reqShown.map((r) => (
                   <tr key={r.id}>
                     <td><CatIcon category={r.category} /></td>
                     <td>{r.quantity?.toLocaleString()}</td>
@@ -483,16 +529,17 @@ export default function AdminApp({ user: account, logout }) {
                     <td>{r.status !== 'HIDDEN' && <button className="adm-btn red" onClick={() => hideItem('buy-requests', r.id)}>Hide</button>}</td>
                   </tr>
                 ))}
-                {!requestRows.length && <tr><td colSpan="6" className="adm-empty">No buy requests</td></tr>}
+                {!reqShown.length && <tr><td colSpan="6" className="adm-empty">No buy requests</td></tr>}
               </tbody>
             </table>
           </div>
           <div className="adm-card">
-            <div className="adm-card-h"><h2>Sell listings</h2><span className="adm-count">{listingRows.length}</span></div>
+            <div className="adm-card-h"><h2>Sell listings</h2><span className="adm-count">{lisShown.length}</span></div>
+            <TableTools value={lisQ} onChange={setLisQ} count={lisShown.length} onExport={() => saveCsv('kapconnect-sell-listings.csv', ['Category', 'Quantity', 'Offer', 'District', 'Status', 'Verified'], lisShown.map((l) => [l.category, l.quantity, l.offerPrice, l.district, l.status, l.verified ? 'Yes' : 'No']))} />
             <table className="adm-table">
               <thead><tr><th>Category</th><th>Qty</th><th>Offer</th><th>District</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>
-                {listingRows.map((l) => (
+                {lisShown.map((l) => (
                   <tr key={l.id}>
                     <td><CatIcon category={l.category} />{l.verified ? <span className="adm-inline-ok"> Verified</span> : ''}</td>
                     <td>{l.quantity?.toLocaleString()}</td>
@@ -500,12 +547,11 @@ export default function AdminApp({ user: account, logout }) {
                     <td>{l.district || '—'}</td>
                     <td>{pill(l.status)}</td>
                     <td className="adm-actions">
-                      <button className={`adm-btn ${l.verified ? 'outline' : 'green'}`} onClick={() => toggleListingVerify(l)}>{l.verified ? 'Unverify' : 'Verify'}</button>
                       {l.status !== 'HIDDEN' && <button className="adm-btn red" onClick={() => hideItem('listings', l.id)}>Hide</button>}
                     </td>
                   </tr>
                 ))}
-                {!listingRows.length && <tr><td colSpan="6" className="adm-empty">No sell listings</td></tr>}
+                {!lisShown.length && <tr><td colSpan="6" className="adm-empty">No sell listings</td></tr>}
               </tbody>
             </table>
           </div>
@@ -533,6 +579,17 @@ export default function AdminApp({ user: account, logout }) {
           {['ALL', 'NEGOTIATING', 'ACCEPTED', 'PAYMENT_PENDING', 'DISPUTED'].map((f) => (
             <button key={f} className={`adm-chip ${dealFilter === f ? 'active' : ''}`} onClick={() => setDealFilter(f)}>{f.replaceAll('_', ' ')}</button>
           ))}
+        </div>
+        <div className="adm-toolbar deal-filters">
+          <input className="adm-search" placeholder="Search deal, category or status" value={dealQ} onChange={(e) => setDealQ(e.target.value)} />
+          <select value={dealCat} onChange={(e) => setDealCat(e.target.value)}>
+            <option value="">All categories</option>
+            {dealCats.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <label className="deal-date">From <input type="date" value={dealFrom} onChange={(e) => setDealFrom(e.target.value)} /></label>
+          <label className="deal-date">To <input type="date" value={dealTo} onChange={(e) => setDealTo(e.target.value)} /></label>
+          {(dealQ || dealCat || dealFrom || dealTo) && <button className="adm-btn outline" onClick={() => { setDealQ(''); setDealCat(''); setDealFrom(''); setDealTo('') }}>Clear</button>}
+          <button className="adm-btn green" style={{ marginLeft: 'auto' }} onClick={exportDeals}>Export CSV ({dealRows.length})</button>
         </div>
         <div className="adm-card">
           <table className="adm-table">
@@ -689,6 +746,8 @@ export default function AdminApp({ user: account, logout }) {
       </>
     )
   } else if (view === 'regions') {
+    content = <ProductCatalog />
+  } else if (view === 'prices') {
     const byName = Object.fromEntries((data.regions || []).map((r) => [r.name, r]))
     const regions = MAP_CITIES.map((city) => {
       const live = byName[city.name]
@@ -720,13 +779,7 @@ export default function AdminApp({ user: account, logout }) {
           <div className="adm-stat"><div className="k">Open disputes</div><div className="v">{r.openDisputes || 0}</div><div className="d">needs attention</div></div>
           <div className="adm-stat"><div className="k">Verified estates</div><div className="v">{r.verifiedEstates || 0}/{r.totalEstates || 0}</div><div className="d">verification queue</div></div>
         </div>
-        <div className="adm-card">
-          <div className="adm-card-h"><h2>Export</h2></div>
-          <div className="adm-actions">
-            <button className="adm-btn green" onClick={exportJson}>Download admin JSON</button>
-            <button className="adm-btn outline" onClick={load}>Refresh data</button>
-          </div>
-        </div>
+        <ReportsCatalog backend={data} exportJson={exportJson} refresh={load} />
       </>
     )
   } else if (view === 'settings') {
@@ -766,7 +819,6 @@ export default function AdminApp({ user: account, logout }) {
 
   if (view === 'disputes') content = <><DisputeFlow /><FaultBoard />{content}</>
 
-  const activeGroup = groupOf(view)
   const badgeFor = (id) => (id === 'verify' ? pendingUsers.length : id === 'deal' ? dealRows.length : id === 'disputes' ? openDisputes.length : 0)
 
   return (
@@ -793,7 +845,7 @@ export default function AdminApp({ user: account, logout }) {
               {menuOf(view) && <> / {MENU.find((m) => m.id === menuOf(view)).label}</>}
               {' / '}<b>{itemLabel(view) || TITLES[view]}</b>
             </div>
-            <h1>{view.startsWith('an-') || view.startsWith('soon-') ? 'Analysis dashboard' : itemLabel(view) || TITLES[view]}</h1>
+            <h1>{view.startsWith('an-') || view.startsWith('soon-') ? 'Dashboard' : itemLabel(view) || TITLES[view]}</h1>
             <p className="adm-top-sub">{view.startsWith('an-') ? `${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, ${user.name.split(' ')[0]}` : `Synced ${new Date().toLocaleTimeString()}`}</p>
           </div>
           <div className="adm-top-tools">
@@ -803,16 +855,6 @@ export default function AdminApp({ user: account, logout }) {
           </div>
         </header>
         <div className="adm-content">
-          {activeGroup && !activeGroup.flat && (
-            <div className="adm-tabs" role="tablist">
-              {activeGroup.tabs.map(([id, label]) => (
-                <button key={id} role="tab" aria-selected={view === id} className={`adm-tab ${view === id ? 'active' : ''}`} onClick={() => setView(id)}>
-                  {label}
-                  {badgeFor(id) > 0 && <span className="adm-tab-n">{badgeFor(id)}</span>}
-                </button>
-              ))}
-            </div>
-          )}
           {error && !view.startsWith('an-') && <div className="adm-error">{error}<button onClick={() => setError('')}>Close</button></div>}
           {content}
         </div>

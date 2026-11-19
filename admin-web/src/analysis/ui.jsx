@@ -232,7 +232,7 @@ export function PageHead({ title, sub, sel, onSel, name, sections, children }) {
 const cellText = (v) => (v == null ? '' : typeof v === 'string' || typeof v === 'number' ? String(v) : '')
 
 /** A table with search, a filter for each column that has a few kinds of value, and a CSV export. */
-export function DataTable({ columns, rows, limit = 8, name }) {
+export function DataTable({ columns, rows, limit = 8, name, cell }) {
   const [all, setAll] = useState(false)
   const [q, setQ] = useState('')
   const [pick, setPick] = useState({})
@@ -280,7 +280,7 @@ export function DataTable({ columns, rows, limit = 8, name }) {
         </thead>
         <tbody>
           {shown.map((r, i) => (
-            <tr key={i}>{r.map((v, j) => <td key={j}>{v}</td>)}</tr>
+            <tr key={i}>{r.map((v, j) => <td key={j}>{cell ? cell(v, j, r) : v}</td>)}</tr>
           ))}
           {!shown.length && <tr><td colSpan={columns.length}>Nothing matches these filters.</td></tr>}
         </tbody>

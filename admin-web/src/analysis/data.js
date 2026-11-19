@@ -240,6 +240,56 @@ export function buildDataset(geo, cdo) {
     }
   }
 
+  // Make the sample lands read like real ones: one owner a name of their own that fits their gender and area,
+  // real-sounding estate names, and land numbers that run in the order the lands were registered.
+  // A separate generator, so every other sample number stays as it was.
+  {
+    const nrng = rngOf(4112026)
+    const pickOf = (a) => a[Math.floor(nrng() * a.length)]
+    const FIRST = {
+      sin: { M: ['Kamal', 'Nimal', 'Sunil', 'Ruwan', 'Chaminda', 'Pradeep', 'Lasantha', 'Dinesh', 'Asanka', 'Thilina', 'Upul', 'Janaka', 'Saman', 'Roshan', 'Mahinda', 'Gamini', 'Nuwan', 'Prasanna', 'Anura', 'Wasantha'], F: ['Kumari', 'Nilmini', 'Sandya', 'Chamila', 'Anoma', 'Malani', 'Priyanka', 'Dilrukshi', 'Sriyani', 'Ishara', 'Nadeeka', 'Menaka', 'Chandrika', 'Samanthi', 'Thilini', 'Lakmali', 'Kusum', 'Renuka', 'Rohini', 'Vindya'] },
+      tam: { M: ['Selvam', 'Murugan', 'Kumar', 'Rajan', 'Suresh', 'Thavarajah', 'Ganeshan', 'Sivakumar', 'Arul', 'Pathmanathan', 'Vijayan', 'Sritharan'], F: ['Kamala', 'Selvi', 'Mala', 'Thevi', 'Revathi', 'Vasanthi', 'Sathya', 'Nirmala', 'Kokila', 'Yogeswari'] },
+      mus: { M: ['Mohamed', 'Faizal', 'Rizwan', 'Nazeer', 'Ashraf', 'Imran', 'Hisham', 'Farook', 'Riyas', 'Shafraz'], F: ['Fathima', 'Nazima', 'Rukshana', 'Safiya', 'Hajara', 'Shifana', 'Aysha', 'Farzana'] },
+    }
+    const LAST = {
+      sin: ['Perera', 'Fernando', 'Silva', 'Jayasuriya', 'Rajapaksha', 'Bandara', 'Wijesinghe', 'Gunawardena', 'Senanayake', 'Herath', 'Dissanayake', 'Amarasinghe', 'Ratnayake', 'Weerasinghe', 'Karunaratne', 'Abeysekera', 'Samarasinghe', 'Liyanage', 'Jayawardena', 'Edirisinghe', 'Wickramasinghe', 'Pathirana', 'Gamage', 'Kodikara', 'Rathnayake', 'Dassanayake', 'Ekanayake', 'Madushanka'],
+      tam: ['Sivapalan', 'Nadarajah', 'Thangarajah', 'Balasingam', 'Kanagaratnam', 'Selvarajah', 'Gnanasegaram', 'Subramaniam', 'Arumugam', 'Rasiah'],
+      mus: ['Rahman', 'Cassim', 'Hameed', 'Marikar', 'Lebbe', 'Ismail', 'Jabbar', 'Nawaz', 'Farook', 'Zubair'],
+    }
+    const PLACE = ['Mahawatta', 'Kapuru', 'Pothgul', 'Gonawila', 'Weli', 'Ambalama', 'Divulwewa', 'Kotagama', 'Ihala', 'Pahala', 'Galgamuwa', 'Thotupola', 'Madampe', 'Ganegoda', 'Kiriella', 'Mederipitiya', 'Hapugasthenna', 'Kumbuka', 'Nawagaha', 'Randeniya', 'Kosgama', 'Meegahawatta', 'Panaliya', 'Udawatta', 'Dehiwala', 'Elapitiya', 'Siyambalagoda', 'Bolawatta', 'Dambagolla', 'Mahaoya']
+    const TAMIL_PLACE = ['Kovil', 'Thoppu', 'Vayal', 'Kadu', 'Pallam', 'Thottam']
+    const KIND = (e) => (e.plan === 'Institutional plantation' ? ['Plantation', 'Estate', 'Holdings'] : e.plan === 'Systematic cultivation' ? ['Estate', 'Coconut Land', 'Watta', 'Farm'] : ['Watta', 'Coconut Land', 'Farm'])
+    const seen = new Set()
+    const seenName = new Set()
+    for (const e of estates) {
+      const north = e.province === 'Northern'
+      const east = e.province === 'Eastern'
+      const eth = north ? (nrng() < 0.93 ? 'tam' : 'mus') : east ? (nrng() < 0.45 ? 'tam' : 'mus') : nrng() < 0.9 ? 'sin' : nrng() < 0.5 ? 'tam' : 'mus'
+      const g = e.ownerGender === 1 ? 'F' : 'M'
+      for (let t = 0; t < 30; t++) {
+        const full = `${pickOf(FIRST[eth][g])} ${pickOf(LAST[eth])}`
+        if (!seen.has(full)) { seen.add(full); e.owner = full; break }
+        if (t === 29) e.owner = full
+      }
+      // some lands belong to more than one person: usually family, sharing the surname
+      e.coOwners = []
+      const extra = nrng() < 0.26 ? (nrng() < 0.22 ? 2 : 1) : 0
+      for (let c = 0; c < extra; c++) {
+        const cg = nrng() < 0.7 ? (g === 'M' ? 'F' : 'M') : g
+        const sur = nrng() < 0.8 ? e.owner.split(' ').slice(1).join(' ') : pickOf(LAST[eth])
+        e.coOwners.push({ owner: `${pickOf(FIRST[eth][cg])} ${sur}`, ownerGender: cg === 'F' ? 1 : 0, ownerAge: Math.min(4, Math.max(0, e.ownerAge + Math.floor(nrng() * 3) - 1)) })
+      }
+      for (let t = 0; t < 30; t++) {
+        const place = eth === 'tam' && nrng() < 0.5 ? `${pickOf(PLACE)} ${pickOf(TAMIL_PLACE)}` : pickOf(PLACE)
+        const nm = `${place} ${pickOf(KIND(e))}`
+        if (!seenName.has(nm) || t === 29) { seenName.add(nm); e.name = nm; break }
+      }
+    }
+    const dates = estates.map((e) => e.registeredOn).sort()
+    estates.sort((a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2)))
+    estates.forEach((e, i) => { e.registeredOn = dates[i] })
+  }
+
   // Coconut prices (Rs per nut) at each marketplace step: what was asked in the order,
   // what was agreed in the deal, and what was finally paid. A separate generator again.
   const prng = rngOf(8112026)
@@ -374,24 +424,24 @@ export function buildDataset(geo, cdo) {
 
   // Named donations and where each one was distributed ---------------------
   const DONORS = [
-    { name: 'Government Budget Allocation', note: 'The yearly fertilizer budget in the national budget, paid for from public tax money.' },
-    { name: 'World Bank', note: 'Given for a specific project: improving soil health and coconut yields.' },
-    { name: 'Asian Development Bank', note: 'Given for a specific programme: climate-smart farming support for smallholders.' },
-    { name: 'Global Environment Facility (GEF)', note: 'Given for a specific project: protecting soil and restoring farm land.' },
-    { name: 'Green Climate Fund (GCF)', note: 'Given for a specific programme: climate-resilient coconut growing.' },
+    { name: 'Government Budget Allocation', note: 'The yearly fertilizer budget in the national budget, paid for from public tax money.', lkr: 4500000000 },
+    { name: 'World Bank', note: 'Given for a specific project: planting materials and irrigation equipment only.', only: ['Planting Materials', 'Irrigation Equipment'] },
+    { name: 'Asian Development Bank', note: 'Given for a specific programme: pepper plants for smallholders.', only: ['Planting Materials'], scheme: 'Pepper plants' },
+    { name: 'Global Environment Facility (GEF)', note: 'Given for a specific project: protecting soil and restoring farm land.', usd: 8500000, districts: ['Kurunegala', 'Puttalam'] },
+    { name: 'Green Climate Fund (GCF)', note: 'Given for a specific programme: climate-resilient coconut growing.', usd: 50000000, districts: ['Gampaha', 'Colombo'] },
     { name: 'Government of Japan', note: 'A donation from the people of Japan.' },
     { name: 'Government of Australia', note: 'A donation from the people of Australia.' },
     { name: 'Russian Government', note: 'A government-to-government fertilizer donation.' },
   ]
-  const donations = DONORS.map(({ name: donor, note }, i) => {
+  const donations = DONORS.map(({ name: donor, note, only, scheme, usd, lkr, districts }, i) => {
     const type = FERT_TYPES[Math.floor(rng() * FERT_TYPES.length)]
     const when = new Date(Date.parse('2024-03-01') + (1 - i / (DONORS.length - 1)) * (Date.parse('2026-09-15') - Date.parse('2024-03-01')))
     const kg = Math.round((30 + rng() * 140) * 1000 / 500) * 500
     const age = (Date.parse('2026-10-28') - when) / (86400000 * 365)
     const delivered = Math.min(1, 0.45 + age * 0.35 + rng() * 0.12)
     const reach = 7 + Math.floor(rng() * 14)
-    const picked = []
-    while (picked.length < reach) {
+    const picked = districts ? DISTRICTS.filter((x) => districts.includes(x.name)) : [] // a project funded in named districts only
+    while (!districts && picked.length < reach) {
       const dd = wpick(rng, DISTRICTS, (x) => x.w + 0.05)
       if (!picked.includes(dd)) picked.push(dd)
     }
@@ -401,6 +451,10 @@ export function buildDataset(geo, cdo) {
       id: `D-${String(i + 1).padStart(2, '0')}`,
       donor,
       note,
+      only, // the subsidy types this donor funds; empty means any
+      scheme, // a scheme only this donor funds
+      usd, // given in US dollars
+      lkr, // given in rupees, a fixed amount
       type,
       date: when.toISOString().slice(0, 10),
       kg,
@@ -433,7 +487,12 @@ export const compact = (n) => {
   return String(Math.round(n || 0))
 }
 export const rs = (n) => `Rs. ${compact(n)}`
-export const kgText = (n) => (Math.abs(n) >= 1000 ? `${(n / 1000).toFixed(1)} t` : `${num(n)} kg`)
+/** Funds given in US dollars are shown in rupees too, at this rate. */
+export const USD_LKR = 300
+const big = (n) => (n >= 1e9 ? `${+(n / 1e9).toFixed(2)} billion` : `${+(n / 1e6).toFixed(1)} million`)
+export const usdText = (usd) => `USD ${big(usd)}`
+export const lkrText = (usd) => `Rs. ${big(usd * USD_LKR)}`
+export const kgText = (n) => (Math.abs(n) >= 1000 ? `${(n / 1000).toFixed(1)} MT` : `${num(n)} kg`)
 export const ym = (y, m) => `${MONTHS[m - 1]} ${String(y).slice(2)}`
 export const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : '—')
 export const sumBy = (rows, f) => rows.reduce((s, r) => s + f(r), 0)

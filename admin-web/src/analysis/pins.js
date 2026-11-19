@@ -96,6 +96,8 @@ const glyph = (kind, color, px) =>
 const PHOTO = {
   peanut: ['/crops/peanut.png', 1.18, 0.66], pepper: ['/crops/pepper.png', 1.1], pineapple: ['/crops/pineapple.png', 0.82],
   sack: ['/crops/sack.png', 0.95, 0.95],
+  harvestpole: ['/crops/harvestpole.png', 1.03, 0.95], climbgear: ['/crops/climbgear.png', 1.14, 0.85], machete: ['/crops/machete.png', 1.68, 0.7],
+  seedlings: ['/crops/seedlings.png', 0.98, 1], irrigation: ['/crops/irrigation.png', 1.23, 0.85], pepperplant: ['/crops/pepperplant.png', 0.75, 1.15],
   coconut: ['/photos/coconut.png', 1.39, 0.85],
   tractor: ['/crops/tractor.png', 1.41, 0.7], hand: ['/crops/hand-tractor.png', 1.45, 0.7], backhoe: ['/crops/backhoe.png', 2.1, 0.6],
 }
