@@ -100,6 +100,22 @@ void main() {
         expect(find.text(title).hitTestable(), findsOneWidget);
       }
       expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Irrigation'));
+      await tester.pumpAndSettle();
+      expect(find.text('Irrigation Categories'), findsOneWidget);
+      var previousBottom = tester
+          .getRect(find.text('Irrigation Categories'))
+          .bottom;
+      final bottomBar = tester.getRect(find.byType(CustomBottomNavigation));
+      for (final title in ['Distribution System', 'Deep well', 'Agro well']) {
+        final label = find.text(title);
+        expect(label.hitTestable(), findsOneWidget);
+        final bounds = tester.getRect(label);
+        expect(bounds.top, greaterThan(previousBottom));
+        expect(bounds.bottom, lessThan(bottomBar.top));
+        previousBottom = bounds.bottom;
+      }
+      expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }

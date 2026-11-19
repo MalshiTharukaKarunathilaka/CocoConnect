@@ -51,6 +51,11 @@ const dashboardSubcategories = <String, List<Subcategory>>{
     Subcategory('Chain saw', null, 'assets/images/chain saw.jpg'),
   ],
   'Irrigation': [
+    Subcategory(
+      'Distribution System',
+      null,
+      'assets/images/distribution_system.png',
+    ),
     Subcategory('Deep well', null, 'assets/images/deep well.png'),
     Subcategory('Agro well', null, 'assets/images/agro well.png'),
   ],
