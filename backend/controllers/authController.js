@@ -207,6 +207,10 @@ const login = async (req, res) => {
       });
     }
 
+    if (String(user.status || "ACTIVE").toUpperCase() === "SUSPENDED") {
+      return res.status(401).json({ message: "Account suspended" });
+    }
+
     return res.status(200).json({
       message: "Logged in successfully",
       token: createToken(user),
