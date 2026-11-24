@@ -2,8 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../screens/buyer/buyer_format.dart';
 import '../services/owner_service.dart';
+import 'app_bottom_nav.dart';
 
-// Estate owner palette, taken from the Figma designs.
+// Land owner palette, taken from the Figma designs.
 const Color kOwnerGreen = Color(0xFF256B45);
 const Color kOwnerGreenSoft = Color(0xFFE3F0E6);
 const Color kOwnerCream = Color(0xFFFCF8EF);
@@ -14,32 +15,53 @@ const Color kOwnerPanel = Color(0xFFF1EFEA);
 const Color kOwnerRed = Color(0xFFC62828);
 const Color kOwnerBrown = Color(0xFF8B4A1C);
 
-/// Shared phone canvas for estate owner and service provider machinery screens.
-const double kMachineryPageWidth = 390;
+/// Shared phone canvas for land owner and service provider machinery screens.
+const double kMachineryPageWidth = 430;
 
-/// The phone-width cream page every estate owner screen sits in.
+/// The phone-width cream page every land owner screen sits in.
 class OwnerPage extends StatelessWidget {
   final Widget child;
   final Widget? bottom;
+  final AppTab currentTab;
+  final bool showMainNavigation;
 
-  const OwnerPage({super.key, required this.child, this.bottom});
+  const OwnerPage({
+    super.key,
+    required this.child,
+    this.bottom,
+    this.currentTab = AppTab.dashboard,
+    this.showMainNavigation = true,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFEFEFEF),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Center(
-          child: Container(
-            width: kMachineryPageWidth,
-            height: double.infinity,
-            color: kOwnerCream,
-            child: SafeArea(
-              child: Column(
+      body: Center(
+        child: Container(
+          width: MediaQuery.sizeOf(context).width < kMachineryPageWidth + 24
+              ? MediaQuery.sizeOf(context).width
+              : kMachineryPageWidth,
+          height: double.infinity,
+          color: kOwnerCream,
+          child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, viewport) => Column(
                 children: [
                   Expanded(child: child),
-                  ?bottom,
+                  if (bottom is AppBottomNav)
+                    bottom!
+                  else if (bottom != null)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: viewport.maxHeight * 0.4,
+                      ),
+                      child: SingleChildScrollView(child: bottom!),
+                    ),
+                  if (showMainNavigation &&
+                      supportsMainNavigation &&
+                      bottom is! AppBottomNav)
+                    AppBottomNav(current: currentTab),
                 ],
               ),
             ),
@@ -88,6 +110,8 @@ class OwnerHeader extends StatelessWidget {
               children: [
                 Text(
                   title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 18,
@@ -98,6 +122,9 @@ class OwnerHeader extends StatelessWidget {
                 if (subtitle != null)
                   Text(
                     subtitle!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
@@ -214,15 +241,18 @@ class OwnerPill extends StatelessWidget {
 class QuantityPriceBox extends StatelessWidget {
   final int quantity;
   final double pricePerUnit;
+  final String productType;
 
   const QuantityPriceBox({
     super.key,
     required this.quantity,
     required this.pricePerUnit,
+    this.productType = 'RAW_COCONUT',
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool usesUnits = productType.toUpperCase() == 'COCONUT_HUSK';
     TextSpan unit(String text) => TextSpan(
       text: text,
       style: const TextStyle(
@@ -267,12 +297,18 @@ class QuantityPriceBox extends StatelessWidget {
           children: [
             half(
               'Quantity',
-              TextSpan(text: withCommas(quantity), children: [unit(' nuts')]),
+              TextSpan(
+                text: withCommas(quantity),
+                children: [unit(usesUnits ? ' units' : ' nuts')],
+              ),
             ),
             const VerticalDivider(width: 24, color: Color(0xFFD6D3CC)),
             half(
               'Price',
-              TextSpan(text: rupees(pricePerUnit), children: [unit('/nut')]),
+              TextSpan(
+                text: rupees(pricePerUnit),
+                children: [unit(usesUnits ? '/unit' : '/nut')],
+              ),
               right: true,
             ),
           ],
@@ -326,6 +362,7 @@ class _MarketPulseState extends State<MarketPulse> {
 
   @override
   Widget build(BuildContext context) {
+    final bool usesUnits = widget.productType.toUpperCase() == 'COCONUT_HUSK';
     final MarketStats? stats = _stats;
     // Quietly skip while loading, on error, or before any deal exists.
     if (stats == null || stats.lastDealQuantity == null) {
@@ -387,7 +424,8 @@ class _MarketPulseState extends State<MarketPulse> {
                       text: 'Deal Closed: ',
                       children: [
                         TextSpan(
-                          text: '${withCommas(stats.lastDealQuantity!)} Nuts',
+                          text:
+                              '${withCommas(stats.lastDealQuantity!)} ${usesUnits ? 'Units' : 'Nuts'}',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         const TextSpan(text: ' at '),
@@ -399,7 +437,7 @@ class _MarketPulseState extends State<MarketPulse> {
                             color: kOwnerGreen,
                           ),
                         ),
-                        const TextSpan(text: '/nut'),
+                        TextSpan(text: usesUnits ? '/unit' : '/nut'),
                       ],
                     ),
                     style: const TextStyle(
@@ -420,7 +458,7 @@ class _MarketPulseState extends State<MarketPulse> {
                 const SizedBox(width: 5),
                 Expanded(
                   child: Text(
-                    '$averageLabel: Rs. ${average.toStringAsFixed(2)} / nut'
+                    '$averageLabel: Rs. ${average.toStringAsFixed(2)} / ${usesUnits ? 'unit' : 'nut'}'
                     '  ($orders)',
                     style: const TextStyle(
                       fontSize: 11.5,
@@ -470,9 +508,17 @@ class OwnerPrimaryButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
             if (arrow) ...[
               const SizedBox(width: 8),
@@ -502,69 +548,83 @@ class OwnerTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          for (int i = 0; i < labels.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(22),
-                onTap: () => onSelected(i),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 9,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (int i = 0; i < labels.length; i++)
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth,
+                    minHeight: 48,
                   ),
-                  decoration: BoxDecoration(
+                  child: Material(
                     color: i == selected ? kOwnerGreen : Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: i == selected
-                          ? kOwnerGreen
-                          : const Color(0xFFBDBDBD),
+                    shape: StadiumBorder(
+                      side: BorderSide(
+                        color: i == selected
+                            ? kOwnerGreen
+                            : const Color(0xFFBDBDBD),
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        labels[i],
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: i == selected ? Colors.white : kOwnerInk,
+                    child: InkWell(
+                      customBorder: const StadiumBorder(),
+                      onTap: () => onSelected(i),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                labels[i],
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: i == selected
+                                      ? Colors.white
+                                      : kOwnerInk,
+                                ),
+                              ),
+                            ),
+                            if (i < badges.length && badges[i] > 0) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFDDCDC),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${badges[i]}',
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: kOwnerRed,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      if (i < badges.length && badges[i] > 0) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFDDCDC),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${badges[i]}',
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.bold,
-                              color: kOwnerRed,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -676,31 +736,28 @@ class CategoryImageCard extends StatelessWidget {
             SizedBox(
               height: 130,
               width: double.infinity,
-              child: imageAsset != null
-                  ? Image.asset(imageAsset!, fit: BoxFit.cover)
-                  : Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      // Wikimedia asks apps to say who they are.
-                      headers: const {
-                        'User-Agent': 'KapConnect/1.0 (university project)',
-                      },
-                      loadingBuilder: (context, child, progress) =>
-                          progress == null
-                          ? child
-                          : const ColoredBox(color: Color(0xFFF1F1EC)),
-                      errorBuilder: (context, error, stackTrace) =>
-                          const ColoredBox(
-                            color: Color(0xFFE8F5E9),
-                            child: Center(
-                              child: Icon(
-                                Icons.image,
-                                size: 40,
-                                color: kOwnerGreen,
-                              ),
-                            ),
-                          ),
-                    ),
+              child: Image(
+                image: imageAsset != null
+                    ? AssetImage(imageAsset!)
+                    : NetworkImage(
+                            imageUrl,
+                            headers: const {
+                              'User-Agent':
+                                  'KapConnect/1.0 (university project)',
+                            },
+                          )
+                          as ImageProvider,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) => progress == null
+                    ? child
+                    : const ColoredBox(color: Color(0xFFF1F1EC)),
+                errorBuilder: (context, error, stackTrace) => const ColoredBox(
+                  color: Color(0xFFE8F5E9),
+                  child: Center(
+                    child: Icon(Icons.image, size: 40, color: kOwnerGreen),
+                  ),
+                ),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),

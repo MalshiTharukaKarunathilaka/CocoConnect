@@ -65,7 +65,7 @@ const List<_Service> _services = [
   _Service(
     'Slasher',
     'slasher',
-    'Weed cutting & estate undergrowth clearing',
+    'Weed cutting & land undergrowth clearing',
     5000,
     'acre',
     'High clearing torque',
@@ -187,14 +187,14 @@ Map<String, List<_Job>> _demoJobs(List<_Service> svc, int seed) {
       _Job(
         s(0),
         _Status.confirmed,
-        'Green Valley Estate',
+        'Green Valley Land',
         4.5,
         '07:00 AM - 12:00 PM',
       ),
       _Job(
         s(1),
         _Status.confirmed,
-        'Green Valley Estate',
+        'Green Valley Land',
         4.5,
         '01:00 PM - 05:00 PM',
       ),
@@ -209,30 +209,24 @@ Map<String, List<_Job>> _demoJobs(List<_Service> svc, int seed) {
       ),
     ],
     key(4): [
-      _Job(s(4), _Status.confirmed, 'Serenity Palms Estate', 6, 'Full day'),
+      _Job(s(4), _Status.confirmed, 'Serenity Palms Land', 6, 'Full day'),
       _Job(s(3), _Status.pending, 'Kelani Palms', 3, '01:00 PM - 05:00 PM'),
     ],
     key(7): [
-      _Job(
-        s(3),
-        _Status.confirmed,
-        'Sirisena Estate',
-        5,
-        '07:00 AM - 11:00 AM',
-      ),
+      _Job(s(3), _Status.confirmed, 'Sirisena Land', 5, '07:00 AM - 11:00 AM'),
     ],
     key(9): [
       _Job(
         s(0),
         _Status.pending,
-        'Kiribathgoda Estate',
+        'Kiribathgoda Land',
         2,
         '08:00 AM - 10:00 AM',
       ),
       _Job(
         s(1),
         _Status.pending,
-        'Kiribathgoda Estate',
+        'Kiribathgoda Land',
         2,
         '10:00 AM - 01:00 PM',
       ),
@@ -241,7 +235,7 @@ Map<String, List<_Job>> _demoJobs(List<_Service> svc, int seed) {
       _Job(
         s(2),
         _Status.confirmed,
-        'Green Serenity Estate',
+        'Green Serenity Land',
         4.5,
         '06:00 AM - 12:00 PM',
       ),
@@ -300,6 +294,7 @@ class ServiceSchedulePage extends StatefulWidget {
 
 class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
   bool get _live => widget.info?.databaseId != null;
+  bool _openingBooking = false;
   Map<String, dynamic> _liveCalendar = const {};
 
   /// A provider blocking a day, or another owner booking one, shows up here
@@ -513,23 +508,37 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
     _loadLiveCalendar();
   }
 
-  Future<void> _negotiate(List<_Service> selected) async {
+  Future<void> _negotiate(List<_Service> selected, {bool negotiate = true}) async {
     if (_live) {
-      await requestLiveMachinery(
-        context,
-        machineId: widget.info!.databaseId!,
-        date: _day,
-        items: [
-          for (final s in selected)
-            {
-              'service_id': widget.info!.liveServices.firstWhere(
-                (r) => r['name'] == s.name,
-              )['id'],
-              'quantity': _amountOf(s),
-            },
-        ],
-      );
-      if (mounted) _loadLiveCalendar();
+      if (_openingBooking) return;
+      setState(() => _openingBooking = true);
+      try {
+        await openMachineryBooking(
+          context,
+          machine: widget.info!,
+          date: _day,
+          negotiate: negotiate,
+          listedTotal: selected.fold<double>(
+            0,
+            (sum, service) => sum + _lineCost(service).toDouble(),
+          ),
+          items: [
+            for (final s in selected)
+              {
+                'service_id': widget.info!.liveServices.firstWhere(
+                  (r) => r['name'] == s.name,
+                )['id'],
+                'name': s.name,
+                'unit': s.unit,
+                'rate': s.rate,
+                'quantity': _amountOf(s),
+              },
+          ],
+        );
+        if (mounted) await _loadLiveCalendar();
+      } finally {
+        if (mounted) setState(() => _openingBooking = false);
+      }
       return;
     }
     await Navigator.push(
@@ -545,7 +554,7 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
           ],
           date: _day,
           startTime: _startTime,
-          estate: AuthService.currentUser?.location ?? 'Your estate',
+          estate: AuthService.currentUser?.location ?? 'Your land',
           machineAt: widget.machineAt,
           estateAt: widget.estateAt,
           km: widget.km,
@@ -587,10 +596,6 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
               children: [
-                if (widget.info != null) ...[
-                  _machineHeader(widget.info!),
-                  const SizedBox(height: 14),
-                ],
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.symmetric(
@@ -621,6 +626,21 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
                     ],
                   ),
                 ),
+                OwnerCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text('Services offered', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      for (final service in _svc)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Text('${service.name} · ${rupees(service.rate)} / ${service.unit}'),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
                 _calendar(),
                 const SizedBox(height: 18),
                 Container(
@@ -736,191 +756,6 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
                 ],
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _machineHeader(MachineInfo m) {
-    Widget stat(IconData icon, Color color, String value, String label) =>
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE3EBE5)),
-            ),
-            child: Column(
-              children: [
-                Icon(icon, size: 18, color: color),
-                const SizedBox(height: 3),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.bold,
-                    color: kOwnerInk,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: const TextStyle(fontSize: 10.5, color: kOwnerMuted),
-                ),
-              ],
-            ),
-          ),
-        );
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Colors.white, Color(0xFFEFF6F1)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFDCE8DF)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 16,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Stack(
-                children: [
-                  MachinePhoto(m, width: 96, height: 96, radius: 18),
-                  Positioned(
-                    left: 6,
-                    bottom: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        machineLabel(m.type),
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: kOwnerGreen,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      m.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.bold,
-                        color: kOwnerInk,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            m.provider,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: kOwnerMuted,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.verified,
-                          size: 15,
-                          color: kOwnerGreen,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFBF1E6),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text.rich(
-                        TextSpan(
-                          text: 'from ${rupees(m.rate)}',
-                          children: [
-                            TextSpan(
-                              text: ' / ${m.unit}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.normal,
-                                color: kOwnerMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: kOwnerBrown,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              stat(
-                m.databaseId != null ? Icons.verified_user : Icons.star,
-                m.databaseId != null ? kOwnerGreen : const Color(0xFFF2A900),
-                m.databaseId != null ? 'Registered' : '${m.rating}',
-                m.databaseId != null ? 'provider' : '${m.jobs} jobs',
-              ),
-              const SizedBox(width: 8),
-              stat(
-                Icons.near_me_outlined,
-                const Color(0xFF0288D1),
-                widget.km > 0 ? '${widget.km.toStringAsFixed(1)} km' : '-',
-                'from your estate',
-              ),
-              const SizedBox(width: 8),
-              stat(
-                Icons.sell_outlined,
-                kOwnerBrown,
-                'per ${m.unit}',
-                'billing',
-              ),
-            ],
           ),
         ],
       ),
@@ -1179,10 +1014,29 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
             ],
           ),
           const SizedBox(height: 10),
-          OwnerPrimaryButton(
-            label: 'Negotiate Booking',
-            arrow: true,
-            onPressed: selected.isEmpty ? null : () => _negotiate(selected),
+          Row(
+            children: [
+              Expanded(
+                child: OwnerPrimaryButton(
+                  label: 'Negotiate Booking',
+                  arrow: !_live,
+                  onPressed: selected.isEmpty || _openingBooking
+                      ? null
+                      : () => _negotiate(selected),
+                ),
+              ),
+              if (_live) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OwnerPrimaryButton(
+                    label: 'Send Booking Request',
+                    onPressed: selected.isEmpty || _openingBooking
+                        ? null
+                        : () => _negotiate(selected, negotiate: false),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -1362,22 +1216,28 @@ class _ServiceSchedulePageState extends State<ServiceSchedulePage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    '$n',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: selected || today
-                          ? FontWeight.bold
-                          : FontWeight.w500,
-                      color: selected
-                          ? Colors.white
-                          : dim
-                          ? const Color(0xFFB4B8BC)
-                          : st == _Day.free
-                          ? kOwnerInk
-                          : strong,
-                      decoration: strike ? TextDecoration.lineThrough : null,
-                      decorationColor: selected ? Colors.white : strong,
+                  Flexible(
+                    child: FittedBox(
+                      child: Text(
+                        '$n',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: selected || today
+                              ? FontWeight.bold
+                              : FontWeight.w500,
+                          color: selected
+                              ? Colors.white
+                              : dim
+                              ? const Color(0xFFB4B8BC)
+                              : st == _Day.free
+                              ? kOwnerInk
+                              : strong,
+                          decoration: strike
+                              ? TextDecoration.lineThrough
+                              : null,
+                          decorationColor: selected ? Colors.white : strong,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),

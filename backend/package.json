@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node -r ./config/usePersistentDb.js server.js",
+    "dev": "nodemon --exec \"node -r ./config/usePersistentDb.js\" server.js",
     "dev:memory": "nodemon --exec \"node -r ./test/useMemoryDb.js\" server.js",
     "test": "node --test test/*.test.js",
     "dev:supabase": "nodemon --exec \"node -r ./config/usePersistentDb.js\" server.js",

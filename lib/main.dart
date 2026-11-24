@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'screens/auth_gate.dart';
 import 'screens/estate_owner_profile_page.dart';
 import 'screens/orders/orders_page.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,7 +55,7 @@ class KapConnectApp extends StatelessWidget {
     return MaterialApp(
       title: 'KapConnect',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true, fontFamily: 'Arial'),
+      theme: AppTheme.light(),
       navigatorObservers: [KeyboardDismissNavigatorObserver()],
 
       // First screen

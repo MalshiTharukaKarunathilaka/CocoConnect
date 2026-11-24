@@ -65,6 +65,9 @@ class WorkerJob {
   final bool canDecline;
   final int? rating;
   final int? estateOwnerRating;
+  final double? estateOwnerAverageRating;
+  final int estateOwnerRatingCount;
+  final bool completionAcknowledged;
 
   const WorkerJob({
     required this.id,
@@ -88,6 +91,9 @@ class WorkerJob {
     required this.canDecline,
     required this.rating,
     required this.estateOwnerRating,
+    required this.estateOwnerAverageRating,
+    required this.estateOwnerRatingCount,
+    required this.completionAcknowledged,
   });
 
   factory WorkerJob.fromJson(Map<String, dynamic> json) => WorkerJob(
@@ -102,8 +108,8 @@ class WorkerJob {
     paymentMethod: json['payment_method'] as String? ?? '',
     status:
         json['worker_status'] as String? ?? json['status'] as String? ?? 'OPEN',
-    estateName: json['estate_name'] as String? ?? 'Estate',
-    estateOwnerName: json['estate_owner_name'] as String? ?? 'Estate owner',
+    estateName: json['estate_name'] as String? ?? 'Land',
+    estateOwnerName: json['estate_owner_name'] as String? ?? 'Land owner',
     estateLocation:
         json['estate_location'] as String? ?? json['location'] as String? ?? '',
     latitude: (json['estate_latitude'] as num?)?.toDouble(),
@@ -114,7 +120,38 @@ class WorkerJob {
     canDecline: json['can_decline'] == true,
     rating: (json['rating'] as num?)?.toInt(),
     estateOwnerRating: (json['estate_owner_rating'] as num?)?.toInt(),
+    estateOwnerAverageRating: (json['estate_owner_average_rating'] as num?)
+        ?.toDouble(),
+    estateOwnerRatingCount:
+        (json['estate_owner_rating_count'] as num?)?.toInt() ?? 0,
+    completionAcknowledged: json['completion_acknowledged'] == true,
   );
+
+  bool get needsCompletionAcknowledgement =>
+      applicationStatus?.toUpperCase() == 'ACCEPTED' &&
+      status.toUpperCase() == 'AWAITING_WORKER_ACK' &&
+      !completionAcknowledged;
+
+  /// Worker already sent completion — waiting for land owner to confirm.
+  bool get workerInitiatedCompletion =>
+      applicationStatus?.toUpperCase() == 'ACCEPTED' &&
+      status.toUpperCase() == 'AWAITING_OWNER_ACK';
+
+  /// Worker can click "Complete Job" for past/today accepted jobs that haven't
+  /// been completed or already initiated by either side.
+  bool get canInitiateCompletion {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final jobDay = DateTime(requiredDate.year, requiredDate.month, requiredDate.day);
+    final isPastOrToday = !jobDay.isAfter(today);
+    final st = status.toUpperCase();
+    return applicationStatus?.toUpperCase() == 'ACCEPTED' &&
+        isPastOrToday &&
+        st != 'COMPLETED' &&
+        st != 'CANCELLED' &&
+        st != 'AWAITING_WORKER_ACK' &&
+        st != 'AWAITING_OWNER_ACK';
+  }
 }
 
 class EstateOwnerWorkerProfile {
@@ -152,7 +189,7 @@ class EstateOwnerWorkerProfile {
       EstateOwnerWorkerProfile(
         id: (json['id'] as num).toInt(),
         ownerName: json['owner_name'] as String? ?? 'Land owner',
-        estateName: json['estate_name'] as String? ?? 'Estate',
+        estateName: json['estate_name'] as String? ?? 'Land',
         location: json['location'] as String? ?? '',
         phone: json['phone'] as String? ?? '',
         totalLandArea: json['total_land_area'] as String?,
@@ -183,7 +220,7 @@ class WorkerEstate {
   });
   factory WorkerEstate.fromJson(Map<String, dynamic> j) => WorkerEstate(
     id: (j['id'] as num?)?.toInt() ?? 0,
-    estateName: j['estate_name'] as String? ?? 'Estate',
+    estateName: j['estate_name'] as String? ?? 'Land',
     ownerName: j['estate_owner_name'] as String? ?? 'Land owner',
     location: j['location'] as String? ?? '',
     latitude: _optionalNumber(j['estate_latitude'] ?? j['latitude']),
@@ -221,8 +258,24 @@ class WorkerService {
     await ApiClient.post('/api/worker/jobs/$jobId/apply');
   }
 
-  static Future<void> declineJob(int jobId) async {
-    await ApiClient.post('/api/worker/jobs/$jobId/decline');
+  static Future<void> declineJob(int jobId, {String? reason, String? note}) async {
+    await ApiClient.post('/api/worker/jobs/$jobId/decline', {
+      if (reason != null) 'reason': reason,
+      if (note != null) 'note': note,
+    });
+  }
+
+  static Future<void> initiateJobCompletion(int jobId) async {
+    await ApiClient.post('/api/worker/jobs/$jobId/initiate-complete');
+  }
+
+  static Future<void> acknowledgeJobCompletion({
+    required int jobId,
+    required int rating,
+  }) async {
+    await ApiClient.patch('/api/worker/jobs/$jobId/complete', {
+      'rating': rating,
+    });
   }
 
   static Future<EstateOwnerWorkerProfile> getEstateOwnerProfile(

@@ -1,3 +1,5 @@
+import '../../widgets/land_owner_rating_dialog.dart';
+import '../../widgets/deal_cancellation_dialog.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -5,6 +7,7 @@ import '../../models/provider_booking_request.dart';
 import '../../services/api_client.dart';
 import '../../services/machinery_api.dart';
 import '../../widgets/owner_widgets.dart';
+import '../../widgets/app_bottom_nav.dart';
 import '../buyer/buyer_format.dart';
 import 'provider_request_widgets.dart';
 import 'revise_request_dialog.dart';
@@ -16,6 +19,9 @@ class ProviderRequestPage extends StatefulWidget {
   final bool showMap;
   final MachineryApi? api;
   final bool isOwner;
+  final ValueChanged<AppTab>? onProviderTab;
+  final Future<ProviderBookingRequest> Function(Map<String, dynamic>)?
+  submitDraft;
   const ProviderRequestPage({
     super.key,
     required this.request,
@@ -23,6 +29,8 @@ class ProviderRequestPage extends StatefulWidget {
     this.showMap = true,
     this.api,
     this.isOwner = false,
+    this.onProviderTab,
+    this.submitDraft,
   });
   @override
   State<ProviderRequestPage> createState() => _ProviderRequestPageState();
@@ -31,10 +39,12 @@ class ProviderRequestPage extends StatefulWidget {
 class _ProviderRequestPageState extends State<ProviderRequestPage> {
   late ProviderBookingRequest _request = widget.request;
   final _message = TextEditingController();
+  final _chatScroll = ScrollController();
   String? _messageError;
   bool _busy = false;
   Timer? _poll;
   bool get _preview => widget.api == null;
+  bool get _draft => widget.submitDraft != null && _request.id.isEmpty;
 
   /// Only the provider answers a request, and only with accept or decline.
   bool get _canAccept => !widget.isOwner && _request.canAccept;
@@ -53,19 +63,32 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
   void dispose() {
     _poll?.cancel();
     _message.dispose();
+    _chatScroll.dispose();
     super.dispose();
   }
 
   void _notify(String text) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   Future<void> _refresh({bool quiet = false}) async {
-    if (_preview || _busy) return;
+    if (_preview || _draft || _busy) return;
     try {
       final latest = await widget.api!.request(_request.id);
       if (mounted) setState(() => _request = latest);
     } on ApiException catch (error) {
       if (mounted && !quiet) _notify(error.message);
     }
+  }
+
+  Future<void> _rateCounterparty() async {
+    final rating = await showLandOwnerRatingDialog(
+      context,
+      party: widget.isOwner ? 'machinery provider' : 'land owner',
+    );
+    if (rating == null || !mounted) return;
+    await _perform(
+      widget.isOwner ? 'rate-provider' : 'complete-and-rate',
+      body: {'rating': rating},
+    );
   }
 
   Future<bool> _perform(
@@ -77,7 +100,13 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
     if (_busy) return false;
     setState(() => _busy = true);
     try {
-      if (_preview) {
+      if (_draft) {
+        final latest = await widget.submitDraft!({
+          ...?body,
+          if (message != null) 'message': message,
+        });
+        if (mounted) setState(() => _request = latest);
+      } else if (_preview) {
         if (action == 'revise') {
           _notify('Changing a request is not available in the preview.');
           return false;
@@ -99,13 +128,14 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
                 action,
                 message: message,
                 rate: rate,
+                details: body,
               );
         if (mounted) setState(() => _request = latest);
       }
       return true;
     } on ApiException catch (error) {
       if (mounted) _notify(error.message);
-      if (error.statusCode == 409 && !_preview) {
+      if (error.statusCode == 409 && !_preview && !_draft) {
         try {
           final latest = await widget.api!.request(_request.id);
           if (mounted) setState(() => _request = latest);
@@ -120,9 +150,13 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
     }
   }
 
-  /// The estate owner offers a different price or changes the request.
+  /// The land owner offers a different price or changes the request.
   Future<void> _changeRequest() async {
-    final body = await showReviseRequestDialog(context, _request);
+    final body = await showReviseRequestDialog(
+      context,
+      _request,
+      initialRequest: _draft,
+    );
     if (body == null || !mounted) return;
     await _perform('revise', body: body);
   }
@@ -131,6 +165,7 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
     final yes = await showThemedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        scrollable: true,
         title: Text(
           accept
               ? (_preview
@@ -168,28 +203,13 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
     if (saved && mounted) Navigator.pop(context, true);
   }
 
-  Future<void> _cancelOwner() async {
-    final yes = await showThemedDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cancel booking request?'),
-        content: const Text(
-          'The request will be cancelled and its reserved time slot released.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep Booking'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cancel Booking'),
-          ),
-        ],
-      ),
+  Future<void> _cancelBooking() async {
+    final details = await showDealCancellationDialog(
+      context,
+      type: DealCancellationType.machinery,
     );
-    if (yes != true || !mounted) return;
-    final saved = await _perform('cancel');
+    if (details == null || !mounted) return;
+    final saved = await _perform('cancel', body: details);
     if (saved && mounted) Navigator.pop(context, true);
   }
 
@@ -228,316 +248,417 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
 
   Widget _page(BuildContext context) {
     final request = _request;
+    final utc = DateTime.now().toUtc().add(const Duration(minutes: 330));
+    final sriLankaNow = DateTime(
+      utc.year,
+      utc.month,
+      utc.day,
+      utc.hour,
+      utc.minute,
+      utc.second,
+    );
     final offerIsMine = widget.isOwner
         ? request.proposedBy == RequestSpeaker.owner
         : request.proposedBy == RequestSpeaker.provider;
     return OwnerPage(
-      child: Column(
-        children: [
-          OwnerHeader(
-            title: widget.isOwner
-                ? 'Machinery Request & Negotiation'
-                : 'Service Request & Negotiation',
-            actions: [
-              if (!_preview)
-                IconButton(
-                  tooltip: 'Refresh request',
-                  onPressed: _busy ? null : () => _refresh(),
-                  icon: const Icon(Icons.refresh, color: kOwnerGreen),
-                ),
-            ],
-          ),
-          if (_busy) const LinearProgressIndicator(),
-          Expanded(
-            child: AbsorbPointer(
-              absorbing: _busy,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                children: [
-                  if (_preview)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        'Preview workflow - Changes stay on this device for this calendar visit.',
-                        style: TextStyle(fontSize: 12, color: kOwnerBrown),
-                      ),
-                    ),
-                  if (!_preview &&
-                      widget.isOwner &&
-                      (request.isPending ||
-                          request.status == ProviderRequestStatus.confirmed))
-                    OutlinedButton(
-                      onPressed: _cancelOwner,
-                      child: const Text('Cancel Booking Request'),
-                    ),
-                  _location(),
-                  const SizedBox(height: 16),
-                  _section(
-                    widget.isOwner && request.isPending
-                        ? 'Booking Request Sent'
-                        : requestStatusLabel(request),
-                    Icons.circle,
-                    [
-                      _detail(
-                        request.agreedRate != null
-                            ? 'Agreed Rate'
-                            : offerIsMine
-                            ? 'Your Offer'
-                            : 'Received Offer',
-                        '${rupees(request.agreedRate ?? request.proposedRate)} / ${request.unit}\n${requestQuantity(request)} - Total ${rupees((request.agreedRate ?? request.proposedRate) * request.quantity)}\nService date: ${requestDate(request.startsAt)}, ${clockTime(request.startsAt)} - ${clockTime(request.endsAt)}',
-                        Icons.payments_outlined,
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        request.agreedRate != null
-                            ? 'Booking confirmed.'
-                            : widget.isOwner
-                            ? 'Waiting for the provider to accept or decline. You can change the price or the request below.'
-                            : 'Accept or decline this request. Only the estate owner can change the price or the request.',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: kOwnerGreen,
+      currentTab: AppTab.chats,
+      bottom: widget.onProviderTab == null
+          ? null
+          : AppBottomNav(
+              current: AppTab.chats,
+              onProviderTab: (tab) {
+                Navigator.pop(context);
+                widget.onProviderTab!(tab);
+              },
+            ),
+      child: ColoredBox(
+        color: const Color(0xFFEFE9DF),
+        child: Column(
+          children: [
+            _chatHeader(request),
+            if (_busy) const LinearProgressIndicator(),
+            Expanded(
+              child: AbsorbPointer(
+                absorbing: _busy,
+                child: ListView(
+                  controller: _chatScroll,
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+                  children: [
+                    if (_preview)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          'Preview workflow - Changes stay on this device for this calendar visit.',
+                          style: TextStyle(fontSize: 12, color: kOwnerBrown),
                         ),
                       ),
-                    ],
-                  ),
-                  OwnerCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        ProviderCustomerCard(
-                          request: request,
-                          ownerView: widget.isOwner,
-                        ),
-                        const SizedBox(height: 18),
-                        _detail(
-                          'Machinery & Job',
-                          '${request.machineName ?? request.machinery} - ${request.service}\n${request.items.isEmpty ? requestQuantity(request) : request.items.map((i) => '${i['name']}: ${i['quantity']} ${i['unit']}').join('\n')}',
-                          Icons.agriculture_outlined,
-                        ),
-                        const SizedBox(height: 8),
-                        _detail(
-                          'Schedule & Time',
-                          '${requestDate(request.startsAt)}\n${clockTime(request.startsAt)} - ${clockTime(request.endsAt)}',
-                          Icons.calendar_today_outlined,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _section('Negotiation Log', Icons.forum_outlined, [
-                    if (request.messages.isEmpty)
-                      const Text(
-                        'No messages yet.',
-                        style: TextStyle(color: kOwnerMuted),
+                    if (!_preview &&
+                        !_draft &&
+                        !request.workConfirmed &&
+                        ((widget.isOwner && request.isPending) ||
+                            request.status == ProviderRequestStatus.confirmed))
+                      OutlinedButton(
+                        onPressed: _cancelBooking,
+                        child: const Text('Cancel booking'),
                       ),
-                    for (final message in request.messages)
-                      Align(
-                        alignment:
-                            (message.sender == RequestSpeaker.owner) ==
-                                widget.isOwner
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(12),
-                          constraints: const BoxConstraints(maxWidth: 285),
-                          decoration: BoxDecoration(
-                            color:
-                                (message.sender == RequestSpeaker.owner) ==
-                                    widget.isOwner
-                                ? kOwnerGreenSoft
-                                : providerRequestPanel,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${(message.sender == RequestSpeaker.owner) == widget.isOwner
-                                    ? 'You'
-                                    : widget.isOwner
-                                    ? (request.providerName ?? 'Provider')
-                                    : request.ownerName} - ${clockTime(message.sentAt)}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: kOwnerMuted,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              Text(
-                                message.text,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  height: 1.4,
-                                ),
-                              ),
-                              if (message.rate != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text(
-                                    '${rupees(message.rate!)} / ${request.unit}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: kOwnerGreen,
-                                    ),
-                                  ),
-                                ),
-                              if (message.serviceDate != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.event_outlined,
-                                        size: 14,
-                                        color: kOwnerMuted,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Flexible(
-                                        child: Text(
-                                          message.serviceDate!,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: kOwnerMuted,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    if (request.isPending && widget.isOwner) ...[
-                      const SizedBox(height: 5),
-                      TextField(
-                        key: const Key('provider-message'),
-                        controller: _message,
-                        minLines: 1,
-                        maxLines: 4,
-                        maxLength: 2000,
-                        decoration: InputDecoration(
-                          hintText: 'Write a message',
-                          errorText: _messageError,
-                          filled: true,
-                          fillColor: providerRequestPanel,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton.icon(
-                          onPressed: () async {
-                            if (_message.text.trim().isEmpty) {
-                              setState(
-                                () => _messageError = 'Enter a message.',
-                              );
-                              return;
-                            }
-                            final saved = await _perform(
-                              'messages',
-                              message: _message.text.trim(),
-                            );
-                            if (saved && mounted) {
-                              setState(() {
-                                _message.clear();
-                                _messageError = null;
-                              });
-                            }
-                          },
-                          icon: const Icon(Icons.send_outlined, size: 17),
-                          label: const Text('Send message'),
-                        ),
-                      ),
-                    ],
-                  ]),
-                  if (request.isPending) ...[
-                    if (widget.isOwner)
-                      _section(
-                        'Change your price or request',
-                        Icons.price_change_outlined,
-                        [
-                          const Text(
-                            'Offer a different price, change the work or move the date and time. The provider then accepts or declines it.',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: kOwnerMuted,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          FilledButton.icon(
-                            key: const Key('change-request'),
-                            onPressed: _changeRequest,
-                            icon: const Icon(
-                              Icons.edit_calendar_outlined,
-                              size: 18,
-                            ),
-                            label: const Text('Change price or request'),
-                          ),
-                        ],
-                      )
-                    else
+                    if (request.workConfirmed)
+                      const Text('Completed')
+                    else if (request.workFinished &&
+                        request.status == ProviderRequestStatus.confirmed)
+                      const Text('Awaiting land owner confirmation'),
+                    if (!_preview &&
+                        !widget.isOwner &&
+                        request.status == ProviderRequestStatus.confirmed &&
+                        !request.workFinished &&
+                        !request.startsAt.isAfter(sriLankaNow))
                       FilledButton(
-                        onPressed: _canAccept ? () => _finish(true) : null,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.green,
-                          minimumSize: const Size.fromHeight(50),
-                          shape: const StadiumBorder(),
-                        ),
-                        child: const Text('Accept & Lock Booking'),
+                        onPressed: () => _perform('finish-work'),
+                        child: const Text('Mark work finished'),
                       ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed:
-                              (widget.isOwner
-                                      ? request.providerPhone
-                                      : request.phone) ==
-                                  null
-                              ? null
-                              : () => showCustomerContact(
-                                  context,
-                                  request,
-                                  ownerView: widget.isOwner,
-                                ),
-                          icon: const Icon(Icons.phone_outlined, size: 16),
-                          label: Text(
-                            widget.isOwner
-                                ? 'Contact Provider'
-                                : 'Call Customer',
+                    if (!_preview &&
+                        widget.isOwner &&
+                        request.status == ProviderRequestStatus.confirmed &&
+                        request.workFinished &&
+                        !request.workConfirmed)
+                      FilledButton(
+                        onPressed: () => _perform('confirm-work'),
+                        child: const Text('Confirm completion'),
+                      ),
+                    if (!_preview &&
+                        request.workConfirmed &&
+                        (widget.isOwner
+                                ? request.providerRating
+                                : request.landOwnerRating) ==
+                            null)
+                      FilledButton.icon(
+                        onPressed: _rateCounterparty,
+                        icon: const Icon(Icons.star_outline),
+                        label: Text(
+                          widget.isOwner ? 'Rate provider' : 'Rate land owner',
+                        ),
+                      ),
+                    _section(
+                      _draft
+                          ? 'Draft Booking Request'
+                          : widget.isOwner && request.isPending
+                          ? 'Booking Request Sent'
+                          : requestStatusLabel(request),
+                      Icons.circle,
+                      [
+                        _detail(
+                          request.agreedRate != null
+                              ? 'Agreed Rate'
+                              : offerIsMine
+                              ? 'Your Offer'
+                              : 'Received Offer',
+                          '${rupees(request.agreedRate ?? request.proposedRate)} / ${request.unit}\n${requestQuantity(request)} - Total ${rupees((request.agreedRate ?? request.proposedRate) * request.quantity)}\nService date: ${requestDate(request.startsAt)}, ${clockTime(request.startsAt)} - ${clockTime(request.endsAt)}',
+                          Icons.payments_outlined,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          request.agreedRate != null
+                              ? 'Booking confirmed.'
+                              : _draft
+                              ? 'Send a message or an offer to start the negotiation.'
+                              : widget.isOwner
+                              ? 'Waiting for the provider to accept or decline. You can change the price or the request below.'
+                              : 'Accept or decline this request. Only the land owner can change the price or the request.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: kOwnerGreen,
                           ),
                         ),
-                        if (!widget.isOwner)
-                          TextButton.icon(
-                            onPressed: () => _finish(false),
-                            style: TextButton.styleFrom(
-                              foregroundColor: kOwnerRed,
-                            ),
-                            icon: const Icon(Icons.close, size: 16),
-                            label: const Text('Decline'),
-                          ),
                       ],
                     ),
+                    Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      clipBehavior: Clip.antiAlias,
+                      child: ExpansionTile(
+                        title: const Text('Booking details'),
+                        childrenPadding: const EdgeInsets.fromLTRB(
+                          12,
+                          0,
+                          12,
+                          12,
+                        ),
+                        expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ProviderCustomerCard(
+                            request: request,
+                            ownerView: widget.isOwner,
+                          ),
+                          const SizedBox(height: 18),
+                          _detail(
+                            'Machinery & Job',
+                            '${request.machineName ?? request.machinery} - ${request.service}\n${request.items.isEmpty ? requestQuantity(request) : request.items.map((i) => '${i['name']}: ${i['quantity']} ${i['unit']}').join('\n')}',
+                            Icons.agriculture_outlined,
+                          ),
+                          const SizedBox(height: 8),
+                          _detail(
+                            'Schedule & Time',
+                            '${requestDate(request.startsAt)}\n${clockTime(request.startsAt)} - ${clockTime(request.endsAt)}',
+                            Icons.calendar_today_outlined,
+                          ),
+                          const SizedBox(height: 8),
+                          _location(),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (request.isPending) ...[
+                      if (widget.isOwner)
+                        OutlinedButton.icon(
+                          key: const Key('change-request'),
+                          onPressed: _changeRequest,
+                          icon: const Icon(
+                            Icons.edit_calendar_outlined,
+                            size: 18,
+                          ),
+                          label: const Text('Change price or request'),
+                        )
+                      else
+                        FilledButton(
+                          onPressed: _canAccept ? () => _finish(true) : null,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.green,
+                            minimumSize: const Size.fromHeight(50),
+                            shape: const StadiumBorder(),
+                          ),
+                          child: const Text('Accept & Lock Booking'),
+                        ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed:
+                                (widget.isOwner
+                                        ? request.providerPhone
+                                        : request.phone) ==
+                                    null
+                                ? null
+                                : () => showCustomerContact(
+                                    context,
+                                    request,
+                                    ownerView: widget.isOwner,
+                                  ),
+                            icon: const Icon(Icons.phone_outlined, size: 16),
+                            label: Text(
+                              widget.isOwner
+                                  ? 'Contact Provider'
+                                  : 'Call Customer',
+                            ),
+                          ),
+                          if (!widget.isOwner)
+                            TextButton.icon(
+                              onPressed: () => _finish(false),
+                              style: TextButton.styleFrom(
+                                foregroundColor: kOwnerRed,
+                              ),
+                              icon: const Icon(Icons.close, size: 16),
+                              label: const Text('Decline'),
+                            ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    if (request.messages.isEmpty)
+                      const Center(
+                        child: Text(
+                          'No messages yet.',
+                          style: TextStyle(color: kOwnerMuted),
+                        ),
+                      ),
+                    for (final message in request.messages) _bubble(message),
                   ],
-                ],
+                ),
               ),
             ),
+            if (widget.isOwner && request.isPending) _composer(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chatHeader(ProviderBookingRequest request) {
+    final name = widget.isOwner
+        ? request.providerName ?? 'Provider'
+        : request.ownerName;
+    return Container(
+      color: kOwnerCream,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      child: Row(
+        children: [
+          const BackButton(color: kOwnerInk),
+          CircleAvatar(
+            radius: 19,
+            backgroundColor: kOwnerGreen,
+            foregroundColor: Colors.white,
+            child: Text(
+              name.isEmpty ? '?' : name.characters.first.toUpperCase(),
+            ),
           ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: kOwnerGreen,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Text(
+                  'Machinery Request',
+                  style: TextStyle(color: kOwnerMuted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          if (!_preview && !_draft)
+            IconButton(
+              tooltip: 'Refresh request',
+              onPressed: _busy ? null : _refresh,
+              icon: const Icon(Icons.refresh, color: kOwnerGreen),
+            ),
         ],
       ),
     );
   }
+
+  Widget _bubble(ProviderRequestMessage message) {
+    final mine = (message.sender == RequestSpeaker.owner) == widget.isOwner;
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.fromLTRB(12, 9, 12, 8),
+        constraints: const BoxConstraints(maxWidth: 285),
+        decoration: BoxDecoration(
+          color: mine ? const Color(0xFFDCF3DC) : Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(14),
+            topRight: const Radius.circular(14),
+            bottomLeft: Radius.circular(mine ? 14 : 3),
+            bottomRight: Radius.circular(mine ? 3 : 14),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message.text,
+              style: const TextStyle(
+                color: kOwnerInk,
+                fontSize: 14,
+                height: 1.35,
+              ),
+            ),
+            if (message.rate != null)
+              Text(
+                '${rupees(message.rate!)} / ${_request.unit}',
+                style: const TextStyle(
+                  color: kOwnerGreen,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            if (message.serviceDate != null)
+              Text(
+                message.serviceDate!,
+                style: const TextStyle(fontSize: 12, color: kOwnerMuted),
+              ),
+            const SizedBox(height: 3),
+            Align(
+              widthFactor: 1,
+              alignment: Alignment.centerRight,
+              child: Text(
+                clockTime(message.sentAt),
+                style: const TextStyle(fontSize: 10, color: kOwnerMuted),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendMessage() async {
+    if (_busy) return;
+    final message = _message.text.trim();
+    if (message.isEmpty) {
+      setState(() => _messageError = 'Enter a message.');
+      return;
+    }
+    final saved = await _perform('messages', message: message);
+    if (!saved || !mounted) return;
+    setState(() {
+      _message.clear();
+      _messageError = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_chatScroll.hasClients) {
+        _chatScroll.jumpTo(_chatScroll.position.maxScrollExtent);
+      }
+    });
+  }
+
+  Widget _composer() => Container(
+    color: kOwnerCream,
+    padding: const EdgeInsets.all(8),
+    child: Row(
+      children: [
+        Expanded(
+          child: TextField(
+            key: const Key('provider-message'),
+            controller: _message,
+            enabled: !_busy,
+            minLines: 1,
+            maxLines: 3,
+            maxLength: 2000,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.send,
+            onSubmitted: (_) => _sendMessage(),
+            decoration: InputDecoration(
+              hintText: 'Type a message',
+              errorText: _messageError,
+              counterText: '',
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton.filled(
+          tooltip: 'Send message',
+          onPressed: _busy ? null : _sendMessage,
+          style: IconButton.styleFrom(
+            backgroundColor: kOwnerGreen,
+            foregroundColor: Colors.white,
+          ),
+          icon: const Icon(Icons.send_rounded, size: 20),
+        ),
+      ],
+    ),
+  );
 
   Widget _detail(String label, String value, IconData icon) => Container(
     padding: const EdgeInsets.all(12),
@@ -622,9 +743,7 @@ class _ProviderRequestPageState extends State<ProviderRequestPage> {
                       ),
                     ],
                   ),
-                  const SimpleAttributionWidget(
-                    source: Text('OpenStreetMap contributors'),
-                  ),
+                  const SizedBox.shrink(),
                 ],
               ),
             )

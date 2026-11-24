@@ -1,12 +1,17 @@
+import '../../widgets/deal_cancellation_dialog.dart';
+import '../../widgets/app_bottom_nav.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_client.dart';
+import '../../services/activity_service.dart';
+import '../../widgets/order_rating_dialog.dart';
 import '../../services/chat_service.dart';
 import '../../widgets/owner_widgets.dart';
 import '../buyer/buyer_format.dart';
 import '../buyer/coconut_type.dart';
 import '../complete_deal_page.dart';
+import 'coconut_counterpart_profile_page.dart';
 
 const Color _green = Color(0xFF256B45);
 const Color _wallpaper = Color(0xFFEFE9DF);
@@ -21,7 +26,7 @@ Future<void> openChat(BuildContext context, int chatId) => Navigator.push(
   MaterialPageRoute(builder: (context) => ChatPage(chatId: chatId)),
 );
 
-/// One negotiation, WhatsApp style, the same for buyers and estate owners.
+/// One negotiation, WhatsApp style, the same for buyers and land owners.
 /// It starts with the Current Offer card; either side sends messages and
 /// price offers, and only the other side can accept or reject an offer.
 class ChatPage extends StatefulWidget {
@@ -126,6 +131,7 @@ class _ChatPageState extends State<ChatPage> {
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: Text(title),
         content: Text(body),
         actions: [
@@ -230,6 +236,38 @@ class _ChatPageState extends State<ChatPage> {
     _run(() => ChatService.close(widget.chatId), 'Negotiation closed');
   }
 
+  Future<void> _cancelDeal() async {
+    final details = await showDealCancellationDialog(context, type: DealCancellationType.coconut);
+    if (details == null || !mounted) return;
+    await _run(() => ChatService.cancelDeal(widget.chatId, details), 'Deal cancelled');
+  }
+
+  Future<void> _confirmReceipt() async {
+    if (!await _confirm(
+      'Mark nuts as received?',
+      'Confirm that you collected the nuts at ${_chat!.counterpartName}. '
+          'This completes the deal and enables ratings for both sides.',
+      'Confirm Goods Received',
+      _green,
+    )) {
+      return;
+    }
+    await _run(
+      () => ActivityService.confirmReceipt(_chat!.orderId!),
+      'Nuts marked as received. Transaction complete.',
+    );
+  }
+
+  Future<void> _rate() async {
+    try {
+      final order = await ActivityService.findOrder(_chat!.orderId!);
+      if (!mounted || order == null) return;
+      if (await showOrderRating(context, order)) await _load();
+    } on ApiException catch (error) {
+      if (mounted) _snack(error.message, error: true);
+    }
+  }
+
   Future<void> _complete() async {
     final int? orderId = _chat?.orderId;
     if (orderId == null) return;
@@ -240,13 +278,14 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     final ChatDetail? chat = _chat;
 
-    return Scaffold(
-      backgroundColor: _wallpaper,
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
+    return OwnerPage(
+      currentTab: AppTab.chats,
+      child: ColoredBox(
+        color: _wallpaper,
         child: Column(
           children: [
             _ChatHeader(
+              chatId: widget.chatId,
               chat: chat,
               onClose: chat != null && chat.isOpen && !_busy
                   ? _closeChat
@@ -307,16 +346,52 @@ class _ChatPageState extends State<ChatPage> {
                       onAccept: () => _accept(message),
                       onReject: () => _reject(message),
                     )
+                  : (message.text?.startsWith('Deal accepted by ') == true ||
+                        message.text?.startsWith('Deal cancelled by ') ==
+                            true ||
+                        message.text?.startsWith(
+                              'Transaction marked complete by ',
+                            ) ==
+                            true ||
+                        message.text?.startsWith(
+                              'Nuts marked as received by ',
+                            ) ==
+                            true)
+                  ? _SystemNote(
+                      message.text!,
+                      good: !message.text!.startsWith(
+                        'Transaction marked complete by ',
+                      ),
+                    )
                   : _TextBubble(message: message),
             ),
-          if (chat.isAccepted)
+          if (chat.isAccepted &&
+              !(chat.isCompleted &&
+                  chat.messages.any(
+                    (m) =>
+                        m.text?.startsWith('Nuts marked as received by ') ==
+                        true,
+                  )) &&
+              !(chat.awaitingReceipt &&
+                  chat.messages.any(
+                    (m) =>
+                        m.text?.startsWith('Transaction marked complete by ') ==
+                        true,
+                  )))
             _SystemNote(
               chat.isCompleted
-                  ? 'Deal completed.'
-                  : 'Deal accepted at ${rupees(chat.orderPrice ?? 0)} per nut. '
-                        '${chat.iAmBuyer ? 'The estate owner completes the order.' : 'Complete the order once it is fulfilled.'}',
+                  ? 'Transaction complete. You can now rate each other.'
+                  : chat.awaitingReceipt
+                  ? 'Transaction marked complete by the land owner. Awaiting buyer confirmation that the nuts have been received.'
+                  : chat.iAmBuyer
+                  ? 'Collect the nuts at ${chat.counterpartName}. After the seller '
+                        'records collection, tap Confirm Goods Received to complete the deal.'
+                  : 'After ${chat.counterpartName} collects the nuts from your land, '
+                        'use Complete Transaction to record the quantity collected. '
+                        'The transaction ends once the buyer marks the nuts as received.',
               good: true,
             ),
+          if (chat.isCancelled) const _SystemNote('This deal was cancelled.'),
           if (chat.status == 'REJECTED')
             const _SystemNote('This negotiation was closed without a deal.'),
         ],
@@ -379,15 +454,69 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
 
-    if (chat.isAccepted && !chat.isCompleted && !chat.iAmBuyer) {
+    if (chat.awaitingReceipt) {
       return bar(
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: OwnerPrimaryButton(
-            label: 'Complete Transaction',
-            arrow: true,
-            onPressed: _busy ? null : _complete,
-          ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (chat.iAmBuyer)
+              OwnerPrimaryButton(
+                label: 'Confirm Goods Received',
+                onPressed: _busy ? null : _confirmReceipt,
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.all(8),
+                child: Text(
+                  'Waiting for the buyer to confirm the goods were received',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _cancelDeal,
+              icon: const Icon(Icons.cancel_outlined),
+              label: const Text('Cancel Deal'),
+              style: OutlinedButton.styleFrom(foregroundColor: _red),
+            ),
+          ],
+        ),
+      );
+    }
+    if (chat.isCompleted) {
+      return bar(
+        chat.myRating == null
+            ? OutlinedButton.icon(
+                onPressed: _busy ? null : _rate,
+                icon: const Icon(Icons.star_outline),
+                label: Text(chat.iAmBuyer ? 'Rate seller' : 'Rate buyer'),
+              )
+            : Text(
+                'Your rating: ${chat.myRating}/5 stars',
+                textAlign: TextAlign.center,
+              ),
+      );
+    }
+
+    if (chat.canCancel) {
+      return bar(
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!chat.iAmBuyer)
+              OwnerPrimaryButton(
+                label: 'Mark goods handed over',
+                arrow: true,
+                onPressed: _busy ? null : _complete,
+              ),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _cancelDeal,
+              icon: const Icon(Icons.cancel_outlined),
+              label: const Text('Cancel Deal'),
+              style: OutlinedButton.styleFrom(foregroundColor: _red),
+            ),
+          ],
         ),
       );
     }
@@ -396,7 +525,9 @@ class _ChatPageState extends State<ChatPage> {
       Padding(
         padding: const EdgeInsets.all(8),
         child: Text(
-          chat.isCompleted
+          chat.isCancelled
+              ? 'Deal cancelled'
+              : chat.isCompleted
               ? 'Deal completed'
               : chat.isAccepted
               ? 'Deal accepted - order in progress'
@@ -413,7 +544,9 @@ class _ChatHeader extends StatelessWidget {
   final ChatDetail? chat;
   final VoidCallback? onClose;
 
-  const _ChatHeader({required this.chat, required this.onClose});
+  const _ChatHeader({required this.chat, required this.onClose, required this.chatId});
+
+  final int chatId;
 
   @override
   Widget build(BuildContext context) {
@@ -422,7 +555,7 @@ class _ChatHeader extends StatelessWidget {
     final String subtitle = chat == null
         ? ''
         : [
-            if (chat.iAmBuyer) 'Estate' else 'Buyer',
+            if (chat.iAmBuyer) 'Land' else 'Buyer',
             if ((chat.counterpartLocation ?? '').isNotEmpty)
               chat.counterpartLocation!,
           ].join('  ·  ');
@@ -442,40 +575,59 @@ class _ChatHeader extends StatelessWidget {
                 icon: const Icon(Icons.arrow_back, color: kOwnerInk),
                 onPressed: () => Navigator.pop(context),
               ),
-              CircleAvatar(
-                radius: 19,
-                backgroundColor: _green,
-                child: Text(
-                  name.isEmpty ? '?' : name[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name.isEmpty ? 'Chat' : name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _green,
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.bold,
+                child: InkWell(
+                  onTap: chat == null
+                      ? null
+                      : () => Navigator.push<void>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CoconutCounterpartProfilePage(
+                              profilePath: '/api/chats/$chatId/counterpart-profile',
+                              name: name,
+                            ),
+                          ),
+                        ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 19,
+                        backgroundColor: _green,
+                        child: Text(
+                          name.isEmpty ? '?' : name[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
-                    if (subtitle.isNotEmpty)
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: _muted, fontSize: 12),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name.isEmpty ? 'Chat' : name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _green,
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (subtitle.isNotEmpty)
+                              Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: _muted, fontSize: 12),
+                              ),
+                          ],
+                        ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               if (onClose != null)
@@ -533,7 +685,13 @@ class _CurrentOfferCard extends StatelessWidget {
       'ACCEPTED' =>
         chat.isCompleted
             ? const OwnerPill('Completed', icon: Icons.verified_outlined)
+            : chat.awaitingReceipt
+            ? const OwnerPill(
+                'Awaiting buyer',
+                icon: Icons.inventory_2_outlined,
+              )
             : const OwnerPill('Deal accepted', icon: Icons.handshake_outlined),
+      'CANCELLED' => const OwnerPill('Cancelled', tone: PillTone.red),
       'REJECTED' => const OwnerPill('Closed', tone: PillTone.red),
       _ => const OwnerPill(
         'Negotiating',
@@ -574,12 +732,19 @@ class _CurrentOfferCard extends StatelessWidget {
               children: [
                 Icon(type.icon, size: 15, color: type.iconColor),
                 const SizedBox(width: 5),
-                Text(
-                  '${type.singular}  ·  ${chat.estateName ?? ''}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _green,
+                Flexible(
+                  child: Text(
+                    [
+                      type.singular,
+                      if ((chat.estateName ?? '').isNotEmpty) chat.estateName!,
+                    ].join(' \u00b7 '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _green,
+                    ),
                   ),
                 ),
               ],
@@ -613,15 +778,15 @@ class _CurrentOfferCard extends StatelessWidget {
             pricePerUnit: chat.listedPrice,
           ),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
             children: [
-              Expanded(
-                child: Text(
-                  chat.availableDate == null
-                      ? 'Listed price shown above'
-                      : 'Available ${shortDate(chat.availableDate)}',
-                  style: const TextStyle(fontSize: 12, color: _muted),
-                ),
+              Text(
+                chat.availableDate == null
+                    ? 'Listed price shown above'
+                    : 'Available ${shortDate(chat.availableDate)}',
+                style: const TextStyle(fontSize: 12, color: _muted),
               ),
               Text(
                 'Total ${rupees(price * chat.quantity)}',
@@ -816,7 +981,7 @@ class _OfferBubble extends StatelessWidget {
       ),
       OfferStatus.accepted => _status(
         Icons.check_circle,
-        'Accepted - deal made',
+        'Offer accepted',
         _green,
       ),
       OfferStatus.rejected => _status(Icons.cancel, 'Rejected', _red),
@@ -972,6 +1137,7 @@ class _OfferDialogState extends State<_OfferDialog> {
   Widget build(BuildContext context) {
     final double? value = _value;
     return AlertDialog(
+      scrollable: true,
       title: const Text('Send a Price Offer'),
       content: Column(
         mainAxisSize: MainAxisSize.min,

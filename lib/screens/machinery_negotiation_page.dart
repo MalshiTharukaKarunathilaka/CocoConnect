@@ -1,3 +1,4 @@
+import '../widgets/app_bottom_nav.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
@@ -68,7 +69,7 @@ String describeItems(List<BookingItem> items) {
   return '${parts.sublist(0, parts.length - 1).join(', ')} and ${parts.last}';
 }
 
-/// A machinery booking the estate owner agreed with a provider. It can hold
+/// A machinery booking the land owner agreed with a provider. It can hold
 /// several services; [agreedTotal] is the price agreed for all of them.
 class MachineBooking {
   final String id;
@@ -86,6 +87,7 @@ class MachineBooking {
   final DateTime createdAt;
   final List<ChatLine> chat;
   final MachineInfo? info;
+  final bool? completionConfirmed;
 
   const MachineBooking({
     required this.id,
@@ -103,6 +105,7 @@ class MachineBooking {
     this.estateAt,
     this.km = 0,
     this.info,
+    this.completionConfirmed,
   });
 
   /// The agreed price for the whole booking.
@@ -120,6 +123,7 @@ class MachineBooking {
 
   /// The job day has passed, so the booking counts as completed.
   bool get isCompleted {
+    if (completionConfirmed != null) return completionConfirmed!;
     final DateTime n = DateTime.now();
     return date.isBefore(DateTime(n.year, n.month, n.day));
   }
@@ -167,7 +171,7 @@ Map<String, List<MachineBooking>> _sampleBookings() {
       agreedTotal: BookingItem(service, m.unit, qty, m.rate).lineTotal,
       date: day(offset),
       time: start,
-      estate: me?.location ?? 'Your estate',
+      estate: me?.location ?? 'Your land',
       createdAt: DateTime(n.year, n.month, n.day + offset - 3, 10, 14),
       machineAt: at,
       estateAt: estate,
@@ -468,6 +472,7 @@ class _MachineryNegotiationPageState extends State<MachineryNegotiationPage> {
           colorScheme: Theme.of(ctx).colorScheme.copyWith(primary: kOwnerGreen),
         ),
         child: AlertDialog(
+          scrollable: true,
           title: const Text('Your counter offer'),
           content: TextField(
             controller: _counterCtl,
@@ -546,6 +551,7 @@ class _MachineryNegotiationPageState extends State<MachineryNegotiationPage> {
   @override
   Widget build(BuildContext context) {
     return OwnerPage(
+      currentTab: AppTab.chats,
       bottom: _inputBar(),
       child: Column(
         children: [
@@ -554,15 +560,14 @@ class _MachineryNegotiationPageState extends State<MachineryNegotiationPage> {
             subtitle:
                 'NEGOTIATING · ${widget.items.map((i) => i.name).join(' + ').toUpperCase()}',
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-            child: _summary(),
-          ),
+
           Expanded(
             child: ListView(
               controller: _scroll,
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               children: [
+                _summary(),
+                const SizedBox(height: 10),
                 for (final m in _msgs) chatBubble(m),
                 if (_typing)
                   const Padding(
@@ -615,22 +620,24 @@ class _MachineryNegotiationPageState extends State<MachineryNegotiationPage> {
             ],
           ),
         ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            const Text(
-              'Offer',
-              style: TextStyle(fontSize: 11, color: kOwnerMuted),
-            ),
-            Text(
-              rupees(_total),
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: kOwnerGreen,
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const Text(
+                'Offer',
+                style: TextStyle(fontSize: 11, color: kOwnerMuted),
               ),
-            ),
-          ],
+              Text(
+                rupees(_total),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: kOwnerGreen,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     ),
@@ -840,9 +847,9 @@ class _MachineryNegotiationPageState extends State<MachineryNegotiationPage> {
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
+        if (MediaQuery.viewInsetsOf(context).bottom == 0)
+          Wrap(
+            runSpacing: 8,
             children: [
               _quickTime('Start earlier', 'Can you start earlier?'),
               _quickTime('6:00 AM', 'Can you start at 6:00 AM?'),
@@ -850,7 +857,6 @@ class _MachineryNegotiationPageState extends State<MachineryNegotiationPage> {
               _quickTime('1:00 PM', 'Can you start at 1:00 PM?'),
             ],
           ),
-        ),
         const SizedBox(height: 6),
         Row(
           children: [
@@ -900,6 +906,7 @@ class BookingConfirmedPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final MachineBooking b = booking;
     return OwnerPage(
+      currentTab: AppTab.chats,
       child: Column(
         children: [
           const OwnerHeader(title: 'BOOKING CONFIRMED'),
@@ -973,9 +980,11 @@ class BookingConfirmedPage extends StatelessWidget {
                       if (b.total < b.listTotal)
                         _row('You saved', rupees(b.listTotal - b.total)),
                       const SizedBox(height: 6),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.end,
+                        spacing: 12,
+                        runSpacing: 6,
                         children: [
                           const Text(
                             'Total',

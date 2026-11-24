@@ -33,6 +33,7 @@ class ChatSummary {
   final String? orderStatus;
   final bool iAmBuyer;
   final String counterpartName;
+  final double? counterpartTrustScore;
   final String productType;
   final int quantity;
   final double listedPrice;
@@ -51,6 +52,7 @@ class ChatSummary {
     required this.orderStatus,
     required this.iAmBuyer,
     required this.counterpartName,
+    this.counterpartTrustScore,
     required this.productType,
     required this.quantity,
     required this.listedPrice,
@@ -71,6 +73,7 @@ class ChatSummary {
       orderStatus: json['order_status'] as String?,
       iAmBuyer: json['my_role'] == 'BUYER',
       counterpartName: json['counterpart_name'] as String? ?? '',
+      counterpartTrustScore: _numOrNull(json['counterpart_trust_score']),
       productType: json['product_type'] as String? ?? '',
       quantity: (json['quantity'] as num?)?.toInt() ?? 0,
       listedPrice: _numOrNull(json['listed_price']) ?? 0,
@@ -120,6 +123,7 @@ class ChatDetail {
   final int? orderId;
   final String? orderStatus;
   final double? orderPrice;
+  final int? myRating;
   final String counterpartName;
   final String? counterpartLocation;
   final String productType;
@@ -139,6 +143,7 @@ class ChatDetail {
     required this.orderId,
     required this.orderStatus,
     required this.orderPrice,
+    this.myRating,
     required this.counterpartName,
     required this.counterpartLocation,
     required this.productType,
@@ -153,6 +158,10 @@ class ChatDetail {
   bool get isOpen => status == 'OPEN';
   bool get isAccepted => status == 'ACCEPTED';
   bool get isCompleted => orderStatus == 'COMPLETED';
+  bool get awaitingReceipt => orderStatus == 'AWAITING_RECEIPT';
+  bool get isCancelled => status == 'CANCELLED' || orderStatus == 'CANCELLED';
+  bool get canCancel =>
+      isAccepted && (orderStatus == 'ACCEPTED' || awaitingReceipt);
 
   /// The newest offer, if any price was sent in the chat.
   ChatMessage? get latestOffer {
@@ -172,6 +181,7 @@ class ChatDetail {
       orderId: json['order_id'] as int?,
       orderStatus: json['order_status'] as String?,
       orderPrice: _numOrNull(json['order_price']),
+      myRating: (json['my_rating'] as num?)?.toInt(),
       counterpartName: json['counterpart_name'] as String? ?? '',
       counterpartLocation: json['counterpart_location'] as String?,
       productType: listing['product_type'] as String? ?? '',
@@ -190,7 +200,7 @@ class ChatDetail {
   }
 }
 
-enum NotificationType { offer, chat, sellOffer, dayJobChat }
+enum NotificationType { offer, chat, sellOffer, dayJobChat, jobCompletionAck }
 
 class AppNotification {
   /// Stable id, used to remember which ones were already seen.
@@ -204,6 +214,11 @@ class AppNotification {
   final int? requestId;
   final int? orderId;
   final int? dayJobChatId;
+  final int? dayJobId;
+  final int? senderId;
+  final String? senderName;
+
+  bool get isChatMessage => type == NotificationType.chat && senderName != null;
 
   const AppNotification({
     required this.key,
@@ -216,6 +231,9 @@ class AppNotification {
     required this.requestId,
     required this.orderId,
     required this.dayJobChatId,
+    this.dayJobId,
+    this.senderId,
+    this.senderName,
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> json) =>
@@ -225,6 +243,7 @@ class AppNotification {
           'CHAT' => NotificationType.chat,
           'DAY_JOB_CHAT' => NotificationType.dayJobChat,
           'SELL_OFFER' => NotificationType.sellOffer,
+          'JOB_COMPLETION_ACK' => NotificationType.jobCompletionAck,
           _ => NotificationType.offer,
         },
         title: json['title'] as String? ?? '',
@@ -235,10 +254,13 @@ class AppNotification {
         requestId: json['request_id'] as int?,
         orderId: json['order_id'] as int?,
         dayJobChatId: json['day_job_chat_id'] as int?,
+        dayJobId: json['day_job_id'] as int?,
+        senderId: json['sender_id'] as int?,
+        senderName: json['sender_name'] as String?,
       );
 }
 
-/// Chats and notifications, the same for buyers and estate owners.
+/// Chats and notifications, the same for buyers and land owners.
 class ChatService {
   ChatService._();
 
@@ -271,6 +293,9 @@ class ChatService {
   static Future<void> acceptListing(int chatId) =>
       ApiClient.post('/api/chats/$chatId/accept-listing');
 
+  static Future<void> cancelDeal(int chatId, Map<String, String> details) =>
+      ApiClient.post('/api/chats/$chatId/cancel-deal', details);
+
   static Future<void> close(int chatId) =>
       ApiClient.post('/api/chats/$chatId/close');
 
@@ -295,16 +320,28 @@ class ChatService {
     }
   }
 
-  static Future<int> unseenCount(List<AppNotification> items) async {
+  static Future<List<AppNotification>> unseenNotifications(
+    List<AppNotification> items,
+  ) async {
     final Set<String> seen = await _seen();
-    return items.where((item) => !seen.contains(item.key)).length;
+    return items.where((item) => !seen.contains(item.key)).toList();
   }
 
+  static Future<int> unseenCount(List<AppNotification> items) async =>
+      (await unseenNotifications(items)).length;
+
   static Future<void> markSeen(List<AppNotification> items) async {
+    final storageKey = _seenKey;
     try {
       final prefs = await SharedPreferences.getInstance();
-      // Only keep keys that still exist, so the list doesn't grow forever.
-      await prefs.setStringList(_seenKey, [for (final item in items) item.key]);
+      final seen = {
+        ...?prefs.getStringList(storageKey),
+        for (final item in items) item.key,
+      };
+      await prefs.setStringList(
+        storageKey,
+        seen.skip(seen.length > 2000 ? seen.length - 2000 : 0).toList(),
+      );
     } catch (_) {
       // Badges just stay on; nothing else depends on this.
     }

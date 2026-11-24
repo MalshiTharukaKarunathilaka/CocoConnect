@@ -83,18 +83,16 @@ const getProfile = async (req, res) => {
          COUNT(*)::integer AS accepted_jobs,
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
-                  OR dj.required_date < CURRENT_DATE
              THEN 1 ELSE 0 END
          ), 0)::integer AS completed_jobs,
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
-                  OR dj.required_date < CURRENT_DATE
              THEN COALESCE(${ratingColumn}, 0) ELSE 0 END
          ), 0)::integer AS total_rating_marks
        FROM day_job_applications dja
        JOIN day_jobs dj ON dj.id = dja.day_job_id
        WHERE dja.worker_id = $1
-         AND UPPER(dja.status) = 'ACCEPTED'`,
+         AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')`,
       [worker.id]
     );
     const categories = await pool.query(
@@ -102,7 +100,7 @@ const getProfile = async (req, res) => {
        FROM day_job_applications dja
        JOIN day_jobs dj ON dj.id = dja.day_job_id
        WHERE dja.worker_id = $1
-         AND UPPER(dja.status) = 'ACCEPTED'
+         AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')
        ORDER BY dj.category`,
       [worker.id]
     );
@@ -145,6 +143,28 @@ const getAvailableJobs = async (req, res) => {
     const ownerRatingColumn = ownerRatingsReady
       ? "dja.estate_owner_rating"
       : "NULL::smallint";
+    const ownerRatingStats = ownerRatingsReady
+      ? `owner_rating_stats.average_rating AS estate_owner_average_rating,
+         owner_rating_stats.rating_count AS estate_owner_rating_count`
+      : `NULL::double precision AS estate_owner_average_rating,
+         0::integer AS estate_owner_rating_count`;
+    const ownerRatingStatsJoin = ownerRatingsReady
+      ? `LEFT JOIN (
+           SELECT rated_jobs.estate_owner_id,
+                  AVG(rated_applications.estate_owner_rating)::double precision
+                    AS average_rating,
+                  COUNT(rated_applications.estate_owner_rating)::integer
+                    AS rating_count
+           FROM day_job_applications rated_applications
+           JOIN day_jobs rated_jobs
+             ON rated_jobs.id = rated_applications.day_job_id
+           WHERE UPPER(rated_jobs.status) = 'COMPLETED'
+             AND UPPER(rated_applications.status) IN ('ACCEPTED', 'COMPLETED')
+             AND rated_applications.estate_owner_rating IS NOT NULL
+           GROUP BY rated_jobs.estate_owner_id
+         ) owner_rating_stats
+           ON owner_rating_stats.estate_owner_id = dj.estate_owner_id`
+      : "";
     const result = await pool.query(
       `SELECT
          dj.*,
@@ -154,15 +174,17 @@ const getAvailableJobs = async (req, res) => {
          u.latitude AS estate_latitude,
          u.longitude AS estate_longitude,
          dja.id AS application_id,
-         dja.status AS application_status,
+         CASE
+           WHEN UPPER(COALESCE(dja.status, '')) = 'COMPLETED' THEN 'ACCEPTED'
+           ELSE dja.status
+         END AS application_status,
          ${ratingColumn} AS rating,
          ${ownerRatingColumn} AS estate_owner_rating,
-         CASE
-           WHEN UPPER(COALESCE(dja.status, '')) = 'ACCEPTED'
-             AND dj.required_date < CURRENT_DATE
-           THEN 'COMPLETED'
-           ELSE dj.status
-         END AS worker_status,
+         ${ownerRatingStats},
+         dj.status AS worker_status,
+         (UPPER(COALESCE(dja.status, '')) = 'COMPLETED'
+           AND ${ownerRatingColumn} IS NOT NULL)
+           AS completion_acknowledged,
          CASE
            WHEN UPPER(COALESCE(dja.status, '')) = 'ACCEPTED'
              AND dj.required_date > CURRENT_DATE
@@ -175,6 +197,7 @@ const getAvailableJobs = async (req, res) => {
        LEFT JOIN users u ON u.id = eo.user_id
        LEFT JOIN day_job_applications dja
          ON dja.day_job_id = dj.id AND dja.worker_id = $1
+       ${ownerRatingStatsJoin}
        WHERE (
            (
              (
@@ -248,7 +271,7 @@ const getEstateOwnerProfile = async (req, res) => {
        LEFT JOIN users u ON u.id = eo.user_id
        WHERE dj.id = $1
          AND dja.worker_id = $2
-         AND UPPER(dja.status) = 'ACCEPTED'`,
+         AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')`,
       [jobId, worker.id]
     );
     if (profile.rows.length === 0) {
@@ -267,7 +290,7 @@ const getEstateOwnerProfile = async (req, res) => {
        JOIN day_jobs dj ON dj.id = dja.day_job_id
        WHERE dj.estate_owner_id = $1
          AND UPPER(dj.status) = 'COMPLETED'
-         AND UPPER(dja.status) = 'ACCEPTED'`,
+         AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')`,
       [estateId]
     );
     const completedJobs = Number(stats.rows[0]?.completed_jobs || 0);
@@ -287,7 +310,7 @@ const getEstateOwnerProfile = async (req, res) => {
         completedJobs > 0 ? totalRatingMarks / completedJobs : null,
     });
   } catch (error) {
-    console.error("Get estate owner profile error:", error);
+    console.error("Get land owner profile error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -317,7 +340,7 @@ const rateEstateOwner = async (req, res) => {
        WHERE dj.id = $1
          AND dja.worker_id = $2
          AND UPPER(dj.status) = 'COMPLETED'
-         AND UPPER(dja.status) = 'ACCEPTED'`,
+         AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')`,
       [jobId, worker.id]
     );
     if (application.rows.length === 0) {
@@ -341,7 +364,7 @@ const rateEstateOwner = async (req, res) => {
       rated_at: result.rows[0].estate_owner_rated_at,
     });
   } catch (error) {
-    console.error("Rate estate owner error:", error);
+    console.error("Rate land owner error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -573,7 +596,7 @@ const declineJob = async (req, res) => {
     }
     const requiredDay = dayOf(job.rows[0].required_date);
     if (
-      String(job.rows[0].status).toUpperCase() === "COMPLETED" ||
+      ['COMPLETED', 'CANCELLED'].includes(String(job.rows[0].status).toUpperCase()) ||
       !requiredDay ||
       requiredDay <= localToday()
     ) {
@@ -632,6 +655,187 @@ const declineJob = async (req, res) => {
   }
 };
 
+const initiateJobCompletion = async (req, res) => {
+  let client;
+  try {
+    const worker = await workerForUser(req.user.id);
+    const jobId = Number(req.params.id);
+    if (!worker || !Number.isInteger(jobId)) {
+      return res.status(400).json({ message: "Invalid worker or job" });
+    }
+
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    // Lock the job row
+    const jobRes = await client.query(
+      `SELECT dj.id, dj.status, dj.required_date, dj.workers_needed, dj.confirmed_workers
+       FROM day_jobs dj
+       WHERE dj.id = $1
+       FOR UPDATE`,
+      [jobId]
+    );
+    if (jobRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Job not found" });
+    }
+    const job = jobRes.rows[0];
+    const st = String(job.status).toUpperCase();
+
+    if (st === "COMPLETED") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "This job is already completed" });
+    }
+    if (st === "AWAITING_OWNER_ACK") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "Completion already sent to the land owner" });
+    }
+    if (st === 'CANCELLED') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({message: 'This job was cancelled'});
+    }
+
+    // Worker must have an ACCEPTED application for this job
+    const appRes = await client.query(
+      `SELECT id FROM day_job_applications
+       WHERE day_job_id = $1 AND worker_id = $2 AND UPPER(status) = 'ACCEPTED'`,
+      [jobId, worker.id]
+    );
+    if (appRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ message: "You are not an accepted worker for this job" });
+    }
+
+    // Only allow for past or current day jobs
+    const requiredDay = dayOf(job.required_date);
+    if (requiredDay && requiredDay > localToday()) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "This is a future job. You cannot complete it yet." });
+    }
+
+    // If the owner has already sent AWAITING_WORKER_ACK, we can skip to that flow
+    if (st === "AWAITING_WORKER_ACK") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "The land owner already requested completion — please acknowledge it instead" });
+    }
+
+    await client.query(
+      `UPDATE day_jobs SET status = 'AWAITING_OWNER_ACK' WHERE id = $1`,
+      [jobId]
+    );
+    await client.query("COMMIT");
+    return res.status(200).json({
+      job_id: jobId,
+      status: "AWAITING_OWNER_ACK",
+      message: "Completion request sent to the land owner for acknowledgement",
+    });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    console.error("Initiate worker job completion error:", error);
+    return res.status(500).json({ message: "Server error" });
+  } finally {
+    client?.release();
+  }
+};
+
+const acknowledgeJobCompletion = async (req, res) => {
+  let client;
+  try {
+    const worker = await workerForUser(req.user.id);
+    const jobId = Number(req.params.id);
+    const rating = Number(req.body.rating);
+    if (!worker || !Number.isInteger(jobId)) {
+      return res.status(400).json({ message: "Invalid worker or job" });
+    }
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({
+        message: "Rate the land owner from 1 to 5 before completing the job",
+      });
+    }
+    if (!(await estateOwnerRatingsReady())) {
+      return res.status(503).json({
+        message:
+          "Land owner ratings are not configured. Run backend/sql/014_day_job_estate_owner_ratings.sql.",
+      });
+    }
+
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const job = await client.query(
+      `SELECT id, status
+       FROM day_jobs
+       WHERE id = $1
+       FOR UPDATE`,
+      [jobId]
+    );
+    if (job.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Job not found" });
+    }
+    if (String(job.rows[0].status).toUpperCase() !== "AWAITING_WORKER_ACK") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        message: String(job.rows[0].status).toUpperCase() === "COMPLETED"
+          ? "This job is already completed"
+          : "The land owner has not requested completion yet",
+      });
+    }
+
+    const application = await client.query(
+      `UPDATE day_job_applications
+       SET status = 'COMPLETED',
+           estate_owner_rating = $3,
+           estate_owner_rated_at = CURRENT_TIMESTAMP
+       WHERE day_job_id = $1
+         AND worker_id = $2
+         AND UPPER(status) IN ('ACCEPTED', 'COMPLETED')
+         AND estate_owner_rating IS NULL
+       RETURNING *`,
+      [jobId, worker.id, rating]
+    );
+    if (application.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        message: "You are not an accepted worker for this acknowledgement",
+      });
+    }
+
+    const pending = await client.query(
+      `SELECT COUNT(*)::integer AS count
+       FROM day_job_applications
+       WHERE day_job_id = $1
+         AND UPPER(status) IN ('ACCEPTED', 'COMPLETED')
+         AND (
+           UPPER(status) <> 'COMPLETED'
+           OR estate_owner_rating IS NULL
+         )`,
+      [jobId]
+    );
+    const completed = Number(pending.rows[0]?.count || 0) === 0;
+    if (completed) {
+      await client.query(
+        `UPDATE day_jobs SET status = 'COMPLETED' WHERE id = $1`,
+        [jobId]
+      );
+    }
+    await client.query("COMMIT");
+    return res.status(200).json({
+      job_id: jobId,
+      rating,
+      status: completed ? "COMPLETED" : "AWAITING_WORKER_ACK",
+      message: completed
+        ? "Job completed"
+        : "Completion acknowledged; waiting for the other accepted workers",
+    });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    console.error("Acknowledge worker job completion error:", error);
+    return res.status(500).json({ message: "Server error" });
+  } finally {
+    client?.release();
+  }
+};
+
 module.exports = {
   getProfile,
   getAvailableJobs,
@@ -642,4 +846,6 @@ module.exports = {
   rateEstateOwner,
   applyForJob,
   declineJob,
+  initiateJobCompletion,
+  acknowledgeJobCompletion,
 };

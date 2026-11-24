@@ -1,3 +1,4 @@
+import '../widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import '../widgets/machinery_widgets.dart';
 import '../widgets/owner_widgets.dart';
@@ -29,7 +30,7 @@ const List<String> _monthNames = [
 
 String _key(DateTime d) => '${d.year}-${d.month}-${d.day}';
 
-/// All of the estate owner's machinery bookings: Upcoming and Completed.
+/// All of the land owner's machinery bookings: Upcoming and Completed.
 /// The calendar marks each booked day with one dot per booking, coloured by
 /// machine type, so a day with a tractor and a backhoe shows two dots.
 class MyBookingsPage extends StatefulWidget {
@@ -87,6 +88,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     chat: const [],
     machineAt: r.providerAt,
     estateAt: r.estateAt,
+    completionConfirmed: r.workConfirmed,
   );
   int _tab = 0; // 0 upcoming, 1 completed
   late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
@@ -105,7 +107,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         _day = null; // tap again to clear
       } else {
         _day = d;
-        _tab = d.isBefore(_today) ? 1 : 0;
+        final bookings = _records.where((record) => _key(record.startsAt) == _key(d));
+        _tab = bookings.isNotEmpty && bookings.every((record) => record.workConfirmed) ? 1 : 0;
       }
     });
   }
@@ -139,6 +142,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     }
     if (_error != null) {
       return OwnerPage(
+        currentTab: AppTab.orders,
         child: Column(
           children: [
             const OwnerHeader(title: 'My Bookings'),
@@ -178,6 +182,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     }
 
     return OwnerPage(
+      currentTab: AppTab.orders,
       child: Column(
         children: [
           OwnerHeader(
@@ -401,18 +406,20 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  '$n',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: today || selected || list.isNotEmpty
-                        ? FontWeight.bold
-                        : FontWeight.w500,
-                    color: selected
-                        ? Colors.white
-                        : past
-                        ? const Color(0xFF9AA0A6)
-                        : kOwnerInk,
+                FittedBox(
+                  child: Text(
+                    '$n',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: today || selected || list.isNotEmpty
+                          ? FontWeight.bold
+                          : FontWeight.w500,
+                      color: selected
+                          ? Colors.white
+                          : past
+                          ? const Color(0xFF9AA0A6)
+                          : kOwnerInk,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 3),

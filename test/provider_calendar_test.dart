@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kapconnect_mobile/widgets/app_bottom_nav.dart';
 import 'package:kapconnect_mobile/models/provider_calendar.dart';
 import 'package:kapconnect_mobile/screens/auth_gate.dart';
 import 'package:kapconnect_mobile/screens/provider/provider_calendar_page.dart';
@@ -204,20 +205,19 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('requests tab returns to the selected calendar date', (
+  testWidgets('provider alerts and chats open requests with the footer available', (
     tester,
   ) async {
     await openCalendar(tester);
-    await tester.tap(find.text('Requests'));
+    await tester.tap(find.text('Alerts'));
     await tester.pumpAndSettle();
-    expect(find.text('Incoming Requests'), findsOneWidget);
-    await tester.tap(find.text('Thursday, January 6, 2028'));
+    expect(find.text('Booking request from Gamini Perera'), findsOneWidget);
+    await tester.tap(find.text('Booking request from Gamini Perera'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Close inquiry'));
+    expect(find.text('Machinery Request'), findsOneWidget);
+    await tester.tap(find.text('Chats'));
     await tester.pumpAndSettle();
-    await showSelectedDay(tester);
-    expect(find.text('Thursday, January 6, 2028'), findsOneWidget);
-    expect(find.text('0 confirmed · 2 incoming'), findsOneWidget);
+    expect(find.text('Machinery Chats'), findsOneWidget);
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
     expect(find.text('Profile'), findsNWidgets(2));
@@ -225,7 +225,7 @@ void main() {
     expect(find.text('Edit profile'), findsOneWidget);
     await tester.tap(find.text('Dashboard'));
     await tester.pumpAndSettle();
-    expect(find.text('Machinery Overview'), findsOneWidget);
+    expect(find.text('My Availability Calendar'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -234,11 +234,11 @@ void main() {
   ) async {
     await openCalendar(tester, width: 1000);
     await tester.pumpAndSettle();
-    for (final tab in ['Dashboard', 'Calendar', 'Requests', 'Profile']) {
+    for (final tab in ['Dashboard', 'Chats', 'Alerts', 'Profile']) {
       await tester.tap(find.text(tab).last);
       await tester.pumpAndSettle();
-      final navigation = tester.getRect(find.byType(NavigationBar));
-      expect(navigation.width, 390);
+      final navigation = tester.getRect(find.byType(AppBottomNav));
+      expect(navigation.width, 430);
       expect(navigation.center.dx, 500);
       expect(tester.takeException(), isNull);
     }

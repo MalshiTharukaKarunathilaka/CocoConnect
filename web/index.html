@@ -31,6 +31,27 @@
 
   <title>KapConnect</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Why: Edge/Chrome device mode can leave flt-glass-pane at 0x0 so nothing
+       is clickable. Force the Flutter view to fill the window. */
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+    flutter-view,
+    flt-glass-pane,
+    flt-scene-host {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      pointer-events: auto !important;
+    }
+  </style>
 </head>
 <body>
   <!--
@@ -42,5 +63,11 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Why: after DevTools device-mode toggles, force a layout pass.
+    window.addEventListener('load', () => {
+      window.dispatchEvent(new Event('resize'));
+    });
+  </script>
 </body>
 </html>

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../widgets/auth_widgets.dart';
@@ -6,13 +8,13 @@ import 'estate_owner_dashboard.dart';
 import 'fertilizer/fertilizer_data.dart';
 import 'fertilizer/fertilizer_hub.dart';
 import 'fertilizer/fertilizer_oversight_page.dart';
-import 'fertilizer/fertilizer_role_gate.dart';
+import 'fertilizer/fertilizer_login_page.dart';
 import 'fertilizer/provider_hub.dart';
 import 'onboarding_page.dart';
 import 'provider/provider_calendar_page.dart';
 import 'worker_dashboard.dart';
 
-/// When true, logout returns to fertilizer role picker (combo demo).
+/// When true, logout returns to fertilizer phone login (combo demo).
 bool fertilizerComboMode = false;
 
 /// First screen: reopens a saved login, otherwise shows the welcome screen.
@@ -48,8 +50,9 @@ class _AuthGateState extends State<AuthGate> {
 /// Home screen for each account type, or null if that part of the app
 /// isn't built yet.
 Widget? homeFor(AppUser user) {
-  // Bind fertilizer demo store to this login (one shop / one CDO).
+  // Bind fertilizer store to this login, then hydrate from Supabase.
   FertilizerStore.instance.bindUser(user);
+  unawaited(FertilizerStore.instance.ensureCloudSync());
 
   switch (user.role) {
     case 'BUYER':
@@ -96,14 +99,14 @@ void openHomeFor(BuildContext context, AppUser user) {
   );
 }
 
-/// Logs out and returns to the welcome / fertilizer role picker.
+/// Logs out and returns to the welcome / fertilizer login.
 Future<void> logOut(BuildContext context) async {
   await AuthService.logout();
   if (!context.mounted) return;
   Navigator.of(context).pushAndRemoveUntil(
     MaterialPageRoute(
       builder: (context) => fertilizerComboMode
-          ? const FertilizerRoleGate()
+          ? const FertilizerLoginPage()
           : const OnboardingPage(),
     ),
     (route) => false,

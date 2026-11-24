@@ -3,6 +3,7 @@ const express = require("express");
 const {
   getListings,
   getListing,
+  getListingProfile,
   createRequest,
   getMyRequests,
   getSummary,
@@ -27,7 +28,7 @@ const router = express.Router();
  * @swagger
  * /api/buyer/listings:
  *   get:
- *     summary: Active estate owner listings for the marketplace
+ *     summary: Active land owner listings for the marketplace
  *     tags: [Buyer]
  *     parameters:
  *       - in: query
@@ -69,7 +70,7 @@ router.get("/listings", getListings);
  * @swagger
  * /api/buyer/listings/{id}:
  *   get:
- *     summary: One listing with its estate owner details
+ *     summary: One listing with its land owner details
  *     tags: [Buyer]
  *     parameters:
  *       - in: path
@@ -87,6 +88,7 @@ router.get("/listings/:id", getListing);
 
 // Everything below needs a logged-in buyer.
 router.use(requireAuth, requireRole("BUYER"));
+router.get("/listings/:id/counterpart-profile", getListingProfile);
 
 /**
  * @swagger
@@ -164,7 +166,7 @@ router.get("/summary", getSummary);
  *       404:
  *         description: No pending request of yours with that id
  *   delete:
- *     summary: Delete one of my requests (not once estate owners responded)
+ *     summary: Delete one of my requests (not once land owners responded)
  *     tags: [Buyer]
  *     security:
  *       - bearerAuth: []
@@ -178,7 +180,7 @@ router.get("/summary", getSummary);
  *       200:
  *         description: Request deleted
  *       409:
- *         description: Estate owners already responded
+ *         description: Land owners already responded
  */
 router.put("/requests/:id", updateRequest);
 router.delete("/requests/:id", deleteRequest);
@@ -187,7 +189,7 @@ router.delete("/requests/:id", deleteRequest);
  * @swagger
  * /api/buyer/requests/{id}/responses:
  *   get:
- *     summary: Estate owners' offers on one of my requests, cheapest first
+ *     summary: Land owners' offers on one of my requests, cheapest first
  *     tags: [Buyer]
  *     security:
  *       - bearerAuth: []
@@ -207,7 +209,7 @@ router.get("/requests/:id/responses", getRequestResponses);
  * @swagger
  * /api/buyer/responses/{id}/accept:
  *   post:
- *     summary: Accept an estate owner's offer - creates an order
+ *     summary: Accept an land owner's offer - creates an order
  *     tags: [Buyer]
  *     security:
  *       - bearerAuth: []
@@ -378,7 +380,7 @@ router.get("/orders", getMyOrders);
  * @swagger
  * /api/buyer/orders/{id}/complete:
  *   patch:
- *     summary: Mark an accepted order as completed
+ *     summary: Confirm collection at the estate after the seller records completion
  *     tags: [Buyer]
  *     security:
  *       - bearerAuth: []
@@ -395,5 +397,6 @@ router.get("/orders", getMyOrders);
  *         description: No accepted order with that id
  */
 router.patch("/orders/:id/complete", completeOrder);
+router.patch("/orders/:id/confirm-receipt", completeOrder);
 
 module.exports = router;

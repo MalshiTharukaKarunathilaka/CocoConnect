@@ -12,7 +12,7 @@ import 'buyer/buyer_format.dart';
 import 'my_bookings_page.dart';
 import 'service_schedule_page.dart';
 
-/// Estate owners see tractors, backhoes and hand tractors around their estate.
+/// Land owners see tractors, backhoes and hand tractors around their estate.
 /// Pass [type] (TRACTOR / BACKHOE / HAND_TRACTOR) to start on one type.
 class MachineryMapPage extends StatefulWidget {
   final String? type;
@@ -276,12 +276,14 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
                                     color: kOwnerGreen,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: const Text(
-                                    'Your Estate',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
+                                  child: FittedBox(
+                                    child: const Text(
+                                      'Your Land',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -401,69 +403,67 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
         child: const Padding(
           padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Text(
-            'Save your estate location in your profile to filter by distance',
+            'Save your land location in your profile to filter by distance',
             style: TextStyle(fontSize: 11.5, color: kOwnerMuted),
           ),
         ),
       );
     }
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          Material(
-            color: Colors.white,
-            shape: const StadiumBorder(),
-            elevation: 2,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.radar, size: 16, color: kOwnerGreen),
-                  SizedBox(width: 5),
-                  Text(
-                    'Within',
+    return Wrap(
+      runSpacing: 8,
+      children: [
+        Material(
+          color: Colors.white,
+          shape: const StadiumBorder(),
+          elevation: 2,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.radar, size: 16, color: kOwnerGreen),
+                SizedBox(width: 5),
+                Text(
+                  'Within',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: kOwnerInk,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        for (final double km in _radiusOptions)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Material(
+              color: _radiusKm == km ? kOwnerGreen : Colors.white,
+              shape: const StadiumBorder(),
+              elevation: 2,
+              child: InkWell(
+                customBorder: const StadiumBorder(),
+                onTap: () => _setRadius(km),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    '${km.toStringAsFixed(0)} km',
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.bold,
-                      color: kOwnerInk,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          for (final double km in _radiusOptions)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Material(
-                color: _radiusKm == km ? kOwnerGreen : Colors.white,
-                shape: const StadiumBorder(),
-                elevation: 2,
-                child: InkWell(
-                  customBorder: const StadiumBorder(),
-                  onTap: () => _setRadius(km),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: Text(
-                      '${km.toStringAsFixed(0)} km',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.bold,
-                        color: _radiusKm == km ? Colors.white : kOwnerInk,
-                      ),
+                      color: _radiusKm == km ? Colors.white : kOwnerInk,
                     ),
                   ),
                 ),
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 
@@ -497,12 +497,14 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
                     ),
                     const SizedBox(width: 5),
                   ],
-                  Text(
-                    '$label ($count)',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: on ? Colors.white : kOwnerInk,
+                  Flexible(
+                    child: Text(
+                      '$label ($count)',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: on ? Colors.white : kOwnerInk,
+                      ),
                     ),
                   ),
                 ],
@@ -513,16 +515,14 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
       );
     }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          chip('ALL', 'All', null),
-          chip('TRACTOR', 'Tractors', Icons.agriculture),
-          chip('BACKHOE', 'Backhoes', Icons.construction),
-          chip('HAND_TRACTOR', 'Hand Tractors', Icons.grass),
-        ],
-      ),
+    return Wrap(
+      runSpacing: 8,
+      children: [
+        chip('ALL', 'All', null),
+        chip('TRACTOR', 'Tractors', Icons.agriculture),
+        chip('BACKHOE', 'Backhoes', Icons.construction),
+        chip('HAND_TRACTOR', 'Hand Tractors', Icons.grass),
+      ],
     );
   }
 
@@ -562,7 +562,7 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
             child: Text(
               _hasHome
-                  ? '${shown.length} available within ${_radiusKm.toStringAsFixed(0)} km of your estate · tap a marker'
+                  ? '${shown.length} available within ${_radiusKm.toStringAsFixed(0)} km of your land · tap a marker'
                   : '${shown.length} available · tap a marker',
               style: const TextStyle(
                 fontSize: 12.5,
@@ -690,15 +690,6 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
                                 ),
                               ],
                             ),
-                            Text(
-                              m.services,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                color: kOwnerInk,
-                              ),
-                            ),
                             Text.rich(
                               TextSpan(
                                 text: rupees(m.rate),
@@ -729,10 +720,20 @@ class MachineInforyMapPageState extends State<MachineryMapPage> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-              child: OwnerPrimaryButton(
-                label: 'View Calendar & Book',
-                arrow: true,
-                onPressed: () => _openCalendar(m),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Services offered: ${m.liveServices.isEmpty ? m.services : m.liveServices.map((service) => service['name']).join(', ')}',
+                    style: const TextStyle(fontSize: 13, color: kOwnerInk),
+                  ),
+                  const SizedBox(height: 10),
+                  OwnerPrimaryButton(
+                    label: 'View Calendar & Book',
+                    arrow: true,
+                    onPressed: () => _openCalendar(m),
+                  ),
+                ],
               ),
             ),
           ],

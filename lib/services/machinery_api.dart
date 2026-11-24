@@ -104,8 +104,20 @@ class MachineryApi {
           await ApiClient.get('$base/bookings/$id') as Map,
         ),
       );
-  Future<List<ProviderBookingRequest>> bookings() async =>
-      (await ApiClient.get('$base/bookings') as List)
+  Future<ProviderBookingRequest> completeAndRateOwner(
+    String bookingId,
+    int rating,
+  ) async => ProviderBookingRequest.fromJson(
+    Map<String, dynamic>.from(
+      await ApiClient.post('$base/bookings/$bookingId/complete-and-rate', {
+            'rating': rating,
+          })
+          as Map,
+    ),
+  );
+
+  Future<List<ProviderBookingRequest>> bookings({bool provider = false}) async =>
+      (await ApiClient.get('$base/${provider ? 'provider/bookings' : 'bookings'}') as List)
           .map(
             (e) => ProviderBookingRequest.fromJson(
               Map<String, dynamic>.from(e as Map),
@@ -117,10 +129,12 @@ class MachineryApi {
     String action, {
     String? message,
     double? rate,
+    Map<String, dynamic>? details,
   }) async => ProviderBookingRequest.fromJson(
     Map<String, dynamic>.from(
       await ApiClient.post('$base/bookings/${request.id}/$action', {
             'expected_version': request.version,
+            ...?details,
             'message': ?message,
             if (rate != null)
               'offer_total': double.parse(
@@ -131,7 +145,7 @@ class MachineryApi {
     ),
   );
 
-  /// The estate owner changes the price and the request. `body` has
+  /// The land owner changes the price and the request. `body` has
   /// offer_total, items (service_id and quantity), starts_at and ends_at.
   Future<ProviderBookingRequest> revise(
     ProviderBookingRequest request,

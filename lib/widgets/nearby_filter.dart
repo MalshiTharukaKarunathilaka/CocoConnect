@@ -130,22 +130,20 @@ class NearbyFilter extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 4),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final int? km in kRadiusOptions)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _Chip(
-                    label: km == null ? 'Any distance' : 'Within $km km',
-                    selected: km == radiusKm,
-                    accent: accent,
-                    onTap: () => _select(context, km),
-                  ),
+        Wrap(
+          runSpacing: 8,
+          children: [
+            for (final int? km in kRadiusOptions)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _Chip(
+                  label: km == null ? 'Any distance' : 'Within $km km',
+                  selected: km == radiusKm,
+                  accent: accent,
+                  onTap: () => _select(context, km),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ],
     );

@@ -18,11 +18,23 @@ class FertilizerHub extends StatefulWidget {
 
 class _FertilizerHubState extends State<FertilizerHub> {
   late int _tab;
+  final _store = FertilizerStore.instance;
 
   @override
   void initState() {
     super.initState();
     _tab = widget.initialTab.clamp(0, 4);
+    _store.syncTick.addListener(_onSync);
+  }
+
+  @override
+  void dispose() {
+    _store.syncTick.removeListener(_onSync);
+    super.dispose();
+  }
+
+  void _onSync() {
+    if (mounted) setState(() {});
   }
 
   /// Same as the HTML demo: Hub=all, Suppliers=shops, Government=CDO map.
@@ -38,6 +50,7 @@ class _FertilizerHubState extends State<FertilizerHub> {
       title: _tabTitle,
       subtitle: 'FERTILIZER \u00b7 ESTATE OWNER',
       showLogout: true,
+      showAlerts: true,
       bottom: FertTabBar(
         items: const [
           (Icons.home_outlined, 'Hub'),
@@ -49,6 +62,7 @@ class _FertilizerHubState extends State<FertilizerHub> {
         current: _tab,
         onTap: (i) => setState(() => _tab = i),
       ),
+      // Why: estate owner asked to remove the top "Order placed · processing" strip.
       child: _body(),
     );
   }

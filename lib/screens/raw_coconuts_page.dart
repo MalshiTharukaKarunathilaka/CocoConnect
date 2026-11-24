@@ -1,3 +1,4 @@
+import '../theme/app_theme.dart' show themedPicker;
 import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
@@ -9,6 +10,8 @@ import 'buyer/buyer_format.dart';
 import '../widgets/owner_widgets.dart';
 import '../widgets/nearby_filter.dart';
 import '../widgets/buyer_filter_sheet.dart';
+import '../widgets/buyer_widgets.dart' show CoconutListingCard;
+import 'chat/coconut_counterpart_profile_page.dart';
 
 class RawCoconutsPage extends StatefulWidget {
   final String productType;
@@ -43,6 +46,10 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
   late final TextEditingController priceController;
 
   bool showSummary = false;
+
+  bool get usesUnits => widget.productType.toUpperCase() == 'COCONUT_HUSK';
+  String get quantityPlural => 'units';
+  String get priceUnit => 'unit';
 
   // Open raw-coconut buyer requests, reloaded after sending an offer.
   late Future<List<OpenBuyerRequest>> buyersFuture;
@@ -110,7 +117,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
           Expanded(
             child: Text(
               'Matching your harvest: buyers needing '
-              '${quantity == null ? '' : 'up to ${withCommas(quantity)} nuts '}'
+              '${quantity == null ? '' : 'up to ${withCommas(quantity)} $quantityPlural '}'
               'between ${shortDate(from)} and ${shortDate(date)}',
               style: const TextStyle(fontSize: 11.5, color: Color(0xFF263238)),
             ),
@@ -169,6 +176,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
     final DateTime todayOnly = DateTime(today.year, today.month, today.day);
 
     final DateTime? pickedDate = await showDatePicker(
+      builder: themedPicker,
       context: context,
       initialDate: todayOnly,
       firstDate: todayOnly,
@@ -284,8 +292,10 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
     } on FormatException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter a valid number of nuts and price per nut'),
+        SnackBar(
+          content: Text(
+            'Enter a valid number of $quantityPlural and price per $priceUnit',
+          ),
           backgroundColor: Color(0xFFC62828),
         ),
       );
@@ -346,7 +356,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                             ),
                           ),
 
-                          const LanguageSelector(),
+                          const Flexible(child: LanguageSelector()),
                         ],
                       ),
                     ],
@@ -380,9 +390,11 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                       ),
 
                       const SizedBox(height: 6),
-                      const Text(
-                        '1 unit = 1 nut',
-                        style: TextStyle(
+                      Text(
+                        usesUnits
+                            ? 'Quantity measured in units'
+                            : '1 unit = 1 nut',
+                        style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFF256B45),
                           fontWeight: FontWeight.w600,
@@ -404,12 +416,14 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Interested Buyers',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF263238),
+                          Expanded(
+                            child: const Text(
+                              'Interested Buyers',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF263238),
+                              ),
                             ),
                           ),
 
@@ -460,24 +474,29 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
                       const SizedBox(height: 10),
 
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           FilterChipButton(
                             text: 'Best Price',
                             isActive: buyerSort == 'price',
                             onTap: () => sortBuyers('price'),
                           ),
-                          const SizedBox(width: 8),
                           FilterChipButton(
                             text: 'Earliest Pickup Date',
                             isActive: buyerSort == 'date',
                             onTap: () => sortBuyers('date'),
                           ),
-                          const SizedBox(width: 8),
                           FilterChipButton(
                             text: 'Nearest Location',
                             isActive: buyerSort == 'nearest',
                             onTap: () => sortBuyers('nearest'),
+                          ),
+                          FilterChipButton(
+                            text: 'Highest Trust Score',
+                            isActive: buyerSort == 'trust',
+                            onTap: () => sortBuyers('trust'),
                           ),
                         ],
                       ),
@@ -519,23 +538,40 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                           }
 
                           return Column(
-                            children: buyers.map((buyer) {
+                            children: buyers.asMap().entries.map((entry) {
+                              final buyer = entry.value;
                               return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: InterestedBuyerCard(
-                                  iconLetter: buyer.buyerName.isNotEmpty
-                                      ? buyer.buyerName[0]
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: CoconutListingCard(
+                                  initial: buyer.buyerName.isNotEmpty
+                                      ? buyer.buyerName[0].toUpperCase()
                                       : '?',
-                                  buyerName: buyer.buyerName,
+                                  colorIndex: entry.key,
+                                  name: buyer.buyerName,
+                                  subtitle: buyer.location,
                                   trustScore: buyer.trustScore == null
                                       ? 'NEW'
-                                      : '${buyer.trustScore}/5',
+                                      : '${buyer.trustScore!.toStringAsFixed(1)}/5',
+                                  onProfileTap: () =>
+                                      openCoconutCounterpartProfile(
+                                        context,
+                                        name: buyer.buyerName,
+                                        profilePath:
+                                            '/api/owner/buyer-requests/${buyer.id}/counterpart-profile',
+                                      ),
                                   price: buyer.offerSent
-                                      ? 'Offered ${rupees(buyer.myOfferPrice!)}'
+                                      ? rupees(buyer.myOfferPrice!)
                                       : rupees(buyer.bidPerUnit),
+                                  priceLabel: buyer.offerSent
+                                      ? 'OFFER SENT'
+                                      : 'BUYER BID',
+                                  priceIcon: buyer.offerSent
+                                      ? Icons.check_circle_outline
+                                      : Icons.sell_outlined,
                                   quantity:
-                                      '${withCommas(buyer.quantity)} nuts',
-                                  pickupDate: shortDate(buyer.requiredDate),
+                                      '${withCommas(buyer.quantity)} $quantityPlural',
+                                  date: shortDate(buyer.requiredDate),
+                                  dateLabel: 'REQUIRED DATE',
                                   distance: distanceLabel(buyer.distanceKm),
                                   onTap: () async {
                                     if (buyer.offerSent) {
@@ -545,7 +581,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                                         SnackBar(
                                           content: Text(
                                             'You already offered ${rupees(buyer.myOfferPrice!)} '
-                                            'per nut to ${buyer.buyerName}',
+                                            'per $priceUnit to ${buyer.buyerName}',
                                           ),
                                         ),
                                       );
@@ -639,12 +675,14 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
                 color: Color(0xFF2E7D32),
               ),
               const SizedBox(width: 8),
-              Text(
-                'Sell ${widget.title}',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF263238),
+              Expanded(
+                child: Text(
+                  'Sell ${widget.title}',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF263238),
+                  ),
                 ),
               ),
             ],
@@ -652,7 +690,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const SizedBox(height: 16),
 
-          const FormLabel(text: 'NUMBER OF NUTS'),
+          const FormLabel(text: 'NUMBER OF UNITS'),
           CustomInputField(
             controller: quantityController,
             icon: null,
@@ -671,7 +709,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const SizedBox(height: 12),
 
-          const FormLabel(text: 'OFFER PRICE PER NUT'),
+          const FormLabel(text: 'OFFER PRICE PER UNIT'),
           CustomInputField(
             controller: priceController,
             icon: null,
@@ -785,7 +823,7 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const Divider(height: 24),
 
-          SummaryRow(title: 'Quantity', value: '$quantity nuts'),
+          SummaryRow(title: 'Quantity', value: '$quantity $quantityPlural'),
 
           const Divider(height: 24),
 
@@ -793,7 +831,10 @@ class _RawCoconutsPageState extends State<RawCoconutsPage> {
 
           const Divider(height: 24),
 
-          SummaryRow(title: 'Offer Price Per Nut', value: price),
+          SummaryRow(
+            title: 'Offer Price Per ${usesUnits ? 'Unit' : 'Nut'}',
+            value: price,
+          ),
 
           const Divider(height: 24),
 
@@ -950,178 +991,6 @@ class FilterChipButton extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class InterestedBuyerCard extends StatelessWidget {
-  final String iconLetter;
-  final String buyerName;
-  final String trustScore;
-  final String price;
-  final String quantity;
-  final String pickupDate;
-  final VoidCallback? onTap;
-  final String? distance;
-
-  const InterestedBuyerCard({
-    super.key,
-    required this.iconLetter,
-    required this.buyerName,
-    required this.trustScore,
-    required this.price,
-    required this.quantity,
-    required this.pickupDate,
-    this.onTap,
-    this.distance,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(9),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: const Color(0xFFE7E7E7)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(10),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: const Color(0xFFE8F5E9),
-                  child: Text(
-                    iconLetter,
-                    style: const TextStyle(
-                      color: Color(0xFF2E7D32),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 10),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        buyerName,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF263238),
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'TRUST SCORE: $trustScore',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFFE65100),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (distance != null) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          distance!,
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            color: Color(0xFF555555),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    price,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF2E7D32),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                BuyerInfoItem(title: 'QUANTITY', value: quantity),
-                BuyerInfoItem(title: 'REQUIRED DATE', value: pickupDate),
-                const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 14,
-                  color: Color(0xFF9E9E9E),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class BuyerInfoItem extends StatelessWidget {
-  final String title;
-  final String value;
-
-  const BuyerInfoItem({super.key, required this.title, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 8,
-              color: Color(0xFF9E9E9E),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 11,
-              color: Color(0xFF263238),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
       ),
     );
   }

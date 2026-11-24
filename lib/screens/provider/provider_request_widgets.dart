@@ -31,7 +31,11 @@ String requestQuantity(ProviderBookingRequest request) =>
 String requestStatusLabel(ProviderBookingRequest request) =>
     switch (request.status) {
       ProviderRequestStatus.pending => 'Incoming Booking Request',
-      ProviderRequestStatus.confirmed => 'Confirmed Booking',
+      ProviderRequestStatus.confirmed => request.workConfirmed
+          ? 'Completed Booking'
+          : request.workFinished
+          ? 'Awaiting Land Owner Confirmation'
+          : 'Confirmed Booking',
       ProviderRequestStatus.declined => 'Declined Request',
       ProviderRequestStatus.cancelled => 'Cancelled Booking',
     };
@@ -43,6 +47,7 @@ Future<void> showCustomerContact(
 }) => showThemedDialog<void>(
   context: context,
   builder: (ctx) => AlertDialog(
+    scrollable: true,
     title: Text(
       ownerView ? (request.providerName ?? 'Provider') : request.ownerName,
     ),

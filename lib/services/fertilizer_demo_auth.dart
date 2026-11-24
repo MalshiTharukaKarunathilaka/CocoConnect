@@ -1,8 +1,7 @@
 import 'auth_service.dart';
 
 /// Demo fertilizer accounts that work even if the API is offline.
-/// Why: you can log in as owner / supplier / CDO with the same password and
-/// share one in-memory FertilizerStore so orders sync across roles.
+/// Why: Kurunegala-focused demo — Estate / Supplier / CDO with one shared store.
 class FertDemoAccount {
   const FertDemoAccount({
     required this.id,
@@ -37,12 +36,13 @@ class FertilizerDemoAuth {
   static const accounts = <FertDemoAccount>[
     FertDemoAccount(
       id: 901,
-      name: 'Demo Estate Owner',
+      name: 'Nimal Rathnayake',
       phone: '0711000001',
       password: passwordHint,
       role: 'ESTATE_OWNER',
       roleLabel: 'Estate Owner',
-      blurb: 'Map & orders',
+      blurb: 'Kurunegala map & orders',
+      location: 'Kurunegala',
       latitude: 7.4863,
       longitude: 80.3647,
     ),
@@ -53,38 +53,22 @@ class FertilizerDemoAuth {
       password: passwordHint,
       role: 'FERTILIZER_SUPPLIER',
       roleLabel: 'Supplier Agent',
-      blurb: 'Shop calendar',
+      blurb: 'Nadeesha Stores · Kurunegala',
+      location: 'Kurunegala',
       latitude: 7.4980,
       longitude: 80.3560,
     ),
     FertDemoAccount(
       id: 903,
-      name: 'CDO Mawathagama',
-      phone: '0372223344',
+      name: 'Sunil Bandara',
+      phone: '0772223344',
       password: passwordHint,
       role: 'CDO',
       roleLabel: 'CDO',
-      blurb: 'Stock & distribution',
+      blurb: 'Kurunegala · Mawathagama',
+      location: 'Kurunegala',
       latitude: 7.5400,
       longitude: 80.4000,
-    ),
-    FertDemoAccount(
-      id: 904,
-      name: 'Regional Manager',
-      phone: '0702000001',
-      password: passwordHint,
-      role: 'REGIONAL_MANAGER',
-      roleLabel: 'Regional Manager',
-      blurb: 'Regional monitoring',
-    ),
-    FertDemoAccount(
-      id: 905,
-      name: 'Board Chairman',
-      phone: '0703000001',
-      password: passwordHint,
-      role: 'CHAIRMAN',
-      roleLabel: 'Chairman',
-      blurb: 'Board overview',
     ),
   ];
 

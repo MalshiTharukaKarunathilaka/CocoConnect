@@ -4,18 +4,25 @@ import '../screens/buyer/buyer_profile_page.dart';
 import '../screens/chat/chats_page.dart';
 import '../screens/chat/notifications_page.dart';
 import '../screens/estate_owner_profile_page.dart';
+import '../screens/estate_owner_jobs_page.dart';
 import '../screens/orders/orders_page.dart';
+import '../services/activity_service.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
 import '../services/day_job_chat_service.dart';
+import '../services/notification_attention.dart';
 
 const Color _green = Color(0xFF256B45);
 const Color _greenSoft = Color(0xFFDDEEE0);
 const Color _grey = Color(0xFF7A7A7A);
 
-enum AppTab { dashboard, orders, chats, alerts, profile }
+enum AppTab { dashboard, orders, jobs, chats, alerts, profile }
 
 enum ChatScope { all, coconut, dayJobs }
+
+bool get supportsMainNavigation =>
+    AuthService.currentUser?.role == 'BUYER' ||
+    AuthService.currentUser?.role == 'ESTATE_OWNER';
 
 /// Unread chat messages and unseen notifications, shared by every bottom
 /// bar on screen and refreshed while one is showing.
@@ -34,6 +41,10 @@ class Unread {
 
   static Timer? _timer;
   static int _bars = 0;
+  static int _refreshId = 0;
+  static int? _userId;
+  static final alertAttention = NotificationAttention();
+  static final ownerHandovers = ValueNotifier(0);
 
   static void _attach() {
     _bars++;
@@ -51,15 +62,30 @@ class Unread {
   }
 
   static Future<void> refresh() async {
-    if (AuthService.currentUser == null) return;
+    final user = AuthService.currentUser;
+    final requestId = ++_refreshId;
+    if (_userId != user?.id) {
+      _userId = user?.id;
+      alertAttention.clear();
+      ownerHandovers.value = 0;
+      counts.value = (chats: 0, coconutChats: 0, dayJobChats: 0, alerts: 0);
+    }
+    if (user == null) return;
+    if (user.role == 'ESTATE_OWNER') {
+      unawaited(_refreshOwnerHandovers(user.id, requestId));
+    }
     try {
-      final role = AuthService.currentUser?.role;
+      final role = user.role;
       final chats = await ChatService.getChats();
       final dayJobChats = role == 'ESTATE_OWNER' || role == 'WORKER'
           ? await DayJobChatService.getChats()
           : const <DayJobChatSummary>[];
       final notes = await ChatService.getNotifications();
-      final int unseen = await ChatService.unseenCount(notes);
+      final unseen = await ChatService.unseenNotifications(notes);
+      if (requestId != _refreshId || AuthService.currentUser?.id != user.id) {
+        return;
+      }
+      alertAttention.update(unseen);
       final coconutUnread = chats.fold(
         0,
         (sum, chat) => sum + chat.unreadCount,
@@ -72,10 +98,24 @@ class Unread {
         chats: coconutUnread + dayJobUnread,
         coconutChats: coconutUnread,
         dayJobChats: dayJobUnread,
-        alerts: unseen,
+        alerts: groupNotifications(unseen, bySender: true).length,
       );
     } catch (_) {
       // Keep the last counts if the server can't be reached.
+    }
+  }
+
+  static Future<void> _refreshOwnerHandovers(int userId, int requestId) async {
+    try {
+      final count = await ActivityService.ownerHandoversDueToday();
+      final user = AuthService.currentUser;
+      if (requestId == _refreshId &&
+          user?.id == userId &&
+          user?.role == 'ESTATE_OWNER') {
+        ownerHandovers.value = count;
+      }
+    } catch (_) {
+      // Keep the last count when the orders endpoint is unavailable.
     }
   }
 }
@@ -93,6 +133,7 @@ void openTab(
   final Widget? page = switch (tab) {
     AppTab.dashboard => null,
     AppTab.orders => OrdersPage(initialTab: ordersTab),
+    AppTab.jobs => const EstateOwnerJobsPage(),
     AppTab.chats => ChatsPage(scope: chatScope),
     AppTab.alerts => const NotificationsPage(),
     AppTab.profile => switch (role) {
@@ -107,7 +148,7 @@ void openTab(
       SnackBar(
         content: Text(
           'There is no profile screen for ${role ?? 'this'} accounts yet. '
-          'Log in with a Buyer or Estate Owner account.',
+          'Log in with a Buyer or Land Owner account.',
         ),
       ),
     );
@@ -120,15 +161,21 @@ void openTab(
 }
 
 /// Dashboard · Orders · Chats · Alerts · Profile - the same on the buyer and
-/// estate owner sides.
+/// land owner sides.
 class AppBottomNav extends StatefulWidget {
   final AppTab current;
   final ChatScope chatScope;
+  final ValueChanged<AppTab>? onProviderTab;
+  final int providerChatCount;
+  final int providerAlertCount;
 
   const AppBottomNav({
     super.key,
     required this.current,
     this.chatScope = ChatScope.all,
+    this.onProviderTab,
+    this.providerChatCount = 0,
+    this.providerAlertCount = 0,
   });
 
   @override
@@ -139,27 +186,33 @@ class _AppBottomNavState extends State<AppBottomNav> {
   @override
   void initState() {
     super.initState();
-    Unread._attach();
+    if (widget.onProviderTab == null) Unread._attach();
   }
 
   @override
   void dispose() {
-    Unread._detach();
+    if (widget.onProviderTab == null) Unread._detach();
     super.dispose();
   }
 
   void _go(AppTab tab) {
-    if (tab == widget.current) return;
-    openTab(context, tab, chatScope: widget.chatScope);
+    final onProviderTab = widget.onProviderTab;
+    if (onProviderTab == null) {
+      openTab(context, tab, chatScope: widget.chatScope);
+    } else {
+      onProviderTab(tab);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF8F4EB),
-        border: Border(top: BorderSide(color: Color(0xFFE8E2D6))),
+      decoration: BoxDecoration(
+        color: widget.onProviderTab == null
+            ? const Color(0xFFF8F4EB)
+            : Colors.white,
+        border: const Border(top: BorderSide(color: Color(0xFFE8E2D6))),
       ),
       child: ValueListenableBuilder(
         valueListenable: Unread.counts,
@@ -172,34 +225,54 @@ class _AppBottomNavState extends State<AppBottomNav> {
               Icons.dashboard,
               'Dashboard',
             ),
-            _item(
-              AppTab.orders,
-              Icons.receipt_long_outlined,
-              Icons.receipt_long,
-              'Orders',
-            ),
+            if (widget.onProviderTab == null &&
+                widget.chatScope != ChatScope.dayJobs)
+              ValueListenableBuilder(
+                valueListenable: Unread.ownerHandovers,
+                builder: (context, count, _) => _item(
+                  AppTab.orders,
+                  Icons.receipt_long_outlined,
+                  Icons.receipt_long,
+                  'Orders',
+                  badge: AuthService.currentUser?.role == 'ESTATE_OWNER'
+                      ? count
+                      : 0,
+                ),
+              ),
+            if (widget.onProviderTab == null &&
+                AuthService.currentUser?.role == 'ESTATE_OWNER' &&
+                widget.chatScope == ChatScope.dayJobs)
+              _item(AppTab.jobs, Icons.work_outline, Icons.work, 'Jobs'),
             _item(
               AppTab.chats,
               Icons.chat_bubble_outline,
               Icons.chat_bubble,
               'Chats',
-              badge: switch (widget.chatScope) {
-                ChatScope.coconut => counts.coconutChats,
-                ChatScope.dayJobs => counts.dayJobChats,
-                ChatScope.all => counts.chats,
-              },
+              badge: widget.onProviderTab != null
+                  ? widget.providerChatCount
+                  : switch (widget.chatScope) {
+                      ChatScope.coconut => counts.coconutChats,
+                      ChatScope.dayJobs => counts.dayJobChats,
+                      ChatScope.all => counts.chats,
+                    },
             ),
             _item(
               AppTab.alerts,
               Icons.notifications_outlined,
               Icons.notifications,
               'Alerts',
-              badge: counts.alerts,
+              badge: widget.onProviderTab != null
+                  ? widget.providerAlertCount
+                  : counts.alerts,
             ),
             _item(
               AppTab.profile,
-              Icons.person_outline,
-              Icons.person,
+              widget.onProviderTab == null
+                  ? Icons.person_outline
+                  : Icons.account_circle_outlined,
+              widget.onProviderTab == null
+                  ? Icons.person
+                  : Icons.account_circle,
               'Profile',
             ),
           ],
@@ -228,14 +301,20 @@ class _AppBottomNavState extends State<AppBottomNav> {
               duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               decoration: BoxDecoration(
-                color: active ? _greenSoft : Colors.transparent,
+                color: active && widget.onProviderTab == null
+                    ? _greenSoft
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Badge(
                 isLabelVisible: badge > 0,
                 label: Text(badge > 99 ? '99+' : '$badge'),
                 backgroundColor: const Color(0xFFD32F2F),
-                child: Icon(active ? activeIcon : icon, size: 22, color: color),
+                child: Icon(
+                  active ? activeIcon : icon,
+                  size: widget.onProviderTab == null ? 22 : 26,
+                  color: color,
+                ),
               ),
             ),
             const SizedBox(height: 3),

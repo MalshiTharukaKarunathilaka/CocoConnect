@@ -1,12 +1,13 @@
 const pool = require("../config/db");
 const { dayOf } = require("../utils/geo");
+const { receivedCoconutReviews } = require("./coconutReviewController");
 
 /*
 |--------------------------------------------------------------------------
 | CHATS - one API for both sides of a negotiation
 |--------------------------------------------------------------------------
 | A chat is a negotiation on a listing, between the buyer who opened it and
-| the estate owner who listed it. Either side can send messages and price
+| the land owner who listed it. Either side can send messages and price
 | offers. Only the side that did NOT send an offer can accept or reject it;
 | accepting creates the order. Each new offer replaces any still-pending one.
 */
@@ -23,7 +24,7 @@ const time = (value) => (value ? new Date(value).getTime() : 0);
 
 /**
  * The negotiation with listing details and the caller's side, or null when
- * the caller is neither its buyer nor the listing's estate owner.
+ * the caller is neither its buyer nor the listing's land owner.
  */
 const loadChat = async (db, negotiationId, userId) => {
   const result = await db.query(
@@ -51,6 +52,28 @@ const loadChat = async (db, negotiationId, userId) => {
   if (chat.buyer_id === userId) return { ...chat, role: "BUYER" };
   if (chat.owner_user_id === userId) return { ...chat, role: "ESTATE_OWNER" };
   return null;
+};
+
+const getCounterpartProfile = async (req, res) => {
+  try {
+    const chat = await loadChat(pool, req.params.id, req.user.id);
+    if (!chat) return res.status(404).json({message: 'Chat not found'});
+    const isOwner = chat.role === 'BUYER';
+    const role = isOwner ? 'ESTATE_OWNER' : 'BUYER';
+    const id = isOwner ? chat.owner_user_id : chat.buyer_id;
+    const reviews = id == null
+      ? {average_rating: null, rating_count: 0, comments: []}
+      : await receivedCoconutReviews(id, role);
+    return res.json({
+      name: isOwner ? chat.owner_name || chat.estate_name : chat.buyer_name,
+      estate_name: isOwner ? chat.estate_name : null,
+      location: isOwner ? chat.estate_location : chat.buyer_location,
+      role,
+      ...reviews,
+    });
+  } catch (error) {
+    return serverError(res, 'Load chat profile', error);
+  }
 };
 
 /**
@@ -81,6 +104,24 @@ const withOfferStatus = (messages, chat, orderPrice) => {
   });
 };
 
+// Present older platform-generated events using the collection workflow too.
+const collectionMessage = (text) => {
+  if (typeof text !== 'string') return text;
+  if (text.startsWith('Delivery marked complete by ') || text.startsWith('Collection recorded by ')) {
+    return text.replace(/^(?:Delivery marked complete by |Collection recorded by )(.+?)\. Waiting for.*$/,
+      'Transaction marked complete by $1 (land owner). Awaiting buyer confirmation that the nuts have been received.');
+  }
+  if (text.startsWith('Receipt confirmed by ') || text.startsWith('Collection confirmed by ')) {
+    return text.replace(/^(?:Receipt confirmed by |Collection confirmed by )(.+?)\. (?:The deal is complete|Transaction complete)\..*$/,
+      'Nuts marked as received by $1. Transaction complete. You can now rate each other.');
+  }
+  if (text.startsWith('Transaction marked complete by ')) {
+    return text.replace('The transaction will end once the buyer marks the nuts as received.',
+      'Awaiting buyer confirmation that the nuts have been received.');
+  }
+  return text;
+};
+
 const loadMessages = async (db, chat) => {
   const result = await db.query(
     `SELECT id, sender_id, message, offer_price_per_unit, offer_status, created_at
@@ -94,7 +135,7 @@ const loadMessages = async (db, chat) => {
     : null;
   return {
     order,
-    messages: withOfferStatus(result.rows, chat, order?.final_price_per_unit),
+    messages: withOfferStatus(result.rows.map(m => ({...m, message: collectionMessage(m.message)})), chat, order?.final_price_per_unit),
   };
 };
 
@@ -142,7 +183,30 @@ const checkMessageBody = (body) => {
   return null;
 };
 
-const createOrder = async (db, chat, price) => {
+// Events are stored in the conversation, so both roles retain the same history.
+const postDealEvent = async (db, chatId, userId, action, price) => {
+  const actor = (await db.query('SELECT name FROM users WHERE id = $1', [userId])).rows[0];
+  const name = actor?.name || 'A participant';
+  return postMessage(db, chatId, userId,
+    action === 'accepted'
+      ? `Deal accepted by ${name} at Rs. ${Number(price).toLocaleString('en-US')} per unit.`
+      : `Deal cancelled by ${name}.`, null);
+};
+
+const postOrderEvent = async (db, orderId, userId, action) => {
+  const chats = await db.query('SELECT id FROM negotiations WHERE order_id = $1', [orderId]);
+  const actor = (await db.query('SELECT name FROM users WHERE id = $1', [userId])).rows[0];
+  const text = action === 'collected'
+    ? `Transaction marked complete by ${actor?.name || 'the land owner'} (land owner). Awaiting buyer confirmation that the nuts have been received.`
+    : `Nuts marked as received by ${actor?.name || 'the buyer'}. Transaction complete. You can now rate each other.`;
+  for (const chat of chats.rows) await postMessage(db, chat.id, userId, text, null);
+};
+
+const createOrder = async (db, chat, price, actorId) => {
+  const claimed = await db.query(
+    "UPDATE negotiations SET status = 'ACCEPTED' WHERE id = $1 AND status = 'OPEN' RETURNING id",
+    [chat.id]);
+  if (!claimed.rows.length) throw new Error('This negotiation is already closed');
   const total = Number(price) * Number(chat.quantity);
   const offer = chat.sell_request_id
     ? (
@@ -171,6 +235,7 @@ const createOrder = async (db, chat, price) => {
   );
 
   if (offer) await settleRequest(db, offer, price, chat.id);
+  await postDealEvent(db, chat.id, actorId, 'accepted', price);
   return order.rows[0];
 };
 
@@ -249,10 +314,13 @@ const openOfferChat = async (db, { estateId, ownerUserId, offer, request }) => {
 };
 
 /** One row for the chats list, from the caller's side. */
-const summarise = (chat, messages, userId) => {
+const summarise = (chat, messages, userId, includeUnreadMessages) => {
   const role = chat.buyer_id === userId ? "BUYER" : "ESTATE_OWNER";
   const lastRead = time(chat[lastReadColumn(role)]);
   const statused = withOfferStatus(messages, chat, chat.order_price);
+  const unread = statused.filter(
+    (m) => m.sender_id !== userId && time(m.created_at) > lastRead
+  );
   const last = statused[statused.length - 1];
   const waiting = statused
     .filter((m) => m.sender_id !== userId && m.offer_status === "PENDING")
@@ -267,6 +335,7 @@ const summarise = (chat, messages, userId) => {
     order_id: chat.order_id,
     order_status: chat.order_status,
     my_role: role,
+    counterpart_user_id: role === "BUYER" ? chat.owner_user_id : chat.buyer_id,
     counterpart_name:
       role === "BUYER" ? chat.estate_name || chat.owner_name || "Estate" : chat.buyer_name,
     product_type: chat.product_type,
@@ -277,7 +346,7 @@ const summarise = (chat, messages, userId) => {
     last_message: last
       ? {
           id: last.id,
-          text: last.message,
+          text: collectionMessage(last.message),
           offer_price_per_unit: last.offer_price_per_unit,
           offer_status: last.offer_status,
           is_mine: last.sender_id === userId,
@@ -285,9 +354,12 @@ const summarise = (chat, messages, userId) => {
         }
       : null,
     last_activity_at: last ? last.created_at : chat.created_at,
-    unread_count: statused.filter(
-      (m) => m.sender_id !== userId && time(m.created_at) > lastRead
-    ).length,
+    unread_count: unread.length,
+    ...(includeUnreadMessages ? {
+      unread_messages: unread.filter(m => !hasPrice(m)).map(m => ({
+        id: m.id, text: collectionMessage(m.message), created_at: m.created_at,
+      })),
+    } : {}),
     // An offer from the other side is waiting for my answer.
     offer_waiting: chat.status === "OPEN" && Boolean(waiting),
     waiting_offer:
@@ -311,7 +383,7 @@ const summarise = (chat, messages, userId) => {
 };
 
 /** Every chat the user is in, newest activity first. Shared with notifications. */
-const listChats = async (db, userId) => {
+const listChats = async (db, userId, {includeUnreadMessages = false} = {}) => {
   const chats = await db.query(
     `SELECT
       n.id, n.status, n.order_id, n.created_at, n.buyer_id, n.sell_request_id,
@@ -319,7 +391,7 @@ const listChats = async (db, userId) => {
       o.status AS order_status,
       o.final_price_per_unit AS order_price,
       pl.product_type, pl.quantity, pl.offer_price_per_unit AS listed_price,
-      eo.estate_name, eo.name AS owner_name,
+      eo.estate_name, eo.name AS owner_name, eo.user_id AS owner_user_id,
       u.name AS buyer_name
      FROM negotiations n
      JOIN product_listings pl ON pl.id = n.listing_id
@@ -349,7 +421,7 @@ const listChats = async (db, userId) => {
   }
 
   return chats.rows
-    .map((chat) => summarise(chat, byChat.get(chat.id) || [], userId))
+    .map((chat) => summarise(chat, byChat.get(chat.id) || [], userId, includeUnreadMessages))
     .sort(
       (a, b) => time(b.last_activity_at) - time(a.last_activity_at) || b.id - a.id
     );
@@ -389,6 +461,7 @@ const getChat = async (req, res) => {
       order_id: chat.order_id,
       order_status: order?.status ?? null,
       order_price: order?.final_price_per_unit ?? null,
+      my_rating: chat.role === 'BUYER' ? order?.buyer_rating ?? null : order?.owner_rating ?? null,
       counterpart_name:
         chat.role === "BUYER"
           ? chat.estate_name || chat.owner_name || "Estate"
@@ -495,7 +568,7 @@ const acceptOffer = async (req, res) => {
     }
     const { chat, offer } = found;
 
-    const order = await createOrder(client, chat, offer.offer_price_per_unit);
+    const order = await createOrder(client, chat, offer.offer_price_per_unit, req.user.id);
     await client.query(
       `UPDATE negotiation_messages SET offer_status = 'ACCEPTED' WHERE id = $1`,
       [offer.id]
@@ -557,12 +630,56 @@ const acceptListing = async (req, res) => {
       });
     }
 
-    const order = await createOrder(client, chat, chat.listed_price);
+    const order = await createOrder(client, chat, chat.listed_price, req.user.id);
     await client.query("COMMIT");
     return res.status(201).json({ message: "Deal accepted", order });
   } catch (error) {
     await client.query("ROLLBACK");
     return serverError(res, "Accept listing", error);
+  } finally {
+    client.release();
+  }
+};
+
+/** Either participant may cancel an accepted, uncompleted deal. */
+const cancelDeal = async (req, res) => {
+  const {reason, note = ''} = req.body ?? {};
+  if (typeof reason !== 'string' || !reason.trim() || reason.length > 200 ||
+      typeof note !== 'string' || note.length > 500) {
+    return res.status(400).json({message: 'Choose a cancellation reason and enter an optional note'});
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const chat = await loadChat(client, req.params.id, req.user.id);
+    if (!chat) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({message: 'Chat not found'});
+    }
+    if (chat.status !== 'ACCEPTED' || !chat.order_id) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({message: 'Only an accepted deal can be cancelled'});
+    }
+    // Conditional update serializes cancellation against completion and retries.
+    const result = await client.query(
+      `UPDATE orders SET status = 'CANCELLED', cancel_reason = $2, cancel_note = $3,
+         cancelled_by = $4, cancelled_at = $5
+       WHERE id = $1 AND status IN ('ACCEPTED', 'AWAITING_RECEIPT') RETURNING *`,
+      [chat.order_id, reason.trim(), note.trim() || null, req.user.id, new Date()]);
+    if (!result.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({message: 'This deal is already completed or cancelled'});
+    }
+    await client.query("UPDATE negotiations SET status = 'CANCELLED' WHERE id = $1", [chat.id]);
+    if (result.rows[0].buyer_request_id) {
+      await client.query("UPDATE buyer_requests SET status = 'CANCELLED' WHERE id = $1", [result.rows[0].buyer_request_id]);
+    }
+    await postDealEvent(client, chat.id, req.user.id, 'cancelled');
+    await client.query('COMMIT');
+    return res.json({message: 'Deal cancelled', order: result.rows[0]});
+  } catch (error) {
+    await client.query('ROLLBACK');
+    return serverError(res, 'Cancel deal', error);
   } finally {
     client.release();
   }
@@ -586,6 +703,7 @@ const closeChat = async (req, res) => {
 };
 
 module.exports = {
+  getCounterpartProfile,
   getChats,
   getChat,
   sendChatMessage,
@@ -593,6 +711,9 @@ module.exports = {
   rejectOffer,
   acceptListing,
   closeChat,
+  cancelDeal,
+  postDealEvent,
+  postOrderEvent,
   // Shared with the older buyer/owner routes and notifications.
   listChats,
   postMessage,

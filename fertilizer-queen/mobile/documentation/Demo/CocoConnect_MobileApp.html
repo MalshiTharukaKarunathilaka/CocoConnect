@@ -1,0 +1,1925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CocoConnect — Mobile App Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --g900: #062b12;
+  --g800: #0b4020;
+  --g700: #155c30;
+  --g600: #1f7a42;
+  --g500: #28a055;
+  --g400: #3ec46e;
+  --g300: #70d997;
+  --g100: #c8f2d9;
+  --g50:  #edfbf3;
+  --gold: #e8b400;
+  --gold2: #ffd85c;
+  --cream: #faf9f4;
+  --white: #ffffff;
+  --ink: #0a1f10;
+  --ink2: #2c4a35;
+  --ink3: #6a8c73;
+  --red: #e53e3e;
+  --blue: #2b6cb0;
+  --orange: #dd6b20;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: #0d1f15;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* ── PRESENTER SHELL ── */
+.presenter {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(160deg, #0a1e10 0%, #0d2918 40%, #071510 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.presenter::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 800px 600px at 20% 30%, rgba(40,160,85,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 600px 400px at 80% 70%, rgba(232,180,0,0.06) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.noise {
+  position: fixed;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── TOP HEADER ── */
+.top-header {
+  width: 100%;
+  max-width: 1400px;
+  padding: 32px 48px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+}
+
+.brand {
+  font-family: 'Fraunces', serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-dot { color: var(--gold); }
+.brand-tag {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--g300);
+  background: rgba(62, 196, 110, 0.1);
+  border: 1px solid rgba(62, 196, 110, 0.2);
+  padding: 5px 12px;
+  border-radius: 100px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.role-tab {
+  padding: 8px 20px;
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s;
+  border: 1.5px solid transparent;
+  color: rgba(255,255,255,0.5);
+}
+.role-tab:hover { color: rgba(255,255,255,0.8); }
+.role-tab.active {
+  background: var(--g500);
+  color: var(--white);
+  border-color: var(--g400);
+  box-shadow: 0 0 20px rgba(40,160,85,0.3);
+}
+
+/* ── HERO TEXT ── */
+.hero-text {
+  text-align: center;
+  padding: 48px 20px 32px;
+  position: relative;
+  z-index: 10;
+  max-width: 800px;
+}
+.hero-kicker {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 16px;
+}
+.hero-h {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1.15;
+  margin-bottom: 16px;
+}
+.hero-h em { color: var(--g300); font-style: italic; }
+.hero-sub {
+  font-size: 0.95rem;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.7;
+  max-width: 540px;
+  margin: 0 auto;
+}
+
+/* ── ROLE SWITCHER ── */
+.role-switcher {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 40px;
+  position: relative;
+  z-index: 10;
+  padding: 0 20px;
+}
+.rs-pill {
+  padding: 10px 22px;
+  border-radius: 100px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 1.5px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.04);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rs-pill:hover { border-color: rgba(255,255,255,0.25); color: rgba(255,255,255,0.8); }
+.rs-pill.active {
+  background: rgba(40,160,85,0.2);
+  border-color: var(--g400);
+  color: var(--g300);
+  transform: scale(1.05);
+  box-shadow: 0 4px 20px rgba(40,160,85,0.2);
+}
+
+/* ── PHONE STAGE ── */
+.phone-stage {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0 20px 60px;
+  position: relative;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+
+/* ── PHONE FRAME ── */
+.phone-frame {
+  width: 375px;
+  height: 812px;
+  background: #000;
+  border-radius: 54px;
+  position: relative;
+  box-shadow:
+    0 0 0 2px #1a1a1a,
+    0 0 0 4px #2a2a2a,
+    0 60px 120px rgba(0,0,0,0.7),
+    0 0 60px rgba(40,160,85,0.1);
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.phone-frame:hover { transform: translateY(-6px); }
+
+/* Status bar */
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 28px 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--white);
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+}
+.status-time { font-family: 'JetBrains Mono', monospace; }
+.status-icons { display: flex; align-items: center; gap: 5px; font-size: 0.65rem; }
+
+/* Notch */
+.notch {
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 120px; height: 30px;
+  background: #000;
+  border-radius: 0 0 20px 20px;
+  z-index: 200;
+}
+
+/* Screen container */
+.screen-wrap {
+  position: absolute;
+  inset: 0;
+  border-radius: 54px;
+  overflow: hidden;
+}
+
+/* All screens hidden by default */
+.app-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  font-size: 0.82rem;
+  opacity: 0;
+  transform: translateX(30px);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.app-screen.active {
+  display: flex;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Bottom nav */
+.bottom-nav {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 85px;
+  background: rgba(8, 22, 14, 0.96);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: flex-start;
+  padding-top: 12px;
+  z-index: 200;
+}
+.bn-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 8px 0;
+  transition: all 0.2s;
+}
+.bn-ico {
+  font-size: 1.2rem;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.bn-item:hover .bn-ico { transform: translateY(-3px) scale(1.15); }
+.bn-lbl {
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.02em;
+}
+.bn-item.on .bn-lbl { color: var(--g400); }
+.bn-item.on .bn-ico { filter: drop-shadow(0 0 6px rgba(62,196,110,0.6)); }
+
+/* ─────────────────────────────────
+   SCREENS: BUYER
+───────────────────────────────── */
+/* Home screen — common header pattern */
+.app-header {
+  padding: 52px 22px 20px;
+  background: linear-gradient(180deg, #0a1e10 0%, #0d2918 100%);
+}
+.app-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.app-logo {
+  font-family: 'Fraunces', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--white);
+}
+.app-logo span { color: var(--gold); }
+.app-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--g600);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem; font-weight: 700; color: var(--white);
+  border: 2px solid var(--g400);
+}
+.app-greeting { font-size: 0.7rem; color: rgba(255,255,255,0.4); font-weight: 500; }
+.app-name { font-size: 1.05rem; font-weight: 800; color: var(--white); margin-top: 2px; }
+
+.screen-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 90px;
+  background: var(--cream);
+  scrollbar-width: none;
+}
+.screen-body::-webkit-scrollbar { display: none; }
+
+/* Live ticker banner */
+.live-ticker {
+  background: linear-gradient(135deg, var(--g900) 0%, var(--g800) 100%);
+  margin: 0 16px;
+  border-radius: 18px;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: -16px;
+  position: relative;
+  z-index: 5;
+  box-shadow: 0 8px 24px rgba(6,43,18,0.4);
+}
+.lt-left .lt-lbl { font-size: 0.6rem; color: rgba(255,255,255,0.4); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.lt-left .lt-val { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 700; color: var(--gold2); }
+.lt-left .lt-sub { font-size: 0.6rem; color: var(--g300); font-weight: 600; margin-top: 2px; }
+.lt-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.price-pill {
+  font-size: 0.6rem; font-weight: 800;
+  padding: 3px 8px; border-radius: 100px;
+  background: rgba(16,185,129,0.15); color: #34d399;
+}
+.price-pill.dn { background: rgba(239,68,68,0.15); color: #f87171; }
+.lt-chart { font-size: 0.55rem; color: rgba(255,255,255,0.3); }
+
+/* Section heading */
+.sec-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  padding: 20px 20px 10px;
+}
+.sec-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 20px 10px;
+}
+.sec-label-row .sec-label { padding: 0; }
+.see-all { font-size: 0.65rem; font-weight: 700; color: var(--g500); }
+
+/* Quick action buttons */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 0 16px;
+  margin-bottom: 4px;
+}
+.qa-btn {
+  background: var(--white);
+  border-radius: 16px;
+  padding: 14px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(0,0,0,0.06);
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.qa-btn:active { transform: scale(0.95); }
+.qa-ico { font-size: 1.3rem; }
+.qa-lbl { font-size: 0.58rem; font-weight: 700; color: var(--ink2); text-align: center; line-height: 1.3; }
+
+/* Product cards */
+.product-scroll {
+  display: flex;
+  gap: 12px;
+  padding: 0 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.product-scroll::-webkit-scrollbar { display: none; }
+.prod-card {
+  background: var(--white);
+  border-radius: 18px;
+  min-width: 150px;
+  padding: 14px;
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+.prod-card:active { transform: scale(0.97); }
+.prod-emoji { font-size: 2.2rem; text-align: center; margin-bottom: 8px; }
+.prod-name { font-size: 0.72rem; font-weight: 700; color: var(--ink); line-height: 1.3; }
+.prod-origin { font-size: 0.6rem; color: var(--ink3); margin-top: 2px; }
+.prod-price { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: 700; color: var(--g700); margin-top: 6px; }
+.prod-unit { font-size: 0.55rem; color: var(--ink3); }
+.prod-rating { font-size: 0.58rem; color: #f59e0b; margin-top: 4px; font-weight: 600; }
+
+/* Order card */
+.order-card {
+  background: var(--white);
+  border-radius: 16px;
+  margin: 0 16px 10px;
+  padding: 14px 16px;
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.oc-ico { font-size: 1.5rem; width: 42px; height: 42px; background: var(--g50); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.oc-main { flex: 1; }
+.oc-name { font-size: 0.78rem; font-weight: 700; color: var(--ink); }
+.oc-sub { font-size: 0.62rem; color: var(--ink3); margin-top: 2px; }
+.oc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.oc-status {
+  font-size: 0.6rem; font-weight: 800; padding: 3px 9px; border-radius: 100px;
+}
+.s-transit { background: rgba(43,108,176,0.1); color: var(--blue); }
+.s-delivered { background: rgba(16,185,129,0.1); color: #10b981; }
+.s-pending { background: rgba(232,180,0,0.12); color: #b45309; }
+.s-open { background: rgba(40,160,85,0.12); color: var(--g600); }
+.oc-amount { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 700; color: var(--ink); }
+
+/* Map placeholder */
+.map-card {
+  background: linear-gradient(135deg, #e8f5ee 0%, #d0eedd 100%);
+  border-radius: 16px;
+  margin: 0 16px;
+  height: 140px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(40,160,85,0.15);
+}
+.map-overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+.map-truck {
+  position: absolute;
+  font-size: 1.6rem;
+  animation: driveTruck 4s ease-in-out infinite;
+  top: 40px;
+}
+@keyframes driveTruck {
+  0% { left: 20px; transform: scaleX(1); }
+  48% { left: calc(100% - 60px); transform: scaleX(1); }
+  50% { left: calc(100% - 60px); transform: scaleX(-1); }
+  98% { left: 20px; transform: scaleX(-1); }
+  100% { left: 20px; transform: scaleX(1); }
+}
+.map-route {
+  position: absolute;
+  top: 56px; left: 32px; right: 32px;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--g500) 0, var(--g500) 10px, transparent 10px, transparent 20px);
+}
+.map-tag {
+  background: white;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex; align-items: center; gap: 6px;
+}
+.map-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--g500); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.5); } }
+
+/* ─────────────────────────────────
+   SCREENS: SELLER
+───────────────────────────────── */
+.seller-header { background: linear-gradient(180deg, #1a0a30 0%, #260d40 100%); }
+.seller-stat-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; padding: 0 16px 16px;
+  background: var(--cream);
+}
+.sstat {
+  background: var(--white); border-radius: 14px;
+  padding: 14px; border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.sstat-val { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 700; color: var(--ink); }
+.sstat-lbl { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink3); margin-top: 4px; }
+.sstat-chg { font-size: 0.62rem; font-weight: 700; color: #10b981; margin-top: 4px; }
+.sstat-chg.dn { color: var(--red); }
+
+.listing-card {
+  background: var(--white); border-radius: 14px;
+  margin: 0 16px 10px; padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.lc-ico { font-size: 1.8rem; width: 46px; height: 46px; background: var(--g50); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.lc-body { flex: 1; }
+.lc-name { font-size: 0.78rem; font-weight: 700; color: var(--ink); }
+.lc-sub { font-size: 0.62rem; color: var(--ink3); margin-top: 2px; }
+.lc-stock { font-size: 0.62rem; font-weight: 700; color: var(--g600); margin-top: 4px; }
+.lc-price { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; color: var(--ink); }
+
+/* ─────────────────────────────────
+   SCREENS: ESTATE OWNER
+───────────────────────────────── */
+.estate-header { background: linear-gradient(180deg, #1a0f02 0%, #2b1a04 100%); }
+.estate-map-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  padding: 0 16px 16px;
+  background: var(--cream);
+}
+.tree-cell {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem;
+  border: 1px solid rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.tree-cell:active { transform: scale(0.9); }
+.tc-coco { background: rgba(40,160,85,0.15); }
+.tc-inter { background: rgba(232,180,0,0.15); }
+.tc-empty { background: rgba(0,0,0,0.03); }
+
+.map-legend {
+  display: flex; gap: 12px; padding: 0 16px 16px;
+  background: var(--cream);
+}
+.ml-item { display: flex; align-items: center; gap: 5px; font-size: 0.62rem; font-weight: 600; color: var(--ink2); }
+.ml-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+/* ─────────────────────────────────
+   SCREENS: WORKER
+───────────────────────────────── */
+.worker-header { background: linear-gradient(180deg, #030e1a 0%, #061422 100%); }
+.job-card {
+  background: var(--white); border-radius: 16px;
+  margin: 0 16px 10px; padding: 16px;
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.jc-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.jc-title { font-size: 0.85rem; font-weight: 800; color: var(--ink); }
+.jc-estate { font-size: 0.65rem; color: var(--ink3); margin-top: 2px; }
+.jc-rate { font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 700; color: var(--g700); }
+.jc-rate-lbl { font-size: 0.55rem; color: var(--ink3); text-align: right; }
+.jc-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.jc-tag {
+  font-size: 0.6rem; font-weight: 700; padding: 3px 9px; border-radius: 100px;
+  background: var(--g50); color: var(--g700); border: 1px solid rgba(40,160,85,0.2);
+}
+.jc-apply {
+  width: 100%; padding: 10px;
+  background: var(--g700); color: var(--white);
+  border: none; border-radius: 10px;
+  font-size: 0.72rem; font-weight: 800; cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  transition: all 0.2s;
+  letter-spacing: 0.02em;
+}
+.jc-apply:active { background: var(--g500); transform: scale(0.98); }
+.jc-apply.applied { background: var(--g50); color: var(--g600); }
+
+/* ─────────────────────────────────
+   SCREENS: RECORDER
+───────────────────────────────── */
+.recorder-header { background: linear-gradient(180deg, #0a001a 0%, #150028 100%); }
+.offline-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.2);
+  color: #ef4444; font-size: 0.62rem; font-weight: 700;
+  padding: 4px 10px; border-radius: 100px;
+  margin: 0 0 12px 16px;
+}
+.offline-dot { width: 5px; height: 5px; border-radius: 50%; background: #ef4444; animation: pulse 1.5s infinite; }
+
+.log-form {
+  background: var(--white); border-radius: 16px;
+  margin: 0 16px 12px; padding: 16px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.lf-label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink3); margin-bottom: 6px; }
+.lf-input {
+  width: 100%; padding: 10px 12px;
+  border-radius: 10px; border: 1.5px solid rgba(0,0,0,0.08);
+  font-size: 0.78rem; color: var(--ink);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  margin-bottom: 10px;
+  background: var(--cream);
+}
+.lf-row { display: flex; gap: 8px; }
+.lf-row .lf-input { flex: 1; margin-bottom: 0; }
+.lf-submit {
+  width: 100%; margin-top: 12px;
+  padding: 12px; background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: white; border: none; border-radius: 10px;
+  font-size: 0.75rem; font-weight: 800;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer; letter-spacing: 0.03em;
+  transition: all 0.2s;
+}
+.lf-submit:active { transform: scale(0.98); }
+
+.sync-banner {
+  margin: 0 16px; padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(109,40,217,0.1));
+  border: 1px solid rgba(139,92,246,0.2);
+  border-radius: 12px; margin-bottom: 10px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.sb-left .sb-t { font-size: 0.72rem; font-weight: 700; color: #7c3aed; }
+.sb-left .sb-s { font-size: 0.62rem; color: var(--ink3); margin-top: 2px; }
+.sync-btn {
+  padding: 7px 16px; background: #7c3aed; color: white;
+  border: none; border-radius: 8px; font-size: 0.65rem; font-weight: 800;
+  cursor: pointer; font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* ─────────────────────────────────
+   SCREENS: LOGISTICS
+───────────────────────────────── */
+.logistics-header { background: linear-gradient(180deg, #001a1a 0%, #002828 100%); }
+.route-card {
+  background: linear-gradient(135deg, var(--g900), var(--g800));
+  margin: 0 16px 12px; border-radius: 16px;
+  padding: 16px; color: white;
+  position: relative; overflow: hidden;
+}
+.rc-glow {
+  position: absolute; top: -30px; right: -30px;
+  width: 100px; height: 100px;
+  background: radial-gradient(circle, rgba(62,196,110,0.3), transparent);
+}
+.rc-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.rc-id { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 700; color: var(--gold2); }
+.rc-fare { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 700; }
+.rc-fare-lbl { font-size: 0.58rem; color: rgba(255,255,255,0.5); }
+.rc-route { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; font-weight: 700; }
+.rc-from, .rc-to { background: rgba(255,255,255,0.08); padding: 4px 10px; border-radius: 8px; }
+.rc-arrow { color: var(--g300); font-size: 1rem; }
+.rc-accept {
+  width: 100%; margin-top: 12px; padding: 10px;
+  background: var(--g400); color: var(--g900);
+  border: none; border-radius: 10px; font-size: 0.72rem; font-weight: 800;
+  cursor: pointer; font-family: 'Plus Jakarta Sans', sans-serif;
+  transition: all 0.2s;
+}
+.rc-accept:active { transform: scale(0.98); }
+
+/* ── SIDE INFO PANEL (right of phone) ── */
+.side-panel {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 20px;
+}
+
+.info-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 20px;
+  color: var(--white);
+  transition: all 0.3s;
+}
+.info-card:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.15); }
+.ic-role-icon { font-size: 2rem; margin-bottom: 10px; }
+.ic-role-name { font-family: 'Fraunces', serif; font-size: 1rem; font-weight: 700; color: var(--white); margin-bottom: 6px; }
+.ic-role-desc { font-size: 0.72rem; color: rgba(255,255,255,0.5); line-height: 1.6; margin-bottom: 14px; }
+.ic-features { display: flex; flex-direction: column; gap: 6px; }
+.ic-feat {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.68rem; color: rgba(255,255,255,0.7); font-weight: 500;
+}
+.ic-feat::before { content: '✓'; color: var(--g400); font-weight: 800; flex-shrink: 0; }
+
+.tech-card {
+  background: rgba(232,180,0,0.06);
+  border: 1px solid rgba(232,180,0,0.15);
+  border-radius: 20px;
+  padding: 20px;
+}
+.tc-title { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin-bottom: 12px; }
+.tc-stack { display: flex; flex-direction: column; gap: 8px; }
+.tc-item { display: flex; align-items: center; gap: 10px; }
+.tc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.tc-name { font-size: 0.72rem; font-weight: 700; color: var(--white); }
+.tc-purpose { font-size: 0.62rem; color: rgba(255,255,255,0.4); margin-top: 1px; }
+
+/* ── STATS ROW ── */
+.stats-band {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  gap: 12px;
+  padding: 0 40px 40px;
+  position: relative;
+  z-index: 10;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.stat-pill {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 16px 24px;
+  text-align: center;
+  flex: 1;
+  min-width: 140px;
+}
+.sp-val { font-family: 'Fraunces', serif; font-size: 1.8rem; font-weight: 700; color: var(--white); }
+.sp-val span { color: var(--gold); }
+.sp-lbl { font-size: 0.65rem; font-weight: 600; color: rgba(255,255,255,0.4); margin-top: 4px; letter-spacing: 0.05em; }
+
+/* ── FOOTER ── */
+.pres-footer {
+  width: 100%;
+  padding: 24px 48px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+  flex-wrap: gap;
+  gap: 12px;
+}
+.pf-left { font-size: 0.72rem; color: rgba(255,255,255,0.3); }
+.pf-right { font-size: 0.65rem; color: rgba(255,255,255,0.2); font-family: 'JetBrains Mono', monospace; }
+
+/* Toast */
+.app-toast {
+  position: absolute;
+  bottom: 95px; left: 16px; right: 16px;
+  background: var(--g900); color: white;
+  border-radius: 12px; padding: 10px 14px;
+  font-size: 0.68rem; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  border-left: 3px solid var(--g400);
+  transform: translateY(20px); opacity: 0;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 300;
+  pointer-events: none;
+}
+.app-toast.show { transform: translateY(0); opacity: 1; }
+
+/* Utility */
+.divider { height: 1px; background: rgba(0,0,0,0.06); margin: 4px 16px; }
+
+/* Animations */
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Gradient header variants */
+#screen-seller .app-header { background: linear-gradient(180deg, #1a0a30 0%, #2d1052 100%); }
+#screen-estate .app-header { background: linear-gradient(180deg, #1a1002 0%, #2d1d04 100%); }
+#screen-recorder .app-header { background: linear-gradient(180deg, #100028 0%, #1c0040 100%); }
+#screen-worker .app-header { background: linear-gradient(180deg, #001228 0%, #001e3c 100%); }
+#screen-logistics .app-header { background: linear-gradient(180deg, #001818 0%, #002828 100%); }
+#screen-buyer .app-header { background: linear-gradient(180deg, #062b12 0%, #0d3a1c 100%); }
+
+@media (max-width: 900px) {
+  .phone-stage { flex-direction: column; align-items: center; }
+  .side-panel { width: 375px; padding-top: 0; }
+  .stats-band { padding: 0 20px 30px; }
+  .top-header { padding: 20px; }
+  .hero-text { padding: 30px 20px 20px; }
+  .pres-footer { padding: 16px 20px; flex-direction: column; text-align: center; }
+  .header-right .role-tab { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="presenter">
+  <div class="noise"></div>
+
+  <!-- ══════ TOP HEADER ══════ -->
+  <div class="top-header">
+    <div class="brand">
+      🥥 Coco<span class="brand-dot">Connect</span>
+      <div class="brand-tag">Mobile App Preview</div>
+    </div>
+    <div class="header-right">
+      <div class="role-tab active" onclick="switchRole('buyer')">🛒 Buyer</div>
+      <div class="role-tab" onclick="switchRole('seller')">🏪 Seller</div>
+      <div class="role-tab" onclick="switchRole('estate')">🏡 Estate</div>
+      <div class="role-tab" onclick="switchRole('worker')">🔧 Worker</div>
+      <div class="role-tab" onclick="switchRole('recorder')">📋 Recorder</div>
+      <div class="role-tab" onclick="switchRole('logistics')">🚚 Logistics</div>
+    </div>
+  </div>
+
+  <!-- ══════ HERO TEXT ══════ -->
+  <div class="hero-text">
+    <div class="hero-kicker">Stakeholder Preview · CocoConnect v2.0</div>
+    <h1 class="hero-h">Sri Lanka's Coconut Industry,<br><em>Fully Digitised</em></h1>
+    <p class="hero-sub">6 distinct role-based mobile experiences — from farm to buyer. Built for offline-first operation across Sri Lanka's coconut value chain.</p>
+  </div>
+
+  <!-- ══════ ROLE PILLS ══════ -->
+  <div class="role-switcher">
+    <div class="rs-pill active" id="pill-buyer" onclick="switchRole('buyer')">🛒 Buyer</div>
+    <div class="rs-pill" id="pill-seller" onclick="switchRole('seller')">🏪 Seller / Grower</div>
+    <div class="rs-pill" id="pill-estate" onclick="switchRole('estate')">🏡 Estate Owner</div>
+    <div class="rs-pill" id="pill-worker" onclick="switchRole('worker')">🔧 Service Worker</div>
+    <div class="rs-pill" id="pill-recorder" onclick="switchRole('recorder')">📋 Harvest Recorder</div>
+    <div class="rs-pill" id="pill-logistics" onclick="switchRole('logistics')">🚚 Logistics Partner</div>
+  </div>
+
+  <!-- ══════ PHONE + SIDE PANEL ══════ -->
+  <div class="phone-stage">
+
+    <!-- PHONE -->
+    <div class="phone-frame" id="phone">
+      <div class="notch"></div>
+      <div class="status-bar">
+        <div class="status-time">9:41</div>
+        <div class="status-icons">📶 🛜 🔋</div>
+      </div>
+
+      <div class="screen-wrap">
+
+        <!-- ════════════ BUYER SCREEN ════════════ -->
+        <div class="app-screen active" id="screen-buyer">
+          <div class="app-header">
+            <div class="app-header-row">
+              <div class="app-logo">Coco<span>Connect</span></div>
+              <div class="app-avatar">S</div>
+            </div>
+            <div class="app-greeting">Good morning 🌴</div>
+            <div class="app-name">Sunimal Perera</div>
+          </div>
+
+          <div class="screen-body">
+            <!-- Live price ticker -->
+            <div class="live-ticker">
+              <div class="lt-left">
+                <div class="lt-lbl">Live Pol Price</div>
+                <div class="lt-val" id="live-price">Rs. 42.00</div>
+                <div class="lt-sub" id="live-change">▲ +1.4% today</div>
+              </div>
+              <div class="lt-right">
+                <div class="price-pill" id="price-pill">▲ UP</div>
+                <div class="lt-chart">7-day: ↗ Rs.40→42</div>
+              </div>
+            </div>
+
+            <!-- Quick actions -->
+            <div class="sec-label">Quick Actions</div>
+            <div class="quick-actions">
+              <div class="qa-btn" onclick="toast('🛒 Opening Marketplace...')">
+                <div class="qa-ico">🛍️</div>
+                <div class="qa-lbl">Browse Market</div>
+              </div>
+              <div class="qa-btn" onclick="toast('📦 Loading your orders...')">
+                <div class="qa-ico">📦</div>
+                <div class="qa-lbl">My Orders</div>
+              </div>
+              <div class="qa-btn" onclick="toast('💬 Opening negotiation...')">
+                <div class="qa-ico">💬</div>
+                <div class="qa-lbl">Negotiate</div>
+              </div>
+              <div class="qa-btn" onclick="toast('📈 Price trends loaded')">
+                <div class="qa-ico">📈</div>
+                <div class="qa-lbl">Price Trends</div>
+              </div>
+            </div>
+
+            <!-- Products -->
+            <div class="sec-label-row">
+              <div class="sec-label" style="padding:0">Available Products</div>
+              <div class="see-all">See all →</div>
+            </div>
+            <div class="product-scroll" style="margin-bottom:16px">
+              <div class="prod-card" onclick="toast('🥥 Viewing Mature Coconuts listing...')">
+                <div class="prod-emoji">🥥</div>
+                <div class="prod-name">Mature Coconuts Bulk</div>
+                <div class="prod-origin">📍 Kurunegala</div>
+                <div class="prod-price">Rs. 40 <span class="prod-unit">/ nut</span></div>
+                <div class="prod-rating">⭐ 4.8 · Min 500 nuts</div>
+              </div>
+              <div class="prod-card" onclick="toast('👑 Viewing King Coconut listing...')">
+                <div class="prod-emoji">🌴</div>
+                <div class="prod-name">King Coconuts Fresh</div>
+                <div class="prod-origin">📍 Gampaha</div>
+                <div class="prod-price">Rs. 52 <span class="prod-unit">/ nut</span></div>
+                <div class="prod-rating">⭐ 4.7 · Min 100 nuts</div>
+              </div>
+              <div class="prod-card" onclick="toast('🫙 Viewing VCO listing...')">
+                <div class="prod-emoji">🫙</div>
+                <div class="prod-name">Virgin Coconut Oil</div>
+                <div class="prod-origin">📍 Kurunegala</div>
+                <div class="prod-price">Rs. 1,200 <span class="prod-unit">/ litre</span></div>
+                <div class="prod-rating">⭐ 4.9 · Min 10L</div>
+              </div>
+              <div class="prod-card" onclick="toast('🌾 Viewing Coir listing...')">
+                <div class="prod-emoji">🌾</div>
+                <div class="prod-name">Raw Coir Fibre</div>
+                <div class="prod-origin">📍 Kalutara</div>
+                <div class="prod-price">Rs. 85 <span class="prod-unit">/ kg</span></div>
+                <div class="prod-rating">⭐ 4.6 · Min 50kg</div>
+              </div>
+            </div>
+
+            <!-- Active orders -->
+            <div class="sec-label">Active Orders</div>
+            <div class="order-card" onclick="toast('📦 Opening order CC-4821 details...')">
+              <div class="oc-ico">📦</div>
+              <div class="oc-main">
+                <div class="oc-name">CC-4821 · Mature Coconuts</div>
+                <div class="oc-sub">500 nuts · Kurunegala Farm</div>
+              </div>
+              <div class="oc-right">
+                <div class="oc-status s-transit">In Transit</div>
+                <div class="oc-amount">Rs. 20,000</div>
+              </div>
+            </div>
+            <div class="order-card" onclick="toast('✅ Order CC-4795 delivered!')">
+              <div class="oc-ico">✅</div>
+              <div class="oc-main">
+                <div class="oc-name">CC-4795 · King Coconuts</div>
+                <div class="oc-sub">200 nuts · Gampaha Estate</div>
+              </div>
+              <div class="oc-right">
+                <div class="oc-status s-delivered">Delivered</div>
+                <div class="oc-amount">Rs. 10,400</div>
+              </div>
+            </div>
+
+            <!-- Live tracking map -->
+            <div class="sec-label">Live GPS Tracking</div>
+            <div class="map-card" style="margin-bottom:16px">
+              <div class="map-route"></div>
+              <div class="map-truck">🚚</div>
+              <div class="map-overlay">
+                <div class="map-tag">
+                  <div class="map-dot"></div>
+                  CC-4821 En Route · ETA ~45 min
+                </div>
+                <div class="map-tag" style="align-self:flex-end;background:rgba(255,255,255,0.85)">
+                  📍 Kelaniya Depot
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bottom-nav">
+            <div class="bn-item on"><div class="bn-ico">🏠</div><div class="bn-lbl">Home</div></div>
+            <div class="bn-item" onclick="toast('🛒 Marketplace')"><div class="bn-ico">🛍️</div><div class="bn-lbl">Market</div></div>
+            <div class="bn-item" onclick="toast('📦 My Orders')"><div class="bn-ico">📦</div><div class="bn-lbl">Orders</div></div>
+            <div class="bn-item" onclick="toast('📈 Price Trends')"><div class="bn-ico">📈</div><div class="bn-lbl">Prices</div></div>
+            <div class="bn-item" onclick="toast('👤 Profile')"><div class="bn-ico">👤</div><div class="bn-lbl">Profile</div></div>
+          </div>
+
+          <div class="app-toast" id="toast-buyer">✅ Order placed successfully!</div>
+        </div>
+
+        <!-- ════════════ SELLER SCREEN ════════════ -->
+        <div class="app-screen" id="screen-seller">
+          <div class="app-header">
+            <div class="app-header-row">
+              <div class="app-logo">Coco<span style="color:var(--gold)">Connect</span></div>
+              <div class="app-avatar" style="background:#6d28d9;border-color:#8b5cf6">K</div>
+            </div>
+            <div class="app-greeting">Seller Dashboard 🏪</div>
+            <div class="app-name">Kamal Silva</div>
+          </div>
+
+          <div class="screen-body" style="background:var(--cream)">
+            <!-- Stats grid -->
+            <div class="sec-label">Revenue Overview</div>
+            <div class="seller-stat-grid">
+              <div class="sstat">
+                <div class="sstat-val">Rs. 284k</div>
+                <div class="sstat-lbl">Total Revenue</div>
+                <div class="sstat-chg">↑ 12% this month</div>
+              </div>
+              <div class="sstat">
+                <div class="sstat-val">23</div>
+                <div class="sstat-lbl">Active Orders</div>
+                <div class="sstat-chg">↑ 3 new today</div>
+              </div>
+              <div class="sstat">
+                <div class="sstat-val">5,830</div>
+                <div class="sstat-lbl">Stock (nuts)</div>
+                <div class="sstat-chg dn">↓ 670 this week</div>
+              </div>
+              <div class="sstat">
+                <div class="sstat-val">4.8⭐</div>
+                <div class="sstat-lbl">Avg. Rating</div>
+                <div class="sstat-chg">142 reviews</div>
+              </div>
+            </div>
+
+            <!-- Pending orders alert -->
+            <div style="margin: 0 16px 12px; background: rgba(232,180,0,0.08); border: 1px solid rgba(232,180,0,0.2); border-radius:12px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; cursor:pointer" onclick="toast('📋 Opening pending approvals...')">
+              <div>
+                <div style="font-size:0.75rem;font-weight:800;color:#92400e">⏳ 3 Orders Awaiting Approval</div>
+                <div style="font-size:0.62rem;color:var(--ink3);margin-top:2px">New buyer requests need your action</div>
+              </div>
+              <div style="font-size:0.7rem;font-weight:700;color:#b45309">Review →</div>
+            </div>
+
+            <!-- Listings -->
+            <div class="sec-label-row">
+              <div class="sec-label" style="padding:0">My Listings</div>
+              <div class="see-all" onclick="toast('➕ Add new product listing')">+ Add New</div>
+            </div>
+            <div class="listing-card" onclick="toast('✏️ Editing Mature Coconuts listing...')">
+              <div class="lc-ico">🥥</div>
+              <div class="lc-body">
+                <div class="lc-name">Mature Coconuts – Bulk Lot</div>
+                <div class="lc-sub">📍 Kurunegala · Rs. 40/nut</div>
+                <div class="lc-stock">✅ 4,500 nuts in stock</div>
+              </div>
+              <div>
+                <div class="lc-price">Rs. 40</div>
+                <div style="font-size:0.55rem;color:var(--ink3)">per nut</div>
+                <div class="oc-status s-open" style="margin-top:6px;font-size:0.55rem">Live</div>
+              </div>
+            </div>
+            <div class="listing-card" onclick="toast('✏️ Editing VCO listing...')">
+              <div class="lc-ico">🫙</div>
+              <div class="lc-body">
+                <div class="lc-name">Export Virgin Coconut Oil</div>
+                <div class="lc-sub">📍 Kurunegala Oils · Rs. 1,200/L</div>
+                <div class="lc-stock">✅ 180 litres in stock</div>
+              </div>
+              <div>
+                <div class="lc-price">Rs. 1,200</div>
+                <div style="font-size:0.55rem;color:var(--ink3)">per litre</div>
+                <div class="oc-status s-open" style="margin-top:6px;font-size:0.55rem">Live</div>
+              </div>
+            </div>
+            <div class="listing-card" onclick="toast('⚠️ Update Coir Fibre stock...')">
+              <div class="lc-ico">🌾</div>
+              <div class="lc-body">
+                <div class="lc-name">Raw Coir Fibre – Dried</div>
+                <div class="lc-sub">📍 Kalutara · Rs. 85/kg</div>
+                <div class="lc-stock" style="color:#d97706">⚠️ Low stock: 50 kg</div>
+              </div>
+              <div>
+                <div class="lc-price">Rs. 85</div>
+                <div style="font-size:0.55rem;color:var(--ink3)">per kg</div>
+                <div class="oc-status s-pending" style="margin-top:6px;font-size:0.55rem">Low</div>
+              </div>
+            </div>
+
+            <!-- Bar chart mini -->
+            <div class="sec-label">Weekly Sales (nuts)</div>
+            <div style="margin:0 16px 20px;background:white;border-radius:14px;padding:14px;border:1px solid rgba(0,0,0,0.06)">
+              <div style="display:flex;align-items:flex-end;gap:6px;height:60px">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+                  <div style="width:100%;background:var(--g200);border-radius:4px 4px 0 0;height:70%;transition:height 0.5s"></div>
+                  <div style="font-size:0.55rem;color:var(--ink3)">Mon</div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+                  <div style="width:100%;background:var(--g300);border-radius:4px 4px 0 0;height:90%"></div>
+                  <div style="font-size:0.55rem;color:var(--ink3)">Tue</div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+                  <div style="width:100%;background:var(--g200);border-radius:4px 4px 0 0;height:55%"></div>
+                  <div style="font-size:0.55rem;color:var(--ink3)">Wed</div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+                  <div style="width:100%;background:var(--g400);border-radius:4px 4px 0 0;height:100%"></div>
+                  <div style="font-size:0.55rem;color:var(--ink3);font-weight:700">Thu</div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+                  <div style="width:100%;background:var(--g200);border-radius:4px 4px 0 0;height:75%"></div>
+                  <div style="font-size:0.55rem;color:var(--ink3)">Fri</div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+                  <div style="width:100%;background:var(--g300);border-radius:4px 4px 0 0;height:85%"></div>
+                  <div style="font-size:0.55rem;color:var(--ink3)">Sat</div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+                  <div style="width:100%;background:var(--g200);border-radius:4px 4px 0 0;height:60%"></div>
+                  <div style="font-size:0.55rem;color:var(--ink3)">Sun</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bottom-nav">
+            <div class="bn-item on"><div class="bn-ico">🏠</div><div class="bn-lbl">Home</div></div>
+            <div class="bn-item" onclick="toast('📦 Orders Board')"><div class="bn-ico">📦</div><div class="bn-lbl">Orders</div></div>
+            <div class="bn-item" onclick="toast('🗂️ All Listings')"><div class="bn-ico">🗂️</div><div class="bn-lbl">Listings</div></div>
+            <div class="bn-item" onclick="toast('📊 Analytics')"><div class="bn-ico">📊</div><div class="bn-lbl">Analytics</div></div>
+            <div class="bn-item" onclick="toast('👤 Profile')"><div class="bn-ico">👤</div><div class="bn-lbl">Profile</div></div>
+          </div>
+          <div class="app-toast" id="toast-seller">✅ Action complete!</div>
+        </div>
+
+        <!-- ════════════ ESTATE OWNER SCREEN ════════════ -->
+        <div class="app-screen" id="screen-estate">
+          <div class="app-header">
+            <div class="app-header-row">
+              <div class="app-logo">Coco<span style="color:var(--gold)">Connect</span></div>
+              <div class="app-avatar" style="background:#92400e;border-color:#d97706">R</div>
+            </div>
+            <div class="app-greeting">Estate Dashboard 🏡</div>
+            <div class="app-name">Rohan Mendis · 3 Estates</div>
+          </div>
+
+          <div class="screen-body">
+            <!-- Estate picker -->
+            <div style="padding:12px 16px;background:var(--cream);display:flex;gap:8px;overflow-x:auto">
+              <div style="flex-shrink:0;background:var(--g700);color:white;border-radius:10px;padding:8px 14px;font-size:0.68rem;font-weight:700;cursor:pointer">
+                Kurunegala Plot ✓
+              </div>
+              <div style="flex-shrink:0;background:white;border:1px solid rgba(0,0,0,0.1);border-radius:10px;padding:8px 14px;font-size:0.68rem;font-weight:700;color:var(--ink2);cursor:pointer" onclick="toast('🏡 Switching to Gampaha North...')">
+                Gampaha North
+              </div>
+              <div style="flex-shrink:0;background:white;border:1px solid rgba(0,0,0,0.1);border-radius:10px;padding:8px 14px;font-size:0.68rem;font-weight:700;color:var(--ink2);cursor:pointer" onclick="toast('🏡 Switching to Kegalle Terrace...')">
+                Kegalle Terrace
+              </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="sec-label">Kurunegala Main Plot</div>
+            <div style="padding:0 16px 12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;background:var(--cream)">
+              <div style="background:white;border-radius:12px;padding:12px;text-align:center;border:1px solid rgba(0,0,0,0.06)">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--ink)">128</div>
+                <div style="font-size:0.58rem;color:var(--ink3);font-weight:700;margin-top:3px">Trees</div>
+              </div>
+              <div style="background:white;border-radius:12px;padding:12px;text-align:center;border:1px solid rgba(0,0,0,0.06)">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--ink)">2.0</div>
+                <div style="font-size:0.58rem;color:var(--ink3);font-weight:700;margin-top:3px">Acres</div>
+              </div>
+              <div style="background:white;border-radius:12px;padding:12px;text-align:center;border:1px solid rgba(0,0,0,0.06)">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:#10b981">Active</div>
+                <div style="font-size:0.58rem;color:var(--ink3);font-weight:700;margin-top:3px">Status</div>
+              </div>
+            </div>
+
+            <!-- Tree map grid -->
+            <div class="sec-label">Plot Map · Row View</div>
+            <div class="estate-map-grid" id="tree-grid">
+              <!-- Rendered by JS -->
+            </div>
+            <div class="map-legend">
+              <div class="ml-item"><div class="ml-dot" style="background:rgba(40,160,85,0.4)"></div>Coconut</div>
+              <div class="ml-item"><div class="ml-dot" style="background:rgba(232,180,0,0.4)"></div>Intercrop</div>
+              <div class="ml-item"><div class="ml-dot" style="background:rgba(0,0,0,0.08)"></div>Empty</div>
+            </div>
+
+            <!-- Labor board -->
+            <div class="sec-label">Posted Labor Jobs</div>
+            <div class="job-card">
+              <div class="jc-top">
+                <div>
+                  <div class="jc-title">Tree Climbing · JB-101</div>
+                  <div class="jc-estate">📍 Kurunegala Main Plot</div>
+                </div>
+                <div>
+                  <div class="jc-rate">Rs. 800</div>
+                  <div class="jc-rate-lbl">/day</div>
+                </div>
+              </div>
+              <div class="jc-tags">
+                <div class="jc-tag">📅 Jun 07</div>
+                <div class="jc-tag">3 Applicants</div>
+                <div class="oc-status s-open" style="font-size:0.6rem">Open</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="jc-apply" style="background:var(--g50);color:var(--g700)" onclick="toast('👥 Viewing 3 applicants...')">View Applicants (3)</button>
+                <button class="jc-apply" style="flex:0.6" onclick="toast('✅ Job filled!')">Hire</button>
+              </div>
+            </div>
+            <div class="job-card">
+              <div class="jc-top">
+                <div>
+                  <div class="jc-title">Harvesting · JB-102</div>
+                  <div class="jc-estate">📍 Gampaha North Lands</div>
+                </div>
+                <div>
+                  <div class="jc-rate">Rs. 650</div>
+                  <div class="jc-rate-lbl">/day</div>
+                </div>
+              </div>
+              <div class="jc-tags">
+                <div class="jc-tag">📅 Jun 08</div>
+                <div class="jc-tag">1 Applicant</div>
+                <div class="oc-status s-open" style="font-size:0.6rem">Open</div>
+              </div>
+              <button class="jc-apply" style="background:var(--g50);color:var(--g700)" onclick="toast('👤 Viewing 1 applicant...')">View Applicants (1)</button>
+            </div>
+          </div>
+
+          <div class="bottom-nav">
+            <div class="bn-item on"><div class="bn-ico">🏠</div><div class="bn-lbl">Home</div></div>
+            <div class="bn-item" onclick="toast('🗺️ Full Plot Map')"><div class="bn-ico">🗺️</div><div class="bn-lbl">Map</div></div>
+            <div class="bn-item" onclick="toast('👷 Labor Board')"><div class="bn-ico">👷</div><div class="bn-lbl">Labor</div></div>
+            <div class="bn-item" onclick="toast('📊 Estate Reports')"><div class="bn-ico">📊</div><div class="bn-lbl">Reports</div></div>
+            <div class="bn-item" onclick="toast('👤 Profile')"><div class="bn-ico">👤</div><div class="bn-lbl">Profile</div></div>
+          </div>
+          <div class="app-toast" id="toast-estate">✅ Action complete!</div>
+        </div>
+
+        <!-- ════════════ WORKER SCREEN ════════════ -->
+        <div class="app-screen" id="screen-worker">
+          <div class="app-header">
+            <div class="app-header-row">
+              <div class="app-logo">Coco<span style="color:var(--gold)">Connect</span></div>
+              <div class="app-avatar" style="background:#1e40af;border-color:#3b82f6">P</div>
+            </div>
+            <div class="app-greeting">Service Worker 🔧</div>
+            <div class="app-name">Pradeep Kumara</div>
+          </div>
+
+          <div class="screen-body">
+            <!-- Availability toggle -->
+            <div style="margin:12px 16px;background:white;border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;border:1px solid rgba(0,0,0,0.06)">
+              <div>
+                <div style="font-size:0.75rem;font-weight:800;color:var(--ink)">Availability Status</div>
+                <div style="font-size:0.62rem;color:#10b981;font-weight:700;margin-top:2px" id="avail-status">🟢 Active & Available</div>
+              </div>
+              <div id="avail-toggle" onclick="toggleAvailability()" style="width:46px;height:26px;background:var(--g500);border-radius:13px;position:relative;cursor:pointer;transition:all 0.3s">
+                <div style="position:absolute;right:3px;top:3px;width:20px;height:20px;background:white;border-radius:50%;transition:all 0.3s;box-shadow:0 1px 4px rgba(0,0,0,0.2)"></div>
+              </div>
+            </div>
+
+            <!-- Earnings card -->
+            <div style="margin:0 16px 12px;background:linear-gradient(135deg,#1e3a5f,#1e40af);border-radius:16px;padding:16px;color:white">
+              <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:6px">Total Earnings</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:700">Rs. 38,400</div>
+              <div style="display:flex;justify-content:space-between;margin-top:12px">
+                <div>
+                  <div style="font-size:0.6rem;color:rgba(255,255,255,0.5)">This Month</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;font-weight:700">Rs. 12,672</div>
+                </div>
+                <div>
+                  <div style="font-size:0.6rem;color:rgba(255,255,255,0.5)">Pending</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;font-weight:700;color:var(--gold2)">Rs. 2,400</div>
+                </div>
+                <div>
+                  <div style="font-size:0.6rem;color:rgba(255,255,255,0.5)">Skill</div>
+                  <div style="font-size:0.78rem;font-weight:700">🌴 Climber</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Job openings -->
+            <div class="sec-label">Open Job Vacancies</div>
+            <div class="job-card">
+              <div class="jc-top">
+                <div>
+                  <div class="jc-title">🌴 Tree Climbing</div>
+                  <div class="jc-estate">Kurunegala Main Plot · 📍 Kurunegala</div>
+                </div>
+                <div>
+                  <div class="jc-rate">Rs. 800</div>
+                  <div class="jc-rate-lbl">/day</div>
+                </div>
+              </div>
+              <div class="jc-tags">
+                <div class="jc-tag">📅 Jun 07, 2026</div>
+                <div class="jc-tag">Full Day</div>
+              </div>
+              <button class="jc-apply" id="apply-btn-1" onclick="applyJob(1)">Apply for This Gig →</button>
+            </div>
+
+            <div class="job-card">
+              <div class="jc-top">
+                <div>
+                  <div class="jc-title">🌾 Harvesting</div>
+                  <div class="jc-estate">Gampaha North Lands · 📍 Gampaha</div>
+                </div>
+                <div>
+                  <div class="jc-rate">Rs. 650</div>
+                  <div class="jc-rate-lbl">/day</div>
+                </div>
+              </div>
+              <div class="jc-tags">
+                <div class="jc-tag">📅 Jun 08, 2026</div>
+                <div class="jc-tag">Full Day</div>
+              </div>
+              <button class="jc-apply" id="apply-btn-2" onclick="applyJob(2)">Apply for This Gig →</button>
+            </div>
+
+            <div class="job-card">
+              <div class="jc-top">
+                <div>
+                  <div class="jc-title">🌴 Tree Climbing</div>
+                  <div class="jc-estate">Kegalle Terrace · 📍 Kegalle</div>
+                </div>
+                <div>
+                  <div class="jc-rate">Rs. 900</div>
+                  <div class="jc-rate-lbl">/day</div>
+                </div>
+              </div>
+              <div class="jc-tags">
+                <div class="jc-tag">📅 Jun 10, 2026</div>
+                <div class="jc-tag">Full Day</div>
+              </div>
+              <button class="jc-apply" id="apply-btn-3" onclick="applyJob(3)">Apply for This Gig →</button>
+            </div>
+          </div>
+
+          <div class="bottom-nav">
+            <div class="bn-item on"><div class="bn-ico">🏠</div><div class="bn-lbl">Home</div></div>
+            <div class="bn-item" onclick="toast('💼 All Job Listings')"><div class="bn-ico">💼</div><div class="bn-lbl">Jobs</div></div>
+            <div class="bn-item" onclick="toast('📅 Confirmed Bookings')"><div class="bn-ico">📅</div><div class="bn-lbl">Bookings</div></div>
+            <div class="bn-item" onclick="toast('💰 Full Earnings History')"><div class="bn-ico">💰</div><div class="bn-lbl">Earnings</div></div>
+            <div class="bn-item" onclick="toast('👤 Profile')"><div class="bn-ico">👤</div><div class="bn-lbl">Profile</div></div>
+          </div>
+          <div class="app-toast" id="toast-worker">✅ Application sent!</div>
+        </div>
+
+        <!-- ════════════ RECORDER SCREEN ════════════ -->
+        <div class="app-screen" id="screen-recorder">
+          <div class="app-header">
+            <div class="app-header-row">
+              <div class="app-logo">Coco<span style="color:var(--gold)">Connect</span></div>
+              <div class="app-avatar" style="background:#5b21b6;border-color:#8b5cf6">N</div>
+            </div>
+            <div class="app-greeting">Harvest Recorder 📋</div>
+            <div class="app-name">Nimal Perera</div>
+          </div>
+
+          <div class="screen-body">
+            <!-- Offline mode banner -->
+            <div class="offline-badge" id="offline-badge">
+              <div class="offline-dot"></div>
+              OFFLINE MODE · Hive DB Cache Active
+            </div>
+
+            <!-- Sync banner -->
+            <div class="sync-banner" onclick="doSync()">
+              <div class="sb-left">
+                <div class="sb-t">📤 3 Logs Pending Sync</div>
+                <div class="sb-s">Will upload when connected to network</div>
+              </div>
+              <button class="sync-btn" onclick="event.stopPropagation();doSync()">Sync Now</button>
+            </div>
+
+            <!-- Today stats -->
+            <div style="padding:0 16px 12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+              <div style="background:white;border-radius:12px;padding:12px;text-align:center;border:1px solid rgba(0,0,0,0.06)">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--ink)" id="today-count">142</div>
+                <div style="font-size:0.58rem;color:var(--ink3);font-weight:700;margin-top:3px">Today's Nuts</div>
+              </div>
+              <div style="background:white;border-radius:12px;padding:12px;text-align:center;border:1px solid rgba(0,0,0,0.06)">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--red)">2</div>
+                <div style="font-size:0.58rem;color:var(--ink3);font-weight:700;margin-top:3px">Damaged</div>
+              </div>
+              <div style="background:white;border-radius:12px;padding:12px;text-align:center;border:1px solid rgba(0,0,0,0.06)">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:#7c3aed" id="queue-count">3</div>
+                <div style="font-size:0.58rem;color:var(--ink3);font-weight:700;margin-top:3px">Queue</div>
+              </div>
+            </div>
+
+            <!-- Log form -->
+            <div class="sec-label">Log New Harvest</div>
+            <div class="log-form">
+              <div class="lf-label">Estate</div>
+              <select class="lf-input" style="appearance:none;padding-right:28px">
+                <option>Kurunegala Main Plot (e1)</option>
+                <option>Gampaha North Lands (e2)</option>
+              </select>
+              <div class="lf-label">Row Reference</div>
+              <input class="lf-input" placeholder="e.g. Row A-12" id="row-input">
+              <div class="lf-row">
+                <div style="flex:1">
+                  <div class="lf-label">Nut Count</div>
+                  <input class="lf-input" type="number" placeholder="142" id="count-input">
+                </div>
+                <div style="flex:1">
+                  <div class="lf-label">Damaged</div>
+                  <input class="lf-input" type="number" placeholder="0" id="damaged-input">
+                </div>
+              </div>
+              <button class="lf-submit" onclick="logHarvest()">💾 Save to Offline Cache</button>
+            </div>
+
+            <!-- Recent logs -->
+            <div class="sec-label">Recent Logs</div>
+            <div class="order-card">
+              <div class="oc-ico" style="background:rgba(124,58,237,0.1)">📋</div>
+              <div class="oc-main">
+                <div class="oc-name">Row A-12 · 142 nuts</div>
+                <div class="oc-sub">Kurunegala Main Plot · Jun 5</div>
+              </div>
+              <div class="oc-status s-delivered" style="font-size:0.6rem">Synced ✓</div>
+            </div>
+            <div class="order-card">
+              <div class="oc-ico" style="background:rgba(124,58,237,0.1)">📋</div>
+              <div class="oc-main">
+                <div class="oc-name">Row B-8 · 104 nuts</div>
+                <div class="oc-sub">Kurunegala Main Plot · Jun 4</div>
+              </div>
+              <div class="oc-status s-pending" style="font-size:0.6rem">⏳ Queued</div>
+            </div>
+          </div>
+
+          <div class="bottom-nav">
+            <div class="bn-item on"><div class="bn-ico">🏠</div><div class="bn-lbl">Home</div></div>
+            <div class="bn-item" onclick="toast('📋 All harvest logs')"><div class="bn-ico">📋</div><div class="bn-lbl">Logs</div></div>
+            <div class="bn-item" onclick="toast('📤 Sync Manager')"><div class="bn-ico">📤</div><div class="bn-lbl">Sync</div></div>
+            <div class="bn-item" onclick="toast('📊 Productivity Chart')"><div class="bn-ico">📊</div><div class="bn-lbl">Stats</div></div>
+            <div class="bn-item" onclick="toast('👤 Profile')"><div class="bn-ico">👤</div><div class="bn-lbl">Profile</div></div>
+          </div>
+          <div class="app-toast" id="toast-recorder">✅ Log saved to offline cache!</div>
+        </div>
+
+        <!-- ════════════ LOGISTICS SCREEN ════════════ -->
+        <div class="app-screen" id="screen-logistics">
+          <div class="app-header">
+            <div class="app-header-row">
+              <div class="app-logo">Coco<span style="color:var(--gold)">Connect</span></div>
+              <div class="app-avatar" style="background:#065f46;border-color:#10b981">R</div>
+            </div>
+            <div class="app-greeting">Logistics Partner 🚚</div>
+            <div class="app-name">Ruwan Fernando · 3-Tonne Lorry</div>
+          </div>
+
+          <div class="screen-body">
+            <!-- Earnings header -->
+            <div style="margin:0 16px 12px;background:linear-gradient(135deg,#065f46,#047857);border-radius:16px;padding:16px;color:white">
+              <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:6px">Freight Earnings</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:700">Rs. 56,000</div>
+              <div style="display:flex;justify-content:space-between;margin-top:12px">
+                <div>
+                  <div style="font-size:0.6rem;color:rgba(255,255,255,0.5)">Active Jobs</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;font-weight:700">1 En Route</div>
+                </div>
+                <div>
+                  <div style="font-size:0.6rem;color:rgba(255,255,255,0.5)">Distance Today</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;font-weight:700">93 km</div>
+                </div>
+                <div>
+                  <div style="font-size:0.6rem;color:rgba(255,255,255,0.5)">Rating</div>
+                  <div style="font-size:0.78rem;font-weight:700">⭐ 4.9</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Active delivery -->
+            <div class="sec-label">Active Delivery</div>
+            <div style="margin:0 16px 12px;background:white;border-radius:16px;border:1px solid rgba(0,0,0,0.06);overflow:hidden">
+              <div class="map-card" style="margin:0;border-radius:0;height:120px">
+                <div class="map-route"></div>
+                <div class="map-truck">🚚</div>
+                <div class="map-overlay">
+                  <div class="map-tag"><div class="map-dot"></div>CC-4821 · Live tracking active</div>
+                  <div style="display:flex;justify-content:space-between">
+                    <div class="map-tag" style="font-size:0.6rem">📍 Kurunegala</div>
+                    <div class="map-tag" style="font-size:0.6rem">🏁 Colombo</div>
+                  </div>
+                </div>
+              </div>
+              <div style="padding:12px 14px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                  <div style="font-size:0.78rem;font-weight:800;color:var(--ink)">CC-4821 · Mature Coconuts</div>
+                  <div class="oc-status s-transit">En Route</div>
+                </div>
+                <div style="font-size:0.62rem;color:var(--ink3);margin-bottom:10px">500 nuts · Kurunegala → Colombo · ~45 min ETA</div>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:0.9rem;font-weight:700;color:var(--g700)">Rs. 4,500 <span style="font-size:0.6rem;color:var(--ink3);font-weight:400">freight</span></div>
+                  <button style="padding:8px 16px;background:var(--g600);color:white;border:none;border-radius:8px;font-size:0.65rem;font-weight:800;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif" onclick="toast('✅ Delivery marked complete! Rs. 4,500 earned!')">Mark Delivered</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Available cargo -->
+            <div class="sec-label">Available Cargo Contracts</div>
+            <div class="route-card">
+              <div class="rc-glow"></div>
+              <div class="rc-top">
+                <div>
+                  <div class="rc-id">CC-4830 · New Contract</div>
+                  <div style="font-size:0.62rem;color:rgba(255,255,255,0.5);margin-top:3px">800 nuts · Gampaha → Colombo</div>
+                </div>
+                <div>
+                  <div class="rc-fare">Rs. 3,200</div>
+                  <div class="rc-fare-lbl">distance fare</div>
+                </div>
+              </div>
+              <div class="rc-route">
+                <div class="rc-from">📍 Gampaha</div>
+                <div class="rc-arrow">→</div>
+                <div class="rc-to">📍 Colombo 7</div>
+              </div>
+              <button class="rc-accept" onclick="toast('✅ Contract CC-4830 claimed! Route registered.')">Accept Transport Contract →</button>
+            </div>
+
+            <div class="route-card" style="background:linear-gradient(135deg, #1a1002, #2d1d04)">
+              <div class="rc-top">
+                <div>
+                  <div class="rc-id">CC-4831 · New Contract</div>
+                  <div style="font-size:0.62rem;color:rgba(255,255,255,0.5);margin-top:3px">1,200 nuts · Kegalle → Kandy</div>
+                </div>
+                <div>
+                  <div class="rc-fare" style="color:var(--gold2)">Rs. 2,340</div>
+                  <div class="rc-fare-lbl">distance fare</div>
+                </div>
+              </div>
+              <div class="rc-route">
+                <div class="rc-from">📍 Kegalle</div>
+                <div class="rc-arrow" style="color:var(--gold2)">→</div>
+                <div class="rc-to">📍 Kandy</div>
+              </div>
+              <button class="rc-accept" style="background:var(--gold);color:var(--ink)" onclick="toast('✅ Contract CC-4831 accepted!')">Accept Transport Contract →</button>
+            </div>
+          </div>
+
+          <div class="bottom-nav">
+            <div class="bn-item on"><div class="bn-ico">🏠</div><div class="bn-lbl">Home</div></div>
+            <div class="bn-item" onclick="toast('💼 Cargo Job Board')"><div class="bn-ico">💼</div><div class="bn-lbl">Jobs</div></div>
+            <div class="bn-item" onclick="toast('🗺️ Active Routes')"><div class="bn-ico">🗺️</div><div class="bn-lbl">Routes</div></div>
+            <div class="bn-item" onclick="toast('💰 Earnings Ledger')"><div class="bn-ico">💰</div><div class="bn-lbl">Earnings</div></div>
+            <div class="bn-item" onclick="toast('👤 Profile')"><div class="bn-ico">👤</div><div class="bn-lbl">Profile</div></div>
+          </div>
+          <div class="app-toast" id="toast-logistics">✅ Action complete!</div>
+        </div>
+
+      </div><!-- end screen-wrap -->
+    </div><!-- end phone-frame -->
+
+    <!-- ══════ SIDE INFO PANEL ══════ -->
+    <div class="side-panel" id="side-panel">
+      <!-- Populated by JS per role -->
+    </div>
+
+  </div><!-- end phone-stage -->
+
+  <!-- ══════ STATS BAND ══════ -->
+  <div class="stats-band">
+    <div class="stat-pill">
+      <div class="sp-val">6<span>+</span></div>
+      <div class="sp-lbl">User Roles</div>
+    </div>
+    <div class="stat-pill">
+      <div class="sp-val">Rs.<span>42</span></div>
+      <div class="sp-lbl">Live Pol Rate</div>
+    </div>
+    <div class="stat-pill">
+      <div class="sp-val"><span>100%</span></div>
+      <div class="sp-lbl">Offline-First</div>
+    </div>
+    <div class="stat-pill">
+      <div class="sp-val">3<span>mo</span></div>
+      <div class="sp-lbl">Build Timeline</div>
+    </div>
+    <div class="stat-pill">
+      <div class="sp-val">Flutter<span>+</span></div>
+      <div class="sp-lbl">Tech Stack</div>
+    </div>
+  </div>
+
+  <!-- ══════ FOOTER ══════ -->
+  <div class="pres-footer">
+    <div class="pf-left">🥥 CocoConnect — University Industry Project · SCS3301 · University of Colombo School of Computing</div>
+    <div class="pf-right">v2.0 Prototype · Jun 2026 · Stakeholder Preview</div>
+  </div>
+
+</div><!-- end presenter -->
+
+<script>
+// ── ROLE DATA ──
+const roleData = {
+  buyer: {
+    icon: '🛒',
+    name: 'Buyer',
+    desc: 'Wholesale buyers and retailers purchasing coconut produce directly from verified sellers. Full order tracking and market price visibility.',
+    features: [
+      'Live market price board (all products)',
+      'Bulk order with minimum quantity rules',
+      'Real-time GPS delivery tracking',
+      'Quote & negotiation with sellers',
+      'Purchase history & invoice download',
+    ],
+    tech: [
+      { color: '#10b981', name: 'Flutter', purpose: 'Cross-platform mobile UI' },
+      { color: '#3b82f6', name: 'Node.js API', purpose: 'Order management backend' },
+      { color: '#f59e0b', name: 'PostgreSQL', purpose: 'Order & product database' },
+    ]
+  },
+  seller: {
+    icon: '🏪',
+    name: 'Seller / Grower',
+    desc: 'Coconut producers and wholesalers listing produce for direct sale to buyers. Manage inventory, approve orders, and track revenue.',
+    features: [
+      'Product listing with stock management',
+      'Order approval / rejection workflow',
+      'Revenue analytics & weekly charts',
+      'Low stock alerts and restocking',
+      'Buyer ratings and review management',
+    ],
+    tech: [
+      { color: '#8b5cf6', name: 'Flutter', purpose: 'Role-scoped dashboard UI' },
+      { color: '#3b82f6', name: 'REST API', purpose: 'Listing & order endpoints' },
+      { color: '#f59e0b', name: 'PostgreSQL', purpose: 'Seller analytics store' },
+    ]
+  },
+  estate: {
+    icon: '🏡',
+    name: 'Estate Owner',
+    desc: 'Coconut plantation managers overseeing land, trees, harvest planning, intercrop management, and labor recruitment for their estates.',
+    features: [
+      'Visual plot map with tree-level detail',
+      'Intercrop planning on unused cells',
+      'Labor job posting and hiring board',
+      'Multi-estate switching in one account',
+      'Harvest yield reports per estate',
+    ],
+    tech: [
+      { color: '#f59e0b', name: 'Flutter', purpose: 'Estate visualisation UI' },
+      { color: '#10b981', name: 'PostGIS', purpose: 'Geo-spatial plot queries' },
+      { color: '#6366f1', name: 'PostgreSQL', purpose: 'Estate & tree database' },
+    ]
+  },
+  worker: {
+    icon: '🔧',
+    name: 'Service Worker',
+    desc: 'Skilled harvest laborers — tree climbers, huskers, harvesters — browsing available gigs near their location and tracking earnings.',
+    features: [
+      'Browse job listings by skill & region',
+      'One-tap gig application',
+      'Confirmed booking calendar view',
+      'Earnings ledger with payment status',
+      'Availability toggle for auto-matching',
+    ],
+    tech: [
+      { color: '#3b82f6', name: 'Flutter', purpose: 'Labor marketplace UI' },
+      { color: '#10b981', name: 'Notify.lk', purpose: 'SMS booking alerts' },
+      { color: '#f59e0b', name: 'PostgreSQL', purpose: 'Job & payment tracking' },
+    ]
+  },
+  recorder: {
+    icon: '📋',
+    name: 'Harvest Recorder',
+    desc: 'On-estate data loggers who record daily nut counts per row and tree offline. Data syncs to the cloud when connectivity is restored.',
+    features: [
+      'Offline-first yield logging (Hive DB)',
+      'Per-row, per-tree count entry form',
+      'Damaged nut tracking and flags',
+      'Sync queue with one-tap upload',
+      'Productivity charts and history',
+    ],
+    tech: [
+      { color: '#8b5cf6', name: 'Flutter + Hive', purpose: 'Offline local database' },
+      { color: '#3b82f6', name: 'Dio + Sync', purpose: 'Background sync engine' },
+      { color: '#10b981', name: 'PostgreSQL', purpose: 'Cloud harvest records' },
+    ]
+  },
+  logistics: {
+    icon: '🚚',
+    name: 'Logistics Partner',
+    desc: 'Lorry drivers and transport operators claiming cargo contracts, tracking active routes, and receiving distance-based freight payments.',
+    features: [
+      'Available cargo contract board',
+      'Distance-based fare calculator',
+      'Live GPS route tracking (shared)',
+      'Delivery confirmation & payment',
+      'Monthly earnings & trip history',
+    ],
+    tech: [
+      { color: '#10b981', name: 'Flutter + Maps', purpose: 'GPS route display' },
+      { color: '#3b82f6', name: 'Node.js API', purpose: 'Fare calculation engine' },
+      { color: '#f59e0b', name: 'PostgreSQL', purpose: 'Route & payment data' },
+    ]
+  }
+};
+
+let currentRole = 'buyer';
+let availableToggle = true;
+
+function switchRole(role) {
+  // Deactivate all
+  document.querySelectorAll('.app-screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.rs-pill').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+
+  // Activate new
+  const screen = document.getElementById('screen-' + role);
+  if (screen) screen.classList.add('active');
+
+  const pill = document.getElementById('pill-' + role);
+  if (pill) pill.classList.add('active');
+
+  // Header tabs
+  document.querySelectorAll('.role-tab').forEach(t => {
+    if (t.textContent.toLowerCase().includes(role === 'estate' ? 'estate' : role)) {
+      t.classList.add('active');
+    }
+  });
+
+  currentRole = role;
+  renderSidePanel(role);
+}
+
+function renderSidePanel(role) {
+  const data = roleData[role];
+  const panel = document.getElementById('side-panel');
+
+  panel.innerHTML = `
+    <div class="info-card">
+      <div class="ic-role-icon">${data.icon}</div>
+      <div class="ic-role-name">${data.name} Dashboard</div>
+      <div class="ic-role-desc">${data.desc}</div>
+      <div class="ic-features">
+        ${data.features.map(f => `<div class="ic-feat">${f}</div>`).join('')}
+      </div>
+    </div>
+    <div class="tech-card">
+      <div class="tc-title">Tech Stack</div>
+      <div class="tc-stack">
+        ${data.tech.map(t => `
+          <div class="tc-item">
+            <div class="tc-dot" style="background:${t.color}"></div>
+            <div>
+              <div class="tc-name">${t.name}</div>
+              <div class="tc-purpose">${t.purpose}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div class="info-card" style="background:rgba(232,180,0,0.04);border-color:rgba(232,180,0,0.1)">
+      <div style="font-size:0.6rem;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:10px">Business Value</div>
+      <div style="font-size:0.72rem;color:rgba(255,255,255,0.6);line-height:1.7">${getBusinessValue(role)}</div>
+    </div>
+  `;
+}
+
+function getBusinessValue(role) {
+  const values = {
+    buyer: 'Reduces price opacity for wholesale buyers. Direct seller connections cut out middlemen, lowering procurement costs by an estimated 15–20% for bulk buyers.',
+    seller: 'Gives growers a direct digital storefront. Verified listings increase buyer trust. Analytics help sellers optimise pricing based on real regional demand data.',
+    estate: 'Digitises manual paper-based estate records. Visual plot maps help owners identify underutilised land for intercropping — increasing yield per acre.',
+    worker: 'Formalises the informal labor market. Workers gain access to more jobs, guaranteed daily wage records, and digital payment trails for financial inclusion.',
+    recorder: 'Eliminates data loss from poor connectivity. Offline caching ensures 100% yield data capture even in remote plantation areas without mobile signal.',
+    logistics: 'Reduces empty-truck return trips by aggregating cargo contracts. Distance-based dynamic pricing ensures fair, transparent freight rates for all routes.'
+  };
+  return values[role];
+}
+
+// Toast per role
+function toast(msg) {
+  const t = document.getElementById('toast-' + currentRole);
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Apply for job
+function applyJob(n) {
+  const btn = document.getElementById('apply-btn-' + n);
+  if (!btn) return;
+  if (btn.classList.contains('applied')) {
+    toast('⚠️ Already applied for this gig!');
+    return;
+  }
+  btn.classList.add('applied');
+  btn.textContent = '✅ Application Sent — Pending';
+  toast('✅ Application sent! Estate owner will confirm soon.');
+}
+
+// Availability toggle
+function toggleAvailability() {
+  availableToggle = !availableToggle;
+  const toggle = document.getElementById('avail-toggle');
+  const status = document.getElementById('avail-status');
+  if (availableToggle) {
+    toggle.style.background = 'var(--g500)';
+    toggle.firstElementChild.style.right = '3px';
+    toggle.firstElementChild.style.left = '';
+    status.textContent = '🟢 Active & Available';
+    status.style.color = '#10b981';
+    toast('✅ Status: Active — you will receive gig alerts');
+  } else {
+    toggle.style.background = '#94a3b8';
+    toggle.firstElementChild.style.right = '';
+    toggle.firstElementChild.style.left = '3px';
+    status.textContent = '🔴 Busy / Unavailable';
+    status.style.color = '#ef4444';
+    toast('⚠️ Status: Busy — gig alerts paused');
+  }
+}
+
+// Harvest log
+function logHarvest() {
+  const row = document.getElementById('row-input').value || 'Row A-13';
+  const count = document.getElementById('count-input').value || '120';
+  const q = document.getElementById('queue-count');
+  const tc = document.getElementById('today-count');
+  if (q) q.textContent = parseInt(q.textContent) + 1;
+  if (tc) tc.textContent = parseInt(tc.textContent) + parseInt(count);
+  document.getElementById('row-input').value = '';
+  document.getElementById('count-input').value = '';
+  document.getElementById('damaged-input').value = '';
+  toast(`💾 Saved: ${row} — ${count} nuts to offline cache`);
+}
+
+// Sync
+function doSync() {
+  const q = document.getElementById('queue-count');
+  const badge = document.getElementById('offline-badge');
+  if (q) { q.textContent = '0'; }
+  toast('📡 Syncing... All 3 logs uploaded to cloud ✓');
+  setTimeout(() => {
+    if (badge) {
+      badge.style.background = 'rgba(16,185,129,0.12)';
+      badge.style.borderColor = 'rgba(16,185,129,0.2)';
+      badge.style.color = '#10b981';
+      badge.innerHTML = '<div style="width:5px;height:5px;border-radius:50%;background:#10b981;animation:pulse 1.5s infinite"></div> ONLINE · Sync complete';
+    }
+  }, 2000);
+}
+
+// Tree grid
+function renderTreeGrid() {
+  const grid = document.getElementById('tree-grid');
+  if (!grid) return;
+  const layout = Array(40).fill('coconut');
+  layout[3] = layout[7] = layout[11] = layout[19] = 'intercrop';
+  layout[25] = layout[26] = 'empty';
+  grid.innerHTML = layout.map(t => {
+    let cls = 'tc-coco', emoji = '🌴';
+    if (t === 'intercrop') { cls = 'tc-inter'; emoji = '🌿'; }
+    if (t === 'empty') { cls = 'tc-empty'; emoji = ''; }
+    return `<div class="tree-cell ${cls}" title="${t}">${emoji}</div>`;
+  }).join('');
+}
+
+// Live price ticker
+function updatePrice() {
+  const diff = (Math.random() - 0.48) * 0.6;
+  const price = 42 + diff;
+  const el = document.getElementById('live-price');
+  const ch = document.getElementById('live-change');
+  const pill = document.getElementById('price-pill');
+  if (el) el.textContent = `Rs. ${price.toFixed(2)}`;
+  if (ch) {
+    ch.textContent = diff >= 0 ? `▲ +${(diff * 100).toFixed(1)}% today` : `▼ ${(diff * 100).toFixed(1)}% today`;
+    ch.style.color = diff >= 0 ? 'var(--g300)' : '#f87171';
+  }
+  if (pill) {
+    if (diff >= 0) { pill.textContent = '▲ UP'; pill.className = 'price-pill'; }
+    else { pill.textContent = '▼ DOWN'; pill.className = 'price-pill dn'; }
+  }
+}
+
+// INIT
+renderTreeGrid();
+renderSidePanel('buyer');
+setInterval(updatePrice, 4000);
+</script>
+</body>
+</html>

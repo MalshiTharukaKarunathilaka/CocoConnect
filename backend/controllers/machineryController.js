@@ -64,7 +64,8 @@ const details = async(db,bookingId,user) => {
   const owner=people.rows.find(u=>u.id===b.owner_user_id);const provider=people.rows.find(u=>u.id===m.provider_user_id);
   const items=(await db.query('SELECT * FROM machinery_booking_items WHERE booking_id=$1 ORDER BY id',[b.id])).rows;
   const messages=(await db.query('SELECT * FROM machinery_messages WHERE booking_id=$1 ORDER BY id',[b.id])).rows;
-  return {...b,machine_name:m.name,machinery:m.category,owner,provider,items,messages};
+  const feedback = (await db.query('SELECT rating,completed_at FROM machinery_booking_feedback WHERE booking_id=$1',[b.id])).rows[0];
+  return {...b,land_owner_rating:feedback?.rating ?? null,work_completed_at:feedback?.completed_at ?? null,machine_name:m.name,machinery:m.category,owner,provider,items,messages};
 };
 
 exports.catalog = wrap(async(_req,res)=>res.json(catalog));
@@ -129,7 +130,8 @@ exports.browse = wrap(async(_req,res)=>{
 exports.createBooking = wrap(async(req,res)=>{
   const start=new Date(req.body.starts_at);const end=new Date(req.body.ends_at);
   if(Number.isNaN(+start)||Number.isNaN(+end)||end<=start||start<=new Date()||end-start>31*86400000) fail(400,'Choose a future start time and a later end time (maximum 31 days)');
-  const estate=text(req.body.estate_name,'Estate name',160);const address=text(req.body.address,'Estate address');
+  const estate=text(req.body.estate_name,'Land name',160);const address=text(req.body.address,'Land address');
+  const initialMessage=req.body.message==null?null:text(req.body.message,'Message',2000);
   const items=req.body.items;if(!Array.isArray(items)||!items.length||items.length>20) fail(400,'Select between 1 and 20 services');
   const result=await transaction(async db=>{
     const m=await machine(db,req.params.machineId,null,true);if(!m.active) fail(409,'This machinery is not accepting requests');
@@ -150,18 +152,28 @@ exports.createBooking = wrap(async(req,res)=>{
     const b=(await db.query(`INSERT INTO machinery_bookings(machine_id,owner_user_id,estate_name,address,latitude,longitude,starts_at,ends_at,proposed_total,proposed_by)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,[m.id,req.user.id,estate,address,owner?.latitude,owner?.longitude,start,end,total,req.user.id])).rows[0];
     for(const item of stored) await db.query('INSERT INTO machinery_booking_items(booking_id,service_id,name,unit,quantity,rate) VALUES ($1,$2,$3,$4,$5,$6)',[b.id,item.id,item.name,item.unit,item.quantity,item.rate]);
-    await addMessage(db,b,req.user.id,'Booking requested.',total);return b;
+    await addMessage(db,b,req.user.id,'Booking requested.',total);
+    if(initialMessage) await addMessage(db,b,req.user.id,initialMessage);
+    return b;
   });res.status(201).json(await details(pool,result.id,req.user));
 });
 exports.myBookings = wrap(async(req,res)=>{
   const rows=(await pool.query('SELECT id FROM machinery_bookings WHERE owner_user_id=$1 ORDER BY starts_at DESC',[req.user.id])).rows;
   const result=[];for(const row of rows) result.push(await details(pool,row.id,req.user));res.json(result);
 });
+exports.providerBookings = wrap(async(req,res)=>{
+  const {rows}=await pool.query(`SELECT b.id FROM machinery_bookings b
+    JOIN machinery m ON m.id=b.machine_id JOIN service_providers p ON p.id=m.provider_id
+    WHERE p.user_id=$1 ORDER BY b.id DESC`,[req.user.id]);
+  const result=[];
+  for (const row of rows) result.push(await details(pool,row.id,req.user));
+  res.json(result);
+});
 exports.getBooking = wrap(async(req,res)=>res.json(await details(pool,req.params.bookingId,req.user)));
 exports.message = wrap(async(req,res)=>{
   await transaction(async db=>{
     const b=await booking(db,req.params.bookingId,req.user,true);checkVersion(b,req.body);
-    if(b.provider_user_id===req.user.id) fail(403,'Providers can only accept or decline a request. The estate owner sends the offers.');
+    if(b.provider_user_id===req.user.id) fail(403,'Providers can only accept or decline a request. The land owner sends the offers.');
     const offer=req.body.offer_total==null?null:money(req.body.offer_total);
     const message=req.body.message?text(req.body.message,'Message'):offer?'Proposed a new price.':fail(400,'Enter a message or counteroffer');
     await addMessage(db,b,req.user.id,message,offer);
@@ -172,7 +184,7 @@ exports.message = wrap(async(req,res)=>{
 exports.revise = wrap(async(req,res)=>{
   await transaction(async db=>{
     const b=await booking(db,req.params.bookingId,req.user,true);checkVersion(b,req.body);
-    if(b.owner_user_id!==req.user.id) fail(403,'Only the requesting estate owner can change this request');
+    if(b.owner_user_id!==req.user.id) fail(403,'Only the requesting land owner can change this request');
     const m=await machine(db,b.machine_id,null,true);if(!m.active) fail(409,'This machinery is not accepting requests');
     const start=req.body.starts_at==null?new Date(b.starts_at):new Date(req.body.starts_at);
     const end=req.body.ends_at==null?new Date(b.ends_at):new Date(req.body.ends_at);
@@ -228,7 +240,7 @@ exports.accept = wrap(async(req,res)=>{
   await transaction(async db=>{
     const b=await booking(db,req.params.bookingId,req.user,true);checkVersion(b,req.body);
     if(b.provider_user_id!==req.user.id) fail(403,'Only the assigned provider can confirm this booking');
-    if(b.proposed_by===req.user.id&&!b.offer_agreed) fail(409,'The estate owner must agree to your counteroffer first');
+    if(b.proposed_by===req.user.id&&!b.offer_agreed) fail(409,'The land owner must agree to your counteroffer first');
     if(new Date(b.starts_at)<=new Date()) fail(409,'This requested time has passed');
     const m=await machine(db,b.machine_id,req.user.id,true);if(!m.active) fail(409,'Machinery is inactive');
     await available(db,m,b.starts_at,b.ends_at,b.id);
@@ -256,10 +268,65 @@ exports.ownerCalendar = wrap(async(req,res)=>{
 exports.cancel = wrap(async(req,res)=>{
   await transaction(async db=>{
     const b=await booking(db,req.params.bookingId,req.user,true);
-    if(b.owner_user_id!==req.user.id) fail(403,'Only the requesting estate owner can cancel this booking');
+    const {reason,note=''}=req.body;
+    if(typeof reason!=='string'||!reason.trim()||reason.length>200||typeof note!=='string'||note.length>500) fail(400,'Choose a cancellation reason and enter an optional note');
     if(!Number.isInteger(req.body.expected_version)||req.body.expected_version!==b.version) fail(409,'This request changed. Refresh before cancelling.');
-    if(!['PENDING','CONFIRMED'].includes(b.status)||new Date(b.starts_at)<=new Date()) fail(409,'This booking can no longer be cancelled.');
-    await db.query("UPDATE machinery_bookings SET status='CANCELLED',version=version+1 WHERE id=$1",[b.id]);
-    await addMessage(db,b,req.user.id,'Booking cancelled by the estate owner. Time slot released.');
+    if(b.work_confirmed_at||!(b.status==='CONFIRMED'||(b.status==='PENDING'&&b.owner_user_id===req.user.id))) fail(409,'This booking can no longer be cancelled.');
+    await db.query(`UPDATE machinery_bookings SET status='CANCELLED',version=version+1,
+      cancel_reason=$2,cancel_note=$3,cancelled_by=$4,cancelled_at=$5 WHERE id=$1`,
+      [b.id,reason.trim(),note.trim()||null,req.user.id,new Date()]);
+    await addMessage(db,b,req.user.id,'Booking cancelled. Time slot released.');
   });res.json(await details(pool,req.params.bookingId,req.user));
+});
+
+
+exports.completeAndRateOwner = wrap(async(req,res) => {
+  const rating=req.body.rating;
+  if(!Number.isInteger(rating)||rating<1||rating>5) fail(400,'Choose a rating from 1 to 5 stars');
+  await transaction(async db => {
+    const b=await booking(db,req.params.bookingId,req.user,true);
+    if(b.provider_user_id!==req.user.id) fail(403,'Only the booked provider can rate the land owner');
+    if(b.owner_user_id===req.user.id) fail(403,'You cannot rate yourself');
+    if(b.status!=='CONFIRMED'||!b.work_confirmed_at) fail(409,'Ratings are available after the land owner confirms completion');
+    if((await db.query('SELECT booking_id FROM machinery_booking_feedback WHERE booking_id=$1',[b.id])).rows.length) fail(409,'This booking has already been rated');
+    const result=await db.query(`INSERT INTO machinery_booking_feedback
+      (booking_id,owner_user_id,provider_user_id,rating) VALUES ($1,$2,$3,$4)
+      ON CONFLICT (booking_id) DO NOTHING RETURNING booking_id`,[b.id,b.owner_user_id,req.user.id,rating]);
+    if(!result.rows.length) fail(409,'This booking has already been rated');
+  });
+  res.json(await details(pool,req.params.bookingId,req.user));
+});
+
+exports.finishWork = wrap(async(req,res) => {
+  await transaction(async db => {
+    const b=await booking(db,req.params.bookingId,req.user,true);
+    if(b.provider_user_id!==req.user.id) fail(403,'Only the booked provider can mark work finished');
+    if(b.status!=='CONFIRMED'||b.work_finished_at||new Date(b.starts_at)>new Date()) fail(409,'This booking cannot be marked finished');
+    await db.query('UPDATE machinery_bookings SET work_finished_at=$2,version=version+1 WHERE id=$1',[b.id,new Date()]);
+    await addMessage(db,b,req.user.id,'Provider marked work finished. Awaiting land owner confirmation.');
+  });
+  res.json(await details(pool,req.params.bookingId,req.user));
+});
+
+exports.confirmWork = wrap(async(req,res) => {
+  await transaction(async db => {
+    const b=await booking(db,req.params.bookingId,req.user,true);
+    if(b.owner_user_id!==req.user.id) fail(403,'Only the land owner can confirm completion');
+    if(b.status!=='CONFIRMED'||!b.work_finished_at||b.work_confirmed_at) fail(409,'This booking must be awaiting completion confirmation');
+    await db.query('UPDATE machinery_bookings SET work_confirmed_at=$2,version=version+1 WHERE id=$1',[b.id,new Date()]);
+    await addMessage(db,b,req.user.id,'Land owner confirmed completion. Both parties can now rate each other.');
+  });
+  res.json(await details(pool,req.params.bookingId,req.user));
+});
+
+exports.rateProvider = wrap(async(req,res) => {
+  const {rating}=req.body;
+  if(!Number.isInteger(rating)||rating<1||rating>5) fail(400,'Choose a rating from 1 to 5 stars');
+  await transaction(async db => {
+    const b=await booking(db,req.params.bookingId,req.user,true);
+    if(b.owner_user_id!==req.user.id) fail(403,'Only the land owner can rate the booked provider');
+    if(b.status!=='CONFIRMED'||!b.work_confirmed_at||b.provider_rating!=null) fail(409,'This booking cannot be rated');
+    await db.query('UPDATE machinery_bookings SET provider_rating=$2 WHERE id=$1',[b.id,rating]);
+  });
+  res.json(await details(pool,req.params.bookingId,req.user));
 });

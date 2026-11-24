@@ -16,3 +16,25 @@ TileLayer kapConnectMapTiles({Key? key, ErrorTileCallBack? onTileError}) {
     errorTileCallback: onTileError,
   );
 }
+
+class KapConnectMapAttribution extends StatelessWidget {
+  const KapConnectMapAttribution({super.key});
+  @override
+  Widget build(BuildContext context) => const Align(
+    alignment: Alignment.bottomRight,
+    child: Padding(
+      padding: EdgeInsets.all(3),
+      child: ColoredBox(
+        color: Color(0xDDFFFFFF),
+        child: Padding(
+          padding: EdgeInsets.all(3),
+          child: Text(
+            '? OpenStreetMap contributors',
+            textAlign: TextAlign.right,
+            style: TextStyle(fontSize: 9, color: Color(0xFF222222)),
+          ),
+        ),
+      ),
+    ),
+  );
+}

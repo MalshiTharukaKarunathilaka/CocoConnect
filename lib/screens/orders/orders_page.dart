@@ -6,16 +6,18 @@ import '../../services/buyer_service.dart';
 import '../../services/chat_service.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/owner_widgets.dart';
+import '../../widgets/order_rating_dialog.dart';
 import '../buyer/buyer_format.dart';
 import '../buyer/coconut_type.dart';
 import '../chat/chat_page.dart';
+import '../chat/coconut_counterpart_profile_page.dart';
 import '../complete_deal_page.dart';
 import '../order_status_page.dart';
 import 'buyer_request_card.dart';
 
 const Color _amber = Color(0xFFB26A2C);
 
-/// The Orders tab, the same for buyers and estate owners:
+/// The Orders tab, the same for buyers and land owners:
 ///   Pending Orders  offers I put out that wait for the other side
 ///   Deals           open negotiations and accepted deals (Deal Window)
 ///   Transactions    completed deals
@@ -70,6 +72,51 @@ class _OrdersPageState extends State<OrdersPage> {
 
   Future<void> _complete(OrderItem deal) async {
     if (await openCompleteDeal(context, deal.id)) _reload();
+  }
+
+  bool _working = false;
+
+  Future<void> _confirmReceipt(OrderItem order) async {
+    if (_working) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        scrollable: true,
+        title: const Text('Mark nuts as received?'),
+        content: Text(
+          'Confirm that you collected ${withCommas(order.deliveredQuantity ?? order.quantity)} nuts at ${order.counterpartName}. This completes the deal and enables ratings for both sides.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not yet'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm Goods Received'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _working = true);
+    try {
+      await ActivityService.confirmReceipt(order.id);
+      await _reload();
+      if (mounted) setState(() => _tab = 2);
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _rate(OrderItem order) async {
+    if (await showOrderRating(context, order)) await _reload();
   }
 
   @override
@@ -185,7 +232,7 @@ class _OrdersPageState extends State<OrdersPage> {
           icon: Icons.hourglass_empty,
           text: _buyer
               ? 'Nothing pending. Requests you submit and price offers you '
-                    'send in chats wait here for the estate owners.'
+                    'send in chats wait here for the land owners.'
               : 'Nothing pending. Offers you send to buyers and prices you '
                     'offer in chats wait here for an answer.',
         ),
@@ -287,7 +334,7 @@ class _OrdersPageState extends State<OrdersPage> {
         _section('SCHEDULED ORDERS (${shownDeals.length})'),
         if (shownDeals.isEmpty)
           const OwnerMessage(
-            icon: Icons.local_shipping_outlined,
+            icon: Icons.shopping_basket_outlined,
             text:
                 'No deals here yet. A deal is made when an offer is accepted.',
           ),
@@ -295,7 +342,13 @@ class _OrdersPageState extends State<OrdersPage> {
           _padded(
             _DealCard(
               deal: deal,
-              onComplete: deal.iAmBuyer ? null : () => _complete(deal),
+              onComplete: !deal.iAmBuyer && !deal.awaitingReceipt
+                  ? () => _complete(deal)
+                  : null,
+              onConfirmReceipt:
+                  deal.iAmBuyer && deal.awaitingReceipt && !_working
+                  ? () => _confirmReceipt(deal)
+                  : null,
               onChat: deal.negotiationId == null
                   ? null
                   : () => _openChat(deal.negotiationId!),
@@ -328,7 +381,7 @@ class _OrdersPageState extends State<OrdersPage> {
           icon: Icons.receipt_long_outlined,
           text:
               'No completed transactions yet. Deals appear here once the '
-              'estate owner completes them.',
+              'buyer confirms collection.',
         ),
       ];
     }
@@ -338,6 +391,7 @@ class _OrdersPageState extends State<OrdersPage> {
         _padded(
           _TransactionCard(
             order: order,
+            onRate: order.myRating == null ? () => _rate(order) : null,
             onChat: order.negotiationId == null
                 ? null
                 : () => _openChat(order.negotiationId!),
@@ -380,12 +434,16 @@ class _CardTop extends StatelessWidget {
 class _Who extends StatelessWidget {
   final String name;
   final String productType;
+  final double? trustScore;
+  final String profilePath;
   final VoidCallback? onChat;
   final int unread;
 
   const _Who({
     required this.name,
     required this.productType,
+    required this.trustScore,
+    required this.profilePath,
     this.onChat,
     this.unread = 0,
   });
@@ -399,22 +457,24 @@ class _Who extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: kOwnerInk,
-                ),
+              CoconutProfileLink(
+                name: name,
+                trustScore: trustScore,
+                profilePath: profilePath,
               ),
               const SizedBox(height: 3),
               Row(
                 children: [
                   Icon(type.icon, size: 14, color: type.iconColor),
                   const SizedBox(width: 5),
-                  Text(
-                    type.label,
-                    style: const TextStyle(fontSize: 12.5, color: kOwnerMuted),
+                  Expanded(
+                    child: Text(
+                      type.label,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: kOwnerMuted,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -452,16 +512,18 @@ class _TotalRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      spacing: 12,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: kOwnerInk,
-            ),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: kOwnerInk,
           ),
         ),
         Text(
@@ -580,11 +642,23 @@ class _DueBanner extends StatelessWidget {
 class _DealCard extends StatelessWidget {
   final OrderItem deal;
   final VoidCallback? onComplete;
+  final VoidCallback? onConfirmReceipt;
   final VoidCallback? onChat;
 
-  const _DealCard({required this.deal, this.onComplete, this.onChat});
+  const _DealCard({
+    required this.deal,
+    this.onComplete,
+    this.onConfirmReceipt,
+    this.onChat,
+  });
 
   OwnerPill get _pill {
+    if (deal.awaitingReceipt) {
+      return const OwnerPill(
+        'Awaiting buyer',
+        icon: Icons.inventory_2_outlined,
+      );
+    }
     final int? days = deal.daysUntilDue;
     if (days != null && days < 0) {
       return const OwnerPill(
@@ -620,6 +694,8 @@ class _DealCard extends StatelessWidget {
           const SizedBox(height: 10),
           _Who(
             name: deal.counterpartName,
+            trustScore: deal.counterpartTrustScore,
+            profilePath: '/api/orders/${deal.id}/counterpart-profile',
             productType: deal.productType,
             onChat: onChat,
           ),
@@ -636,9 +712,14 @@ class _DealCard extends StatelessWidget {
           const DashedDivider(),
           _TotalRow(label: 'Total Value', amount: deal.totalValue),
           const SizedBox(height: 14),
-          if (onComplete != null)
+          if (deal.iAmBuyer && deal.awaitingReceipt)
             OwnerPrimaryButton(
-              label: 'Complete Deal',
+              label: 'Confirm Goods Received',
+              onPressed: onConfirmReceipt,
+            )
+          else if (onComplete != null)
+            OwnerPrimaryButton(
+              label: 'Complete Transaction',
               arrow: true,
               onPressed: onComplete,
             )
@@ -651,7 +732,9 @@ class _DealCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'Order in progress - ${deal.counterpartName} completes it',
+                deal.awaitingReceipt
+                    ? 'Waiting for ${deal.counterpartName} to mark the nuts as received'
+                    : 'Waiting for ${deal.counterpartName} to confirm completion',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 12.5,
@@ -705,6 +788,8 @@ class _NegotiationCard extends StatelessWidget {
             const SizedBox(height: 10),
             _Who(
               name: chat.counterpartName,
+              trustScore: chat.counterpartTrustScore,
+              profilePath: '/api/chats/${chat.id}/counterpart-profile',
               productType: chat.productType,
               onChat: onOpen,
               unread: chat.unreadCount,
@@ -769,6 +854,10 @@ class _PendingOfferCard extends StatelessWidget {
           const SizedBox(height: 10),
           _Who(
             name: offer.counterpartName,
+            trustScore: offer.counterpartTrustScore,
+            profilePath: offer.inChat
+                ? '/api/chats/${offer.negotiationId}/counterpart-profile'
+                : '/api/sell-offers/${offer.id}/counterpart-profile',
             productType: offer.productType,
             onChat: onChat,
           ),
@@ -798,8 +887,9 @@ class _PendingOfferCard extends StatelessWidget {
 class _TransactionCard extends StatelessWidget {
   final OrderItem order;
   final VoidCallback? onChat;
+  final VoidCallback? onRate;
 
-  const _TransactionCard({required this.order, this.onChat});
+  const _TransactionCard({required this.order, this.onChat, this.onRate});
 
   @override
   Widget build(BuildContext context) {
@@ -830,6 +920,8 @@ class _TransactionCard extends StatelessWidget {
           const SizedBox(height: 10),
           _Who(
             name: order.counterpartName,
+            trustScore: order.counterpartTrustScore,
+            profilePath: '/api/orders/${order.id}/counterpart-profile',
             productType: order.productType,
             onChat: onChat,
           ),
@@ -874,6 +966,24 @@ class _TransactionCard extends StatelessWidget {
           ],
           const DashedDivider(),
           _TotalRow(label: 'Settled Value', amount: order.settledTotal),
+          const SizedBox(height: 12),
+          if (order.myRating != null)
+            Text(
+              'Your rating: ${order.myRating}/5 stars',
+              style: const TextStyle(color: kOwnerGreen),
+            )
+          else
+            OutlinedButton.icon(
+              onPressed: onRate,
+              icon: const Icon(Icons.star_outline),
+              label: Text(order.iAmBuyer ? 'Rate seller' : 'Rate buyer'),
+            ),
+          if (order.myRatingNote case final note?) Text(note),
+          if (order.counterpartRating != null)
+            Text(
+              '${order.counterpartName} rated you ${order.counterpartRating}/5 stars',
+            ),
+          if (order.counterpartRatingNote case final note?) Text(note),
         ],
       ),
     );

@@ -1,3 +1,4 @@
+import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/owner_service.dart';
@@ -43,34 +44,37 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _profileBackground,
-      appBar: AppBar(
+    return RoleNavigationPage(
+      current: AppTab.dashboard,
+      child: Scaffold(
         backgroundColor: _profileBackground,
-        foregroundColor: _profileInk,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context, _currentJobRating),
-          icon: const Icon(Icons.arrow_back),
+        appBar: AppBar(
+          backgroundColor: _profileBackground,
+          foregroundColor: _profileInk,
+          elevation: 0,
+          leading: IconButton(
+            onPressed: () => Navigator.pop(context, _currentJobRating),
+            icon: const Icon(Icons.arrow_back),
+          ),
+          title: const Text(
+            'Worker Profile',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
-        title: const Text(
-          'Worker Profile',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        body: FutureBuilder<WorkerProfile>(
+          future: _profile,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: _profileGreen),
+              );
+            }
+            if (snapshot.hasError || snapshot.data == null) {
+              return _errorView();
+            }
+            return _profileView(snapshot.data!);
+          },
         ),
-      ),
-      body: FutureBuilder<WorkerProfile>(
-        future: _profile,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: _profileGreen),
-            );
-          }
-          if (snapshot.hasError || snapshot.data == null) {
-            return _errorView();
-          }
-          return _profileView(snapshot.data!);
-        },
       ),
     );
   }
@@ -221,20 +225,22 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
         children: [
           const Icon(Icons.star, color: Color(0xFFE3A008), size: 28),
           const SizedBox(width: 9),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                rating == null
-                    ? 'Not rated yet'
-                    : '${rating.toStringAsFixed(1)} / 5',
-                style: const TextStyle(
-                  color: _profileInk,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  rating == null
+                      ? 'Not rated yet'
+                      : '${rating.toStringAsFixed(1)} / 5',
+                  style: const TextStyle(
+                    color: _profileInk,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -247,6 +253,7 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          scrollable: true,
           title: Text('Rate ${profile.name}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -257,8 +264,9 @@ class _WorkerProfilePageState extends State<WorkerProfilePage> {
                   style: const TextStyle(color: _profileMuted),
                 ),
               const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
+                runSpacing: 4,
                 children: [
                   for (var value = 1; value <= 5; value++)
                     IconButton(

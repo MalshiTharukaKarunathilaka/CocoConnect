@@ -17,6 +17,7 @@ const { getHealth } = require("./controllers/healthController");
 const app = express();
 
 app.use(cors());
+app.use('/api/fertilizer', express.json({limit: '16mb'}));
 app.use(express.json());
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.get("/api-docs.json", (req, res) => {
@@ -31,6 +32,12 @@ app.get("/", (req, res) => {
 
 app.get("/api/health", getHealth);
 
+const fertilizerDemoEnabled = process.env.FERTILIZER_DEMO_SYNC === "true";
+// Fertilizer_Final cloud sync (bootstrap + upsert) — must stay first.
+app.use("/api/fertilizer", require(fertilizerDemoEnabled
+  ? "./routes/fertilizerDemoOpsRoutes"
+  : "./routes/fertilizerOpsRoutes"));
+app.use("/api/fertilizer", require("./routes/fertilizerRoutes"));
 app.use("/api/machinery", require("./routes/machineryRoutes"));
 app.use("/api/holidays", require("./routes/holidayRoutes"));
 app.use("/api/listings", listingRoutes);
@@ -44,6 +51,6 @@ app.use("/api", chatRoutes);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+app.listen(PORT, fertilizerDemoEnabled ? "localhost" : undefined, () => {
   console.log(`Server running on port ${PORT}`);
 });

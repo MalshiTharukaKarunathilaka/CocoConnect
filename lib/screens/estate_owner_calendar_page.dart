@@ -1,10 +1,11 @@
+import '../widgets/deal_cancellation_dialog.dart';
+import 'dart:async';
+import '../widgets/mobile_sheet.dart';
+import '../widgets/role_navigation_page.dart';
 import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
-import '../widgets/app_bottom_nav.dart';
 import '../services/owner_service.dart';
-import '../services/chat_service.dart';
 import '../services/api_client.dart';
-import '../services/auth_service.dart';
 import '../services/holiday_service.dart';
 import '../widgets/holiday_widgets.dart';
 import 'post_day_job_page.dart';
@@ -26,9 +27,9 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _selectedDay;
   List<DayJob> _postedJobs = [];
-  Estate? _estate;
-  int _notificationCount = 0;
   String? _categoryFilter;
+  Timer? _pollTimer;
+  final Set<int> _shownCompletionAcknowledgements = <int>{};
 
   static const List<String> _weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   static const List<String> _months = [
@@ -50,39 +51,293 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
   void initState() {
     super.initState();
     _loadPostedJobs();
-    _loadNotificationCount();
-    _loadEstate();
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) {
+        _loadPostedJobs();
+      }
+    });
   }
 
-  /// The signed-in owner's own estate, for the header.
-  Future<void> _loadEstate() async {
-    try {
-      final estate = await OwnerService.getEstate();
-      if (mounted) setState(() => _estate = estate);
-    } catch (_) {
-      // The header falls back to the account's own details.
-    }
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
-  Future<void> _loadNotificationCount() async {
-    try {
-      final items = await ChatService.getNotifications();
-      final count = await ChatService.unseenCount(items);
-      if (mounted) setState(() => _notificationCount = count);
-    } on ApiException {
-      // Keep the calendar usable if notifications are unavailable.
-    }
-  }
 
   Future<void> _loadPostedJobs() async {
     try {
       final jobs = await OwnerService.getDayJobs();
       if (mounted) {
         setState(() => _postedJobs = jobs);
+        _scheduleCompletionAcknowledgement(jobs);
       }
     } catch (error) {
       debugPrint('Could not load posted jobs for calendar: $error');
     }
+  }
+
+  void _scheduleCompletionAcknowledgement(List<DayJob> jobs) {
+    DayJob? pending;
+    for (final job in jobs) {
+      if (job.status.toUpperCase() == 'AWAITING_OWNER_ACK' &&
+          !_shownCompletionAcknowledgements.contains(job.id)) {
+        pending = job;
+        break;
+      }
+    }
+    if (pending == null) return;
+    _shownCompletionAcknowledgements.add(pending.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showCompletionAcknowledgement(pending!);
+    });
+  }
+
+  Future<void> _showCompletionAcknowledgement(DayJob job) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return AlertDialog(
+          scrollable: true,
+          backgroundColor: const Color(0xFFFCF8EF),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.fact_check_outlined, color: _calendarGreen),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Job completion acknowledgement',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: _calendarInk,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20, color: Color(0xFF718096)),
+                onPressed: () => Navigator.pop(dialogContext),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3D8),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE7B64C)),
+                ),
+                child: Text(
+                  '${job.requiredDate.day.toString().padLeft(2, '0')}/'
+                  '${job.requiredDate.month.toString().padLeft(2, '0')}/'
+                  '${job.requiredDate.year}',
+                  style: const TextStyle(
+                    color: Color(0xFF845800),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'A worker has marked their work as finished on this day job. '
+                'Please confirm that the job is complete.',
+                style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              _ackDetail('Category', job.category),
+              _ackDetail('Location', job.location),
+              _ackDetail(
+                'Workers',
+                '${job.confirmedWorkers} of ${job.workersNeeded} confirmed',
+              ),
+              _ackDetail(
+                'Daily Rate',
+                'Rs. ${job.dailyRate.toStringAsFixed(0)} · ${job.paymentMethod}',
+              ),
+            ],
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(dialogContext);
+                        _showCancelCompletionDialog(job);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFA32820),
+                        side: const BorderSide(color: Color(0xFFA32820), width: 1.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: FilledButton(
+                      onPressed: () {
+                        Navigator.pop(dialogContext);
+                        _confirmWorkerCompletion(job);
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _calendarGreen,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        'Confirm',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmWorkerCompletion(DayJob job) async {
+    try {
+      await OwnerService.completeDayJob(job.id);
+      if (!mounted) return;
+      await _loadPostedJobs();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Job completed. You can now rate each other.')),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
+  }
+
+  Future<void> _showCancelCompletionDialog(DayJob job) async {
+    final details = await showDealCancellationDialog(context, type: DealCancellationType.dayJobCompletion);
+    if (details == null || !mounted) return;
+    try {
+      await ApiClient.post('/api/owner/day-jobs/${job.id}/cancel', details);
+      if (mounted) await _loadPostedJobs();
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
+  }
+
+  Widget _ackDetail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 12.5,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: _calendarInk,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _completionAcknowledgementBanner(List<DayJob> jobs) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3D8),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE7B64C)),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundColor: Color(0xFFFFE3A3),
+            foregroundColor: Color(0xFF845800),
+            child: Icon(Icons.fact_check_outlined),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${jobs.length} completion ${jobs.length == 1 ? 'acknowledgement' : 'acknowledgements'}',
+                  style: const TextStyle(
+                    color: _calendarInk,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'Worker marked job as completed. Review and confirm.',
+                  style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Review acknowledgement',
+            onPressed: () => _showCompletionAcknowledgement(jobs.first),
+            icon: const Icon(Icons.arrow_forward, color: _calendarGreen),
+          ),
+        ],
+      ),
+    );
   }
 
   void _changeMonth(int amount) {
@@ -113,71 +368,107 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
       selectedDay.day,
     );
     final isPast = selectedDate.isBefore(todayDate);
+    final pendingAckJob = _postedJobs.where((job) {
+      return job.requiredDate.year == selectedDate.year &&
+          job.requiredDate.month == selectedDate.month &&
+          job.requiredDate.day == selectedDate.day &&
+          job.status.toUpperCase() == 'AWAITING_OWNER_ACK';
+    }).firstOrNull;
 
     showModalBottomSheet<void>(
+      useSafeArea: true,
       context: context,
       backgroundColor: Colors.white,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
       ),
-      builder: (context) => _DayActionsSheet(
-        date: selectedDay,
-        showScheduleActions: !isPast,
-        onAddJob: () {
-          Navigator.pop(context);
-          Navigator.push(
-            this.context,
-            MaterialPageRoute(
-              builder: (_) => PostDayJobPage(requiredDate: selectedDay),
-            ),
-          ).then((_) => _loadPostedJobs());
-        },
-        onViewJobs: () {
-          Navigator.pop(context);
-          Navigator.push(
-            this.context,
-            MaterialPageRoute(
-              builder: (_) => ScheduledJobsPage(date: selectedDay),
-            ),
-          ).then((_) => _loadPostedJobs());
-        },
+      builder: mobileSheetBuilder(
+        (context) => _DayActionsSheet(
+          date: selectedDay,
+          showScheduleActions: !isPast,
+          pendingAckJob: pendingAckJob,
+          onAcknowledge: pendingAckJob != null
+              ? () {
+                  _showCompletionAcknowledgement(pendingAckJob);
+                }
+              : null,
+          onAddJob: () {
+            Navigator.pop(context);
+            Navigator.push(
+              this.context,
+              MaterialPageRoute(
+                builder: (_) => PostDayJobPage(requiredDate: selectedDay),
+              ),
+            ).then((_) => _loadPostedJobs());
+          },
+          onViewJobs: () {
+            Navigator.pop(context);
+            Navigator.push(
+              this.context,
+              MaterialPageRoute(
+                builder: (_) => ScheduledJobsPage(date: selectedDay),
+              ),
+            ).then((_) => _loadPostedJobs());
+          },
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFEFEFEF),
-      body: Center(
-        child: Container(
-          width: 390,
-          constraints: const BoxConstraints(maxWidth: 430),
-          color: _calendarBackground,
-          child: SafeArea(
-            child: Column(
-              children: [
-                _header(),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 18),
-                    children: [
-                      _estateSummary(),
-                      const SizedBox(height: 12),
-                      _categoryCard(),
-                      const SizedBox(height: 12),
-                      HolidayListener(
-                        years: [_month.year],
-                        builder: (_) => _calendarCard(),
+    final compactMobile = MediaQuery.sizeOf(context).height <= 850;
+    return RoleNavigationPage(
+      chatScope: ChatScope.dayJobs,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFEFEFEF),
+        body: Center(
+          child: Container(
+            width: 390,
+            constraints: const BoxConstraints(maxWidth: 430),
+            color: _calendarBackground,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _header(compact: compactMobile),
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.fromLTRB(
+                        14,
+                        compactMobile ? 0 : 10,
+                        14,
+                        18,
                       ),
-                    ],
+                      children: [
+                        if (_postedJobs.any(
+                          (job) =>
+                              job.status.toUpperCase() == 'AWAITING_OWNER_ACK',
+                        )) ...[
+                          _completionAcknowledgementBanner(
+                            _postedJobs
+                                .where(
+                                  (job) =>
+                                      job.status.toUpperCase() ==
+                                      'AWAITING_OWNER_ACK',
+                                )
+                                .toList(),
+                          ),
+                          SizedBox(height: compactMobile ? 4 : 8),
+                        ],
+                        _categoryCard(compact: compactMobile),
+                        SizedBox(height: compactMobile ? 5 : 12),
+                        HolidayListener(
+                          years: [_month.year],
+                          builder: (_) => _calendarCard(
+                            compact: compactMobile,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                _CalendarBottomNavigation(
-                  notificationCount: _notificationCount,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -185,129 +476,58 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     );
   }
 
-  Widget _header() {
+  Widget _header({required bool compact}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          GestureDetector(
-            onTap: () => Navigator.maybePop(context),
-            child: const Icon(
-              Icons.arrow_back,
-              size: 28,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(width: 10),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'KapConnect',
-                style: TextStyle(
-                  color: _calendarGreen,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                'DAY JOBS',
-                style: TextStyle(
-                  color: Color(0xFF718096),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.1,
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          const LanguageSelector(),
-          const SizedBox(width: 10),
-        ],
-      ),
-    );
-  }
-
-  Widget _estateSummary() {
-    final String place =
-        (_estate?.location ?? AuthService.currentUser?.location ?? '').trim();
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE9E2D9)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF0EDE6),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.park, size: 28, color: _calendarGreen),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _estate?.estateName.isNotEmpty == true
-                      ? _estate!.estateName
-                      : (AuthService.currentUser?.name ?? 'Your estate'),
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _calendarInk,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (place.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4F0E9),
-                borderRadius: BorderRadius.circular(20),
-              ),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.location_on_outlined,
-                    size: 17,
-                    color: Color(0xFF718096),
+                  GestureDetector(
+                    onTap: () => Navigator.maybePop(context),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      size: 20,
+                      color: _calendarGreen,
+                    ),
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    place,
-                    style: const TextStyle(
+                  const SizedBox(width: 5),
+                  const Text(
+                    'KapConnect',
+                    style: TextStyle(
+                      color: _calendarGreen,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF3D4A5D),
                     ),
                   ),
                 ],
               ),
             ),
+          ),
+          const SizedBox(width: 12),
+          const LanguageSelector(),
         ],
       ),
     );
   }
 
-  Widget _calendarCard() {
+  Widget _calendarCard({required bool compact}) {
     final firstDay = DateTime(_month.year, _month.month, 1);
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
     final leadingDays = firstDay.weekday - 1;
     final calendarCellCount = ((leadingDays + daysInMonth + 6) ~/ 7) * 7;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        compact ? 12 : 20,
+        16,
+        compact ? 10 : 16,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
@@ -346,7 +566,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
               _monthButton(Icons.chevron_right, () => _changeMonth(1)),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: compact ? 10 : 20),
           Row(
             children: [
               for (final weekday in _weekdays)
@@ -364,7 +584,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: compact ? 6 : 8),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -384,12 +604,13 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
               return _dayCell(day);
             },
           ),
-          const SizedBox(height: 16),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          SizedBox(height: compact ? 8 : 16),
+          const Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 16,
+            runSpacing: 8,
             children: [
               _Legend(color: Color(0xFFF0A315), label: 'Partially filled'),
-              SizedBox(width: 24),
               _Legend(color: _calendarGreen, label: 'Fully filled'),
             ],
           ),
@@ -398,9 +619,45 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     );
   }
 
-  Widget _categoryCard() {
+  Widget _categoryCard({required bool compact}) {
+    final chips = <Widget>[
+      _CategoryChip(
+        Icons.eco,
+        'Nut Gatherer',
+        compact: compact,
+        selected: _categoryFilter == 'Nut Gatherer',
+        onTap: () => _toggleCategoryFilter('Nut Gatherer'),
+      ),
+      _CategoryChip(
+        Icons.agriculture,
+        'Machine Weeder',
+        compact: compact,
+        selected: _categoryFilter == 'Machine Weeder',
+        onTap: () => _toggleCategoryFilter('Machine Weeder'),
+      ),
+      _CategoryChip(
+        Icons.build,
+        'Manual Worker',
+        compact: compact,
+        selected: _categoryFilter == 'Manual Worker',
+        onTap: () => _toggleCategoryFilter('Manual Worker'),
+      ),
+      _CategoryChip(
+        Icons.star,
+        'Holiday',
+        compact: compact,
+        iconColor: Colors.red,
+        selected: _categoryFilter == 'Holiday',
+        onTap: () => _toggleCategoryFilter('Holiday'),
+      ),
+    ];
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 18, 14, 16),
+      padding: EdgeInsets.fromLTRB(
+        compact ? 10 : 14,
+        compact ? 8 : 18,
+        compact ? 10 : 14,
+        compact ? 8 : 16,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
@@ -418,37 +675,11 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
               letterSpacing: .5,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: compact ? 6 : 12),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _CategoryChip(
-                Icons.eco,
-                'Nut Gatherer',
-                selected: _categoryFilter == 'Nut Gatherer',
-                onTap: () => _toggleCategoryFilter('Nut Gatherer'),
-              ),
-              _CategoryChip(
-                Icons.agriculture,
-                'Machine Weeder',
-                selected: _categoryFilter == 'Machine Weeder',
-                onTap: () => _toggleCategoryFilter('Machine Weeder'),
-              ),
-              _CategoryChip(
-                Icons.build,
-                'Manual Worker',
-                selected: _categoryFilter == 'Manual Worker',
-                onTap: () => _toggleCategoryFilter('Manual Worker'),
-              ),
-              _CategoryChip(
-                Icons.star,
-                'Holiday',
-                iconColor: Colors.red,
-                selected: _categoryFilter == 'Holiday',
-                onTap: () => _toggleCategoryFilter('Holiday'),
-              ),
-            ],
+            spacing: compact ? 8 : 10,
+            runSpacing: compact ? 5 : 10,
+            children: chips,
           ),
           if (_categoryFilter != null) ...[
             const SizedBox(height: 8),
@@ -529,6 +760,9 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
         : jobsOnDay.every((job) => job.confirmedWorkers >= job.workersNeeded)
         ? _calendarGreen
         : const Color(0xFFF0A315);
+    final hasAwaitingAck = allJobsOnDay.any(
+      (job) => job.status.toUpperCase() == 'AWAITING_OWNER_ACK',
+    );
     final jobIcons = jobsOnDay
         .map((job) => _iconForJobCategory(job.category))
         .toSet()
@@ -565,7 +799,21 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                 ),
               ),
             ),
-            if (statusColor != null)
+            if (hasAwaitingAck)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD9A441),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                ),
+              )
+            else if (statusColor != null)
               Positioned(
                 top: 1,
                 right: 1,
@@ -624,7 +872,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
       return Icons.eco;
     }
     if (value.contains('holiday')) {
-      return Icons.star_border;
+      return Icons.star;
     }
     return Icons.build;
   }
@@ -648,12 +896,16 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
 class _DayActionsSheet extends StatelessWidget {
   final DateTime date;
   final bool showScheduleActions;
+  final DayJob? pendingAckJob;
+  final VoidCallback? onAcknowledge;
   final VoidCallback onAddJob;
   final VoidCallback onViewJobs;
 
   const _DayActionsSheet({
     required this.date,
     required this.showScheduleActions,
+    this.pendingAckJob,
+    this.onAcknowledge,
     required this.onAddJob,
     required this.onViewJobs,
   });
@@ -692,7 +944,7 @@ class _DayActionsSheet extends StatelessWidget {
         '${_months[date.month - 1]} ${date.year}';
 
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 14, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -725,6 +977,19 @@ class _DayActionsSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            if (pendingAckJob != null) ...[
+              _ActionButton(
+                icon: Icons.check_circle_outline,
+                label: 'Acknowledge Completion',
+                backgroundColor: const Color(0xFFD9A441),
+                foregroundColor: Colors.white,
+                onTap: () {
+                  Navigator.pop(context);
+                  onAcknowledge?.call();
+                },
+              ),
+              const SizedBox(height: 14),
+            ],
             if (isScheduleView) ...[
               _ActionButton(
                 icon: Icons.add,
@@ -884,12 +1149,14 @@ class _CategoryChip extends StatelessWidget {
   final String label;
   final Color iconColor;
   final bool selected;
+  final bool compact;
   final VoidCallback onTap;
 
   const _CategoryChip(
     this.icon,
     this.label, {
     this.iconColor = _calendarGreen,
+    required this.compact,
     required this.selected,
     required this.onTap,
   });
@@ -906,7 +1173,10 @@ class _CategoryChip extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           width: 155,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 10 : 12,
+            vertical: compact ? 7 : 10,
+          ),
           decoration: BoxDecoration(
             color: selected ? const Color(0xFFDDEEE0) : const Color(0xFFF4EFE6),
             borderRadius: BorderRadius.circular(17),
@@ -940,104 +1210,6 @@ class _CategoryChip extends StatelessWidget {
   }
 }
 
-class _CalendarBottomNavigation extends StatelessWidget {
-  final int notificationCount;
-
-  const _CalendarBottomNavigation({this.notificationCount = 0});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE8E2D6))),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _item(
-            context,
-            Icons.dashboard_outlined,
-            'Dashboard',
-            onTap: () => openTab(context, AppTab.dashboard),
-          ),
-          _item(context, Icons.calendar_month, 'Calendar', active: true),
-          _item(
-            context,
-            Icons.chat_bubble_outline,
-            'Chats',
-            onTap: () =>
-                openTab(context, AppTab.chats, chatScope: ChatScope.dayJobs),
-          ),
-          _item(
-            context,
-            Icons.notifications_none,
-            'Alerts',
-            badge: notificationCount,
-            onTap: () => openTab(context, AppTab.alerts),
-          ),
-          _item(
-            context,
-            Icons.person_outline,
-            'Profile',
-            onTap: () => openTab(context, AppTab.profile),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _item(
-    BuildContext context,
-    IconData icon,
-    String label, {
-    VoidCallback? onTap,
-    bool active = false,
-    int badge = 0,
-  }) {
-    final color = active ? _calendarGreen : const Color(0xFF66615D);
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(
-                color: active ? const Color(0xFFDDEEE0) : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Badge(
-                isLabelVisible: badge > 0,
-                label: Text(badge > 99 ? '99+' : '$badge'),
-                backgroundColor: Colors.red,
-                child: Icon(
-                  active ? Icons.calendar_month : icon,
-                  size: 22,
-                  color: color,
-                ),
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: active ? FontWeight.bold : FontWeight.w600,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _Legend extends StatelessWidget {
   final Color color;
   final String label;
@@ -1055,9 +1227,11 @@ class _Legend extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 8),
-        Text(
-          label,
-          style: const TextStyle(color: Color(0xFF66615D), fontSize: 12),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(color: Color(0xFF66615D), fontSize: 12),
+          ),
         ),
       ],
     );

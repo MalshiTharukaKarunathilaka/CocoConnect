@@ -1,3 +1,5 @@
+import '../../theme/app_theme.dart' show themedPicker;
+import '../../widgets/mobile_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_client.dart';
@@ -5,6 +7,7 @@ import '../../services/buyer_service.dart';
 import '../../widgets/buyer_widgets.dart';
 import '../buyer/buyer_format.dart';
 import '../buyer/coconut_type.dart';
+import '../chat/coconut_counterpart_profile_page.dart';
 
 void _showSnack(BuildContext context, String text, {bool error = false}) {
   ScaffoldMessenger.of(context)
@@ -33,7 +36,7 @@ BuyerPill _statusPill(String text, {bool good = false, bool bad = false}) {
   );
 }
 
-/// One of the buyer's own requests: edit, delete, and see estate owners'
+/// One of the buyer's own requests: edit, delete, and see land owners'
 /// offers on it (accept one to make a deal).
 class BuyerRequestCard extends StatelessWidget {
   final BuyerRequest request;
@@ -58,9 +61,10 @@ class BuyerRequestCard extends StatelessWidget {
 
   Future<void> _showOffers(BuildContext context) async {
     final bool? accepted = await showModalBottomSheet<bool>(
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
-      builder: (context) => _OffersSheet(request: request),
+      builder: mobileSheetBuilder((context) => _OffersSheet(request: request)),
     );
     if (accepted == true && context.mounted) {
       _showSnack(context, 'Offer accepted. It is now under Deals.');
@@ -72,10 +76,11 @@ class BuyerRequestCard extends StatelessWidget {
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('Delete request?'),
         content: Text(
           'Your request for ${withCommas(request.quantity)} nuts will be '
-          'removed and estate owners will no longer see it.',
+          'removed and land owners will no longer see it.',
         ),
         actions: [
           TextButton(
@@ -163,8 +168,8 @@ class BuyerRequestCard extends StatelessWidget {
                         Flexible(
                           child: Text(
                             request.responseCount == 1
-                                ? '1 estate owner responded  ·  View offer'
-                                : '${request.responseCount} estate owners '
+                                ? '1 land owner responded  ·  View offer'
+                                : '${request.responseCount} land owners '
                                       'responded  ·  View offers',
                             style: const TextStyle(
                               fontSize: 12.5,
@@ -200,7 +205,7 @@ class BuyerRequestCard extends StatelessWidget {
   }
 }
 
-/// Estate owners' offers on one request, cheapest first, with Accept.
+/// Land owners' offers on one request, cheapest first, with Accept.
 class _OffersSheet extends StatefulWidget {
   final BuyerRequest request;
 
@@ -220,6 +225,7 @@ class _OffersSheetState extends State<_OffersSheet> {
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: const Text('Accept this offer?'),
         content: Text(
           '${offer.estateName}: ${withCommas(offer.quantity)} nuts at '
@@ -268,7 +274,7 @@ class _OffersSheetState extends State<_OffersSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Offers from estate owners',
+                'Offers from land owners',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
@@ -313,12 +319,13 @@ class _OffersSheetState extends State<_OffersSheet> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    offer.estateName,
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                  CoconutProfileLink(
+                                    name: offer.estateName.isEmpty
+                                        ? offer.ownerName
+                                        : offer.estateName,
+                                    trustScore: offer.counterpartTrustScore,
+                                    profilePath:
+                                        '/api/sell-offers/${offer.id}/counterpart-profile',
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
@@ -331,19 +338,14 @@ class _OffersSheetState extends State<_OffersSheet> {
                                     ),
                                   ),
                                   const SizedBox(height: 2),
-                                  Text(
-                                    [
-                                      if (offer.location != null)
-                                        offer.location!,
-                                      offer.trustScore == null
-                                          ? 'not rated yet'
-                                          : 'trust ${offer.trustScore}/5',
-                                    ].join('  ·  '),
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: kBuyerGrey,
+                                  if (offer.location case final location?)
+                                    Text(
+                                      location,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: kBuyerGrey,
+                                      ),
                                     ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -409,6 +411,7 @@ class _EditRequestDialogState extends State<_EditRequestDialog> {
   Future<void> _pickDate() async {
     final DateTime today = DateTime.now();
     final DateTime? picked = await showDatePicker(
+      builder: themedPicker,
       context: context,
       initialDate: _date != null && _date!.isAfter(today) ? _date! : today,
       firstDate: today,
@@ -458,6 +461,7 @@ class _EditRequestDialogState extends State<_EditRequestDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('Edit Request'),
       content: Column(
         mainAxisSize: MainAxisSize.min,

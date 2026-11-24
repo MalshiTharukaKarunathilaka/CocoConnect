@@ -1,13 +1,16 @@
+import '../widgets/deal_cancellation_dialog.dart';
+import '../widgets/mobile_sheet.dart';
+import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/owner_service.dart';
-import '../widgets/app_bottom_nav.dart';
+import '../widgets/owner_widgets.dart';
 import 'accepted_workers_page.dart';
 import 'worker_profile_page.dart';
 
-const Color _detailGreen = Color(0xFF2A704E);
-const Color _detailBackground = Color(0xFFFCF9F3);
-const Color _detailInk = Color(0xFF193126);
+const Color _detailGreen = kOwnerGreen;
+const Color _detailBackground = kOwnerCream;
+const Color _detailInk = kOwnerInk;
 
 class JobDetailPage extends StatefulWidget {
   final DayJob job;
@@ -20,6 +23,8 @@ class JobDetailPage extends StatefulWidget {
 
 class _JobDetailPageState extends State<JobDetailPage> {
   late bool _isCompleted;
+  late bool _awaitingWorkerAcknowledgement;
+  late bool _awaitingOwnerAcknowledgement; // worker went first
   bool _completing = false;
   bool _deleting = false;
   late final Map<int, int?> _workerRatings;
@@ -42,6 +47,10 @@ class _JobDetailPageState extends State<JobDetailPage> {
   void initState() {
     super.initState();
     _isCompleted = job.status.toUpperCase() == 'COMPLETED';
+    _awaitingWorkerAcknowledgement =
+        job.status.toUpperCase() == 'AWAITING_WORKER_ACK';
+    _awaitingOwnerAcknowledgement =
+        job.status.toUpperCase() == 'AWAITING_OWNER_ACK';
     _workerRatings = {
       for (final worker in job.acceptedWorkers) worker.id: worker.rating,
     };
@@ -58,15 +67,18 @@ class _JobDetailPageState extends State<JobDetailPage> {
     );
     final showCompletedLayout = _isCompleted || selectedDate.isBefore(today);
 
-    return Scaffold(
-      backgroundColor: _detailBackground,
-      body: SizedBox.expand(
-        child: Container(
-          color: _detailBackground,
-          child: SafeArea(
-            child: showCompletedLayout
-                ? _pastJobLayout(context)
-                : _upcomingJobLayout(context),
+    return RoleNavigationPage(
+      chatScope: ChatScope.dayJobs,
+      child: Scaffold(
+        backgroundColor: _detailBackground,
+        body: SizedBox.expand(
+          child: Container(
+            color: _detailBackground,
+            child: SafeArea(
+              child: showCompletedLayout
+                  ? _pastJobLayout(context)
+                  : _upcomingJobLayout(context),
+            ),
           ),
         ),
       ),
@@ -88,8 +100,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
                 const SizedBox(height: 10),
                 _completionButton(),
               ],
-              if (_isFuture) ...[const SizedBox(height: 10), _deleteButton()],
-              if (_isCompleted) ...[
+              if (_canCancelDeal) _cancelDealButton(),
+              if (_isCompleted || _awaitingWorkerAcknowledgement || _awaitingOwnerAcknowledgement) ...[
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -97,25 +109,25 @@ class _JobDetailPageState extends State<JobDetailPage> {
                       'All Workers',
                       style: TextStyle(
                         color: _detailInk,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      width: 34,
-                      height: 34,
+                      width: 28,
+                      height: 28,
                       alignment: Alignment.center,
                       decoration: const BoxDecoration(
-                        color: Color(0xFFA8EDC5),
+                        color: kOwnerGreenSoft,
                         shape: BoxShape.circle,
                       ),
                       child: Text(
                         '${job.acceptedWorkers.length}',
                         style: TextStyle(
                           color: _detailGreen,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -130,7 +142,6 @@ class _JobDetailPageState extends State<JobDetailPage> {
             ],
           ),
         ),
-        _bottomNavigation(),
       ],
     );
   }
@@ -161,25 +172,25 @@ class _JobDetailPageState extends State<JobDetailPage> {
                       builder: (_) => AcceptedWorkersPage(job: job),
                     ),
                   ),
-                  icon: const Icon(Icons.arrow_forward, size: 26),
+                  icon: const Icon(Icons.arrow_forward, size: 18),
                   label: const Text(
                     'View Accepted Workers',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: _detailGreen,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(34),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
               ),
-              if (_isFuture) ...[const SizedBox(height: 8), _deleteButton()],
+              if (_canCancelDeal) _cancelDealButton()
+              else if (_isFuture && job.confirmedWorkers == 0) _deleteButton(),
             ],
           ),
         ),
-        _bottomNavigation(),
       ],
     );
   }
@@ -189,8 +200,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
       padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFD5E3DB), width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kOwnerBorder),
       ),
       child: Column(
         children: [
@@ -242,18 +253,50 @@ class _JobDetailPageState extends State<JobDetailPage> {
   }
 
   Widget _completionButton() {
+    // Worker went first → owner sees a prominent "Confirm Completion" CTA
+    if (_awaitingOwnerAcknowledgement) {
+      return SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: FilledButton.icon(
+          onPressed: _completing ? null : _completeJob,
+          icon: _completing
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.check_circle_outline, size: 20),
+          label: Text(
+            _completing ? 'Confirming…' : 'Worker completed — Confirm',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF5FA47B), // greenMid — tonal
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: FilledButton(
-        onPressed: _isCompleted || _completing ? null : _completeJob,
+        onPressed: null,
         style: FilledButton.styleFrom(
           backgroundColor: _detailGreen,
           disabledBackgroundColor: _detailGreen,
           disabledForegroundColor: Colors.white,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(34),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
         child: _completing
@@ -266,7 +309,11 @@ class _JobDetailPageState extends State<JobDetailPage> {
                 ),
               )
             : Text(
-                _isCompleted ? 'Completed' : 'Complete Job',
+                _isCompleted
+                    ? 'Completed'
+                    : _awaitingWorkerAcknowledgement
+                    ? 'Awaiting worker acknowledgement'
+                    : 'Waiting for worker to finish',
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -275,6 +322,28 @@ class _JobDetailPageState extends State<JobDetailPage> {
       ),
     );
   }
+
+  bool get _canCancelDeal =>
+      job.confirmedWorkers > 0 &&
+      !_isCompleted &&
+      job.status.toUpperCase() != 'CANCELLED';
+
+  Widget _cancelDealButton() => OutlinedButton(
+    onPressed: _deleting ? null : () async {
+      final details = await showDealCancellationDialog(context, type: DealCancellationType.dayJob);
+      if (details == null || !mounted) return;
+      setState(() => _deleting = true);
+      try {
+        await ApiClient.post('/api/owner/day-jobs/${job.id}/cancel', details);
+        if (mounted) Navigator.pop(context, true);
+      } on ApiException catch (error) {
+        if (mounted) _showMessage(context, error.message);
+      } finally {
+        if (mounted) setState(() => _deleting = false);
+      }
+    },
+    child: const Text('Cancel job'),
+  );
 
   Widget _deleteButton() {
     return SizedBox(
@@ -298,7 +367,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
           side: const BorderSide(color: Color(0xFFC62828)),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(34),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -309,6 +378,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('Delete this job?'),
         content: const Text(
           'This future job and its worker applications will be removed.',
@@ -359,20 +429,18 @@ class _JobDetailPageState extends State<JobDetailPage> {
       );
       return;
     }
-    if (!_isFullyStaffed) {
-      _showMessage(
-        context,
-        'All required workers must be accepted before completion.',
-      );
-      return;
-    }
+
+    if (!_awaitingOwnerAcknowledgement) return;
 
     setState(() => _completing = true);
     try {
       await OwnerService.completeDayJob(job.id);
       if (!mounted) return;
-      setState(() => _isCompleted = true);
-      _showMessage(context, 'Job completed successfully.');
+      setState(() {
+        _awaitingOwnerAcknowledgement = false;
+        _isCompleted = true;
+      });
+      _showMessage(context, 'Job completed! Both parties have confirmed.');
     } on ApiException catch (error) {
       if (mounted) _showMessage(context, error.message);
     } catch (_) {
@@ -383,37 +451,16 @@ class _JobDetailPageState extends State<JobDetailPage> {
   }
 
   Widget _header(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 8, 14, 8),
-      decoration: const BoxDecoration(
-        color: _detailBackground,
-        border: Border(bottom: BorderSide(color: Color(0xFFE9E2D9))),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, size: 32, color: _detailInk),
-          ),
-          const SizedBox(width: 4),
-          const Text(
-            'Job Detail',
-            style: TextStyle(
-              color: _detailInk,
-              fontSize: 23,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const Spacer(),
-          const SizedBox(width: 48),
-        ],
-      ),
-    );
+    return const OwnerHeader(title: 'Job Detail');
   }
 
   Widget _status() {
     final status = _isCompleted
         ? 'COMPLETED'
+        : _awaitingWorkerAcknowledgement
+        ? 'AWAITING WORKER'
+        : _awaitingOwnerAcknowledgement
+        ? 'WORKER COMPLETED'
         : _isFullyStaffed
         ? 'IN PROGRESS'
         : 'OPEN';
@@ -423,14 +470,14 @@ class _JobDetailPageState extends State<JobDetailPage> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: const Color(0xFFD8F1DF),
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Text(
           '●  NG-${job.id.toString().padLeft(3, '0')} · $status',
           style: const TextStyle(
             color: _detailGreen,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -442,8 +489,15 @@ class _JobDetailPageState extends State<JobDetailPage> {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFD5E3DB), width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kOwnerBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(8),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -452,14 +506,14 @@ class _JobDetailPageState extends State<JobDetailPage> {
             job.category,
             style: TextStyle(
               color: _detailInk,
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 3),
           const Text(
-            'Estate job',
-            style: TextStyle(color: Color(0xFF65766C), fontSize: 14),
+            'Land job',
+            style: TextStyle(color: kOwnerMuted, fontSize: 12),
           ),
           const SizedBox(height: 6),
           _infoTile(Icons.location_on_outlined, 'Location', job.location),
@@ -478,8 +532,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             decoration: BoxDecoration(
               color: const Color(0xFFFCFAF5),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: const Color(0xFFE7E0D4)),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: kOwnerBorder),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -487,7 +541,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                 const Expanded(
                   child: Text(
                     'Daily Rate',
-                    style: TextStyle(color: Color(0xFF65766C), fontSize: 14),
+                    style: TextStyle(color: kOwnerMuted, fontSize: 11.5),
                   ),
                 ),
                 Flexible(
@@ -497,7 +551,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: _detailGreen,
-                      fontSize: 19,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -515,8 +569,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: const Color(0xFFFCFAF5),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: const Color(0xFFE7E0D4)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: kOwnerBorder),
       ),
       child: Row(
         children: [
@@ -538,7 +592,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                   label,
                   style: const TextStyle(
                     color: Color(0xFF65766C),
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -546,7 +600,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                   value,
                   style: const TextStyle(
                     color: _detailInk,
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -564,8 +618,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _detailGreen, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kOwnerBorder),
       ),
       child: Column(
         children: [
@@ -586,8 +640,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
                   worker.name,
                   style: const TextStyle(
                     color: _detailInk,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -612,7 +666,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
                           jobId: job.id,
                           jobCategory: job.category,
                           currentJobRating: rating,
-                          canRate: _isCompleted,
+                          canRate:
+                              _isCompleted || _awaitingWorkerAcknowledgement || _awaitingOwnerAcknowledgement,
                         ),
                       ),
                     );
@@ -626,7 +681,9 @@ class _JobDetailPageState extends State<JobDetailPage> {
               Expanded(
                 child: _workerRatingButton(
                   rating: rating,
-                  onPressed: () => _showRatingSheet(worker),
+                  onPressed: _isCompleted || _awaitingWorkerAcknowledgement || _awaitingOwnerAcknowledgement
+                      ? () => _showRatingSheet(worker)
+                      : null,
                 ),
               ),
             ],
@@ -658,7 +715,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
           foregroundColor: foreground,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -667,7 +724,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
 
   Widget _workerRatingButton({
     required int? rating,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) {
     return SizedBox(
       height: 46,
@@ -678,7 +735,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
         child: rating == null
@@ -693,8 +750,9 @@ class _JobDetailPageState extends State<JobDetailPage> {
                   ),
                 ],
               )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+            : Wrap(
+                alignment: WrapAlignment.center,
+                runSpacing: 4,
                 children: [
                   for (var value = 1; value <= 5; value++)
                     Padding(
@@ -721,16 +779,19 @@ class _JobDetailPageState extends State<JobDetailPage> {
 
   Future<void> _showRatingSheet(AcceptedWorker worker) async {
     final rating = await showModalBottomSheet<int>(
+      useSafeArea: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _RatingSheet(
-        worker: _Worker(
-          worker.name,
-          Icons.person,
-          '${job.category} · NG-${job.id.toString().padLeft(3, '0')}',
+      builder: mobileSheetBuilder(
+        (_) => _RatingSheet(
+          worker: _Worker(
+            worker.name,
+            Icons.person,
+            '${job.category} · NG-${job.id.toString().padLeft(3, '0')}',
+          ),
+          initialRating: _workerRatings[worker.id],
         ),
-        initialRating: _workerRatings[worker.id],
       ),
     );
     if (rating == null || !mounted) return;
@@ -749,84 +810,6 @@ class _JobDetailPageState extends State<JobDetailPage> {
     } catch (_) {
       if (mounted) _showMessage(context, 'Could not save this rating.');
     }
-  }
-
-  Widget _bottomNavigation() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-      decoration: const BoxDecoration(
-        color: _detailBackground,
-        border: Border(top: BorderSide(color: Color(0xFFE4DED4))),
-      ),
-      child: Row(
-        children: [
-          _NavItem(
-            Icons.dashboard_outlined,
-            'Dashboard',
-            onTap: () => openTab(context, AppTab.dashboard),
-          ),
-          const _NavItem(Icons.calendar_month, 'Calendar', active: true),
-          _NavItem(
-            Icons.chat_bubble_outline,
-            'Chats',
-            onTap: () =>
-                openTab(context, AppTab.chats, chatScope: ChatScope.dayJobs),
-          ),
-          _NavItem(
-            Icons.notifications_none,
-            'Alerts',
-            onTap: () => openTab(context, AppTab.alerts),
-          ),
-          _NavItem(
-            Icons.person_outline,
-            'Profile',
-            onTap: () => openTab(context, AppTab.profile),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback? onTap;
-
-  const _NavItem(this.icon, this.label, {this.active = false, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? _detailGreen : const Color(0xFF65766C);
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(
-                color: active ? const Color(0xFFDDEEE0) : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 10.5,
-                fontWeight: active ? FontWeight.bold : FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

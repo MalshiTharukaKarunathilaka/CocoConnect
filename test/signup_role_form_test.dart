@@ -13,7 +13,7 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: SignupPage()));
       tester.takeException(); // test-font overflow in the existing phone row
 
-      expect(find.text('Your estate'), findsOneWidget);
+      expect(find.text('Your land'), findsOneWidget);
       expect(find.textContaining('I confirm my details'), findsOneWidget);
       expect(find.text('Machinery provider details'), findsNothing);
 
@@ -24,7 +24,7 @@ void main() {
       expect(find.text('Machinery provider details'), findsOneWidget);
       expect(find.text('NIC Number'), findsOneWidget);
       expect(find.textContaining('I confirm my details'), findsOneWidget);
-      expect(find.text('Your estate'), findsNothing);
+      expect(find.text('Your land'), findsNothing);
 
       await tester.tap(find.text('Buyer'));
       await tester.pumpAndSettle();

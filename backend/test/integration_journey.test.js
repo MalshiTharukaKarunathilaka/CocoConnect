@@ -1,5 +1,5 @@
 // One journey through the whole app with every account type, against the
-// in-memory database: estate owner, buyer, service provider and admin.
+// in-memory database: land owner, buyer, service provider and admin.
 // It checks the hand-offs between the sides (what one side does, the other
 // sees), not each route on its own. Run with: npm test
 const { test, before, after } = require("node:test");
@@ -125,7 +125,9 @@ test("OWNER -> BUYER: a harvest is listed, found, negotiated and bought", async 
   const done = await ok("POST", `/api/owner/orders/${orderId}/complete`, {
     token: owner.token, body: { deliveredQuantity: 1000, finalPricePerUnit: 126 },
   });
-  assert.equal(done.order.status, "COMPLETED");
+  assert.equal(done.order.status, "AWAITING_RECEIPT");
+  const receipt = await ok('PATCH', `/api/buyer/orders/${orderId}/confirm-receipt`, {token: buyer.token});
+  assert.equal(receipt.order.status, 'COMPLETED');
   const after = await ok("GET", "/api/activity", { token: buyer.token });
   assert.ok(after.transactions.some((t) => t.id === orderId), "the buyer sees it as a finished transaction");
   assert.ok(!after.deals.some((d) => d.id === orderId));
@@ -222,7 +224,13 @@ test("DEHUSKED_COCONUT: buyer request -> owner offer -> completed buyer order", 
       body: { deliveredQuantity: 350, finalPricePerUnit: 165 },
     }
   );
-  assert.equal(completed.order.status, "COMPLETED");
+  assert.equal(completed.order.status, "AWAITING_RECEIPT");
+  const confirmed = await ok(
+    "PATCH",
+    `/api/buyer/orders/${bought.order.id}/confirm-receipt`,
+    { token: buyer.token }
+  );
+  assert.equal(confirmed.order.status, "COMPLETED");
   const ownerOrders = await ok("GET", "/api/owner/orders", {
     token: owner.token,
   });
@@ -294,7 +302,7 @@ test("PROVIDER <-> OWNER: a machine is registered, requested, negotiated, confir
 
   // The owner cancels: both sides see it, and the time is free again.
   const cancelled = await ok("POST", `/api/machinery/bookings/${request.id}/cancel`, {
-    token: owner.token, body: { expected_version: booking.version },
+    token: owner.token, body: { reason: "Schedule changed", expected_version: booking.version },
   });
   assert.equal(cancelled.status, "CANCELLED");
   const seenByProvider = await ok("GET", `/api/machinery/bookings/${request.id}`, { token: provider.token });

@@ -1,4 +1,4 @@
-﻿const {test,before,after}=require('node:test');
+const {test,before,after}=require('node:test');
 const assert=require('node:assert/strict');
 process.env.DB_MODE='memory';process.env.PORT='5091';process.env.JWT_SECRET='machinery-test-secret';
 let server;const base='http://localhost:5091/api/machinery';
@@ -29,11 +29,16 @@ test('rates are validated, saved and visible in the owner machinery API',async()
 });
 test('owner creates real multi-service requests; unrelated users cannot read them',async()=>{
  first=await ok('POST',`/machines/${m.id}/bookings`,owner.token,payload(),201);
- overlap=await ok('POST',`/machines/${m.id}/bookings`,owner.token,payload(),201);
+ overlap=await ok('POST',`/machines/${m.id}/bookings`,owner.token,{...payload(),message:'Use the east gate.'},201);
+ assert.ok(overlap.messages.some(message=>message.message==='Use the east gate.'));
  assert.equal(Number(first.proposed_total),64400);assert.equal(first.items.length,2);assert.equal(first.status,'PENDING');
  assert.equal((await call('GET',`/bookings/${first.id}`,stranger.token)).status,404);
  assert.equal((await call('GET',`/bookings/${first.id}`,otherProvider.token)).status,404);
  const calendar=await ok('GET',`/provider/machines/${m.id}/calendar?month=2030-04`,provider.token);assert.equal(calendar.bookings.length,2);
+ const inbox=await ok('GET','/provider/bookings',provider.token);
+ assert.deepEqual(inbox.map(booking=>booking.id),[overlap.id,first.id]);
+ assert.deepEqual(await ok('GET','/provider/bookings',otherProvider.token),[]);
+ assert.equal((await call('GET','/provider/bookings',owner.token)).status,403);
  await ok('PUT',`/provider/machines/${m.id}/rates`,provider.token,{name:'Disc Ploughing',unit:'acre',rate:7000});
  const saved=await ok('GET',`/bookings/${first.id}`,owner.token);assert.equal(Number(saved.items[0].rate),6800);
 });
@@ -94,8 +99,9 @@ test('maintenance persists, blocks requests, and can be reopened without changin
 
 
 test('owner cancellation releases confirmed intervals and remains visible to both participants',async()=>{
- assert.equal((await call('POST',`/bookings/${first.id}/cancel`,provider.token,{expected_version:first.version})).status,403);
- const cancelled=await ok('POST',`/bookings/${first.id}/cancel`,owner.token,{expected_version:first.version});
+ assert.equal((await call('POST',`/bookings/${first.id}/cancel`,otherProvider.token,{expected_version:first.version,reason:'Schedule changed'})).status,404);
+ const cancelled=await ok('POST',`/bookings/${first.id}/cancel`,provider.token,{expected_version:first.version,reason:'Schedule changed'});
+ assert.equal(cancelled.cancel_reason,'Schedule changed');
  assert.equal(cancelled.status,'CANCELLED');
  const sameInterval=await ok('POST',`/machines/${m.id}/bookings`,owner.token,payload(),201);
  const confirmed=await ok('POST',`/bookings/${sameInterval.id}/accept`,provider.token,{expected_version:sameInterval.version});assert.equal(confirmed.status,'CONFIRMED');
@@ -131,4 +137,28 @@ test('service catalog and pricing units match each machinery type',async()=>{
  }
  const hand=fleet.find(machine=>machine.category==='Hand Tractor');
  assert.equal((await call('PUT',`/provider/machines/${hand.id}/rates`,otherProvider.token,{name:'Weeding',unit:'acre',rate:1000})).status,400);
+});
+
+
+test('only the booked provider can complete past confirmed work and rate its owner once',async()=>{
+ const pool=require('../config/db');
+ const pending=(await ok('GET','/bookings',owner.token)).find(b=>b.status==='PENDING');
+ assert.equal((await call('POST',`/bookings/${pending.id}/complete-and-rate`,provider.token,{rating:5})).status,409);
+ const confirmed=(await ok('GET','/bookings',owner.token)).find(b=>b.status==='CONFIRMED');
+ const path=`/bookings/${confirmed.id}/complete-and-rate`;
+ assert.equal((await call('POST',path,provider.token,{rating:5})).status,409,'future work cannot be rated');
+ assert.equal((await call('POST',path,owner.token,{rating:5})).status,403);
+ assert.equal((await call('POST',path,otherProvider.token,{rating:5})).status,404);
+ await pool.query("UPDATE machinery_bookings SET starts_at='2020-01-01T00:00:00Z',ends_at='2020-01-01T01:00:00Z' WHERE id=$1",[confirmed.id]);
+ for(const rating of [0,6,2.5,'5',null]) assert.equal((await call('POST',path,provider.token,{rating})).status,400);
+ const finish=`/bookings/${confirmed.id}/finish-work`;
+ const confirm=`/bookings/${confirmed.id}/confirm-work`;
+ assert.equal((await call('POST',confirm,owner.token)).status,409);
+ assert.ok((await ok('POST',finish,provider.token)).work_finished_at);
+ assert.equal((await call('POST',path,provider.token,{rating:4})).status,409);
+ assert.ok((await ok('POST',confirm,owner.token)).work_confirmed_at);
+ assert.equal((await ok('POST',`/bookings/${confirmed.id}/rate-provider`,owner.token,{rating:5})).provider_rating,5);
+ const saved=await ok('POST',path,provider.token,{rating:4});assert.equal(saved.land_owner_rating,4);assert.ok(saved.work_completed_at);
+ assert.equal((await call('POST',path,provider.token,{rating:1})).status,409);
+ assert.equal((await ok('GET',`/bookings/${confirmed.id}`,owner.token)).land_owner_rating,4);
 });

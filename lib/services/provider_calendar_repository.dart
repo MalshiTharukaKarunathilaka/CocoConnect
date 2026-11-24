@@ -70,8 +70,8 @@ class PreviewProviderCalendarRepository implements ProviderCalendarRepository {
             machineId: 'preview-tractor-1',
             ownerName: entry.$2,
             estateName: entry.$2 == 'Gamini Perera'
-                ? 'Green Valley Estate'
-                : 'Coconut Grove Estate',
+                ? 'Green Valley Land'
+                : 'Coconut Grove Land',
             address: 'Narammala Road, Kurunegala',
             phone: '0771234567',
             machinery: 'Tractor',

@@ -1,3 +1,4 @@
+import '../widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/activity_service.dart';
@@ -16,7 +17,7 @@ Future<bool> openCompleteDeal(BuildContext context, int orderId) async {
   return done == true;
 }
 
-/// The estate owner records what was actually delivered. A final price
+/// The land owner records what the buyer actually collected at the estate. A final price
 /// different from the agreed one is flagged for admin approval; the agreed
 /// price stays protected until then.
 class CompleteDealPage extends StatefulWidget {
@@ -29,8 +30,8 @@ class CompleteDealPage extends StatefulWidget {
 }
 
 class _CompleteDealPageState extends State<CompleteDealPage> {
-  final _quantityController = TextEditingController(text: '0');
-  final _priceController = TextEditingController(text: '0.00');
+  final _quantityController = TextEditingController();
+  final _priceController = TextEditingController();
   final _noteController = TextEditingController();
 
   late Future<OrderItem> _deal = _find();
@@ -50,6 +51,12 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
   Future<OrderItem> _find() async {
     final OrderItem? deal = await ActivityService.findOrder(widget.orderId);
     if (deal == null) throw const ApiException('This deal was not found');
+    if (mounted) {
+      _quantityController.text = deal.quantity > 0 ? '${deal.quantity}' : '';
+      _priceController.text = deal.pricePerUnit > 0
+          ? deal.pricePerUnit.toString()
+          : '';
+    }
     return deal;
   }
 
@@ -110,12 +117,13 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
         requestPriceReview: diff != 0,
         disputeNote: _noteController.text.trim(),
       );
+      Unread.refresh();
       if (!mounted) return;
       _snack(
         diff == 0
-            ? 'Deal completed: ${withCommas(quantity)} nuts, total '
+            ? 'Collection recorded. Waiting for buyer confirmation: ${withCommas(quantity)} nuts, total '
                   '${rupees(quantity * price)}'
-            : 'Deal completed. ${rupees(price)}/nut sent for admin approval; '
+            : 'Collection recorded. Waiting for buyer confirmation. ${rupees(price)}/nut sent for admin approval; '
                   '${rupees(deal.pricePerUnit)}/nut applies until then.',
       );
       Navigator.pop(context, true);
@@ -129,6 +137,7 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
   @override
   Widget build(BuildContext context) {
     return OwnerPage(
+      currentTab: AppTab.orders,
       child: FutureBuilder<OrderItem>(
         future: _deal,
         builder: (context, snapshot) {
@@ -161,15 +170,16 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
       );
     }
     final OrderItem deal = snapshot.data!;
-    if (deal.isCompleted) {
+    if (deal.isCompleted || deal.awaitingReceipt) {
       return const OwnerMessage(
         icon: Icons.verified_outlined,
-        text: 'This deal is already completed.',
+        text: 'Seller completion has already been recorded.',
       );
     }
 
     final double? diff = _difference(deal);
     final bool differs = diff != null && diff != 0;
+    final bool isHuskDeal = deal.productType.toUpperCase() == 'COCONUT_HUSK';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -181,7 +191,7 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'ACTUAL FULFILLMENT',
+                'COLLECTION DETAILS',
                 style: TextStyle(
                   fontSize: 12,
                   letterSpacing: 0.6,
@@ -191,15 +201,15 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
               ),
               const SizedBox(height: 3),
               const Text(
-                'Enter actual quantities and final settled rates',
+                'Enter the quantity collected by the buyer at your land and the final settled price',
                 style: TextStyle(fontSize: 12.5, color: kOwnerMuted),
               ),
               const SizedBox(height: 16),
-              _label('Actual Deal Quantity(nuts)'),
+              _label('Quantity collected (nuts)'),
               const SizedBox(height: 8),
               _Field(
                 controller: _quantityController,
-                hint: '0',
+                hint: 'Enter quantity',
                 error: _quantityError,
                 enabled: !_saving,
                 keyboard: TextInputType.number,
@@ -208,7 +218,13 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
               const SizedBox(height: 18),
               Row(
                 children: [
-                  Expanded(child: _label('Final Price per Coconut (Rs.)')),
+                  Expanded(
+                    child: _label(
+                      isHuskDeal
+                          ? 'Final Price per Husk (Rs.)'
+                          : 'Final Price per Coconut (Rs.)',
+                    ),
+                  ),
                   Text(
                     'Agreed: ${rupees(deal.pricePerUnit)}',
                     style: const TextStyle(fontSize: 12, color: kOwnerMuted),
@@ -218,7 +234,7 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
               const SizedBox(height: 8),
               _Field(
                 controller: _priceController,
-                hint: '0.00',
+                hint: 'Enter price',
                 prefix: 'Rs. ',
                 error: _priceError,
                 enabled: !_saving,
@@ -267,7 +283,7 @@ class _CompleteDealPageState extends State<CompleteDealPage> {
         ],
         const SizedBox(height: 20),
         OwnerPrimaryButton(
-          label: _saving ? 'Completing...' : 'Complete Deal',
+          label: _saving ? 'Recording collection...' : 'Complete Transaction',
           onPressed: _saving || (differs && !_flagged)
               ? null
               : () => _submit(deal),
@@ -338,7 +354,7 @@ class _Header extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Complete Deal',
+                  'Complete Transaction',
                   style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.bold,
@@ -353,7 +369,7 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          const OwnerPill('Estate Owner'),
+          const OwnerPill('Land Owner'),
         ],
       ),
     );

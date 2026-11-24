@@ -1,3 +1,4 @@
+import '../widgets/mobile_sheet.dart';
 import 'package:flutter/material.dart';
 
 /// KapConnect design system tokens. See DESIGN_SYSTEM.md in the repository.
@@ -30,6 +31,11 @@ class AppColors {
   static const Color warningSoft = Color(0xFFF7EFDF);
   static const Color info = Color(0xFF2F7396);
   static const Color infoSoft = Color(0xFFE4EFF5);
+
+  // Auto-filled field tokens
+  static const Color autoFilledBackground = Color(0xFFE8F3EA);
+  static const Color autoFilledInk = Color(0xFF1E2A22);
+  static const Color autoFilledBorder = Color(0xFFC5DFCB);
 }
 
 class AppRadius {
@@ -148,8 +154,10 @@ class AppThemeScope extends StatelessWidget {
         ),
       ),
       dialogTheme: DialogThemeData(
+        constraints: AppTheme.dialogConstraints,
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
+        insetPadding: AppTheme.dialogInsets,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.callout),
         ),
@@ -157,6 +165,7 @@ class AppThemeScope extends StatelessWidget {
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
+        constraints: AppTheme.sheetConstraints,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppRadius.callout),
@@ -259,8 +268,8 @@ Future<T?> showThemedDialog<T>({
 Future<T?> showThemedBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
-  bool isScrollControlled = false,
-  bool useSafeArea = false,
+  bool isScrollControlled = true,
+  bool useSafeArea = true,
   bool showDragHandle = false,
   Color? backgroundColor,
   BoxConstraints? constraints,
@@ -271,18 +280,49 @@ Future<T?> showThemedBottomSheet<T>({
   showDragHandle: showDragHandle,
   backgroundColor: backgroundColor,
   constraints: constraints,
-  builder: (ctx) => AppThemeScope(child: Builder(builder: builder)),
+  builder: mobileSheetBuilder(
+    (ctx) => AppThemeScope(child: Builder(builder: builder)),
+  ),
 );
 
 /// The pickers take their theme from here.
 Widget themedPicker(BuildContext context, Widget? child) =>
-    AppThemeScope(child: child ?? const SizedBox.shrink());
+    AppThemeScope(
+      child: Builder(
+        builder: (context) {
+          final media = MediaQuery.of(context);
+          return MediaQuery(
+            data: media.copyWith(
+              size: Size(
+                media.size.width.clamp(0.0, AppTheme.sheetConstraints.maxWidth),
+                media.size.height,
+              ),
+            ),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+      ),
+    );
 
 /// The app-wide theme, the same look as before (Material 3 with Arial).
 class AppTheme {
   AppTheme._();
 
-  static ThemeData light() => ThemeData(useMaterial3: true, fontFamily: 'Arial');
+  static const dialogInsets = EdgeInsets.symmetric(horizontal: 12, vertical: 12);
+  static const dialogConstraints = BoxConstraints(maxWidth: 398);
+  static const sheetConstraints = BoxConstraints(maxWidth: 430);
+
+  static ThemeData light() => ThemeData(
+    useMaterial3: true,
+    fontFamily: 'Arial',
+    dialogTheme: const DialogThemeData(
+      insetPadding: dialogInsets,
+      constraints: dialogConstraints,
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      constraints: sheetConstraints,
+    ),
+  );
 }
 
 /// A small coloured label for a status such as "Accepted" or "Pending Ack".
@@ -300,11 +340,18 @@ class StatusPill extends StatelessWidget {
   factory StatusPill.forStatus(String status) {
     switch (status) {
       case 'Pending Ack':
+      case 'Processing':
+        return const StatusPill(
+          'Processing',
+          fg: AppColors.warning,
+          bg: AppColors.warningSoft,
+        );
       case 'Negotiating':
       case 'Negotiation':
+      case 'In talk':
       case 'Submitted':
         return StatusPill(
-          status,
+          status == 'Negotiating' ? 'In talk' : status,
           fg: AppColors.warning,
           bg: AppColors.warningSoft,
         );
@@ -317,31 +364,32 @@ class StatusPill extends StatelessWidget {
         );
       case 'Accepted':
       case 'Receipt Confirmed':
-      case 'Distributed':
+      case 'Stock Confirmed':
         return const StatusPill('Accepted');
-      default:
-        return StatusPill(
-          status,
+      case 'Delivered':
+      case 'Distributed':
+        return const StatusPill(
+          'Delivered',
           fg: AppColors.info,
           bg: AppColors.infoSoft,
         );
+      case 'Completed':
+        return const StatusPill('Completed');
+      default:
+        return StatusPill(status, fg: AppColors.info, bg: AppColors.infoSoft);
     }
   }
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: fg,
-            fontSize: 11.5,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(color: fg, fontSize: 11.5, fontWeight: FontWeight.w600),
+    ),
+  );
 }

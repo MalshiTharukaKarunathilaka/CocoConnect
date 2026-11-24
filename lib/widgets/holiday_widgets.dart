@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/holiday_service.dart';
 import '../theme/app_theme.dart';
 
-/// Small party-popper mark for a holiday on a calendar day.
+/// Red star mark for a holiday on a calendar day.
 class HolidayFlag extends StatelessWidget {
   final bool onDark;
   final double size;
@@ -11,9 +11,9 @@ class HolidayFlag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Icon(
-    Icons.celebration_rounded,
+    Icons.star,
     size: size,
-    color: onDark ? AppColors.gold : AppColors.warning,
+    color: Colors.red,
   );
 }
 

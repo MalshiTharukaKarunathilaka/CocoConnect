@@ -1,3 +1,4 @@
+import '../widgets/role_navigation_page.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -150,179 +151,180 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          FlutterMap(
-            mapController: _map,
-            options: MapOptions(
-              initialCenter: _center,
-              initialZoom: widget.initial == null ? 7.5 : 14,
-              onPositionChanged: (camera, hasGesture) {
-                _center = camera.center;
-                if (hasGesture) _nameSoon();
-              },
-            ),
-            children: [
-              kapConnectMapTiles(),
-              const SimpleAttributionWidget(
-                source: Text('OpenStreetMap contributors'),
+    return RoleNavigationPage(
+      current: AppTab.dashboard,
+      child: Scaffold(
+        body: Stack(
+          children: [
+            FlutterMap(
+              mapController: _map,
+              options: MapOptions(
+                initialCenter: _center,
+                initialZoom: widget.initial == null ? 7.5 : 14,
+                onPositionChanged: (camera, hasGesture) {
+                  _center = camera.center;
+                  if (hasGesture) _nameSoon();
+                },
               ),
-            ],
-          ),
+              children: [
+                kapConnectMapTiles(),
+                const KapConnectMapAttribution(),
+              ],
+            ),
 
-          // The pin's tip marks the centre of the map.
-          const IgnorePointer(
-            child: Center(
+            // The pin's tip marks the centre of the map.
+            const IgnorePointer(
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: 44),
+                  child: Icon(Icons.location_on, size: 48, color: _red),
+                ),
+              ),
+            ),
+
+            SafeArea(
               child: Padding(
-                padding: EdgeInsets.only(bottom: 44),
-                child: Icon(Icons.location_on, size: 48, color: _red),
-              ),
-            ),
-          ),
-
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-              child: Column(
-                children: [
-                  Material(
-                    elevation: 3,
-                    borderRadius: BorderRadius.circular(14),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            textInputAction: TextInputAction.search,
-                            onSubmitted: (_) => _search(),
-                            decoration: const InputDecoration(
-                              hintText: 'Search a town, e.g. Kurunegala',
-                              border: InputBorder.none,
-                            ),
-                          ),
-                        ),
-                        _searching
-                            ? const Padding(
-                                padding: EdgeInsets.all(14),
-                                child: SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: _green,
-                                  ),
-                                ),
-                              )
-                            : IconButton(
-                                icon: const Icon(Icons.search, color: _green),
-                                onPressed: _search,
-                              ),
-                      ],
-                    ),
-                  ),
-                  if (_results.isNotEmpty)
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                child: Column(
+                  children: [
                     Material(
                       elevation: 3,
                       borderRadius: BorderRadius.circular(14),
-                      child: Column(
+                      child: Row(
                         children: [
-                          for (final place in _results)
-                            ListTile(
-                              dense: true,
-                              leading: const Icon(Icons.place_outlined),
-                              title: Text(place.name),
-                              onTap: () => _moveTo(
-                                LatLng(place.latitude, place.longitude),
-                                name: place.name,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-
-          Positioned(
-            left: 12,
-            right: 12,
-            bottom: 16,
-            child: SafeArea(
-              top: false,
-              child: Material(
-                elevation: 4,
-                borderRadius: BorderRadius.circular(16),
-                color: Colors.white,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'Drag the map to put the pin on your place',
-                        style: TextStyle(fontSize: 12, color: Colors.black54),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          const Icon(Icons.place, color: _green, size: 20),
-                          const SizedBox(width: 6),
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back),
+                            onPressed: () => Navigator.pop(context),
+                          ),
                           Expanded(
-                            child: Text(
-                              _naming
-                                  ? 'Finding place name...'
-                                  : _name ?? 'Unnamed place',
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
+                            child: TextField(
+                              controller: _searchController,
+                              textInputAction: TextInputAction.search,
+                              onSubmitted: (_) => _search(),
+                              decoration: const InputDecoration(
+                                hintText: 'Search a town, e.g. Kurunegala',
+                                border: InputBorder.none,
                               ),
                             ),
                           ),
+                          _searching
+                              ? const Padding(
+                                  padding: EdgeInsets.all(14),
+                                  child: SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: _green,
+                                    ),
+                                  ),
+                                )
+                              : IconButton(
+                                  icon: const Icon(Icons.search, color: _green),
+                                  onPressed: _search,
+                                ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: _locating ? null : _useCurrentLocation,
-                        icon: _locating
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                    ),
+                    if (_results.isNotEmpty)
+                      Material(
+                        elevation: 3,
+                        borderRadius: BorderRadius.circular(14),
+                        child: Column(
+                          children: [
+                            for (final place in _results)
+                              ListTile(
+                                dense: true,
+                                leading: const Icon(Icons.place_outlined),
+                                title: Text(place.name),
+                                onTap: () => _moveTo(
+                                  LatLng(place.latitude, place.longitude),
+                                  name: place.name,
                                 ),
-                              )
-                            : const Icon(Icons.my_location, size: 18),
-                        label: const Text('Use my current location'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: _green,
-                          side: const BorderSide(color: _green),
-                          minimumSize: const Size.fromHeight(44),
+                              ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      ElevatedButton(
-                        onPressed: _naming ? null : _confirm,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _green,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size.fromHeight(48),
+                  ],
+                ),
+              ),
+            ),
+
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 16,
+              child: SafeArea(
+                top: false,
+                child: Material(
+                  elevation: 4,
+                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.white,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Drag the map to put the pin on your place',
+                          style: TextStyle(fontSize: 12, color: Colors.black54),
                         ),
-                        child: const Text('Confirm Location'),
-                      ),
-                    ],
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(Icons.place, color: _green, size: 20),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _naming
+                                    ? 'Finding place name...'
+                                    : _name ?? 'Unnamed place',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _locating ? null : _useCurrentLocation,
+                          icon: _locating
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.my_location, size: 18),
+                          label: const Text('Use my current location'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _green,
+                            side: const BorderSide(color: _green),
+                            minimumSize: const Size.fromHeight(44),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: _naming ? null : _confirm,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _green,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(48),
+                          ),
+                          child: const Text('Confirm Location'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

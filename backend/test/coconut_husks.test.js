@@ -41,9 +41,9 @@ before(async () => {
 
 after(() => server.close());
 
-test("coconut husks flow from estate listing through buyer marketplace", async () => {
+test("only husks flow from estate listing through buyer marketplace", async () => {
   const owner = await signup(
-    "Husk Estate Owner",
+    "Husk Land Owner",
     "0715550107",
     "ESTATE_OWNER",
     "Kurunegala"

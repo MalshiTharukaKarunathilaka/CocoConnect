@@ -51,7 +51,7 @@ const ensureJobApplication = async (db, jobId, workerId, ownerUserId) => {
      WHERE dj.id = $1
        AND dja.worker_id = $2
        AND eo.user_id = $3
-       AND UPPER(COALESCE(dja.status, 'PENDING')) IN ('PENDING', 'ACCEPTED')`,
+       AND UPPER(COALESCE(dja.status, 'PENDING')) IN ('PENDING', 'ACCEPTED', 'COMPLETED')`,
     [jobId, workerId, ownerUserId]
   );
   return result.rows.length > 0;
@@ -85,12 +85,12 @@ const createChat = async (req, res) => {
         return res.status(400).json({ message: "Worker is required" });
       }
     } else {
-      return res.status(403).json({ message: "Only workers and estate owners can chat" });
+      return res.status(403).json({ message: "Only workers and land owners can chat" });
     }
 
     if (!(await ensureJobApplication(pool, jobId, workerId, ownerUserId))) {
       return res.status(403).json({
-        message: "Apply for this job before negotiating with the estate owner",
+        message: "Apply for this job before negotiating with the land owner",
       });
     }
 

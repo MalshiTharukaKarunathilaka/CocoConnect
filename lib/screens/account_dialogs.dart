@@ -1,5 +1,5 @@
+import '../widgets/auto_filled_field.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/location_service.dart';
@@ -12,17 +12,22 @@ const Color _green = Color(0xFF2E7D32);
 const Color _grey = Color(0xFF777777);
 const Color _red = Color(0xFFC62828);
 
-/// "ESTATE_OWNER" -> "Estate Owner"
+/// "ESTATE_OWNER" -> "Land Owner"
 String roleLabel(String role) =>
     const {
       'BUYER': 'Buyer',
-      'ESTATE_OWNER': 'Estate Owner',
-      'ESTATE_MANAGER': 'Estate Manager',
+      'ESTATE_OWNER': 'Land Owner',
+      'ESTATE_MANAGER': 'Land Manager',
       'SERVICE_PROVIDER': 'Service Provider',
+      'WORKER': 'Day Job Worker',
+      'FERTILIZER_SUPPLIER': 'Fertilizer Supplier',
+      'CDO': 'Coconut Development Officer',
+      'REGIONAL_MANAGER': 'Regional Manager',
+      'CHAIRMAN': 'Chairman',
     }[role] ??
     role;
 
-/// Up to two initials: "Green Hills Estate" -> "GH".
+/// Up to two initials: "Green Hills Land" -> "GH".
 String initialsOf(String name) {
   final List<String> words = name
       .trim()
@@ -38,11 +43,9 @@ Future<void> confirmLogOut(BuildContext context) async {
   final bool? ok = await showThemedDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Log out?'),
-      content: const Text(
-        'You will need your phone number and password to '
-        'log in again.',
-      ),
+      scrollable: true,
+      title: const Text('Log Out'),
+      content: const Text('Are you sure you want to log out?'),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, false),
@@ -51,7 +54,7 @@ Future<void> confirmLogOut(BuildContext context) async {
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, true),
           style: TextButton.styleFrom(foregroundColor: _red),
-          child: const Text('Log out'),
+          child: const Text('Log Out'),
         ),
       ],
     ),
@@ -155,6 +158,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('Edit Profile'),
       content: SingleChildScrollView(
         child: Column(
@@ -181,9 +185,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'Phone ${widget.user.phone} is your login and can\'t be changed.',
-              style: const TextStyle(fontSize: 12, color: _grey),
+            AutoFilledValue(
+              label: 'Phone',
+              value: widget.user.phone,
+              helper: 'Your login phone number cannot be changed here.',
             ),
             _errorText(_error),
           ],
@@ -204,7 +209,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
 }
 
 /// The fields in the estate dialog, so a tapped row can open it on that field.
-enum EstateField { name, location, area, crop, year }
+enum EstateField { name, location, area, crop }
 
 /// Estate details buyers see on listings and offers. Pops `true` when saved.
 /// Pass [focus] to start with one field selected.
@@ -239,9 +244,6 @@ class _EditEstateDialogState extends State<EditEstateDialog> {
   late final _cropController = TextEditingController(
     text: widget.estate.primaryCrop ?? '',
   );
-  late final _yearController = TextEditingController(
-    text: widget.estate.yearEstablished?.toString() ?? '',
-  );
   String? _error;
   bool _saving = false;
 
@@ -251,14 +253,13 @@ class _EditEstateDialogState extends State<EditEstateDialog> {
     _locationController.dispose();
     _areaController.dispose();
     _cropController.dispose();
-    _yearController.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     final String name = _nameController.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = 'Estate name is required');
+      setState(() => _error = 'Land name is required');
       return;
     }
 
@@ -272,10 +273,10 @@ class _EditEstateDialogState extends State<EditEstateDialog> {
         location: _locationController.text.trim(),
         totalLandArea: _areaController.text.trim(),
         primaryCrop: _cropController.text.trim(),
-        yearEstablished: _yearController.text.trim(),
+        yearEstablished: widget.estate.yearEstablished?.toString(),
       );
       if (!mounted) return;
-      _saved(context, 'Estate updated');
+      _saved(context, 'Land updated');
       Navigator.pop(context, true);
     } on ApiException catch (error) {
       if (mounted) {
@@ -290,7 +291,8 @@ class _EditEstateDialogState extends State<EditEstateDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Edit Estate'),
+      scrollable: true,
+      title: const Text('Edit Land'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -300,7 +302,7 @@ class _EditEstateDialogState extends State<EditEstateDialog> {
               controller: _nameController,
               autofocus: widget.focus == EstateField.name,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Estate name'),
+              decoration: const InputDecoration(labelText: 'Land name'),
             ),
             const SizedBox(height: 10),
             TextField(
@@ -331,23 +333,9 @@ class _EditEstateDialogState extends State<EditEstateDialog> {
                 hintText: 'e.g. Coconut',
               ),
             ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _yearController,
-              autofocus: widget.focus == EstateField.year,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(4),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Year established',
-                hintText: 'e.g. 2015',
-              ),
-            ),
             const SizedBox(height: 12),
             const Text(
-              'Buyers see your estate name and location on listings and '
+              'Buyers see your land name and location on listings and '
               'offers.',
               style: TextStyle(fontSize: 12, color: _grey),
             ),

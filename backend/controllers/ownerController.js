@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { coconutTrustScores, coconutCounterpartProfile } = require("./coconutReviewController");
 const {
   parseCoords,
   parseRadius,
@@ -9,7 +10,7 @@ const {
   withDueDate,
   DUE_DATE_COLUMNS,
 } = require("../utils/geo");
-const { postMessage, openOfferChat } = require("./chatController");
+const { postMessage, openOfferChat, postDealEvent, postOrderEvent } = require("./chatController");
 
 /** Today as "YYYY-MM-DD" in the server's local time zone. */
 const localToday = () => {
@@ -42,7 +43,7 @@ const serverError = (res, label, error) => {
 |--------------------------------------------------------------------------
 | MY ESTATE
 |--------------------------------------------------------------------------
-| Every estate owner login is linked to one estate_owners row. It is created
+| Every land owner login is linked to one estate_owners row. It is created
 | on first use, named after the owner until they rename it.
 */
 const getOwnEstate = async (db, userId) => {
@@ -83,7 +84,7 @@ const updateEstate = async (req, res) => {
     const year = yearText === null ? null : Number(yearText);
 
     if (!estateName) {
-      return res.status(400).json({ message: "Estate name is required" });
+      return res.status(400).json({ message: "Land name is required" });
     }
     if (year !== null && !(Number.isInteger(year) && year >= 1800 && year <= 2100)) {
       return res.status(400).json({ message: "Enter a valid year, e.g. 2015" });
@@ -145,14 +146,50 @@ const getSummary = async (req, res) => {
        WHERE estate_owner_id = $1 AND status = 'pending'`
     );
     const ordersActive = await count(
-      `SELECT COUNT(*) AS count ${myOrders} AND o.status = 'ACCEPTED'`
+      `SELECT COUNT(*) AS count ${myOrders} AND o.status IN ('ACCEPTED', 'AWAITING_RECEIPT')`
     );
     const ordersCompleted = await count(
       `SELECT COUNT(*) AS count ${myOrders} AND o.status = 'COMPLETED'`
     );
 
+    // Each received rating has equal weight; missing ratings are not zeroes.
+    const source = async (key, label, sql, params) => {
+      const row = (await pool.query(sql, params)).rows[0];
+      const count = Number(row.rating_count || 0);
+      const total = Number(row.rating_total || 0);
+      return {key, label, rating_count: count, rating_total: total,
+        average_rating: count ? total / count : null};
+    };
+    const ratingSources = await Promise.all([
+      source('coconut_sales', 'Coconut sales',
+        `SELECT SUM(o.buyer_rating) AS rating_total, COUNT(o.buyer_rating)::integer AS rating_count
+         FROM orders o WHERE o.status = 'COMPLETED' AND o.buyer_rating BETWEEN 1 AND 5
+         AND (o.listing_id IN (SELECT id FROM product_listings WHERE estate_owner_id = $1)
+           OR o.buyer_request_id IN (SELECT buyer_request_id FROM sell_requests
+             WHERE estate_owner_id = $1 AND status = 'accepted'))`, [estate.id]),
+      source('day_jobs', 'Day jobs',
+        `SELECT SUM(a.estate_owner_rating) AS rating_total, COUNT(a.estate_owner_rating)::integer AS rating_count
+         FROM day_job_applications a JOIN day_jobs j ON j.id = a.day_job_id
+         WHERE j.estate_owner_id = $1 AND UPPER(j.status) = 'COMPLETED'
+           AND UPPER(a.status) IN ('ACCEPTED', 'COMPLETED') AND a.estate_owner_rating BETWEEN 1 AND 5`, [estate.id]),
+      source('machinery', 'Machinery bookings',
+        `SELECT SUM(f.rating) AS rating_total, COUNT(f.rating)::integer AS rating_count
+         FROM machinery_booking_feedback f JOIN machinery_bookings b ON b.id = f.booking_id
+         WHERE f.owner_user_id = $1 AND b.status = 'CONFIRMED'`, [req.user.id]),
+      source('fertilizer', 'Fertilizer orders',
+        `SELECT SUM(land_owner_rating) AS rating_total, COUNT(land_owner_rating)::integer AS rating_count
+         FROM fertilizer_orders WHERE owner_user_id = $1 AND status = 'DELIVERED'
+           AND land_owner_rating BETWEEN 1 AND 5`, [req.user.id]),
+    ]);
+    const ratingCount = ratingSources.reduce((total, item) => total + item.rating_count, 0);
+    const ratingTotal = ratingSources.reduce((total, item) => total + item.rating_total, 0);
+    const averageRating = ratingCount ? ratingTotal / ratingCount : null;
+
     return res.status(200).json({
       estate,
+      average_rating: averageRating,
+      rating_count: ratingCount,
+      rating_sources: ratingSources,
       active_listings: activeListings,
       open_chats: openChats,
       offers_waiting: offersWaiting,
@@ -305,12 +342,34 @@ const getBuyerRequests = async (req, res) => {
       );
     }
 
+    const ids = [...new Set(rows.map(row => row.buyer_id).filter(id => id != null))];
+    const scores = await coconutTrustScores(ids, "BUYER");
     // Buyers' coordinates stay on the server; owners only see the distance.
-    return res
-      .status(200)
-      .json(rows.map(({ latitude, longitude, ...row }) => row));
+    const requests = rows.map(({ latitude, longitude, ...row }) => ({
+      ...row, trust_score: scores.get(row.buyer_id) ?? null,
+    }));
+    if (req.query.sort === "trust") {
+      requests.sort((a, b) => (b.trust_score ?? 0) - (a.trust_score ?? 0));
+    }
+    return res.status(200).json(requests);
   } catch (error) {
     return serverError(res, "Get buyer requests", error);
+  }
+};
+
+const getBuyerRequestProfile = async (req, res) => {
+  try {
+    const {rows: [request]} = await pool.query(
+      `SELECT buyer_id, buyer_name, location FROM buyer_requests
+       WHERE id = $1 AND UPPER(COALESCE(status, 'PENDING')) = 'PENDING'`,
+      [req.params.id],
+    );
+    if (!request) return res.status(404).json({message: "Buyer request not found"});
+    const profile = await coconutCounterpartProfile(
+      request.buyer_id, "BUYER", request.buyer_name);
+    return res.json({...profile, location: profile.location || request.location});
+  } catch (error) {
+    return serverError(res, "Get buyer request profile", error);
   }
 };
 
@@ -460,6 +519,7 @@ const getMySellRequests = async (req, res) => {
       `SELECT
         sr.*,
         br.buyer_name,
+        br.buyer_id,
         br.location AS buyer_location,
         br.requested_quantity,
         br.required_date,
@@ -475,7 +535,11 @@ const getMySellRequests = async (req, res) => {
       [estate.id]
     );
 
-    return res.status(200).json(result.rows);
+    const ids = [...new Set(result.rows.map(row => row.buyer_id).filter(id => id != null))];
+    const scores = await coconutTrustScores(ids, "BUYER");
+    return res.status(200).json(result.rows.map(({buyer_id, ...offer}) => ({
+      ...offer, counterpart_trust_score: scores.get(buyer_id) ?? null,
+    })));
   } catch (error) {
     return serverError(res, "Get my sell requests", error);
   }
@@ -697,7 +761,7 @@ const getMyOrders = async (req, res) => {
 |--------------------------------------------------------------------------
 | ACCEPT THE BUYER'S OFFER -> creates an order
 |--------------------------------------------------------------------------
-| The estate owner agrees to the buyer's latest counter-offer, or the listed
+| The land owner agrees to the buyer's latest counter-offer, or the listed
 | price if the buyer hasn't made one.
 */
 const acceptNegotiation = async (req, res) => {
@@ -755,6 +819,7 @@ const acceptNegotiation = async (req, res) => {
       [negotiation.id, order.rows[0].id]
     );
 
+    await postDealEvent(client, negotiation.id, req.user.id, 'accepted', finalPrice);
     await client.query("COMMIT");
 
     return res.status(201).json({
@@ -771,10 +836,11 @@ const acceptNegotiation = async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| COMPLETE A DEAL with what was actually delivered
+| COMPLETE A DEAL with what the buyer actually collected at the estate
 |--------------------------------------------------------------------------
 */
 const completeOrder = async (req, res) => {
+  const client = await pool.connect();
   try {
     const deliveredQuantity = Number(req.body.deliveredQuantity);
     const finalPrice = Number(req.body.finalPricePerUnit);
@@ -783,7 +849,7 @@ const completeOrder = async (req, res) => {
 
     if (!Number.isInteger(deliveredQuantity) || deliveredQuantity <= 0) {
       return res.status(400).json({
-        message: "Enter the number of nuts actually delivered",
+        message: "Enter the number of nuts collected by the buyer at the estate",
       });
     }
     if (!(finalPrice > 0)) {
@@ -805,7 +871,7 @@ const completeOrder = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
     if (order.status !== "ACCEPTED") {
-      return res.status(409).json({ message: "This deal is already completed" });
+      return res.status(409).json({ message: "This deal is no longer awaiting seller completion" });
     }
 
     // A different price than agreed needs an admin's approval. Until then
@@ -821,39 +887,49 @@ const completeOrder = async (req, res) => {
       });
     }
 
+    await client.query("BEGIN");
     const result = differs
-      ? await pool.query(
+      ? await client.query(
           `UPDATE orders
-           SET status = 'COMPLETED',
+           SET status = 'AWAITING_RECEIPT',
                delivered_quantity = $2,
                delivered_price_per_unit = $3,
                dispute_price_per_unit = $4,
                dispute_status = 'PENDING',
                dispute_note = $5,
-               completed_at = $6
-           WHERE id = $1
+               seller_completed_at = $6
+           WHERE id = $1 AND status = 'ACCEPTED'
            RETURNING *`,
           [order.id, deliveredQuantity, agreed, finalPrice, note, new Date()]
         )
-      : await pool.query(
+      : await client.query(
           `UPDATE orders
-           SET status = 'COMPLETED',
+           SET status = 'AWAITING_RECEIPT',
                delivered_quantity = $2,
                delivered_price_per_unit = $3,
-               completed_at = $4
-           WHERE id = $1
+               seller_completed_at = $4
+           WHERE id = $1 AND status = 'ACCEPTED'
            RETURNING *`,
           [order.id, deliveredQuantity, finalPrice, new Date()]
         );
 
+    if (!result.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({message: 'This deal is no longer awaiting seller completion'});
+    }
+    await postOrderEvent(client, order.id, req.user.id, 'collected');
+    await client.query('COMMIT');
     return res.status(200).json({
       message: differs
-        ? "Deal completed - new price sent for admin approval"
-        : "Deal completed",
+        ? "Collection recorded at the estate - awaiting buyer collection confirmation; new price sent for admin approval"
+        : "Collection recorded at the estate - awaiting buyer collection confirmation",
       order: result.rows[0],
     });
   } catch (error) {
+    await client.query("ROLLBACK");
     return serverError(res, "Complete order", error);
+  } finally {
+    client.release();
   }
 };
 
@@ -878,7 +954,7 @@ const getMarketStats = async (req, res) => {
        LEFT JOIN sell_requests sr
          ON sr.buyer_request_id = o.buyer_request_id AND sr.status = 'accepted'
        LEFT JOIN buyer_requests br ON br.id = o.buyer_request_id
-       WHERE UPPER(COALESCE(pl.product_type, sr.product_type)) = $1
+       WHERE UPPER(COALESCE(pl.product_type, sr.product_type)) = $1 AND o.status <> 'CANCELLED'
        ORDER BY o.created_at DESC, o.id DESC
        LIMIT 500`,
       [type]
@@ -954,7 +1030,7 @@ const getDayJobs = async (req, res) => {
          JOIN worker w ON w.id = dja.worker_id
          LEFT JOIN users u ON u.id = w.user_id
          WHERE dja.day_job_id IN (${placeholders})
-           AND UPPER(dja.status) = 'ACCEPTED'
+           AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')
          ORDER BY dja.created_at, dja.id`,
         jobParams
       );
@@ -1009,7 +1085,7 @@ const getWorkerProfile = async (req, res) => {
          ON access_job.id = access_application.day_job_id
        WHERE w.id = $1
          AND access_job.estate_owner_id = $2
-         AND UPPER(access_application.status) = 'ACCEPTED'`,
+         AND UPPER(access_application.status) IN ('ACCEPTED', 'COMPLETED')`,
       [workerId, estate.id]
     );
     if (profile.rows.length === 0) {
@@ -1022,23 +1098,20 @@ const getWorkerProfile = async (req, res) => {
       `SELECT
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) <> 'COMPLETED'
-                  AND dj.required_date >= CURRENT_DATE
              THEN 1 ELSE 0 END
          ), 0)::integer AS accepted_jobs,
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
-                  OR dj.required_date < CURRENT_DATE
              THEN 1 ELSE 0 END
          ), 0)::integer AS completed_jobs,
          COALESCE(SUM(
            CASE WHEN UPPER(COALESCE(dj.status, 'OPEN')) = 'COMPLETED'
-                  OR dj.required_date < CURRENT_DATE
              THEN COALESCE(${ratingColumn}, 0) ELSE 0 END
          ), 0)::integer AS total_rating_marks
        FROM day_job_applications dja
        JOIN day_jobs dj ON dj.id = dja.day_job_id
        WHERE dja.worker_id = $1
-         AND UPPER(dja.status) = 'ACCEPTED'`,
+         AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')`,
       [workerId]
     );
     const categories = await pool.query(
@@ -1046,7 +1119,7 @@ const getWorkerProfile = async (req, res) => {
        FROM day_job_applications dja
        JOIN day_jobs dj ON dj.id = dja.day_job_id
        WHERE dja.worker_id = $1
-         AND UPPER(dja.status) = 'ACCEPTED'
+         AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')
        ORDER BY dj.category`,
       [workerId]
     );
@@ -1085,6 +1158,7 @@ const createDayJob = async (req, res) => {
     const allowedPaymentMethods = new Set([
       "Cash",
       "Direct Bank Transfer",
+      "Any",
     ]);
     const estate = await getOwnEstate(pool, req.user.id);
     const jobLocation = String(estate.location || "").trim();
@@ -1137,6 +1211,7 @@ const createDayJob = async (req, res) => {
 };
 
 const completeDayJob = async (req, res) => {
+  let client;
   try {
     const jobId = Number(req.params.id);
     if (!Number.isInteger(jobId)) {
@@ -1144,38 +1219,203 @@ const completeDayJob = async (req, res) => {
     }
 
     const estate = await getOwnEstate(pool, req.user.id);
-    const found = await pool.query(
+
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const found = await client.query(
       `SELECT * FROM day_jobs
-       WHERE id = $1 AND estate_owner_id = $2`,
+       WHERE id = $1 AND estate_owner_id = $2
+       FOR UPDATE`,
       [jobId, estate.id]
     );
     if (found.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ message: "Day job not found" });
     }
     const job = found.rows[0];
-    if (Number(job.confirmed_workers) < Number(job.workers_needed)) {
+    const st = String(job.status).toUpperCase();
+
+    if (st === "COMPLETED") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "This job is already completed" });
+    }
+    if (st === "AWAITING_WORKER_ACK") {
+      await client.query("ROLLBACK");
       return res.status(409).json({
-        message: "All required workers must be accepted before completion",
+        message: "Waiting for the accepted workers to acknowledge completion",
       });
     }
+
     const requiredDay = dayOf(job.required_date);
     if (requiredDay && requiredDay > localToday()) {
+      await client.query("ROLLBACK");
       return res.status(409).json({
         message: "This is a future day. You cannot complete this job yet.",
       });
     }
 
+    // --- Worker already initiated: owner acknowledges → mark COMPLETED ---
+    if (st === "AWAITING_OWNER_ACK") {
+      const rating = Number(req.body.rating);
+      const hasRating = Number.isInteger(rating) && rating >= 1 && rating <= 5;
+      if (hasRating && !(await dayJobRatingsReady())) {
+        await client.query("ROLLBACK");
+        return res.status(503).json({
+          message:
+            "Worker ratings are not configured. Run backend/sql/012_day_job_worker_ratings.sql.",
+        });
+      }
+
+      await client.query(
+        `UPDATE day_jobs SET status = 'COMPLETED' WHERE id = $1`,
+        [jobId]
+      );
+      // Also mark all ACCEPTED applications as COMPLETED
+      await client.query(
+        `UPDATE day_job_applications
+         SET status = 'COMPLETED'
+         WHERE day_job_id = $1 AND UPPER(status) = 'ACCEPTED'`,
+        [jobId]
+      );
+
+      // If rating is provided (1 to 5), save it for the workers
+      if (hasRating) {
+        await client.query(
+          `UPDATE day_job_applications
+           SET rating = $2, rated_at = CURRENT_TIMESTAMP
+           WHERE day_job_id = $1 AND UPPER(status) = 'COMPLETED'`,
+          [jobId, rating]
+        );
+      }
+
+      await client.query("COMMIT");
+      return res.status(200).json({
+        job_id: jobId,
+        status: "COMPLETED",
+        message: "Job completed. Well done!",
+      });
+    }
+
+    await client.query("ROLLBACK");
+    return res.status(409).json({
+      message: "The worker must mark the job as finished before you can confirm completion",
+    });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    return serverError(res, "Complete day job", error);
+  } finally {
+    client?.release();
+  }
+};
+
+const cancelConfirmedDayJob = async (req, res) => {
+  const jobId = Number(req.params.id);
+  const {reason, note = ''} = req.body ?? {};
+  if (!Number.isSafeInteger(jobId) || jobId < 1 || typeof reason !== 'string' ||
+      !reason.trim() || reason.length > 200 || typeof note !== 'string' || note.length > 500) {
+    return res.status(400).json({message: 'Choose a cancellation reason and enter an optional note'});
+  }
+  try {
+    const participant = req.user.role === 'WORKER'
+      ? `id IN (SELECT a.day_job_id FROM day_job_applications a JOIN worker w ON w.id = a.worker_id
+          WHERE w.user_id = $2 AND UPPER(a.status) = 'ACCEPTED')`
+      : `estate_owner_id IN (SELECT id FROM estate_owners WHERE user_id = $2)`;
     const result = await pool.query(
-      `UPDATE day_jobs
-       SET status = 'COMPLETED'
+      `UPDATE day_jobs SET status = 'CANCELLED', cancel_reason = $3, cancel_note = $4,
+         cancelled_by = $2, cancelled_at = $5
+       WHERE id = $1 AND confirmed_workers > 0
+         AND UPPER(status) NOT IN ('COMPLETED', 'CANCELLED') AND ${participant}
+       RETURNING id, status`,
+      [jobId, req.user.id, reason.trim(), note.trim() || null, new Date()]
+    );
+    if (!result.rows.length) return res.status(409).json({message: 'This job cannot be cancelled'});
+    return res.json(result.rows[0]);
+  } catch (error) {
+    return serverError(res, 'Cancel confirmed day job', error);
+  }
+};
+
+const completionCancellationReady = async () => {
+  if (pool.databaseMode === "memory") return true;
+  try {
+    await pool.query(
+      `ALTER TABLE day_jobs
+       ADD COLUMN IF NOT EXISTS completion_cancel_reason text,
+       ADD COLUMN IF NOT EXISTS completion_cancel_note text,
+       ADD COLUMN IF NOT EXISTS completion_cancelled_at timestamp`
+    );
+    return true;
+  } catch (_) {
+    return false;
+  }
+};
+
+const cancelDayJobCompletion = async (req, res) => {
+  let client;
+  try {
+    const jobId = Number(req.params.id);
+    const { reason, note } = req.body;
+    if (!Number.isInteger(jobId)) {
+      return res.status(400).json({ message: "Invalid day job" });
+    }
+    if (!reason || !String(reason).trim()) {
+      return res.status(400).json({ message: "A cancellation reason is required" });
+    }
+
+    const estate = await getOwnEstate(pool, req.user.id);
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const found = await client.query(
+      `SELECT * FROM day_jobs
        WHERE id = $1 AND estate_owner_id = $2
-       RETURNING *`,
+       FOR UPDATE`,
       [jobId, estate.id]
     );
+    if (found.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Day job not found" });
+    }
+    const job = found.rows[0];
+    const st = String(job.status).toUpperCase();
 
-    return res.status(200).json(result.rows[0]);
+    if (st !== "AWAITING_OWNER_ACK") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        message: "This job is not awaiting completion confirmation",
+      });
+    }
+
+    if (!(await completionCancellationReady())) {
+      await client.query("ROLLBACK");
+      return res.status(503).json({
+        message:
+          "Completion cancellation details are not configured. Run backend/sql/015_day_job_completion_cancellation.sql.",
+      });
+    }
+
+    await client.query(
+      `UPDATE day_jobs
+       SET status = 'OPEN',
+           completion_cancel_reason = $2,
+           completion_cancel_note = $3,
+           completion_cancelled_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [jobId, String(reason).trim(), note ? String(note).trim() : null]
+    );
+
+    await client.query("COMMIT");
+    return res.status(200).json({
+      job_id: jobId,
+      status: "OPEN",
+      message: "Job completion cancelled. Reason recorded.",
+    });
   } catch (error) {
-    return serverError(res, "Complete day job", error);
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    return serverError(res, "Cancel day job completion", error);
+  } finally {
+    client?.release();
   }
 };
 
@@ -1203,11 +1443,15 @@ const deleteDayJob = async (req, res) => {
       });
     }
 
-    await pool.query(
+    const deleted = await pool.query(
       `DELETE FROM day_jobs
-       WHERE id = $1 AND estate_owner_id = $2`,
+       WHERE id = $1 AND estate_owner_id = $2 AND confirmed_workers = 0
+         AND UPPER(status) = 'OPEN' RETURNING id`,
       [jobId, estate.id]
     );
+    if (!deleted.rows.length) {
+      return res.status(409).json({message: 'Only open jobs without accepted workers can be deleted'});
+    }
     return res.status(200).json({ message: "Day job deleted" });
   } catch (error) {
     return serverError(res, "Delete day job", error);
@@ -1241,7 +1485,7 @@ const rateDayJobWorker = async (req, res) => {
          AND dja.worker_id = $2
          AND dj.estate_owner_id = $3
          AND UPPER(dj.status) = 'COMPLETED'
-         AND UPPER(dja.status) = 'ACCEPTED'`,
+         AND UPPER(dja.status) IN ('ACCEPTED', 'COMPLETED')`,
       [jobId, workerId, estate.id]
     );
     if (application.rows.length === 0) {
@@ -1269,6 +1513,7 @@ const rateDayJobWorker = async (req, res) => {
 };
 
 module.exports = {
+  getBuyerRequestProfile,
   acceptNegotiation,
   completeOrder,
   getMarketStats,
@@ -1289,6 +1534,8 @@ module.exports = {
   getWorkerProfile,
   createDayJob,
   completeDayJob,
+  cancelDayJobCompletion,
+  cancelConfirmedDayJob,
   deleteDayJob,
   rateDayJobWorker,
 };

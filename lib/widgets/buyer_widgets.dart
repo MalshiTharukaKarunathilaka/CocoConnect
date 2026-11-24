@@ -1,5 +1,7 @@
+import '../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'app_bottom_nav.dart';
 
 const Color kBuyerGreen = Color(0xFF2E7D32);
 const Color kBuyerGreenDark = Color(0xFF14432A);
@@ -31,7 +33,8 @@ class BuyerScaffold extends StatelessWidget {
               child: Column(
                 children: [
                   Expanded(child: body),
-                  ?bottomNavigation,
+                  bottomNavigation ??
+                      const AppBottomNav(current: AppTab.dashboard),
                 ],
               ),
             ),
@@ -72,7 +75,7 @@ class BuyerCard extends StatelessWidget {
             ),
           ],
         ),
-        child: child,
+        child: Material(type: MaterialType.transparency, child: child),
       ),
     );
   }
@@ -150,10 +153,18 @@ class BuyerInputField extends StatelessWidget {
         hintText: hint,
         hintStyle: const TextStyle(fontSize: 14, color: Color(0xFFAAAAAA)),
         prefixIcon: prefix,
-        suffixIcon: suffix,
+        suffixIcon: readOnly && onTap == null
+            ? const Icon(
+                Icons.lock_outline,
+                size: 18,
+                color: AppColors.autoFilledInk,
+              )
+            : suffix,
         prefixIconConstraints: const BoxConstraints(minWidth: 42),
         filled: true,
-        fillColor: kBuyerFieldFill,
+        fillColor: readOnly && onTap == null
+            ? AppColors.autoFilledBackground
+            : kBuyerFieldFill,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
@@ -208,9 +219,14 @@ class BuyerPrimaryButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             if (trailingIcon != null) ...[
               const SizedBox(width: 8),
@@ -256,9 +272,14 @@ class BuyerOutlinedButton extends StatelessWidget {
               Icon(leadingIcon, size: 18, color: kBuyerGreen),
               const SizedBox(width: 8),
             ],
-            Text(
-              label,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         ),
@@ -414,16 +435,27 @@ class BuyerPill extends StatelessWidget {
   }
 }
 
-class EstateListingCard extends StatelessWidget {
+class CoconutListingCard extends StatelessWidget {
+  static const _avatarColors = [
+    Color(0xFFDDEEE0),
+    Color(0xFFDCE6F5),
+    Color(0xFFF5E6DC),
+    Color(0xFFEDE3F5),
+  ];
+
   final String initial;
-  final Color initialBackground;
-  final String estateName;
-  final String ownerName;
+  final int colorIndex;
+  final String name;
+  final String? subtitle;
   final String price;
+  final String priceLabel;
+  final IconData priceIcon;
   final String trustScore;
   final String quantity;
-  final String availableDate;
+  final String date;
+  final String dateLabel;
   final VoidCallback? onTap;
+  final VoidCallback? onProfileTap;
 
   /// "7.4 km away", when both sides have a location.
   final String? distance;
@@ -432,17 +464,21 @@ class EstateListingCard extends StatelessWidget {
   final String? note;
   final bool noteGood;
 
-  const EstateListingCard({
+  const CoconutListingCard({
     super.key,
     required this.initial,
-    required this.initialBackground,
-    required this.estateName,
-    required this.ownerName,
+    required this.colorIndex,
+    required this.name,
+    this.subtitle,
     required this.price,
+    this.priceLabel = 'VERIFIED OFFER PRICE',
+    this.priceIcon = Icons.check_circle_outline,
     required this.trustScore,
     required this.quantity,
-    required this.availableDate,
+    required this.date,
+    this.dateLabel = 'AVAILABLE',
     this.onTap,
+    this.onProfileTap,
     this.distance,
     this.note,
     this.noteGood = true,
@@ -463,7 +499,7 @@ class EstateListingCard extends StatelessWidget {
                 height: 42,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: initialBackground,
+                  color: _avatarColors[colorIndex % _avatarColors.length],
                   shape: BoxShape.circle,
                 ),
                 child: Text(
@@ -480,35 +516,59 @@ class EstateListingCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      estateName,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A1A1A),
+                    InkWell(
+                      onTap: onProfileTap,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: kBuyerGreenDark,
+                            ),
+                          ),
+                          if (subtitle case final value? when value.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              value,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: kBuyerGrey,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
-                      ownerName,
-                      style: const TextStyle(fontSize: 11, color: kBuyerGrey),
+                      'TRUST SCORE: $trustScore',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFFE65100),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 5),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.check_circle_outline,
+                        Icon(
+                          priceIcon,
                           size: 12,
                           color: kBuyerGreen,
                         ),
                         const SizedBox(width: 4),
-                        const Text(
-                          'VERIFIED OFFER PRICE',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: kBuyerGreen,
-                            letterSpacing: 0.3,
+                        Flexible(
+                          child: Text(
+                            priceLabel,
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: kBuyerGreen,
+                              letterSpacing: 0.3,
+                            ),
                           ),
                         ),
                       ],
@@ -525,35 +585,27 @@ class EstateListingCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 10),
-
-          Row(
-            children: [
-              const Icon(Icons.star, size: 14, color: Color(0xFFE0A526)),
-              const SizedBox(width: 5),
-              Text(
-                'Trust Score: $trustScore',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF3A3A3A),
-                ),
-              ),
-            ],
-          ),
-
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Divider(height: 1, color: kBuyerBorder),
           ),
 
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: BuyerInfoPair(label: 'QUANTITY', value: quantity),
               ),
               Expanded(
-                child: BuyerInfoPair(label: 'AVAILABLE', value: availableDate),
+                child: BuyerInfoPair(label: dateLabel, value: date),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: Color(0xFF9E9E9E),
+                ),
               ),
             ],
           ),
@@ -617,6 +669,7 @@ class BuyerCategoryCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final Color iconColor;
+  final Widget? iconWidget;
   final VoidCallback? onTap;
 
   const BuyerCategoryCard({
@@ -625,6 +678,7 @@ class BuyerCategoryCard extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.iconColor,
+    this.iconWidget,
     this.onTap,
   });
 
@@ -632,34 +686,40 @@ class BuyerCategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return BuyerCard(
       onTap: onTap,
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      child: Column(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F1EC),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 22, color: iconColor),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF1F1EC),
+                  shape: BoxShape.circle,
+                ),
+                child: iconWidget ?? Icon(icon, size: 22, color: iconColor),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(fontSize: 11, color: kBuyerGrey),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1A1A1A),
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            style: const TextStyle(fontSize: 11, color: kBuyerGrey),
-          ),
-        ],
+        ),
       ),
     );
   }

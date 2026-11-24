@@ -55,7 +55,7 @@ class CoconutsPage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const LanguageSelector(),
+                      const Flexible(child: LanguageSelector()),
                     ],
                   ),
                 ),
@@ -94,8 +94,8 @@ class CoconutsPage extends StatelessWidget {
                           child: CoconutProductCard(
                             title: 'Raw Coconuts(with husks)',
                             unitLabel: '1 unit = 1 nut',
-                            imageUrl:
-                                'https://commons.wikimedia.org/wiki/Special:FilePath/Coconut_green.JPG?width=800',
+                            imageUrl: '',
+                            imageAsset: 'assets/images/raw_coconuts_green.jpg',
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -113,8 +113,8 @@ class CoconutsPage extends StatelessWidget {
                           child: CoconutProductCard(
                             title: 'Dehusked Coconuts',
                             unitLabel: '1 unit = 1 nut',
-                            imageUrl:
-                                'https://images.pexels.com/photos/7543134/pexels-photo-7543134.jpeg?auto=compress&cs=tinysrgb&w=800',
+                            imageUrl: '',
+                            imageAsset: 'assets/images/dehusked_coconuts.jpg',
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -132,8 +132,7 @@ class CoconutsPage extends StatelessWidget {
                             title: 'Only Husks',
                             unitLabel: '1 unit = 1 nut',
                             imageUrl: '',
-                            imageAsset:
-                                'assets/images/coconut_husks_per_nut.png',
+                            imageAsset: 'assets/images/only_husks.jpg',
                             onTap: () {
                               Navigator.push(
                                 context,

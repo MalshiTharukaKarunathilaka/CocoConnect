@@ -10,8 +10,11 @@ import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'fertilizer_data.dart';
 import 'fertilizer_gov_order_form.dart';
+import 'fertilizer_dispute_sheet.dart';
+import 'fertilizer_order_edit_sheet.dart';
 import 'fertilizer_order_sheet.dart';
 import 'fertilizer_orders_page.dart';
+import 'fertilizer_processing_banner.dart';
 import 'fertilizer_talk_page.dart';
 
 /// PickMe-style supplier map — matches the HTML fertilizer demo.
@@ -45,7 +48,8 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   late String _channel;
   double _radiusKm = 10;
   final Set<String> _kinds = {}; // fertilizer types ticked in the dropdown
-  String? _menu; // which dropdown is open: supplier, distance or kinds
+  final Set<String> _brands = {}; // CIC, Hayleys, Baurs
+  String? _menu; // which dropdown is open: supplier, distance, brand or kinds
   FertPlace? _selected;
   String? _clusterKey;
 
@@ -54,6 +58,10 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   void initState() {
     super.initState();
     _channel = widget.channel;
+    if (_channel == 'gov') {
+      _radiusKm = 5;
+      _brands.clear();
+    }
   }
 
   @override
@@ -63,6 +71,10 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
       _channel = widget.channel;
       _selected = null;
       _clusterKey = null;
+      if (_channel == 'gov') {
+        _radiusKm = 5;
+        _brands.clear();
+      }
     }
   }
 
@@ -71,17 +83,61 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     return LatLng(me?.latitude ?? 7.4863, me?.longitude ?? 80.3647);
   }
 
-  LatLng _at(FertPlace p) =>
-      LatLng(_estate.latitude + p.dLat, _estate.longitude + p.dLng);
+  LatLng _at(FertPlace p) {
+    if (p.absLat != null && p.absLng != null) {
+      return LatLng(p.absLat!, p.absLng!);
+    }
+    return LatLng(_estate.latitude + p.dLat, _estate.longitude + p.dLng);
+  }
 
-  String _spotKey(FertPlace p) =>
-      '${p.dLat.toStringAsFixed(4)}_${p.dLng.toStringAsFixed(4)}';
+  /// Real km from this estate — absolute pins use GPS; relative pins stay demo offsets.
+  double _km(FertPlace p) {
+    if (p.absLat != null && p.absLng != null) {
+      return const Distance().as(LengthUnit.Kilometer, _estate, _at(p));
+    }
+    if (p.region != _store.ownerRegion && p.region != 'all') {
+      return 9999;
+    }
+    return p.distanceKm;
+  }
+
+  String _spotKey(FertPlace p) {
+    if (p.absLat != null && p.absLng != null) {
+      return '${p.absLat!.toStringAsFixed(4)}_${p.absLng!.toStringAsFixed(4)}';
+    }
+    return '${p.dLat.toStringAsFixed(4)}_${p.dLng.toStringAsFixed(4)}';
+  }
+
+  bool _matchesBrand(FertPlace p) {
+    if (_brands.isEmpty) return true;
+    return p.brands.any(_brands.contains);
+  }
+
+  /// Hub Government tab stays on CDO — owner cannot switch to private shops there.
+  bool get _govProgramme => widget.channel == 'gov';
+
+  String get _activeChannel => _govProgramme ? 'gov' : _channel;
+
+  bool _isCcbOutlet(FertPlace p) =>
+      p.isGov && (p.brands.contains('CDO') || p.brands.contains('CCB'));
 
   List<FertPlace> get _visible {
     final q = _search.text.trim().toLowerCase();
-    return _store.places.where((p) {
-      if (_channel == 'private' && p.isGov) return false;
-      if (_channel == 'gov' && !p.isGov) return false;
+    final channel = _activeChannel;
+    final list = _store.places.where((p) {
+      final km = _km(p);
+      // Why: keep the map on the logged-in estate's district (Kurunegala demo default).
+      if (p.region != _store.ownerRegion && p.region != 'all') {
+        return false;
+      }
+      if (channel == 'private' && p.isGov) return false;
+      // Why: government programme shows only CDO — no CIC / Hayleys / Baurs shops.
+      if (channel == 'gov') {
+        if (!_isCcbOutlet(p)) return false;
+        if (km > _radiusKm) return false;
+      } else {
+        if (!_matchesBrand(p)) return false;
+      }
       if (_kinds.isNotEmpty &&
           !p.items.any((i) => i.kinds.any(_kinds.contains))) {
         return false;
@@ -92,10 +148,29 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                 .toLowerCase();
         if (!hay.contains(q)) return false;
       }
-      if (p.distanceKm <= _radiusKm) return true;
+      if (km <= _radiusKm) return true;
+      if (channel == 'gov') return false;
       return p.willingFar;
     }).toList()
-      ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+      ..sort((a, b) => _km(a).compareTo(_km(b)));
+    // Why: the estate map must show only one CDO pin (Hub + Government).
+    return _withSingleCcb(list);
+  }
+
+  /// Keep private shops as-is, but collapse every CDO/government outlet to the nearest one.
+  List<FertPlace> _withSingleCcb(List<FertPlace> list) {
+    FertPlace? ccb;
+    final others = <FertPlace>[];
+    for (final p in list) {
+      if (_isCcbOutlet(p)) {
+        ccb ??= p; // already sorted by distance — first is nearest
+      } else {
+        others.add(p);
+      }
+    }
+    if (ccb != null) others.add(ccb);
+    others.sort((a, b) => _km(a).compareTo(_km(b)));
+    return others;
   }
 
   /// Group shops that sit on the same pin (like the HTML cluster).
@@ -108,7 +183,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   }
 
   int get _pendingMine => _store
-      .ownerOrders('Your Estate')
+      .myOrders
       .where(
         (o) =>
             o.status == 'Pending Ack' ||
@@ -127,7 +202,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   }
 
   String _pinMark(FertPlace p) {
-    if (p.isGov) return 'CCB';
+    if (p.isGov) return 'CDO';
     final b = p.brands.first;
     return b.length <= 3 ? b : b.substring(0, 3);
   }
@@ -155,8 +230,8 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _channel == 'gov'
-                          ? 'Government programme'
+                      _activeChannel == 'gov'
+                          ? 'CDO near your estate'
                           : 'Suppliers near you',
                       style: const TextStyle(
                         fontSize: 17,
@@ -228,7 +303,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
   /// The title row of the bottom sheet.
   Widget _sheetTabs() {
-    final int mine = _store.ownerOrders('Your Estate').length;
+    final int mine = _store.myOrders.length;
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
       child: Row(
@@ -261,7 +336,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
 
   /// The owner's own orders: what is waiting, what was accepted, with View and Cancel.
   Widget _ordersSheet(ScrollController scrollController) {
-    final mine = _store.ownerOrders('Your Estate');
+    final mine = _store.myOrders;
     final pending = mine
         .where((o) => o.status == 'Pending Ack' || o.status == 'Negotiating')
         .toList();
@@ -312,7 +387,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
               children: [
                 const Text(
-                  'Orders you placed from the map. View or cancel them here.',
+                  'Orders you placed from the map. View details, or Edit to change bags/date or cancel.',
                   style: TextStyle(fontSize: 12.5, color: AppColors.muted),
                 ),
                 if (mine.isEmpty)
@@ -328,7 +403,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                   ),
                 ...group('Pending Ack \u00b7 waiting for the provider', pending),
                 ...group('Accepted', accepted),
-                ...group('Cancelled and closed', other),
+                ...group('Cancelled by supplier or closed', other),
               ],
             ),
           ),
@@ -348,28 +423,43 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
           final bool open =
               o.status == 'Pending Ack' || o.status == 'Negotiating';
           final int kg = o.items.fold<int>(0, (a, l) => a + l.qty50 * 50);
-          Widget row(String k, String v) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
+          Widget metaTile(IconData icon, String label, String value) =>
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.line),
+                ),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 104,
-                      child: Text(
-                        k,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: AppColors.muted,
-                        ),
-                      ),
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: AppColors.greenSoft,
+                      child: Icon(icon, size: 16, color: AppColors.green),
                     ),
+                    const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        v,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            value,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -506,14 +596,33 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    row('Supplier', o.company),
-                    row('Quantity', '${o.qty50} \u00d7 50 kg ($kg kg)'),
-                    row('Preferred date', shortDate(o.preferredDate)),
-                    row('Time slot', o.slot),
-                    row('Payment', 'After the supplier accepts'),
-                    if (o.message.trim().isNotEmpty) row('Your note', o.message),
+                    metaTile(Icons.storefront, 'Supplier', o.company),
+                    const SizedBox(height: 8),
+                    metaTile(
+                      Icons.shopping_bag_outlined,
+                      'Quantity',
+                      '${o.qty50} × 50 kg ($kg kg)',
+                    ),
+                    const SizedBox(height: 8),
+                    metaTile(
+                      Icons.event_outlined,
+                      'Preferred date',
+                      shortDate(o.preferredDate),
+                    ),
+                    const SizedBox(height: 8),
+                    metaTile(Icons.schedule, 'Time slot', o.slot),
+                    const SizedBox(height: 8),
+                    metaTile(
+                      Icons.payments_outlined,
+                      'Payment',
+                      'After the supplier accepts',
+                    ),
+                    if (o.message.trim().isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      metaTile(Icons.notes_outlined, 'Your note', o.message),
+                    ],
                     if (o.negotiation.isNotEmpty) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 14),
                       const Text(
                         'MESSAGES',
                         style: TextStyle(
@@ -523,13 +632,31 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                           color: AppColors.muted,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       for (final m in o.negotiation)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Text(
-                            '${m.from}: ${m.text}',
-                            style: const TextStyle(fontSize: 13),
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.line),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                m.from,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.green,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(m.text, style: const TextStyle(fontSize: 13)),
+                            ],
                           ),
                         ),
                     ],
@@ -560,22 +687,12 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                         if (open) ...[
                           const SizedBox(width: 10),
                           Expanded(
-                            child: TextButton(
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppColors.dangerText,
-                                backgroundColor: AppColors.dangerSoft,
-                                minimumSize: const Size(0, 46),
-                                shape: const StadiumBorder(),
-                              ),
-                              onPressed: () {
-                                _store.cancelOrder(o.id);
+                            child: ElevatedButton(
+                              onPressed: () async {
                                 Navigator.pop(sheetContext);
-                                setState(() {});
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('${o.id} cancelled')),
-                                );
+                                await _editOrder(o);
                               },
-                              child: const Text('Cancel order'),
+                              child: const Text('Edit'),
                             ),
                           ),
                         ],
@@ -591,71 +708,228 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     );
   }
 
-  Widget _orderTile(FertOrder o) {
-    final bool canCancel =
-        o.status == 'Pending Ack' || o.status == 'Negotiating';
-    final String what =
-        o.items.map((l) => '${l.qty50} \u00d7 ${l.item.name} (50 kg)').join(', ');
+  Widget _orderMetaChip(IconData icon, String text) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.cream,
+        borderRadius: BorderRadius.circular(99),
         border: Border.all(color: AppColors.line),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  '${o.id} \u00b7 $what',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              StatusPill.forStatus(o.status),
-            ],
-          ),
-          const SizedBox(height: 4),
+          Icon(icon, size: 13, color: AppColors.green),
+          const SizedBox(width: 4),
           Text(
-            '${o.company} \u00b7 ${o.qty50} bags \u00b7 ${rupees(o.price)} \u00b7 '
-            'preferred ${shortDate(o.preferredDate)} \u00b7 ${o.slot}',
-            style: const TextStyle(fontSize: 12, color: AppColors.muted),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              OutlinedButton(
-                onPressed: () => _showOrder(o),
-                child: const Text('View'),
-              ),
-              if (canCancel) ...[
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () {
-                    _store.cancelOrder(o.id);
-                    setState(() {});
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${o.id} cancelled')),
-                    );
-                  },
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.dangerText,
-                    backgroundColor: AppColors.dangerSoft,
-                  ),
-                  child: const Text('Cancel order'),
-                ),
-              ],
-            ],
+            text,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.ink,
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _editOrder(FertOrder o) async {
+    final changed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => FertilizerOrderEditSheet(order: o),
+    );
+    if (changed == true && mounted) setState(() {});
+  }
+
+  /// Attractive list card for My orders (not one long text line).
+  Widget _orderTile(FertOrder o) {
+    final bool canEdit =
+        o.status == 'Pending Ack' || o.status == 'Negotiating';
+    final String title = o.items.isEmpty
+        ? o.product
+        : o.items.map((l) => l.item.name).join(', ');
+    final accent = o.status == 'Accepted'
+        ? AppColors.green
+        : (canEdit ? AppColors.warning : AppColors.muted);
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _showOrder(o),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.line),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(width: 5, color: accent),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: AppColors.greenSoft,
+                                    child: Text(
+                                      o.company.isEmpty
+                                          ? '?'
+                                          : o.company[0].toUpperCase(),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.green,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    right: -4,
+                                    bottom: -4,
+                                    child: Container(
+                                      width: 14,
+                                      height: 14,
+                                      decoration: BoxDecoration(
+                                        color: fertStatusColor(o.status),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      title,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        height: 1.25,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${o.company} · ${o.id}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.muted,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    FertOrderStatusDot(status: o.status),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              _orderMetaChip(
+                                Icons.shopping_bag_outlined,
+                                '${o.qty50} bag${o.qty50 == 1 ? '' : 's'}',
+                              ),
+                              _orderMetaChip(
+                                Icons.event_outlined,
+                                shortDate(o.preferredDate),
+                              ),
+                              _orderMetaChip(Icons.schedule, o.slot),
+                            ],
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 10),
+                            child: Divider(height: 1, color: AppColors.line),
+                          ),
+                          if (o.status == 'Cancelled' &&
+                              o.message.trim().isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                o.message,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.dangerText,
+                                ),
+                              ),
+                            ),
+                          Row(
+                            children: [
+                              Text(
+                                rupees(o.price),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.green,
+                                ),
+                              ),
+                              const Spacer(),
+                              TextButton(
+                                onPressed: () => _showOrder(o),
+                                child: const Text('View'),
+                              ),
+                              if (canEdit)
+                                TextButton(
+                                  onPressed: () => _editOrder(o),
+                                  child: const Text('Edit'),
+                                ),
+                              if (o.status == 'Accepted')
+                                TextButton(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.dangerText,
+                                  ),
+                                  onPressed: () async {
+                                    final ok =
+                                        await showModalBottomSheet<bool>(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (_) =>
+                                          FertilizerDisputeSheet(order: o),
+                                    );
+                                    if (ok == true && mounted) {
+                                      setState(() {});
+                                    }
+                                  },
+                                  child: const Text('Dispute'),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -777,12 +1051,31 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: [
-                    _drop(
-                      'supplier',
-                      'Supplier',
-                      _channel == 'all' ? 'All' : (_channel == 'private' ? 'Private' : 'Government'),
-                    ),
+                    // Government programme: locked to CDO — no All / Private switch.
+                    if (_govProgramme)
+                      _drop('supplier', 'Supplier', 'CDO only', active: true)
+                    else
+                      _drop(
+                        'supplier',
+                        'Supplier',
+                        _channel == 'all'
+                            ? 'All'
+                            : (_channel == 'private' ? 'Private' : 'Government'),
+                      ),
                     _drop('distance', 'Distance', '${_radiusKm.toInt()} km'),
+                    if (_activeChannel != 'gov')
+                      _drop(
+                        'brand',
+                        'Brand',
+                        _brands.isEmpty
+                            ? 'Any'
+                            : (_brands.length == 1
+                                ? _brands.first
+                                : '${_brands.length} picked'),
+                        active: _brands.isNotEmpty,
+                      )
+                    else
+                      _drop('brand', 'Brand', 'CDO', active: true),
                     _drop(
                       'kinds',
                       'Fertilizer',
@@ -827,12 +1120,24 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   }
 
   void _setChannel(String c) {
+    // Why: Government tab must stay CDO-only — ignore All / Private here.
+    if (_govProgramme && c != 'gov') {
+      setState(() => _menu = null);
+      return;
+    }
     setState(() {
       _channel = c;
       _selected = null;
       _clusterKey = null;
       _menu = null;
+      if (c == 'gov') {
+        _brands.clear();
+        if (_radiusKm > 5) _radiusKm = 5;
+      }
     });
+    if (c == 'gov') {
+      _map.move(_centerFor(_zoomFor(_radiusKm)), _zoomFor(_radiusKm));
+    }
   }
 
   /// Map zoom that fits a radius around the estate.
@@ -854,14 +1159,18 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     _map.move(_centerFor(_zoomFor(km)), _zoomFor(km));
   }
 
-  /// Suppliers inside a radius that match the ticked fertilizer types and the search.
+  /// Suppliers inside a radius that match brand + fertilizer filters and the search.
   List<FertPlace> _within({String? channel, double? km}) {
-    final c = channel ?? _channel;
+    final c = channel ?? _activeChannel;
     final r = km ?? _radiusKm;
     final q = _search.text.trim().toLowerCase();
-    return _store.places.where((p) {
+    final list = _store.places.where((p) {
       if (c == 'private' && p.isGov) return false;
-      if (c == 'gov' && !p.isGov) return false;
+      if (c == 'gov') {
+        if (!_isCcbOutlet(p)) return false;
+      } else if (_brands.isNotEmpty && !p.brands.any(_brands.contains)) {
+        return false;
+      }
       if (_kinds.isNotEmpty && !p.items.any((i) => i.kinds.any(_kinds.contains))) {
         return false;
       }
@@ -871,11 +1180,14 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                 .toLowerCase();
         if (!hay.contains(q)) return false;
       }
-      return p.distanceKm <= r;
-    }).toList();
+      return _km(p) <= r;
+    }).toList()
+      ..sort((a, b) => _km(a).compareTo(_km(b)));
+    if (c == 'gov' && list.isNotEmpty) return [list.first];
+    return list;
   }
 
-  /// One dropdown button: Supplier, Distance or Fertilizer.
+  /// One dropdown button: Supplier, Distance, Brand or Fertilizer.
   Widget _drop(String key, String name, String value, {bool active = false}) {
     final open = _menu == key;
     return Padding(
@@ -972,14 +1284,43 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   Widget _menuPanel() {
     Widget body;
     if (_menu == 'supplier') {
-      String n(String c) => '${_within(channel: c).length} within ${_radiusKm.toInt()} km';
-      body = Row(
-        children: [
-          _option(Icons.apps, 'All', n('all'), _channel == 'all', () => _setChannel('all')),
-          _option(Icons.storefront, 'Private', n('private'), _channel == 'private', () => _setChannel('private')),
-          _option(Icons.account_balance, 'Government', n('gov'), _channel == 'gov', () => _setChannel('gov')),
-        ],
-      );
+      if (_govProgramme) {
+        body = const Padding(
+          padding: EdgeInsets.all(8),
+          child: Text(
+            'This programme lists Coconut Development Officer (CDO) programme outlets only. Private suppliers are on the Suppliers tab.',
+            style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+          ),
+        );
+      } else {
+        String n(String c) =>
+            '${_within(channel: c).length} within ${_radiusKm.toInt()} km';
+        body = Row(
+          children: [
+            _option(
+              Icons.apps,
+              'All',
+              n('all'),
+              _channel == 'all',
+              () => _setChannel('all'),
+            ),
+            _option(
+              Icons.storefront,
+              'Private',
+              n('private'),
+              _channel == 'private',
+              () => _setChannel('private'),
+            ),
+            _option(
+              Icons.account_balance,
+              'CDO only',
+              n('gov'),
+              _channel == 'gov',
+              () => _setChannel('gov'),
+            ),
+          ],
+        );
+      }
     } else if (_menu == 'distance') {
       body = Row(
         children: [
@@ -993,6 +1334,83 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
             ),
         ],
       );
+    } else if (_menu == 'brand') {
+      if (_activeChannel == 'gov') {
+        body = const Padding(
+          padding: EdgeInsets.all(8),
+          child: Text(
+            'Brand is fixed to CDO. Private brands are not shown in this programme.',
+            style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+          ),
+        );
+      } else {
+        body = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Pick brands (CIC, Hayleys…)',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _brands.isEmpty
+                      ? null
+                      : () => setState(() {
+                          _brands.clear();
+                          _selected = null;
+                          _clusterKey = null;
+                        }),
+                  child: const Text('Clear'),
+                ),
+                TextButton(
+                  onPressed: () => setState(() => _menu = null),
+                  child: const Text('Done'),
+                ),
+              ],
+            ),
+            Wrap(
+              spacing: 6,
+              runSpacing: 2,
+              children: [
+                for (final b in kFertBrands)
+                  FilterChip(
+                    label: Text(
+                      '$b · ${_store.places.where((p) => p.brands.contains(b)).length}',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color:
+                            _brands.contains(b) ? Colors.white : AppColors.ink,
+                      ),
+                    ),
+                    selected: _brands.contains(b),
+                    showCheckmark: true,
+                    checkmarkColor: Colors.white,
+                    selectedColor: AppColors.green,
+                    backgroundColor: const Color(0xFFF4F1E8),
+                    side: BorderSide.none,
+                    visualDensity: VisualDensity.compact,
+                    onSelected: (v) => setState(() {
+                      if (v) {
+                        _brands.add(b);
+                      } else {
+                        _brands.remove(b);
+                      }
+                      _selected = null;
+                      _clusterKey = null;
+                    }),
+                  ),
+              ],
+            ),
+          ],
+        );
+      }
     } else {
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1071,7 +1489,9 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   /// A one-line answer under the filters: how many suppliers are around the estate.
   Widget _nearPill() {
     final n = _within().length;
-    final what = _channel == 'gov' ? 'government' : (_channel == 'private' ? 'private' : '');
+    final what = _activeChannel == 'gov'
+        ? 'CDO'
+        : (_activeChannel == 'private' ? 'private' : '');
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Align(
@@ -1105,16 +1525,20 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
     final lead = places.first;
     final on = _clusterKey == key ||
         (_selected != null && places.any((p) => identical(p, _selected)));
-    final far = lead.distanceKm > _radiusKm;
+    final far = _km(lead) > _radiusKm;
     final talking = places.any(
       (p) => (_store.shopTalks[p.id] ?? const []).isNotEmpty,
     );
-    final brands = places.expand((p) => p.brands).toSet().join(' + ');
-    final label = brands;
+    // Why: government pins always say CDO; private pins keep the shop name.
+    final label = places.first.isGov
+        ? 'CDO'
+        : (places.length == 1
+            ? places.first.company
+            : places.map((p) => p.company).join(' · '));
 
     return Marker(
       point: _at(lead),
-      width: 168,
+      width: 210,
       height: 78,
       alignment: Alignment.center,
       child: GestureDetector(
@@ -1181,7 +1605,7 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                       ),
                       const SizedBox(width: 6),
                       ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 118),
+                        constraints: const BoxConstraints(maxWidth: 160),
                         child: Text(
                           label,
                           maxLines: 1,
@@ -1293,31 +1717,34 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
             ),
             const SizedBox(height: 8),
             for (final p in places)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  backgroundColor: _pinColor(p),
-                  child: Text(
-                    _pinMark(p),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 11,
+              Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    backgroundColor: _pinColor(p),
+                    child: Text(
+                      _pinMark(p),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                      ),
                     ),
                   ),
+                  title: Text(
+                    p.isGov ? 'CDO' : p.company,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    '${p.brandLine} · ${_priceLines(p).first.$1} LKR ${withCommas(_priceLines(p).first.$2)}',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => setState(() {
+                    _selected = p;
+                    _clusterKey = null;
+                  }),
                 ),
-                title: Text(
-                  p.company,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                subtitle: Text(
-                  '${p.brandLine} · ${_priceLines(p).first.$1} LKR ${withCommas(_priceLines(p).first.$2)}',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => setState(() {
-                  _selected = p;
-                  _clusterKey = null;
-                }),
               ),
           ],
         ),
@@ -1343,12 +1770,13 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
   }
 
   Widget _placePop(FertPlace p) {
-    final far = p.distanceKm > _radiusKm;
+    final km = _km(p);
+    final far = km > _radiusKm;
     final where = far
         ? (p.physical
-            ? '${p.distanceKm} km away · still delivers here'
+            ? '${km.toStringAsFixed(1)} km away · still delivers here'
             : 'No shop here · delivers far')
-        : '${p.distanceKm.toStringAsFixed(1)} km';
+        : '${km.toStringAsFixed(1)} km';
     final lines = _priceLines(p);
 
     return Material(
@@ -1516,7 +1944,11 @@ class _FertilizerMapPageState extends State<FertilizerMapPage> {
                         context: context,
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
-                        builder: (_) => FertilizerOrderSheet(place: p),
+                        builder: (_) => FertilizerOrderSheet(
+                          place: p,
+                          // Only the fertilizers the owner filtered stay ticked.
+                          preselectedKinds: Set<String>.from(_kinds),
+                        ),
                       );
                       if (!mounted) return;
                       if (res is GovOrderDraft) {

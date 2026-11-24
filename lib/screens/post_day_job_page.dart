@@ -1,12 +1,14 @@
+import '../theme/app_theme.dart';
+import '../widgets/role_navigation_page.dart';
 import 'package:flutter/material.dart';
 import '../services/owner_service.dart';
 
 const Color _jobGreen = Color(0xFF245F48);
 const Color _jobBackground = Color(0xFFFCF9F3);
 const Color _jobInk = Color(0xFF17251F);
-const Color _prefilledBackground = Color(0xFFE5E8E6);
-const Color _prefilledBorder = Color(0xFFB5BDB9);
-const Color _prefilledInk = Color(0xFF4F5954);
+const Color _prefilledBackground = AppColors.autoFilledBackground;
+const Color _prefilledBorder = AppColors.autoFilledBorder;
+const Color _prefilledInk = AppColors.autoFilledInk;
 
 class PostDayJobPage extends StatefulWidget {
   final DateTime requiredDate;
@@ -25,7 +27,9 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
   String _estateLocation = '';
   bool _loadingEstate = true;
   bool _broadcasting = false;
-  final TextEditingController _rateController = TextEditingController();
+  final TextEditingController _rateController = TextEditingController(
+    text: '0',
+  );
 
   @override
   void initState() {
@@ -46,7 +50,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
       if (!mounted) return;
       setState(() => _loadingEstate = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not load your estate location')),
+        const SnackBar(content: Text('Could not load your land location')),
       );
     }
   }
@@ -128,7 +132,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
     if (_loadingEstate || _estateLocation.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Add your estate location before posting this job'),
+          content: Text('Add your land location before posting this job'),
         ),
       );
       return;
@@ -173,89 +177,96 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFE7E5DF),
-      body: Center(
-        child: Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(maxWidth: 430),
-          color: _jobBackground,
-          child: SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: Center(
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      child: SizedBox(
-                        width: 338,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _title(),
-                            const SizedBox(height: 10),
-                            _categoryCard(),
-                            const SizedBox(height: 8),
-                            _workersCard(),
-                            const SizedBox(height: 8),
-                            _dateCard(),
-                            const SizedBox(height: 8),
-                            _locationCard(),
-                            const SizedBox(height: 8),
-                            _rateCard(),
-                            const SizedBox(height: 8),
-                            _paymentCard(),
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              height: 56,
-                              width: 338,
-                              child: FilledButton(
-                                onPressed: _broadcasting || !_formIsValid
-                                    ? null
-                                    : _broadcast,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: _jobGreen,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(38),
+    return RoleNavigationPage(
+      chatScope: ChatScope.dayJobs,
+      current: AppTab.dashboard,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFE7E5DF),
+        body: Center(
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxWidth: 430),
+            color: _jobBackground,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: SizedBox(
+                          width: 338,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _title(),
+                              const SizedBox(height: 10),
+                              _categoryCard(),
+                              const SizedBox(height: 8),
+                              _workersCard(),
+                              const SizedBox(height: 8),
+                              _dateCard(),
+                              const SizedBox(height: 8),
+                              _locationCard(),
+                              const SizedBox(height: 8),
+                              _rateCard(),
+                              const SizedBox(height: 8),
+                              _paymentCard(),
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                height: 56,
+                                width: 338,
+                                child: FilledButton(
+                                  onPressed: _broadcasting || !_formIsValid
+                                      ? null
+                                      : _broadcast,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: _jobGreen,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(38),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        _broadcasting
+                                            ? 'Processing...'
+                                            : 'Proceed',
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      if (_broadcasting)
+                                        const SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      else
+                                        const Icon(
+                                          Icons.arrow_forward,
+                                          size: 25,
+                                        ),
+                                    ],
                                   ),
                                 ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      _broadcasting
-                                          ? 'Processing...'
-                                          : 'Process',
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    if (_broadcasting)
-                                      const SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.5,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    else
-                                      const Icon(Icons.arrow_forward, size: 25),
-                                  ],
-                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -276,13 +287,20 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
           child: const Icon(Icons.sensors, color: _jobGreen, size: 31),
         ),
         const SizedBox(width: 14),
-        const Text(
-          'Post Day Job',
-          style: TextStyle(
-            color: _jobInk,
-            fontSize: 25,
-            fontWeight: FontWeight.bold,
+        Expanded(
+          child: const Text(
+            'Post Day Job',
+            style: TextStyle(
+              color: _jobInk,
+              fontSize: 25,
+              fontWeight: FontWeight.bold,
+            ),
           ),
+        ),
+        IconButton(
+          tooltip: 'Close',
+          onPressed: () => Navigator.maybePop(context),
+          icon: const Icon(Icons.close, color: _jobInk, size: 27),
         ),
       ],
     );
@@ -316,6 +334,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
   Widget _categoryCard() {
     return _outlinedCard(
       child: DropdownButtonFormField<String>(
+        isExpanded: true,
         initialValue: _category,
         hint: const Text(
           'Select job category',
@@ -452,7 +471,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
                   )
                 : Text(
                     _displayLocation.isEmpty
-                        ? 'Estate location not set'
+                        ? 'Land location not set'
                         : _displayLocation,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -534,7 +553,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
             ],
           ),
           const SizedBox(height: 5),
-          for (final method in ['Cash', 'Direct Bank Transfer'])
+          for (final method in ['Cash', 'Direct Bank Transfer', 'Any'])
             _paymentOption(method),
         ],
       ),

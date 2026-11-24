@@ -22,7 +22,7 @@ const NAMES = {
   RAW_COCONUT: "Raw Coconuts(with husks)",
   HUSKED_COCONUT: "husked coconuts",
   DEHUSKED_COCONUT: "Dehusked Coconuts",
-  COCONUT_HUSK: "Coconut Husks",
+  COCONUT_HUSK: "Only Husks",
 };
 const productName = (type) => NAMES[String(type || "").toUpperCase()] || "coconuts";
 
@@ -30,7 +30,7 @@ const nuts = (n) => Number(n || 0).toLocaleString("en-US");
 const rupees = (n) => `Rs. ${Number(n || 0).toLocaleString("en-US")}`;
 
 const chatItems = async (userId) => {
-  const chats = await listChats(pool, userId);
+  const chats = await listChats(pool, userId, {includeUnreadMessages: true});
   const items = [];
 
   for (const chat of chats) {
@@ -45,27 +45,38 @@ const chatItems = async (userId) => {
           "Accept or reject it in the chat.",
         at: chat.waiting_offer.created_at,
         negotiation_id: chat.id,
+        order_id: chat.order_id,
+        urgent: true,
       });
     }
 
-    // Plain messages; an unanswered offer above already covers its own.
-    const last = chat.last_message;
-    if (
-      chat.unread_count > 0 &&
-      last &&
-      !last.is_mine &&
-      last.offer_price_per_unit == null
-    ) {
+    for (const message of chat.unread_messages) {
+      const accepted = message.text?.startsWith('Deal accepted by ');
+      const cancelled = message.text?.startsWith('Deal cancelled by ');
+      const awaitingCollection = message.text?.startsWith('Transaction marked complete by ');
+      const collected = message.text?.startsWith('Nuts marked as received by ');
+      const isMessage = !(accepted || cancelled || awaitingCollection || collected);
       items.push({
-        key: `chat-${last.id}`,
+        key: `chat-${message.id}`,
         type: "CHAT",
-        title:
-          chat.unread_count === 1
-            ? `New message from ${chat.counterpart_name}`
-            : `${chat.unread_count} new messages from ${chat.counterpart_name}`,
-        body: last.text || "",
-        at: last.created_at,
+        title: accepted
+          ? `${chat.counterpart_name} accepted your deal`
+          : cancelled
+          ? `${chat.counterpart_name} cancelled the deal`
+          : awaitingCollection
+          ? `${chat.counterpart_name} marked transaction complete - mark nuts received`
+          : collected
+          ? `${chat.counterpart_name} confirmed collection - deal complete`
+          : `New message from ${chat.counterpart_name}`,
+        body: message.text || "",
+        at: message.created_at,
         negotiation_id: chat.id,
+        order_id: chat.order_id,
+        urgent: Boolean(cancelled || awaitingCollection),
+        ...(isMessage ? {
+          sender_id: chat.counterpart_user_id,
+          sender_name: chat.counterpart_name,
+        } : {}),
       });
     }
   }
@@ -97,6 +108,7 @@ const sellOfferItems = async (userId) => {
         `${productName(row.product_type)}. Accept it under Orders.`,
       at: row.created_at,
       request_id: row.request_id,
+      urgent: true,
     }));
 };
 
@@ -147,11 +159,67 @@ const dayJobChatItems = async (userId) => {
   });
 };
 
+const completionAckItems = async (userId) => {
+  try {
+    const ownerJobs = await pool.query(
+      `SELECT dj.id, dj.category, dj.required_date, dj.created_at
+       FROM day_jobs dj
+       JOIN estate_owners eo ON eo.id = dj.estate_owner_id
+       WHERE eo.user_id = $1 AND UPPER(COALESCE(dj.status, '')) = 'AWAITING_OWNER_ACK'
+       ORDER BY dj.required_date DESC, dj.id DESC`,
+      [userId]
+    );
+
+    const workerJobs = await pool.query(
+      `SELECT dj.id, dj.category, dj.required_date, dj.created_at
+       FROM day_jobs dj
+       JOIN day_job_applications dja ON dja.day_job_id = dj.id
+       JOIN worker w ON w.id = dja.worker_id
+       WHERE w.user_id = $1
+         AND UPPER(COALESCE(dja.status, '')) IN ('ACCEPTED', 'COMPLETED')
+         AND UPPER(COALESCE(dj.status, '')) = 'AWAITING_WORKER_ACK'
+         AND (dja.estate_owner_rating IS NULL OR UPPER(COALESCE(dja.status, '')) <> 'COMPLETED')
+       ORDER BY dj.required_date DESC, dj.id DESC`,
+      [userId]
+    );
+
+    const items = [];
+    for (const row of ownerJobs.rows) {
+      const dateStr = String(row.required_date).split("T")[0];
+      items.push({
+        key: `completion-ack-owner-${row.id}`,
+        type: "JOB_COMPLETION_ACK",
+        title: "Job completion acknowledgement",
+        body: `Worker marked ${row.category} on ${dateStr} as completed. Review and confirm.`,
+        at: row.created_at || new Date().toISOString(),
+        day_job_id: row.id,
+      });
+    }
+    for (const row of workerJobs.rows) {
+      const dateStr = String(row.required_date).split("T")[0];
+      items.push({
+        key: `completion-ack-worker-${row.id}`,
+        type: "JOB_COMPLETION_ACK",
+        title: "Job completion acknowledgement",
+        body: `Land owner marked ${row.category} on ${dateStr} as finished. Confirm to complete.`,
+        at: row.created_at || new Date().toISOString(),
+        day_job_id: row.id,
+      });
+    }
+    return items;
+  } catch (error) {
+    if (error.code === "42P01") return [];
+    console.error("completionAckItems error:", error);
+    return [];
+  }
+};
+
 const getNotifications = async (req, res) => {
   try {
     const items = [
       ...(await chatItems(req.user.id)),
       ...(await dayJobChatItems(req.user.id)),
+      ...(await completionAckItems(req.user.id)),
       ...(req.user.role === "BUYER" ? await sellOfferItems(req.user.id) : []),
     ];
     items.sort((a, b) => new Date(b.at) - new Date(a.at));

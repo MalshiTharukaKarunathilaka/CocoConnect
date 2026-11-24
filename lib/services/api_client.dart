@@ -42,7 +42,9 @@ class ApiClient {
   }
 
   static const _tokenKey = 'auth_token';
-  static const _timeout = Duration(seconds: 15);
+  // Completion acknowledgements update the job and its accepted applications
+  // in one transaction, which can take longer on a cold backend connection.
+  static const _timeout = Duration(seconds: 45);
 
   static String? _token;
 

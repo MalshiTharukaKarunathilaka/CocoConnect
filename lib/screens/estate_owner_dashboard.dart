@@ -3,6 +3,7 @@ import '../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'coconuts_page.dart';
+import 'subcategory_page.dart';
 import 'estate_owner_calendar_page.dart';
 import 'fertilizer/fertilizer_hub.dart';
 import 'machinery_map_page.dart';
@@ -55,7 +56,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const LanguageSelector(),
+                      const Flexible(child: LanguageSelector()),
                     ],
                   ),
                 ),
@@ -69,7 +70,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Land owner dashboard',
+                          'Land Owner dashboard',
                           style: TextStyle(
                             fontSize: 12,
                             color: Color(0xFF4A4A4A),
@@ -96,7 +97,7 @@ class EstateOwnerDashboard extends StatelessWidget {
                               child: DashboardHeading(
                                 title: 'Selling\nCategories',
                                 centered: true,
-                                subtitle: 'List products',
+                                subtitle: 'List of products',
                                 color: Color(0xFFB26A2C),
                               ),
                             ),
@@ -142,38 +143,54 @@ class EstateOwnerDashboard extends StatelessWidget {
         iconColor: const Color(0xFF3B8F65),
         onTap: () => open(const CoconutsPage()),
       ),
-      const DashboardCategoryCard(
+      DashboardCategoryCard(
         title: 'Spices',
         subtitle: 'Aromatic crops',
         icon: Icons.grass,
-        iconColor: Color(0xFFB26A2C),
+        iconColor: const Color(0xFFB26A2C),
+        onTap: () =>
+            open(const SubcategoryPage(category: 'Spices', icon: Icons.grass)),
       ),
-      const DashboardCategoryCard(
+      DashboardCategoryCard(
         title: 'Livestock',
         subtitle: 'Animal products',
-        iconWidget: DashboardCategoryIcon('\u{1F36F}'),
+        iconWidget: const DashboardCategoryIcon('\u{1F36F}'),
         icon: Icons.pets,
-        iconColor: Color(0xFF777777),
+        iconColor: const Color(0xFF777777),
+        onTap: () => open(
+          const SubcategoryPage(category: 'Livestock', icon: Icons.pets),
+        ),
       ),
-      const DashboardCategoryCard(
+      DashboardCategoryCard(
         title: 'Vegetables',
         subtitle: 'Fresh produce',
-        iconWidget: DashboardCategoryIcon('\u{1F33D}'),
+        iconWidget: const DashboardCategoryIcon('\u{1F33D}'),
         icon: Icons.spa,
-        iconColor: Color(0xFFB26A2C),
+        iconColor: const Color(0xFFB26A2C),
+        onTap: () => open(
+          const SubcategoryPage(category: 'Vegetables', icon: Icons.spa),
+        ),
       ),
-      const DashboardCategoryCard(
+      DashboardCategoryCard(
         title: 'Fruits',
         subtitle: 'Seasonal harvest',
-        iconWidget: DashboardCategoryIcon('\u{1F34D}'),
+        iconWidget: const DashboardCategoryIcon('\u{1F34D}'),
         icon: Icons.apple,
-        iconColor: Color(0xFF3B8F65),
+        iconColor: const Color(0xFF3B8F65),
+        onTap: () =>
+            open(const SubcategoryPage(category: 'Fruits', icon: Icons.apple)),
       ),
-      const DashboardCategoryCard(
+      DashboardCategoryCard(
         title: 'Other Goods',
         subtitle: 'Farm goods',
         icon: Icons.inventory_2,
-        iconColor: Color(0xFF777777),
+        iconColor: const Color(0xFF777777),
+        onTap: () => open(
+          const SubcategoryPage(
+            category: 'Other Goods',
+            icon: Icons.inventory_2,
+          ),
+        ),
       ),
     ];
     final services = <Widget>[
@@ -187,7 +204,7 @@ class EstateOwnerDashboard extends StatelessWidget {
       ),
       DashboardCategoryCard(
         title: 'Machinery',
-        subtitle: 'Rent or buy',
+        subtitle: 'Make a booking',
         icon: Icons.agriculture,
         iconColor: const Color(0xFFB26A2C),
         onTap: () => open(const MachineryMapPage()),
@@ -199,29 +216,47 @@ class EstateOwnerDashboard extends StatelessWidget {
         iconColor: const Color(0xFF777777),
         onTap: () => open(const EstateOwnerCalendarPage()),
       ),
-      const DashboardCategoryCard(
+      DashboardCategoryCard(
         title: 'Skilled Jobs',
         subtitle: 'Expert assistance',
         icon: Icons.engineering,
-        iconColor: Color(0xFFB26A2C),
+        iconColor: const Color(0xFFB26A2C),
+        onTap: () => open(
+          const SubcategoryPage(
+            category: 'Skilled Jobs',
+            icon: Icons.engineering,
+          ),
+        ),
       ),
-      const DashboardCategoryCard(
+      DashboardCategoryCard(
         title: 'Equipment',
         subtitle: 'Tools and supplies',
         icon: Icons.handyman,
-        iconColor: Color(0xFF777777),
+        iconColor: const Color(0xFF777777),
+        onTap: () => open(
+          const SubcategoryPage(category: 'Equipment', icon: Icons.handyman),
+        ),
       ),
-      const DashboardCategoryCard(
+      DashboardCategoryCard(
         title: 'Irrigation',
         subtitle: 'Water solutions',
         icon: Icons.water_drop,
-        iconColor: Color(0xFF3B8F65),
+        iconColor: const Color(0xFF3B8F65),
+        onTap: () => open(
+          const SubcategoryPage(category: 'Irrigation', icon: Icons.water_drop),
+        ),
       ),
-      const DashboardCategoryCard(
+      DashboardCategoryCard(
         title: 'Miscellaneous',
         subtitle: 'Other services',
         icon: Icons.category,
-        iconColor: Color(0xFF777777),
+        iconColor: const Color(0xFF777777),
+        onTap: () => open(
+          const SubcategoryPage(
+            category: 'Miscellaneous',
+            icon: Icons.category,
+          ),
+        ),
       ),
     ];
 

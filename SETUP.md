@@ -1,11 +1,12 @@
 # Running Kapconnect
 
-The app has two parts, both in this repository on branch `integration-senuji`:
+The app has three parts on branch `integration-senuji` (and feature branches based on it):
 
-- **Mobile app** (Flutter) — the project root (`lib/`, `pubspec.yaml`)
+- **Mobile app** (Flutter) — the project root (`lib/`, `pubspec.yaml`) for Buyer / Estate Owner
 - **Backend** (Node.js + Express) — the `backend/` folder, connected to the team's Supabase database
+- **Admin web** (React) — the `admin-web/` folder for administrators in the browser
 
-The backend must be running for the app to log in or load any data.
+The backend must be running for the app and admin to log in or load any data.
 
 ---
 
@@ -113,6 +114,29 @@ cd backend
 npm test
 ```
 
+## Admin web (browser)
+
+```bash
+# Terminal 1 — backend already running on port 5000
+
+# Terminal 2
+cd admin-web
+npm install
+npm run dev
+```
+
+Open http://127.0.0.1:5174 and sign in with an **ADMIN** account (phone + password).
+
+Promote a user in Supabase SQL (once):
+
+```sql
+update public.users
+set role = 'ADMIN', status = 'ACTIVE'
+where phone = '07XXXXXXXX';
+```
+
+If admin APIs fail on missing columns/tables, run `backend/sql/008_admin_extensions.sql` once in the Supabase SQL editor.
+
 ## Running on a real phone
 
 `10.0.2.2` only works on the emulator. On a phone connected to the same Wi‑Fi as your computer, use the computer's IP address (find it with `ipconfig`):
@@ -145,3 +169,9 @@ If opening an accepted worker's chat says that day-job chat is not configured,
 run [`backend/sql/010_day_job_chats.sql`](backend/sql/010_day_job_chats.sql) in
 the Supabase SQL Editor once, then restart the backend. This creates the
 persistent worker-owner chat tables.
+
+## Buyer collection confirmation and deal ratings
+
+Run `backend/sql/013_order_receipt_and_ratings.sql` once in the configured database before starting this version. It adds nullable confirmation timestamps and one 1-5 star rating per participant. Existing completed orders stay completed.
+
+For new deals, the buyer collects the nuts at the estate and the seller records collection using **Complete Transaction**. The order stays in Deals until the buyer chooses **Confirm Collection**. Both participants can then rate each other under Transactions or in the deal chat.

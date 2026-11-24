@@ -126,6 +126,15 @@ test("activity: pending offers, negotiations, deals on both sides", async () => 
     "the buyer's chat offer waits for the owner, so it isn't the owner's pending"
   );
   assert.equal(theirs.pending[0].counterpart_name, "Lanka Mills");
+  assert.equal(theirs.pending[0].counterpart_trust_score, null);
+  const pendingProfile = `/api/sell-offers/${theirs.pending[0].id}/counterpart-profile`;
+  const pendingBuyer = await call("GET", pendingProfile, {token: owner.token});
+  assert.equal(pendingBuyer.status, 200);
+  assert.equal(pendingBuyer.data.name, "Lanka Mills");
+  assert.equal(pendingBuyer.data.average_rating, null);
+  const pendingSeller = await call("GET", pendingProfile, {token: buyer.token});
+  assert.equal(pendingSeller.status, 200);
+  assert.equal(pendingSeller.data.estate_name, "Kelani Palms");
   assert.equal(theirs.deals[0].counterpart_name, "Lanka Mills");
   assert.equal(theirs.deals[0].my_role, "ESTATE_OWNER");
 });
@@ -149,11 +158,19 @@ test("completing at a different price needs a flagged dispute", async () => {
   });
   assert.equal(flagged.status, 200);
   const order = flagged.data.order;
-  assert.equal(order.status, "COMPLETED");
+  assert.equal(order.status, "AWAITING_RECEIPT");
+  assert.equal(order.completed_at, null);
+  assert.ok(order.seller_completed_at);
   assert.equal(Number(order.delivered_price_per_unit), 130, "agreed price protected");
   assert.equal(Number(order.dispute_price_per_unit), 135);
   assert.equal(order.dispute_status, "PENDING");
 
+  const awaiting = (await call('GET', '/api/activity', {token: buyer.token})).data;
+  assert.ok(awaiting.deals.some(d => d.id === orderId && d.status === 'AWAITING_RECEIPT'));
+  assert.ok(!awaiting.transactions.some(d => d.id === orderId));
+  const receipt = await call('PATCH', `/api/buyer/orders/${orderId}/confirm-receipt`, {token: buyer.token});
+  assert.equal(receipt.status, 200);
+  assert.ok(receipt.data.order.buyer_confirmed_at);
   const buyerView = (await call("GET", "/api/activity", { token: buyer.token })).data;
   assert.equal(buyerView.deals.length, 0);
   assert.equal(buyerView.transactions[0].id, orderId);
@@ -258,6 +275,9 @@ test("an offer on a buyer request starts a chat; accepting it there closes the r
   });
   assert.equal(accepted.status, 201);
   assert.equal(accepted.data.order.buyer_request_id, request.id);
+  const alerts = (await call('GET', '/api/notifications', {token: owner.token})).data;
+  assert.ok(alerts.some(n => n.negotiation_id === chatId && n.title.includes('accepted your deal')));
+
 
   const requests = (await call("GET", "/api/buyer/requests", { token: buyer.token })).data;
   assert.equal(requests.find((r) => r.id === request.id).status, "ACCEPTED");
@@ -271,6 +291,13 @@ test("an offer on a buyer request starts a chat; accepting it there closes the r
   );
   assert.equal(deal.due_date, "2026-12-01", "due on the buyer's required date");
   assert.equal(deal.counterpart_name, "Kelani Palms");
+  const cancelled = await call('POST', `/api/chats/${chatId}/cancel-deal`, {token: owner.token, body: {reason: "Schedule changed"}});
+  assert.equal(cancelled.status, 200);
+  const afterCancel = (await call('GET', '/api/buyer/requests', {token: buyer.token})).data;
+  assert.equal(afterCancel.find(r => r.id === request.id).status, 'CANCELLED');
+  const ownerActivity = (await call('GET', '/api/activity', {token: owner.token})).data;
+  assert.ok(!ownerActivity.deals.some(o => o.id === accepted.data.order.id));
+
 });
 
 test("interested buyers can be matched to the estate's harvest", async () => {
@@ -307,4 +334,192 @@ test("interested buyers can be matched to the estate's harvest", async () => {
     );
     assert.ok(matched.every((r) => r.product_type === productType));
   }
+});
+
+
+test('receipt confirmation is buyer-only, follows seller completion, and enables mutual ratings', async () => {
+  const outsider = await signup('Unrelated buyer', '0770000088', 'BUYER');
+  const listing = (await call('POST', '/api/owner/listings', {token: owner.token, body: {
+    productType: 'RAW_COCONUT', quantity: 400, availableDate: '2026-12-10', offerPricePerUnit: 125
+  }})).data.listing;
+  const chat = (await call('POST', '/api/buyer/negotiations', {token: buyer.token, body: {listingId: listing.id}})).data;
+  const accepted = (await call('POST', `/api/chats/${chat.id}/accept-listing`, {token: buyer.token})).data;
+  const id = accepted.order.id;
+  assert.equal((await call('PATCH', `/api/buyer/orders/${id}/confirm-receipt`, {token: buyer.token})).status, 409);
+  assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: buyer.token, body: {rating: 5}})).status, 409);
+  const delivered = await call('POST', `/api/owner/orders/${id}/complete`, {token: owner.token, body: {deliveredQuantity: 390, finalPricePerUnit: 125}});
+  assert.equal(delivered.status, 200);
+  assert.equal(delivered.data.order.status, 'AWAITING_RECEIPT');
+  assert.equal(delivered.data.order.completed_at, null);
+  assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: owner.token, body: {rating: 4}})).status, 409);
+  assert.equal((await call('PATCH', `/api/buyer/orders/${id}/confirm-receipt`, {token: owner.token})).status, 403);
+  assert.equal((await call('PATCH', `/api/buyer/orders/${id}/confirm-receipt`, {token: outsider.token})).status, 404);
+  const alerts = (await call('GET', '/api/notifications', {token: buyer.token})).data;
+  assert.ok(alerts.some(n => n.negotiation_id === chat.id && n.title.includes('mark nuts received')));
+  const confirmed = await call('PATCH', `/api/buyer/orders/${id}/confirm-receipt`, {token: buyer.token});
+  assert.equal(confirmed.status, 200);
+  assert.equal(confirmed.data.order.status, 'COMPLETED');
+  assert.ok(confirmed.data.order.buyer_confirmed_at);
+  assert.ok(confirmed.data.order.completed_at);
+  assert.equal((await call('PATCH', `/api/buyer/orders/${id}/confirm-receipt`, {token: buyer.token})).status, 409);
+  const ownerAlerts = (await call('GET', '/api/notifications', {token: owner.token})).data;
+  assert.ok(ownerAlerts.some(n => n.negotiation_id === chat.id && n.title.includes('confirmed collection')));
+  const history = (await call('GET', `/api/chats/${chat.id}`, {token: buyer.token})).data;
+  assert.ok(history.messages.some(m => m.message?.startsWith('Transaction marked complete by ')));
+  assert.ok(history.messages.some(m => m.message?.startsWith('Nuts marked as received by ')));
+  for (const rating of [0, 6, 2.5, '5', null]) {
+    assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: buyer.token, body: {rating}})).status, 400);
+  }
+  assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: outsider.token, body: {rating: 5}})).status, 404);
+  const beforeRating = (await call('GET', '/api/owner/summary', {token: owner.token})).data;
+  assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: buyer.token, body: {rating: 5, note: 'x'.repeat(501)}})).status, 400);
+  assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: buyer.token, body: {rating: 5, note: '  Easy collection  '}})).status, 200);
+  assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: owner.token, body: {rating: 4, note: 'Arrived on time'}})).status, 200);
+  assert.equal((await call('PUT', `/api/orders/${id}/rating`, {token: buyer.token, body: {rating: 3}})).status, 409);
+  const mine = (await call('GET', '/api/activity', {token: buyer.token})).data.transactions.find(o => o.id === id);
+  const theirs = (await call('GET', '/api/activity', {token: owner.token})).data.transactions.find(o => o.id === id);
+  assert.equal(mine.my_rating, 5);
+  assert.equal(mine.counterpart_rating, 4);
+  assert.equal(theirs.my_rating, 4);
+  assert.equal(theirs.counterpart_rating, 5);
+  assert.equal(mine.my_rating_note, 'Easy collection');
+  assert.equal(mine.counterpart_rating_note, 'Arrived on time');
+  assert.equal(theirs.my_rating_note, 'Arrived on time');
+  assert.equal(theirs.counterpart_rating_note, 'Easy collection');
+  assert.equal(mine.counterpart_trust_score, 5);
+  assert.equal(theirs.counterpart_trust_score, 4);
+  const reviewPath = '/api/coconut-reviews/me';
+  const buyerReviews = (await call('GET', reviewPath, {token: buyer.token})).data;
+  const ownerReviews = (await call('GET', reviewPath, {token: owner.token})).data;
+  assert.ok(buyerReviews.comments.some(review => review.comment === 'Arrived on time' && review.rating === 4));
+  assert.ok(ownerReviews.comments.some(review => review.comment === 'Easy collection' && review.rating === 5));
+  const profilePath = `/api/chats/${chat.id}/counterpart-profile`;
+  const buyerView = await call('GET', profilePath, {token: buyer.token});
+  const ownerView = await call('GET', profilePath, {token: owner.token});
+  assert.equal(buyerView.data.role, 'ESTATE_OWNER');
+  assert.equal(ownerView.data.role, 'BUYER');
+  assert.deepEqual(buyerView.data.comments, ownerReviews.comments);
+  assert.deepEqual(ownerView.data.comments, buyerReviews.comments);
+  assert.equal((await call('GET', profilePath, {token: outsider.token})).status, 404);
+  const orderProfile = `/api/orders/${id}/counterpart-profile`;
+  const buyerOrderView = await call('GET', orderProfile, {token: buyer.token});
+  const ownerOrderView = await call('GET', orderProfile, {token: owner.token});
+  assert.equal(buyerOrderView.status, 200);
+  assert.equal(ownerOrderView.status, 200);
+  assert.deepEqual(buyerOrderView.data.comments, ownerReviews.comments);
+  assert.deepEqual(ownerOrderView.data.comments, buyerReviews.comments);
+  assert.equal((await call('GET', orderProfile, {token: outsider.token})).status, 404);
+  const activeListing = (await call('POST', '/api/owner/listings', {token: owner.token, body: {
+    productType: 'RAW_COCONUT', quantity: 200, availableDate: '2026-12-12', offerPricePerUnit: 125,
+  }})).data.listing;
+  const newSeller = await signup('New Estate', '0710000054', 'ESTATE_OWNER');
+  const unratedListing = (await call('POST', '/api/owner/listings', {token: newSeller.token, body: {
+    productType: 'RAW_COCONUT', quantity: 200, availableDate: '2026-12-12', offerPricePerUnit: 100,
+  }})).data.listing;
+  const market = (await call('GET', '/api/buyer/listings?sort=trust', {token: buyer.token})).data;
+  assert.equal(market.find(item => item.id === activeListing.id).trust_score, 5);
+  assert.ok(market.findIndex(item => item.id === activeListing.id) <
+    market.findIndex(item => item.id === unratedListing.id));
+  const listingProfile = `/api/buyer/listings/${activeListing.id}/counterpart-profile`;
+  assert.deepEqual((await call('GET', listingProfile, {token: buyer.token})).data.comments, ownerReviews.comments);
+  assert.equal((await call('GET', listingProfile, {token: owner.token})).status, 403);
+  const unratedRequest = (await call('POST', '/api/buyer/requests', {token: outsider.token, body: {
+    productType: 'COCONUT_HUSK', requestedQuantity: 100,
+    requiredDate: '2026-12-12', biddingPricePerUnit: 999,
+  }})).data.buyerRequest;
+  const requests = (await call('GET', '/api/owner/buyer-requests?type=COCONUT_HUSK&sort=trust', {token: owner.token})).data;
+  assert.ok(requests.length);
+  assert.equal(requests[0].trust_score, 4);
+  assert.equal(requests.at(-1).id, unratedRequest.id);
+  const requestProfile = `/api/owner/buyer-requests/${requests[0].id}/counterpart-profile`;
+  assert.deepEqual((await call('GET', requestProfile, {token: owner.token})).data.comments, buyerReviews.comments);
+  assert.equal((await call('GET', requestProfile, {token: buyer.token})).status, 403);
+  const afterRating = (await call('GET', '/api/owner/summary', {token: owner.token})).data;
+  assert.equal(afterRating.rating_count, beforeRating.rating_count + 1);
+  assert.equal(afterRating.average_rating, 5);
+});
+
+
+test('cancelling while awaiting receipt prevents confirmation and ratings', async () => {
+  const listing = (await call('POST', '/api/owner/listings', {token: owner.token, body: {
+    productType: 'RAW_COCONUT', quantity: 100, availableDate: '2026-12-10', offerPricePerUnit: 120
+  }})).data.listing;
+  const chat = (await call('POST', '/api/buyer/negotiations', {token: buyer.token, body: {listingId: listing.id}})).data;
+  const order = (await call('POST', `/api/chats/${chat.id}/accept-listing`, {token: buyer.token})).data.order;
+  assert.equal((await call('POST', `/api/owner/orders/${order.id}/complete`, {token: owner.token, body: {deliveredQuantity: 100, finalPricePerUnit: 120}})).status, 200);
+  assert.equal((await call('POST', `/api/chats/${chat.id}/cancel-deal`, {token: buyer.token, body: {reason: "Schedule changed"}})).status, 200);
+  assert.equal((await call('PATCH', `/api/buyer/orders/${order.id}/confirm-receipt`, {token: buyer.token})).status, 409);
+  assert.equal((await call('PUT', `/api/orders/${order.id}/rating`, {token: buyer.token, body: {rating: 5}})).status, 409);
+});
+
+
+test('profile averages only received buyer ratings on completed orders across both sales flows', async () => {
+  const ratedOwner = await signup('Rated land owner', '0770000091', 'ESTATE_OWNER');
+  const summary = async () => {
+    const result = await call('GET', '/api/owner/summary', {token: ratedOwner.token});
+    assert.equal(result.status, 200);
+    return result.data;
+  };
+  const empty = await summary();
+  assert.equal(empty.average_rating, null);
+  assert.equal(empty.rating_count, 0);
+  const pool = require('../config/db');
+  const estateId = empty.estate.id;
+  const listing = (await call('POST', '/api/owner/listings', {token: ratedOwner.token, body: {
+    productType: 'RAW_COCONUT', quantity: 100, availableDate: '2026-12-10', offerPricePerUnit: 120
+  }})).data.listing;
+  const request = (await call('POST', '/api/buyer/requests', {token: buyer.token, body: {
+    productType: 'RAW_COCONUT', requestedQuantity: 100, requiredDate: '2026-12-10', biddingPricePerUnit: 120
+  }})).data.buyerRequest;
+  await pool.query(`INSERT INTO sell_requests
+    (estate_owner_id, buyer_request_id, product_type, quantity, seller_price_per_unit, status)
+    VALUES ($1, $2, 'RAW_COCONUT', 100, 120, 'accepted')`, [estateId, request.id]);
+  await pool.query(`INSERT INTO orders (listing_id, buyer_request_id, status, buyer_rating, owner_rating)
+    VALUES ($1, $2, 'COMPLETED', 5, 1)`, [listing.id, request.id]);
+  await pool.query(`INSERT INTO orders (buyer_request_id, status, buyer_rating)
+    VALUES ($1, 'COMPLETED', 3)`, [request.id]);
+  for (const [status, rating] of [['COMPLETED', null], ['CANCELLED', 1], ['AWAITING_RECEIPT', 1]]) {
+    await pool.query('INSERT INTO orders (listing_id, status, buyer_rating) VALUES ($1, $2, $3)',
+      [listing.id, status, rating]);
+  }
+  const result = await summary();
+  assert.equal(result.average_rating, 4);
+  assert.equal(result.rating_count, 2, 'each rated order counts once; owner-given ratings do not count');
+  assert.notEqual(result.estate.id, (await call('GET', '/api/owner/summary', {token: owner.token})).data.estate.id);
+});
+
+test('owner badge counts only accepted handovers due today in Sri Lanka', async () => {
+  const seller = await signup('Handover Estate', '0710000048', 'ESTATE_OWNER');
+  const pool = require('../config/db');
+  const {addDays} = require('../utils/geo');
+  const today = new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Colombo'}).format(new Date());
+  const addOrder = async (date, status) => {
+    const listing = await call('POST', '/api/owner/listings', {
+      token: seller.token,
+      body: {
+        productType: 'RAW_COCONUT', quantity: 100,
+        availableDate: date, offerPricePerUnit: 120,
+      },
+    });
+    assert.equal(listing.status, 201);
+    const {rows: [order]} = await pool.query(
+      'INSERT INTO orders (listing_id, buyer_id, status) VALUES ($1, $2, $3) RETURNING id',
+      [listing.data.listing.id, buyer.user.id, status],
+    );
+    return order.id;
+  };
+  const first = await addOrder(today, 'ACCEPTED');
+  await addOrder(today, 'ACCEPTED');
+  await addOrder(today, 'AWAITING_RECEIPT');
+  await addOrder(today, 'COMPLETED');
+  await addOrder(today, 'CANCELLED');
+  await addOrder(addDays(today, 1), 'ACCEPTED');
+  await addOrder(addDays(today, -1), 'ACCEPTED');
+
+  const endpoint = '/api/owner/orders/due-today';
+  assert.deepEqual((await call('GET', endpoint, {token: seller.token})).data, {count: 2});
+  assert.deepEqual((await call('GET', endpoint, {token: owner.token})).data, {count: 0});
+  assert.equal((await call('GET', endpoint, {token: buyer.token})).status, 403);
+  await pool.query("UPDATE orders SET status = 'AWAITING_RECEIPT' WHERE id = $1", [first]);
+  assert.deepEqual((await call('GET', endpoint, {token: seller.token})).data, {count: 1});
 });

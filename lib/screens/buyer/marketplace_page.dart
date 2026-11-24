@@ -1,3 +1,5 @@
+import '../../theme/app_theme.dart' show themedPicker;
+import '../../widgets/mobile_sheet.dart';
 import '../../widgets/language_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,13 +12,7 @@ import '../../widgets/nearby_filter.dart';
 import 'buyer_format.dart';
 import 'coconut_type.dart';
 import 'estate_owner_request_page.dart';
-
-const List<Color> _avatarColors = [
-  Color(0xFFDDEEE0),
-  Color(0xFFDCE6F5),
-  Color(0xFFF5E6DC),
-  Color(0xFFEDE3F5),
-];
+import '../chat/coconut_counterpart_profile_page.dart';
 
 /// The request a buyer just submitted; listings are matched against it.
 class _RequestMatch {
@@ -53,13 +49,14 @@ class _MarketplacePageState extends State<MarketplacePage> {
   DateTime? _requiredDate;
   bool _submitting = false;
 
+  bool get _usesUnits => widget.type.code == 'COCONUT_HUSK';
+
   Future<List<Listing>> _loadListings() {
     final AppUser? me = AuthService.currentUser;
     final _RequestMatch? match = _match;
     return BuyerService.getListings(
       productType: widget.type.code,
-      // Matches are always cheapest first.
-      sort: match == null ? _sort : ListingSort.priceLow,
+      sort: _sort,
       latitude: me?.latitude,
       longitude: me?.longitude,
       radiusKm: _radiusKm,
@@ -85,6 +82,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
   Future<void> _pickDate() async {
     final DateTime now = DateTime.now();
     final DateTime? picked = await showDatePicker(
+      builder: themedPicker,
       context: context,
       initialDate: now,
       firstDate: now,
@@ -114,11 +112,11 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
     String? error;
     if (nuts == null || nuts <= 0) {
-      error = 'Enter the number of nuts you need';
+      error = 'Enter the number of units you need';
     } else if (_requiredDate == null) {
       error = 'Pick the date you need them by';
     } else if (price == null || price <= 0) {
-      error = 'Enter your bidding price per nut';
+      error = 'Enter your bidding price per unit';
     }
 
     if (error != null) {
@@ -138,10 +136,11 @@ class _MarketplacePageState extends State<MarketplacePage> {
       );
       if (!mounted) return;
       _showSnack(
-        'Request sent to estate owners. Matching listings are shown below.',
+        'Request sent to land owners. Matching listings are shown below.',
         color: kBuyerGreen,
       );
       _match = _RequestMatch(nuts, _requiredDate!, price);
+      _sort = ListingSort.priceLow;
       _reloadListings();
       _nutsController.text = '0';
       _dateController.clear();
@@ -155,36 +154,66 @@ class _MarketplacePageState extends State<MarketplacePage> {
     }
   }
 
+  Widget _sortChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? kBuyerGreen : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? kBuyerGreen : const Color(0xFFDADADA),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.bold,
+            color: selected ? Colors.white : const Color(0xFF5A5A5A),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openFilter() async {
-    if (_match != null) {
-      _showSnack('Matching listings are sorted cheapest first');
-      return;
-    }
     final ListingSort? picked = await showModalBottomSheet<ListingSort>(
+      isScrollControlled: true,
+      useSafeArea: true,
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Sort listings',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      builder: mobileSheetBuilder(
+        (context) => SafeArea(
+          child: ListView(
+            primary: false,
+            shrinkWrap: true,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Sort listings',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
-            ),
-            for (final sort in ListingSort.values)
-              ListTile(
-                title: Text(sort.label),
-                trailing: sort == _sort
-                    ? const Icon(Icons.check, color: kBuyerGreen)
-                    : null,
-                onTap: () => Navigator.pop(context, sort),
-              ),
-          ],
+              for (final sort in ListingSort.values)
+                ListTile(
+                  title: Text(sort.label),
+                  trailing: sort == _sort
+                      ? const Icon(Icons.check, color: kBuyerGreen)
+                      : null,
+                  onTap: () => Navigator.pop(context, sort),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -233,13 +262,13 @@ class _MarketplacePageState extends State<MarketplacePage> {
           return _ListingsMessage(
             icon: Icons.inventory_2_outlined,
             text: match != null
-                ? 'No listings$where match your request yet. Estate owners '
+                ? 'No listings$where match your request yet. Land owners '
                       'can still send you offers - check Orders.'
                 : _radiusKm != null
                 ? 'No ${widget.type.label.toLowerCase()} listed$where. '
                       'Try a wider distance.'
                 : 'No ${widget.type.label.toLowerCase()} listed yet. '
-                      'Submit a request above and estate owners can respond.',
+                      'Submit a request above and land owners can respond.',
             onRetry: _reloadListings,
           );
         }
@@ -247,24 +276,30 @@ class _MarketplacePageState extends State<MarketplacePage> {
         return Column(
           children: [
             for (int i = 0; i < listings.length; i++) ...[
-              EstateListingCard(
+              CoconutListingCard(
                 initial: listings[i].estateName.isEmpty
                     ? '?'
                     : listings[i].estateName[0].toUpperCase(),
-                initialBackground: _avatarColors[i % _avatarColors.length],
-                estateName: listings[i].estateName,
-                ownerName: listings[i].ownerName,
+                colorIndex: i,
+                name: listings[i].estateName,
+                subtitle: listings[i].ownerName,
                 price: rupees(listings[i].pricePerUnit),
                 trustScore: listings[i].trustScore == null
                     ? 'New'
-                    : '${listings[i].trustScore}/5',
+                    : '${listings[i].trustScore!.toStringAsFixed(1)}/5',
                 quantity: '${withCommas(listings[i].quantity)} nuts',
-                availableDate: shortDate(listings[i].availableDate),
+                date: shortDate(listings[i].availableDate),
                 distance: distanceLabel(listings[i].distanceKm),
                 note: match == null ? null : _bidNote(listings[i], match),
                 noteGood:
                     match == null || listings[i].pricePerUnit <= match.price,
                 onTap: () => _openRequest(listings[i]),
+                onProfileTap: () => openCoconutCounterpartProfile(
+                  context,
+                  name: listings[i].estateName,
+                  profilePath:
+                      '/api/buyer/listings/${listings[i].id}/counterpart-profile',
+                ),
               ),
               const SizedBox(height: 16),
             ],
@@ -324,7 +359,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
           Text(
             '${withCommas(match.quantity)} nuts or more  ·  available '
             '${shortDate(match.requiredDate)} to '
-            '${shortDate(match.latestDate)}  ·  cheapest first',
+            '${shortDate(match.latestDate)}  ·  ${_sort.label}',
             style: const TextStyle(
               fontSize: 12,
               height: 1.4,
@@ -351,28 +386,32 @@ class _MarketplacePageState extends State<MarketplacePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Icon(
-                        Icons.arrow_back,
-                        size: 22,
-                        color: Color(0xFF3A3A3A),
+                Expanded(
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: const Icon(
+                          Icons.arrow_back,
+                          size: 22,
+                          color: Color(0xFF3A3A3A),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'KapConnect',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: kBuyerGreen,
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: const Text(
+                          'KapConnect',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: kBuyerGreen,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const LanguageSelector(),
+                const Flexible(child: LanguageSelector()),
               ],
             ),
 
@@ -390,7 +429,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
             const SizedBox(height: 6),
 
             Text(
-              'Connect with local estate owners and secure your '
+              'Connect with local land owners and secure your '
               '${widget.type.singular.toLowerCase()} supply with '
               'transparent pricing.',
               style: const TextStyle(
@@ -440,7 +479,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
                   const SizedBox(height: 20),
 
-                  const BuyerFieldLabel(text: 'Number of Nuts Required'),
+                  const BuyerFieldLabel(text: 'Number of Units Required'),
                   const SizedBox(height: 7),
                   BuyerInputField(
                     controller: _nutsController,
@@ -480,7 +519,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
                   const SizedBox(height: 14),
 
-                  const BuyerFieldLabel(text: 'Bidding Price (Rs. per nut)'),
+                  const BuyerFieldLabel(text: 'Bidding Price (Rs. per unit)'),
                   const SizedBox(height: 7),
                   BuyerInputField(
                     controller: _priceController,
@@ -521,7 +560,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                   const SizedBox(height: 14),
 
                   const Text(
-                    'Your request will be visible to estate owners within '
+                    'Your request will be visible to land owners within '
                     'your region.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -537,7 +576,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
             const SizedBox(height: 26),
 
             Text(
-              _match == null ? 'Estate Owner Listings' : 'Matching Listings',
+              _match == null ? 'Land Owner Listings' : 'Matching Listings',
               style: const TextStyle(
                 fontSize: 19,
                 fontWeight: FontWeight.bold,
@@ -557,6 +596,53 @@ class _MarketplacePageState extends State<MarketplacePage> {
               onLocationChanged: _reloadListings,
             ),
 
+            const SizedBox(height: 8),
+
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                  _sortChip(
+                    label: 'Best Price',
+                    selected: _sort == ListingSort.priceLow || _sort == ListingSort.priceHigh,
+                    onTap: () {
+                      setState(() {
+                        _sort = ListingSort.priceLow;
+                        _reloadListings();
+                      });
+                    },
+                  ),
+                  _sortChip(
+                    label: 'Earliest Pickup Date',
+                    selected: _sort == ListingSort.newest,
+                    onTap: () {
+                      setState(() {
+                        _sort = ListingSort.newest;
+                        _reloadListings();
+                      });
+                    },
+                  ),
+                  _sortChip(
+                    label: 'Nearest Location',
+                    selected: _sort == ListingSort.nearest,
+                    onTap: () {
+                      setState(() {
+                        _sort = ListingSort.nearest;
+                        _reloadListings();
+                      });
+                    },
+                  ),
+                  _sortChip(
+                    label: 'Highest Trust Score',
+                    selected: _sort == ListingSort.trust,
+                    onTap: () {
+                      _sort = ListingSort.trust;
+                      _reloadListings();
+                    },
+                  ),
+              ],
+            ),
+
             const SizedBox(height: 10),
 
             Row(
@@ -573,7 +659,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                       SizedBox(width: 5),
                       Flexible(
                         child: Text(
-                          'Open listings from estate owners',
+                          'Open listings from land owners',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontSize: 12, color: kBuyerGrey),

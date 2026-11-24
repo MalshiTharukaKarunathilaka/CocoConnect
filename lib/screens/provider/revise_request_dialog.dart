@@ -5,20 +5,22 @@ import '../../theme/app_theme.dart';
 import '../buyer/buyer_format.dart';
 import 'provider_request_widgets.dart';
 
-/// The estate owner changes the price and the request (the work, the date and
+/// The land owner changes the price and the request (the work, the date and
 /// the time). Returns the body for `POST /api/machinery/bookings/:id/revise`,
 /// or null when cancelled. The provider can then only accept or decline it.
 Future<Map<String, dynamic>?> showReviseRequestDialog(
   BuildContext context,
-  ProviderBookingRequest request,
-) => showThemedDialog<Map<String, dynamic>>(
+  ProviderBookingRequest request, {
+  bool initialRequest = false,
+}) => showThemedDialog<Map<String, dynamic>>(
   context: context,
-  builder: (_) => _ReviseDialog(request: request),
+  builder: (_) => _ReviseDialog(request: request, initialRequest: initialRequest),
 );
 
 class _ReviseDialog extends StatefulWidget {
   final ProviderBookingRequest request;
-  const _ReviseDialog({required this.request});
+  final bool initialRequest;
+  const _ReviseDialog({required this.request, required this.initialRequest});
 
   @override
   State<_ReviseDialog> createState() => _ReviseDialogState();
@@ -151,15 +153,26 @@ class _ReviseDialogState extends State<_ReviseDialog> {
   Widget build(BuildContext context) {
     final request = widget.request;
     return AlertDialog(
-      title: const Text('Change price or request'),
-      content: SingleChildScrollView(
+      scrollable: true,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      title: Text(
+        widget.initialRequest ? 'Send booking request' : 'Change price or request',
+        style: const TextStyle(fontSize: 20),
+      ),
+      content: SizedBox(
+        width: 340,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'The provider can only accept or decline. Anything you change here goes back to them as a new offer.',
-              style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+            Text(
+              widget.initialRequest
+                  ? 'Review your services, offer, and schedule before sending. The provider can accept or decline your request.'
+                  : 'The provider can only accept or decline. Anything you change here goes back to them as a new offer.',
+              style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
             ),
             const SizedBox(height: 14),
             for (int i = 0; i < _qty.length; i++) ...[
@@ -175,8 +188,9 @@ class _ReviseDialogState extends State<_ReviseDialog> {
                 ],
                 decoration: InputDecoration(
                   labelText: '${request.items[i]['name']}',
-                  suffixText:
-                      '${request.items[i]['unit']}s  ·  ${rupees(_rateOf(i))}/${request.items[i]['unit']}',
+                  helperText:
+                      '${rupees(_rateOf(i))} / ${request.items[i]['unit']}',
+                  helperMaxLines: 2,
                 ),
               ),
               const SizedBox(height: 10),
@@ -261,7 +275,7 @@ class _ReviseDialogState extends State<_ReviseDialog> {
         FilledButton(
           key: const Key('revise-send'),
           onPressed: _submit,
-          child: const Text('Send new offer'),
+          child: Text(widget.initialRequest ? 'Send booking request' : 'Send new offer'),
         ),
       ],
     );

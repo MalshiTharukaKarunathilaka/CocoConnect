@@ -113,7 +113,7 @@ test("buyer routes need a buyer login", async () => {
   assert.equal((await call("GET", "/api/buyer/requests")).status, 401);
 
   const owner = await call("POST", "/api/auth/signup", {
-    body: { name: "Owner", phone: "0712222222", password: "secret123", role: "Estate Owner", location: "Kurunegala" },
+    body: { name: "Owner", phone: "0712222222", password: "secret123", role: "Land Owner", location: "Kurunegala" },
   });
   const asOwner = await call("GET", "/api/buyer/requests", { token: owner.data.token });
   assert.equal(asOwner.status, 403);
@@ -194,7 +194,7 @@ test("buyer requests: create, read, update, delete", async () => {
   assert.equal((await call("GET", "/api/buyer/requests", { token })).data.length, 0);
 });
 
-test("a request an estate owner answered can't be deleted", async () => {
+test("a request a land owner answered can't be deleted", async () => {
   const token = buyer.token;
   const created = await call("POST", "/api/buyer/requests", {
     token,
@@ -252,7 +252,7 @@ test("negotiation: start, message, counter-offer, accept, complete", async () =>
     body: { offerPricePerUnit: 118 },
   });
 
-  // The estate owner replies with a counter-offer from their side.
+  // The land owner replies with a counter-offer from their side.
   const ownerUser = await call("POST", "/api/auth/signup", {
     body: { name: "Nimal", phone: "0713333333", password: "secret123", role: "ESTATE_OWNER", location: "Gampaha" },
   });
@@ -302,12 +302,16 @@ test("negotiation: start, message, counter-offer, accept, complete", async () =>
   assert.equal(orders.data[0].estate_name, "Green Valley Estate");
 
   const orderId = orders.data[0].id;
+  const premature = await call('PATCH', `/api/buyer/orders/${orderId}/complete`, {token});
+  assert.equal(premature.status, 409);
+  // Delivery setup for this buyer-route test; the owner route is covered separately.
+  await pool().query("UPDATE orders SET status = 'AWAITING_RECEIPT', seller_completed_at = $2 WHERE id = $1", [orderId, new Date()]);
   const completed = await call("PATCH", `/api/buyer/orders/${orderId}/complete`, { token });
   assert.equal(completed.status, 200);
   assert.equal(completed.data.order.status, "COMPLETED");
 
   const twice = await call("PATCH", `/api/buyer/orders/${orderId}/complete`, { token });
-  assert.equal(twice.status, 404);
+  assert.equal(twice.status, 409);
 
   const after = await call("GET", `/api/buyer/negotiations/${id}`, { token });
   assert.equal(after.data.status, "ACCEPTED");

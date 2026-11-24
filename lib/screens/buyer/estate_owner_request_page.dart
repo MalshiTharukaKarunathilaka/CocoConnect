@@ -67,12 +67,14 @@ class _EstateOwnerRequestPageState extends State<EstateOwnerRequestPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Text(
-                  'Estate Owner Request',
-                  style: TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.bold,
-                    color: kBuyerGreen,
+                Expanded(
+                  child: const Text(
+                    'Land Owner Request',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                      color: kBuyerGreen,
+                    ),
                   ),
                 ),
               ],
@@ -171,14 +173,16 @@ class _EstateOwnerRequestPageState extends State<EstateOwnerRequestPage> {
                               color: Color(0xFFE0A526),
                             ),
                             const SizedBox(width: 5),
-                            Text(
-                              listing.trustScore == null
-                                  ? 'Trust Score: not rated yet'
-                                  : 'Trust Score: ${listing.trustScore}/5',
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF3A3A3A),
+                            Expanded(
+                              child: Text(
+                                listing.trustScore == null
+                                    ? 'Trust Score: not rated yet'
+                                    : 'Trust Score: ${listing.trustScore}/5',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF3A3A3A),
+                                ),
                               ),
                             ),
                           ],
@@ -195,13 +199,15 @@ class _EstateOwnerRequestPageState extends State<EstateOwnerRequestPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            BuyerSectionTitle(
-                              text:
-                                  'Order Request for '
-                                  '${type.singular.toLowerCase()}s',
+                            Expanded(
+                              child: BuyerSectionTitle(
+                                text:
+                                    'Order Request for '
+                                    '${type.singular.toLowerCase()}s',
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             const BuyerPill(
                               text: 'OPEN',
                               background: Color(0xFFDDEEE0),

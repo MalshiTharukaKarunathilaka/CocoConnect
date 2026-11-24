@@ -43,8 +43,8 @@ class _FertilizerComplaintSheetState extends State<FertilizerComplaintSheet> {
         status: 'Submitted',
         date: DateTime.now(),
         description: _desc.text.trim(),
-        owner: 'Your Estate',
-        district: 'Kurunegala',
+        owner: store.boundOwnerKey,
+        district: store.ownerProfile.district,
       ),
     );
     Navigator.pop(context, true);
