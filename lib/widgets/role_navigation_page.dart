@@ -1,6 +1,31 @@
 import 'package:flutter/material.dart';
 import 'app_bottom_nav.dart';
+import '../services/auth_service.dart';
 export 'app_bottom_nav.dart' show AppTab, ChatScope;
+
+class MobileViewportFrame extends StatelessWidget {
+  final Widget child;
+  final double maxWidth;
+  final Color gutterColor;
+
+  const MobileViewportFrame({
+    super.key,
+    required this.child,
+    this.maxWidth = 430,
+    this.gutterColor = Colors.black,
+  });
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: gutterColor,
+    child: Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: child,
+      ),
+    ),
+  );
+}
 
 /// Adds the signed-in buyer/owner navigation to screens with their own Scaffold.
 class RoleNavigationPage extends StatelessWidget {
@@ -16,7 +41,11 @@ class RoleNavigationPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!supportsMainNavigation) return child;
+    if (!supportsMainNavigation) {
+      return AuthService.currentUser?.role == 'WORKER'
+          ? MobileViewportFrame(child: child)
+          : child;
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFEFEFEF),
       body: Center(

@@ -761,4 +761,52 @@ void main() {
       }
     }
   }
+
+  testWidgets('Worker screens use mobile width on desktop', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    AuthService.currentUser = AppUser(
+      id: 1,
+      name: 'Worker',
+      phone: '0771234567',
+      role: 'WORKER',
+      location: 'Kandy',
+    );
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(() => AuthService.currentUser = null);
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const MaterialApp(home: p16.WorkerDashboard()));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(tester.getSize(find.byType(Scaffold)).width, 430);
+
+      await tester.pumpWidget(
+        const MaterialApp(home: p18.WorkerChatPage(chatId: 1)),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(tester.getSize(find.byType(Scaffold)).width, 430);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is ColoredBox && widget.color == Colors.black,
+        ),
+        findsOneWidget,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: extra2.EstateJobsMapPage(jobs: const [])),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.getSize(find.byType(Scaffold)).width, 430);
+
+      await tester.pumpWidget(
+        MaterialApp(home: p17.EstateOwnerWorkerProfilePage(job: workerJob)),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.getSize(find.byType(Scaffold)).width, 430);
+    }, () => client);
+  });
 }

@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/worker_service.dart';
+import '../utils/worker_map_locations.dart';
 import '../widgets/open_street_map_tiles.dart';
 import '../widgets/role_navigation_page.dart';
 
@@ -104,7 +105,6 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
 
   @override
   Widget build(BuildContext context) {
-    final mappedEstates = _mappedEstates();
     // Start zoomed out enough to show Jaffna and the southern estates together.
     const center = LatLng(7.5, 80.7);
     final workerPoint = _workerPoint;
@@ -113,7 +113,9 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
       future: _estates,
       builder: (context, estateSnapshot) {
         final estates = estateSnapshot.data ?? const <WorkerEstate>[];
-        _focusInitialEstateWhenReady(estateSnapshot, estates);
+        final mappedEstates = _mappedEstates(estates);
+        final mapEstates = _estatesWithJobPostings(estates, mappedEstates);
+        _focusInitialEstateWhenReady(estateSnapshot, mapEstates);
         return RoleNavigationPage(
           chatScope: ChatScope.dayJobs,
           current: AppTab.dashboard,
@@ -191,22 +193,17 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
                               ),
                             ),
                           ),
-                        for (final group in _groupNearbyEstates(estates))
+                        for (final group in _groupNearbyEstates(mapEstates))
                           if (group.estates.any(
                             (estate) => estate.id == _selectedEstateId,
                           ))
                             for (final estate in group.estates)
-                              _estateMarker(estate, _pointForEstate(estate)!)
+                              _estateMarker(
+                                estate,
+                                workerEstateMapPoint(estate)!,
+                              )
                           else
                             _estateGroupMarker(context, group),
-                        if (!widget.nearbyOnly && estates.isEmpty)
-                          for (final estate in mappedEstates)
-                            _marker(
-                              context,
-                              point: estate.point,
-                              name: estate.job.estateName,
-                              location: estate.job.location,
-                            ),
                       ],
                     ),
                     const RichAttributionWidget(
@@ -327,7 +324,7 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
 
   List<_EstateGroup> _groupNearbyEstates(List<WorkerEstate> estates) {
     final candidates = estates
-        .where((estate) => _pointForEstate(estate) != null)
+        .where((estate) => workerEstateMapPoint(estate) != null)
         .toList();
     final groups = <_EstateGroup>[];
     final clusterDistanceKm = widget.nearbyOnly ? 5.0 : 30.0;
@@ -335,16 +332,19 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
 
     while (candidates.isNotEmpty) {
       final seed = candidates.removeAt(0);
-      final seedPoint = _pointForEstate(seed)!;
+      final seedPoint = workerEstateMapPoint(seed)!;
       final members = <WorkerEstate>[seed];
       for (var index = candidates.length - 1; index >= 0; index--) {
-        final point = _pointForEstate(candidates[index])!;
+        final point = workerEstateMapPoint(candidates[index])!;
         final km = distance.as(LengthUnit.Kilometer, seedPoint, point);
         if (km <= clusterDistanceKm) {
           members.add(candidates.removeAt(index));
         }
       }
-      final points = members.map(_pointForEstate).whereType<LatLng>().toList();
+      final points = members
+          .map(workerEstateMapPoint)
+          .whereType<LatLng>()
+          .toList();
       groups.add(
         _EstateGroup(
           estates: members,
@@ -395,7 +395,7 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
                     ListTile(
                       onTap: () {
                         Navigator.pop(context);
-                        _focusEstate(estate, _pointForEstate(estate)!);
+                        _focusEstate(estate, workerEstateMapPoint(estate)!);
                       },
                       leading: const Icon(Icons.park, color: Color(0xFF256B45)),
                       title: Text(estate.estateName),
@@ -543,7 +543,7 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
       }
     }
     _initialFocusHandled = true;
-    final point = target == null ? null : _pointForEstate(target);
+    final point = target == null ? null : workerEstateMapPoint(target);
     if (target == null || point == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusEstate(target!, point, showSheet: false);
@@ -562,7 +562,7 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
     if (estate.id > 0) {
       try {
         selectedEstate = await WorkerService.getEstateLocation(estate.id);
-        final exactPoint = _pointForEstate(selectedEstate);
+        final exactPoint = workerEstateMapPoint(selectedEstate);
         if (exactPoint != null) point = exactPoint;
       } on ApiException catch (error) {
         locationWarning = error.message;
@@ -688,7 +688,10 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
   }
 
   void _fitAllEstates(List<WorkerEstate> estates) {
-    final points = estates.map(_pointForEstate).whereType<LatLng>().toList();
+    final points = estates
+        .map(workerEstateMapPoint)
+        .whereType<LatLng>()
+        .toList();
     if (points.isEmpty) return;
     if (points.length == 1) {
       _map.move(points.single, 15);
@@ -720,61 +723,6 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
     );
   }
 
-  Marker _marker(
-    BuildContext context, {
-    required LatLng point,
-    required String name,
-    required String location,
-    double? distanceKm,
-  }) {
-    final distanceLabel = distanceKm == null
-        ? null
-        : '${distanceKm.toStringAsFixed(1)} km away';
-    return Marker(
-      point: point,
-      width: 190,
-      height: 70,
-      child: GestureDetector(
-        onTap: () => showModalBottomSheet<void>(
-          isScrollControlled: true,
-          useSafeArea: true,
-          context: context,
-          builder: mobileSheetBuilder(
-            (_) => ListTile(
-              leading: const Icon(Icons.park),
-              title: Text(name),
-              subtitle: Text(
-                distanceLabel == null ? location : '$location\n$distanceLabel',
-              ),
-            ),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              constraints: const BoxConstraints(maxWidth: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                distanceLabel == null ? name : '$name • $distanceLabel',
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                ),
-              ),
-            ),
-            const Icon(Icons.park, color: Color(0xFF256B45), size: 34),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _mapMessage(String message, {bool showRetry = false}) {
     return Material(
       elevation: 3,
@@ -800,17 +748,34 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
     );
   }
 
-  List<_MappedEstate> _mappedEstates() {
-    final byEstate = <String, WorkerJob>{};
+  List<_MappedEstate> _mappedEstates(List<WorkerEstate> availableEstates) {
+    final estatesById = <int, WorkerEstate>{
+      for (final estate in availableEstates)
+        if (estate.id > 0) estate.id: estate,
+    };
+    final byEstate = <String, _MappedEstate>{};
     for (final job in widget.jobs) {
-      if (_pointFor(job) != null) {
-        byEstate.putIfAbsent(job.estateName, () => job);
+      final knownEstate = job.estateOwnerId > 0
+          ? estatesById[job.estateOwnerId]
+          : null;
+      final distanceKm = job.distanceKm ?? knownEstate?.distanceKm;
+      if (widget.nearbyOnly &&
+          (distanceKm == null || distanceKm > widget.radiusKm)) {
+        continue;
       }
+
+      final point =
+          workerJobMapPoint(job) ??
+          (knownEstate == null ? null : workerEstateMapPoint(knownEstate));
+      if (point == null) continue;
+
+      final key = _estateKey(job.estateOwnerId, job.estateName);
+      byEstate.putIfAbsent(key, () => _MappedEstate(job: job, point: point));
     }
 
     final usedPoints = <String, int>{};
-    return byEstate.values.map((job) {
-      final base = _pointFor(job)!;
+    return byEstate.values.map((mapped) {
+      final base = mapped.point;
       final key = '${base.latitude},${base.longitude}';
       final duplicateIndex = usedPoints.update(
         key,
@@ -821,42 +786,51 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
       final point = duplicateIndex == 0
           ? base
           : LatLng(base.latitude, base.longitude + duplicateIndex * 0.015);
-      return _MappedEstate(job: job, point: point);
+      return _MappedEstate(job: mapped.job, point: point);
     }).toList();
   }
 
-  LatLng? _pointFor(WorkerJob job) {
-    if (job.latitude != null && job.longitude != null) {
-      return LatLng(job.latitude!, job.longitude!);
+  List<WorkerEstate> _estatesWithJobPostings(
+    List<WorkerEstate> estates,
+    List<_MappedEstate> jobEstates,
+  ) {
+    final result = <String, WorkerEstate>{
+      for (final estate in estates)
+        _estateKey(estate.id, estate.estateName): estate,
+    };
+
+    for (final mapped in jobEstates) {
+      final job = mapped.job;
+      final key = _estateKey(job.estateOwnerId, job.estateName);
+      final existing = result[key];
+      final jobEstateName = job.estateName.trim();
+      final jobOwnerName = job.estateOwnerName.trim();
+      final jobLocation = job.estateLocation.trim();
+      result[key] = WorkerEstate(
+        id: job.estateOwnerId > 0 ? job.estateOwnerId : existing?.id ?? 0,
+        estateName: jobEstateName.isEmpty || jobEstateName == 'Land'
+            ? existing?.estateName ?? job.estateName
+            : job.estateName,
+        ownerName: jobOwnerName.isEmpty || jobOwnerName == 'Land owner'
+            ? existing?.ownerName ?? job.estateOwnerName
+            : job.estateOwnerName,
+        location: jobLocation.isNotEmpty
+            ? jobLocation
+            : existing?.location ?? job.location,
+        latitude: mapped.point.latitude,
+        longitude: mapped.point.longitude,
+        distanceKm: job.distanceKm ?? existing?.distanceKm,
+        hasMapLocation:
+            (job.latitude != null && job.longitude != null) ||
+            (existing?.hasMapLocation ?? false),
+      );
     }
 
-    final place = '${job.estateName} ${job.location}'.toLowerCase();
-    if (place.contains('jaffna')) {
-      return const LatLng(9.6615, 80.0255);
-    }
-    if (place.contains('walasmulla')) {
-      return const LatLng(6.1447, 80.6851);
-    }
-    if (place.contains('middeniya')) {
-      return const LatLng(6.2730, 80.7670);
-    }
-    if (place.contains('hambantota')) {
-      return const LatLng(6.1241, 81.1185);
-    }
-    return null;
+    return result.values.toList();
   }
 
-  LatLng? _pointForEstate(WorkerEstate estate) {
-    if (estate.latitude != null && estate.longitude != null) {
-      return LatLng(estate.latitude!, estate.longitude!);
-    }
-    final place = '${estate.estateName} ${estate.location}'.toLowerCase();
-    if (place.contains('jaffna')) return const LatLng(9.6615, 80.0255);
-    if (place.contains('walasmulla')) return const LatLng(6.1447, 80.6851);
-    if (place.contains('middeniya')) return const LatLng(6.2730, 80.7670);
-    if (place.contains('hambantota')) return const LatLng(6.1241, 81.1185);
-    return null;
-  }
+  String _estateKey(int id, String name) =>
+      id > 0 ? 'id:$id' : 'name:${name.trim().toLowerCase()}';
 }
 
 class _MappedEstate {

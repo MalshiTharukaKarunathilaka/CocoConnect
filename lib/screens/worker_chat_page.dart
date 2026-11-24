@@ -203,7 +203,7 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
             ),
           )
         else
-          for (final message in chat.messages) _messageBubble(message),
+          for (final message in chat.messages) _messageBubble(context, message),
       ],
     );
   }
@@ -244,13 +244,16 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
     ),
   );
 
-  Widget _messageBubble(DayJobChatMessage message) {
+  Widget _messageBubble(BuildContext context, DayJobChatMessage message) {
+    final maxBubbleWidth = (MediaQuery.sizeOf(context).width * 0.78)
+        .clamp(220.0, 360.0)
+        .toDouble();
     return Align(
       alignment: message.isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
-        constraints: const BoxConstraints(maxWidth: 285),
+        constraints: BoxConstraints(maxWidth: maxBubbleWidth),
         decoration: BoxDecoration(
           color: message.isMine ? _workerChatMyBubble : Colors.white,
           borderRadius: BorderRadius.only(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_client.dart';
 import '../services/worker_service.dart';
+import '../widgets/role_navigation_page.dart';
 
 const _ownerGreen = Color(0xFF2A704E);
 const _ownerBackground = Color(0xFFFCF9F3);
@@ -33,34 +34,36 @@ class _EstateOwnerWorkerProfilePageState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _ownerBackground,
-      appBar: AppBar(
+    return MobileViewportFrame(
+      child: Scaffold(
         backgroundColor: _ownerBackground,
-        foregroundColor: _ownerInk,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context, _currentRating),
-          icon: const Icon(Icons.arrow_back),
+        appBar: AppBar(
+          backgroundColor: _ownerBackground,
+          foregroundColor: _ownerInk,
+          elevation: 0,
+          leading: IconButton(
+            onPressed: () => Navigator.pop(context, _currentRating),
+            icon: const Icon(Icons.arrow_back),
+          ),
+          title: const Text(
+            'Land Owner Profile',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
-        title: const Text(
-          'Land Owner Profile',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        body: FutureBuilder<EstateOwnerWorkerProfile>(
+          future: _profile,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: _ownerGreen),
+              );
+            }
+            if (snapshot.hasError || snapshot.data == null) {
+              return _errorView(snapshot.error);
+            }
+            return _profileView(snapshot.data!);
+          },
         ),
-      ),
-      body: FutureBuilder<EstateOwnerWorkerProfile>(
-        future: _profile,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: _ownerGreen),
-            );
-          }
-          if (snapshot.hasError || snapshot.data == null) {
-            return _errorView(snapshot.error);
-          }
-          return _profileView(snapshot.data!);
-        },
       ),
     );
   }

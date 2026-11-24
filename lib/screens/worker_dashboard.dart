@@ -3,15 +3,20 @@ import '../widgets/auto_filled_field.dart';
 import '../widgets/language_selector.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
 import '../services/day_job_chat_service.dart';
 import '../services/holiday_service.dart';
 import '../services/worker_service.dart';
+import '../utils/worker_map_locations.dart';
+import '../widgets/open_street_map_tiles.dart';
 import '../widgets/profile_widgets.dart';
 import '../widgets/buyer_widgets.dart';
 import '../widgets/holiday_widgets.dart';
+import '../widgets/role_navigation_page.dart';
 import 'worker_chat_page.dart';
 import 'estate_jobs_map_page.dart';
 import 'day_job_chats_list.dart';
@@ -48,6 +53,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   late Future<List<WorkerJob>> _jobs;
   late Future<WorkerProfileSummary> _profileSummary;
+  Future<List<WorkerEstate>>? _jobMapEstates;
   WorkerProfileSummary? _profileCache;
   final _searchController = TextEditingController();
   int _tab = 0;
@@ -75,8 +81,6 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     _notificationTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       _refreshNotificationCount();
       _refreshChatCount();
-      if (_tab == 0 || _tab == 1) _reloadJobs();
-      if (_tab == 4) _reloadProfile();
     });
   }
 
@@ -337,20 +341,16 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 430),
-          color: _workerBackground,
-          child: SafeArea(
-            child: Column(
-              children: [
-                _header(),
-                Expanded(child: _content()),
-                _bottomNavigation(),
-              ],
-            ),
+    return MobileViewportFrame(
+      child: Scaffold(
+        backgroundColor: _workerBackground,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _header(),
+              Expanded(child: _content()),
+              _bottomNavigation(),
+            ],
           ),
         ),
       ),
@@ -1343,7 +1343,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   ],
                 ),
                 const SizedBox(height: 10),
-                _nearbyFilters(selectedJobs, allJobs: jobs),
+                _nearbyFilters(selectedJobs),
                 if (!_myJobsOnly) ...[
                   const SizedBox(height: 10),
                   _distanceFilter(),
@@ -1353,13 +1353,13 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                       context,
                       MaterialPageRoute(
                         builder: (_) => EstateJobsMapPage(
-                          jobs: jobs,
+                          jobs: selectedJobs,
                           radiusKm: _radiusKm ?? 20,
                           nearbyOnly: _radiusKm != null,
                         ),
                       ),
                     ),
-                    child: _nearbyMap(),
+                    child: _nearbyMap(selectedJobs),
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -1396,7 +1396,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     return job.applicationStatus?.toLowerCase() == 'accepted';
   }
 
-  Widget _nearbyFilters(List<WorkerJob> jobs, {List<WorkerJob>? allJobs}) {
+  Widget _nearbyFilters(List<WorkerJob> jobs) {
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
       decoration: _cardDecoration(),
@@ -1453,7 +1453,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                     context,
                     MaterialPageRoute(
                       builder: (_) => EstateJobsMapPage(
-                        jobs: allJobs ?? jobs,
+                        jobs: jobs,
                         radiusKm: _radiusKm ?? 20,
                         nearbyOnly: _radiusKm != null,
                       ),
@@ -1609,9 +1609,42 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     );
   }
 
-  Widget _nearbyMap() {
+  Widget _nearbyMap(List<WorkerJob> jobs) {
+    return FutureBuilder<List<WorkerEstate>>(
+      future: _jobMapEstates,
+      builder: (context, snapshot) => _nearbyMapContent(
+        jobs,
+        snapshot.data ?? const [],
+        estateLoadFailed: snapshot.hasError,
+      ),
+    );
+  }
+
+  Widget _nearbyMapContent(
+    List<WorkerJob> jobs,
+    List<WorkerEstate> estates, {
+    required bool estateLoadFailed,
+  }) {
+    final pins = _jobMapPins(jobs, estates);
+    final center = _radiusKm != null && pins.isNotEmpty
+        ? pins.first.point
+        : pins.length == 1
+        ? pins.first.point
+        : const LatLng(7.7, 80.7);
+    final double zoom = _radiusKm != null
+        ? _radiusKm! <= 5
+              ? 10.5
+              : _radiusKm! <= 15
+              ? 9
+              : 7.5
+        : pins.length == 1
+        ? 10
+        : 7;
+
     return Container(
-      height: 126,
+      key: const ValueKey('worker-job-map-preview'),
+      height: 230,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: const Color(0xFFD8F1E2),
         borderRadius: BorderRadius.circular(22),
@@ -1619,8 +1652,71 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       ),
       child: Stack(
         children: [
-          const Center(
-            child: Icon(Icons.location_on, color: _workerGreen, size: 42),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: FlutterMap(
+                options: MapOptions(initialCenter: center, initialZoom: zoom),
+                children: [
+                  kapConnectMapTiles(),
+                  MarkerLayer(
+                    markers: [
+                      for (final pin in pins)
+                        Marker(
+                          point: pin.point,
+                          width: 120,
+                          height: 52,
+                          alignment: Alignment.bottomCenter,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 112,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFFB4D9C0),
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x22000000),
+                                      blurRadius: 4,
+                                      offset: Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  pin.job.estateName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: _workerInk,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const Icon(
+                                Icons.location_on,
+                                color: _workerGreen,
+                                size: 22,
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  const KapConnectMapAttribution(),
+                ],
+              ),
+            ),
           ),
           Positioned(
             top: 9,
@@ -1640,7 +1736,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           ),
           Positioned(
             left: 14,
-            right: 14,
+            right: 140,
             bottom: 9,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1649,9 +1745,13 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Text(
-                _radiusKm == null
-                    ? 'Showing all lands across Sri Lanka'
-                    : 'Active Match Zone: 0 - $_radiusKm km',
+                estateLoadFailed
+                    ? 'Estate locations could not be loaded'
+                    : pins.isEmpty
+                    ? 'No job locations available'
+                    : '${pins.length} estates with job postings',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: _workerInk,
                   fontSize: 13,
@@ -1663,6 +1763,46 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         ],
       ),
     );
+  }
+
+  List<({WorkerJob job, LatLng point})> _jobMapPins(
+    List<WorkerJob> jobs,
+    List<WorkerEstate> availableEstates,
+  ) {
+    final estatesById = <int, WorkerEstate>{
+      for (final estate in availableEstates)
+        if (estate.id > 0) estate.id: estate,
+    };
+    final estates = <String, ({WorkerJob job, LatLng point})>{};
+    for (final job in jobs) {
+      final knownEstate = job.estateOwnerId > 0
+          ? estatesById[job.estateOwnerId]
+          : null;
+      final point =
+          workerJobMapPoint(job) ??
+          (knownEstate == null ? null : workerEstateMapPoint(knownEstate));
+      if (point == null) continue;
+      final key = job.estateOwnerId > 0
+          ? 'id:${job.estateOwnerId}'
+          : 'name:${job.estateName.trim().toLowerCase()}';
+      estates.putIfAbsent(key, () => (job: job, point: point));
+    }
+
+    final usedLocations = <String, int>{};
+    return estates.values.map((pin) {
+      final locationKey =
+          '${pin.point.latitude.toStringAsFixed(4)},'
+          '${pin.point.longitude.toStringAsFixed(4)}';
+      final offset = usedLocations.update(
+        locationKey,
+        (count) => count + 1,
+        ifAbsent: () => 0,
+      );
+      final point = offset == 0
+          ? pin.point
+          : LatLng(pin.point.latitude, pin.point.longitude + offset * 0.012);
+      return (job: pin.job, point: point);
+    }).toList();
   }
 
   Widget _mapLabel(String text) {
@@ -1910,7 +2050,8 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
     // Bidirectional completion state
     final awaitingOwnerAck = job.workerInitiatedCompletion; // worker went first
-    final awaitingWorkerAck = job.needsCompletionAcknowledgement; // owner went first
+    final awaitingWorkerAck =
+        job.needsCompletionAcknowledgement; // owner went first
     final initiating = _acknowledgingJobId == job.id;
     final canComplete = job.canInitiateCompletion;
     return Container(
@@ -2227,7 +2368,10 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   label: const Text('Waiting for land owner…'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF9A6B12),
-                    side: const BorderSide(color: Color(0xFF9A6B12), width: 1.5),
+                    side: const BorderSide(
+                      color: Color(0xFF9A6B12),
+                      width: 1.5,
+                    ),
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(21),
@@ -2256,7 +2400,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                 ),
               ),
             ],
-            if (accepted && !completed && job.status.toUpperCase() != 'CANCELLED')
+            if (accepted &&
+                !completed &&
+                job.status.toUpperCase() != 'CANCELLED')
               OutlinedButton(
                 onPressed: initiating ? null : () => _cancelConfirmedJob(job),
                 child: const Text('Cancel job'),
@@ -2390,7 +2536,10 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   }
 
   Future<void> _cancelConfirmedJob(WorkerJob job) async {
-    final details = await showDealCancellationDialog(context, type: DealCancellationType.dayJob);
+    final details = await showDealCancellationDialog(
+      context,
+      type: DealCancellationType.dayJob,
+    );
     if (details == null || !mounted || _acknowledgingJobId != null) return;
     setState(() => _acknowledgingJobId = job.id);
     try {
@@ -2398,9 +2547,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       if (mounted) _reloadJobs();
     } on ApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
       }
     } finally {
       if (mounted) setState(() => _acknowledgingJobId = null);
@@ -2453,9 +2602,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _acknowledgingJobId = null);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (_) {
       if (!mounted) return;
       setState(() => _acknowledgingJobId = null);
@@ -2486,7 +2635,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('You withdrew from the job. Your place is now available.'),
+          content: Text(
+            'You withdrew from the job. Your place is now available.',
+          ),
         ),
       );
     } on ApiException catch (error) {
@@ -2863,6 +3014,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     return Expanded(
       child: GestureDetector(
         onTap: () {
+          if (index == 1) {
+            _jobMapEstates ??= WorkerService.getEstates();
+          }
           setState(() {
             _tab = index;
             if (index == 1) {
