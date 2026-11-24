@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
@@ -3117,6 +3118,17 @@ class FertilizerStore {
     );
   }
 
+  /// Photo sent by the server as base64; null when there is none or it cannot be read.
+  List<int>? _decodeDoc(dynamic v) {
+    final text = '${v ?? ''}';
+    if (text.isEmpty) return null;
+    try {
+      return base64Decode(text);
+    } catch (_) {
+      return null;
+    }
+  }
+
   FertGovRequest _govFromJson(Map raw) {
     return FertGovRequest(
       id: '${raw['id']}',
@@ -3141,6 +3153,8 @@ class FertilizerStore {
           : double.tryParse('${raw['acres']}') ?? 0,
       nicCopy: '${raw['nic_copy'] ?? raw['nicCopy'] ?? ''}',
       landTitleCopy: '${raw['land_title_copy'] ?? raw['landTitleCopy'] ?? ''}',
+      nicBytes: _decodeDoc(raw['nic_data']),
+      landTitleBytes: _decodeDoc(raw['land_title_data']),
       outlet: '${raw['outlet'] ?? 'CDO'}',
       preferred: '${raw['preferred'] ?? ''}',
       beneficiaryName:
