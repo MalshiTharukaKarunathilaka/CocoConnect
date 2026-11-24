@@ -79,7 +79,7 @@ const KPI_PHOTO = {
   briefcase: ['koku_nagula', '85% 60%'], scale: ['disc_plough', '25% 40%'], gift: ['disc_plough', '75% 60%'],
 }
 
-const PHOTO_POS = { koku_nagula: '70% 45%', rotary: '50% 45%', hand_tractor: '70% 50%', husking: '50% 40%', copra: '50% 60%', slasher: '60% 45%' }
+const PHOTO_POS = { 'ins-sign': '50% 55%', 'energy-lands': '50% 75%', 'energy-capacity': '50% 70%', 'energy-made': '50% 50%', 'energy-carbon': '50% 45%', 'env-emitted': '50% 50%', 'env-stored': '50% 55%', 'env-net': '50% 55%', 'env-avoided': '50% 20%', 'animal-farms': '50% 30%', 'animal-kept': '50% 50%', 'animal-milk': '50% 25%', 'animal-eggs': '50% 60%', 'aqua-farms': '50% 45%', 'aqua-pond': '50% 48%', 'aqua-harvest': '50% 40%', 'aqua-income': '50% 52%', 'tour-lands': '50% 80%', 'tour-visitors': '50% 85%', 'tour-income': '50% 58%', 'tour-rating': '50% 45%', 'land-grove': '50% 62%', 'land-rows': '50% 50%', 'land-palm': '50% 40%', 'land-kingcoconut': '40% 45%', 'land-farmer': '45% 55%', koku_nagula: '70% 45%', rotary: '50% 45%', hand_tractor: '70% 50%', husking: '50% 40%', copra: '50% 60%', slasher: '60% 45%' }
 
 export function Kpi({ label, value, sub, tone = 'green', icon, onClick, active, photo: picked }) {
   const [photo, pos] = picked ? [picked, PHOTO_POS[picked] || '50% 50%'] : KPI_PHOTO[icon] || KPI_PHOTO.palm
@@ -103,6 +103,19 @@ export function Kpi({ label, value, sub, tone = 'green', icon, onClick, active, 
       {onClick && <span className="an-kpi-more">Details</span>}
     </div>
   )
+}
+
+/** A small Export CSV button for any table: name is the file name, rows is a list of rows of plain values. */
+export function ExportBtn({ name, columns, rows }) {
+  const go = () => {
+    const quote = (v) => `"${String(v ?? '').replaceAll('"', '""')}"`
+    const text = [columns, ...rows].map((r) => r.map(quote).join(',')).join(String.fromCharCode(13, 10))
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([String.fromCharCode(0xfeff) + text], { type: 'text/csv;charset=utf-8' }))
+    a.download = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'table'}.csv`
+    a.click()
+  }
+  return <button type="button" className="an-more an-export an-noprint" onClick={go} disabled={!rows.length}>Export CSV ({rows.length})</button>
 }
 
 export function Card({ title, sub, right, children, className = '' }) {
@@ -141,8 +154,9 @@ export const tipEl = (fmt = num) => (
 export function Segmented({ value, onChange, options }) {
   return (
     <div className="an-seg">
-      {options.map(([v, text]) => (
+      {options.map(([v, text, icon]) => (
         <button key={v} className={value === v ? 'on' : ''} onClick={() => onChange(v)}>
+          {icon && <img className="an-seg-ico" src={icon} alt="" />}
           {text}
         </button>
       ))}

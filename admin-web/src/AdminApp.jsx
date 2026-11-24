@@ -464,6 +464,7 @@ export default function AdminApp({ user: account, logout }) {
           {['all', 'buyer', 'estate', 'suspended'].map((f) => (
             <button key={f} className={`adm-chip ${userFilter === f ? 'active' : ''}`} onClick={() => setUserFilter(f)}>{f}</button>
           ))}
+          <button className="adm-btn green" style={{ marginLeft: 'auto' }} onClick={() => saveCsv('kapconnect-users.csv', ['Name', 'Estate', 'Phone', 'Role', 'District', 'Status'], users.map((u) => [u.name, u.estateName || '', u.phone, u.role, u.district || '', u.status]))}>Export CSV ({users.length})</button>
         </div>
         <table className="adm-table">
           <thead><tr><th>User</th><th>Phone</th><th>Role</th><th>District</th><th>Status</th><th>Actions</th></tr></thead>
@@ -686,6 +687,9 @@ export default function AdminApp({ user: account, logout }) {
           Completed deals only — after both sides finish negotiation and mark the deal done.
         </p>
         <div className="adm-card">
+          <div className="adm-tools">
+            <button className="adm-btn green" style={{ marginLeft: 'auto' }} onClick={() => saveCsv('kapconnect-transactions.csv', ['Transaction', 'Category', 'Quantity', 'Unit price', 'Total', 'Status', 'Date'], transactionRows.map((o) => [o.code, o.category, o.quantity, o.unitPrice, o.total ?? o.quantity * o.unitPrice, o.status, (o.updatedAt || o.createdAt || '').toString().slice(0, 10)]))}>Export CSV ({transactionRows.length})</button>
+          </div>
           <table className="adm-table">
             <thead><tr><th>Transaction</th><th>Category</th><th>Qty</th><th>Unit price</th><th>Total</th><th>Completed</th></tr></thead>
             <tbody>

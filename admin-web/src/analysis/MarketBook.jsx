@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Bar, CartesianGrid, Cell, ComposedChart, Legend, ReferenceArea, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts'
 import DrillMap from './DrillMap'
 import { DISTRICTS, compact, inScope, label, sumBy } from './data'
-import { Card, Chart, Kpi, Loading, useData } from './ui'
+import { Card, Chart, ExportBtn, Kpi, Loading, useData } from './ui'
 import { PricePicker, periodInfo, usePeriod } from './AnalysisPages'
 
 const BLUE = ['#e4eff5', '#bad7e6', '#86b6cf', '#4f8fb0', '#25607f']
@@ -302,7 +302,11 @@ export function DealVsPaid() {
         </Card>
       </div>
 
-      <Card title="Transactions that left their deal" sub={`The standard: the price and the quantity must be exactly what the deal says. These ${OFFH.length} did not, so each opened a dispute. Latest 12 shown`}>
+      <Card
+        title="Transactions that left their deal"
+        sub={`The standard: the price and the quantity must be exactly what the deal says. These ${OFFH.length} did not, so each opened a dispute. Latest 12 shown`}
+        right={<ExportBtn name="transactions-that-left-their-deal" columns={['Transaction', 'Deal', 'Buyer', 'Seller', 'Nuts in deal', 'Nuts received', 'Nuts difference', 'Price in deal (Rs)', 'Price paid (Rs)', 'Price difference (Rs a nut)', 'Money difference (Rs)', 'Dispute', 'Fault']} rows={OFFH.map((r) => [r.id, r.deal, r.buyer, r.seller, r.qty, r.got, r.qdev, r.dealPrice, r.paid, r.dev, r.loss, r.dispute, r.fault])} />}
+      >
         <div className="mb-scroll">
           <table className="adm-table">
             <thead><tr><th>Transaction</th><th>Buyer / seller</th><th>Nuts: deal → received</th><th>Price: deal → paid</th><th>Money difference</th><th>Result</th></tr></thead>
@@ -342,7 +346,11 @@ export function FaultBoard() {
   })
 
   return (
-    <Card title="Why the deal changed, and who pays for it" sub="Every transaction that missed its deal price or quantity becomes a dispute. Decide whose fault it was; that side gets a negative rating">
+    <Card
+      title="Why the deal changed, and who pays for it"
+      sub="Every transaction that missed its deal price or quantity becomes a dispute. Decide whose fault it was; that side gets a negative rating"
+      right={<ExportBtn name="dispute-fault-and-rating-penalty" columns={['Dispute', 'Transaction', 'Deal', 'Buyer', 'Seller', 'Price in deal (Rs)', 'Price paid (Rs)', 'Nuts in deal', 'Nuts received', 'Money difference (Rs)', 'Why', 'At fault', 'Rating penalty (stars)']} rows={base.map((r) => [r.dispute, r.id, r.deal, r.buyer, r.seller, r.dealPrice, r.paid, r.qty, r.got, r.loss, r.reason, fault[r.dispute], RATING_HIT[fault[r.dispute]] ?? 0])} />}
+    >
       <div className="mb-scroll">
         <table className="adm-table">
           <thead><tr><th>Dispute</th><th>What changed</th><th>Why</th><th>At fault</th><th>Rating penalty</th></tr></thead>

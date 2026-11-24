@@ -40,7 +40,10 @@
 .sn.collapsed .sn-logo { width: 44px; height: 36px; overflow: hidden; justify-content: flex-start; }
 .sn.collapsed .sn-logo img { height: auto; width: 62px; margin-left: -9px; }
 
-.sn-nav { flex: 1; overflow-y: auto; }
+/* menu scrolls with the wheel or trackpad but shows no scrollbar; scrolling eases instead of jumping */
+.sn-nav { flex: 1; overflow-y: auto; scroll-behavior: smooth; overscroll-behavior: contain; scrollbar-width: none; -ms-overflow-style: none; }
+.sn-nav::-webkit-scrollbar { display: none; width: 0; height: 0; }
+@media (prefers-reduced-motion: reduce) { .sn-nav { scroll-behavior: auto; } }
 .sn-group { margin-bottom: 4px; }
 .sn-main {
   width: 100%;
@@ -405,6 +408,20 @@
 .mp-ladder div.on { border-color: #1a5f38; background: #e8f2ec; }
 .mp-ladder small { display: block; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: #5d6f64; font-weight: 700; }
 .mp-ladder b { font-size: 0.86rem; }
+/* the figures of the land picked on the map */
+.ls { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; margin-top: 14px; background: #fff; border: 1.5px solid #cfe0d5; border-radius: 18px; overflow: hidden; box-shadow: 0 6px 18px rgba(52, 70, 56, 0.1); animation: ls-in 0.25s ease; }
+@keyframes ls-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.ls-photo { position: relative; min-height: 150px; background-size: cover; background-position: center; }
+.ls-photo .an-plan { position: absolute; top: auto; left: 10px; bottom: 10px; max-width: calc(100% - 20px); }
+.ls-x { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, 0.92); font-size: 1.05rem; line-height: 1; cursor: pointer; }
+.ls-body { padding: 14px 16px 14px 0; }
+.ls-body > b { display: block; font-size: 1.05rem; color: #15201a; }
+.ls-body > small { color: #6b7a71; font-size: 0.74rem; }
+.ls-body dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 14px; margin: 10px 0 0; }
+.ls-body dt { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.06em; color: #6b7a71; }
+.ls-body dd { margin: 1px 0 0; font-size: 0.86rem; font-weight: 600; color: #15201a; }
+@media (max-width: 700px) { .ls { grid-template-columns: 1fr; } .ls-body { padding: 0 14px 14px; } }
+
 .mp-lands { margin-top: 14px; }
 .mp-lands > b { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #5d6f64; }
 .mp-lands > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-top: 8px; }

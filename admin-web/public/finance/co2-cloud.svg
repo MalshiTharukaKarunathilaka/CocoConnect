@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 190" width="240" height="190">
+<defs>
+<radialGradient id="a" cx="35%" cy="25%" r="85%"><stop offset="0" stop-color="#f6a79b"/><stop offset=".35" stop-color="#d9534a"/><stop offset=".75" stop-color="#a32a25"/><stop offset="1" stop-color="#6b1512"/></radialGradient>
+<radialGradient id="b" cx="35%" cy="25%" r="85%"><stop offset="0" stop-color="#f3b3a8"/><stop offset=".4" stop-color="#cf4a41"/><stop offset="1" stop-color="#7d1b17"/></radialGradient>
+<radialGradient id="g" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#000" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#ffd9d4"/></linearGradient>
+<filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="3"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .09 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
+</defs>
+<ellipse cx="120" cy="176" rx="82" ry="9" fill="url(#g)"/>
+<g>
+<circle cx="62" cy="118" r="44" fill="url(#b)"/>
+<circle cx="170" cy="120" r="42" fill="url(#b)"/>
+<circle cx="96" cy="78" r="50" fill="url(#a)"/>
+<circle cx="150" cy="86" r="38" fill="url(#a)"/>
+<rect x="62" y="110" width="110" height="52" rx="26" fill="url(#b)"/>
+<circle cx="120" cy="126" r="46" fill="url(#b)"/>
+</g>
+<g filter="url(#n)"><circle cx="120" cy="100" r="95" fill="#000"/></g>
+<ellipse cx="86" cy="52" rx="32" ry="13" fill="#fff" opacity=".45" transform="rotate(-18 86 52)"/>
+<ellipse cx="150" cy="66" rx="18" ry="7" fill="#fff" opacity=".3" transform="rotate(-14 150 66)"/>
+<text x="120" y="132" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="54" fill="#5a0f0c" opacity=".35" transform="translate(1.500 2.500)">CO<tspan font-size="32" dy="9">2</tspan></text>
+<text x="120" y="132" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="54" fill="url(#s)">CO<tspan font-size="32" dy="9">2</tspan></text>
+</svg>

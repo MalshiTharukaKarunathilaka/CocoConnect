@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 190" width="240" height="190">
+<defs>
+<linearGradient id="l" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9ccf4d"/><stop offset=".45" stop-color="#4f9a2f"/><stop offset="1" stop-color="#1f5e22"/></linearGradient>
+<linearGradient id="r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7fbf3c"/><stop offset="1" stop-color="#2d7a2a"/></linearGradient>
+<radialGradient id="d" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".5" stop-color="#d9f2ff" stop-opacity=".45"/><stop offset="1" stop-color="#7ab7d6" stop-opacity=".5"/></radialGradient>
+<radialGradient id="g" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#000" stop-opacity=".3"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".7" numOctaves="2" seed="8"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .12 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
+</defs>
+<ellipse cx="108" cy="176" rx="76" ry="8" fill="url(#g)"/>
+<g transform="rotate(-8 110 100)">
+<path d="M26 150 C18 78 78 22 190 20 C198 98 158 160 70 166 C52 166 36 160 26 150 Z" fill="url(#l)"/>
+<g filter="url(#n)"><path d="M26 150 C18 78 78 22 190 20 C198 98 158 160 70 166 C52 166 36 160 26 150 Z" fill="#000"/></g>
+<path d="M190 20 C130 40 80 80 40 156" stroke="#d8eeb0" stroke-width="4" fill="none" stroke-linecap="round"/>
+<g stroke="#bfe08a" stroke-width="2" fill="none" opacity=".75" stroke-linecap="round">
+<path d="M150 46 C138 66 118 74 96 78"/><path d="M124 62 C118 82 100 96 76 102"/><path d="M100 84 C94 104 80 116 62 122"/>
+<path d="M170 56 C170 82 154 100 132 108"/><path d="M148 80 C146 104 128 120 104 128"/><path d="M122 104 C118 126 100 140 78 144"/>
+</g>
+<path d="M60 40 C90 22 130 18 178 20 C130 28 92 44 60 40 Z" fill="#fff" opacity=".28"/>
+<path d="M26 150 C16 160 8 168 2 176" stroke="#3d7a22" stroke-width="6" fill="none" stroke-linecap="round"/>
+</g>
+<g>
+<ellipse cx="126" cy="116" rx="9" ry="11" fill="url(#d)"/><ellipse cx="123" cy="111" rx="3" ry="4" fill="#fff" opacity=".9"/>
+<ellipse cx="86" cy="88" rx="6" ry="7.500" fill="url(#d)"/><ellipse cx="84" cy="85" rx="2" ry="2.600" fill="#fff" opacity=".9"/>
+<ellipse cx="150" cy="72" rx="5" ry="6" fill="url(#d)"/><ellipse cx="148.500" cy="70" rx="1.600" ry="2" fill="#fff" opacity=".9"/>
+</g>
+<text x="190" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="40" fill="#2f8a3a">CO<tspan font-size="24" dy="7">2</tspan></text>
+</svg>

@@ -99,6 +99,9 @@ const PHOTO = {
   harvestpole: ['/crops/harvestpole.png', 1.03, 0.95], climbgear: ['/crops/climbgear.png', 1.14, 0.85], machete: ['/crops/machete.png', 1.68, 0.7],
   seedlings: ['/crops/seedlings.png', 0.98, 1], irrigation: ['/crops/irrigation.png', 1.23, 0.85], pepperplant: ['/crops/pepperplant.png', 0.75, 1.15],
   coconut: ['/photos/coconut.png', 1.39, 0.85],
+  farmstay: ['/tour/farm-stay.png', 1, 1.15], farmfood: ['/tour/farm-tour.png', 1, 1.15], planttour: ['/tour/plantation-tour.png', 1, 1.15], farmtour: ['/tour/farm-food.png', 1, 1.15],
+  moneybag: ['/finance/loans.png', 1, 1.1],
+  energysolar: ['/energy/solar-panel.png', 1, 1.1], energywater: ['/energy/solar-water.png', 1, 1.1], energybiogas: ['/energy/biogas.png', 1, 1.1], energyshell: ['/energy/coconut-shell.png', 1, 1],
   tractor: ['/crops/tractor.png', 1.41, 0.7], hand: ['/crops/hand-tractor.png', 1.45, 0.7], backhoe: ['/crops/backhoe.png', 2.1, 0.6],
 }
 // A sack can be shown in other colours: turn the brown picture round the colour wheel.
@@ -276,6 +279,13 @@ const RICH = {
     <path d="M4.500 28 L23 9.500" stroke="#fff" stroke-width="1.600" opacity=".7" stroke-linecap="round"/>
     <path d="M12 21.500 L12 14.500 M16.500 17 L16.500 11 M9.500 24 L5.500 21" stroke="#fff" stroke-width=".9" opacity=".45"/>
     <path d="M4.500 28 C2.500 28.500 1.500 29.500 .5 31" stroke="${D}" stroke-width="1.400" fill="none" stroke-linecap="round"/>`,
+  // a tuft of tall grass
+  mana: (c, L, D, g) => `
+    <path d="M16 29 C15 20 11 12 5 5 C13 9 16.500 17 16 29 Z" fill="${g}"/>
+    <path d="M16 29 C16 18 18 10 23 3 C25 12 21.500 21 16 29 Z" fill="${g}"/>
+    <path d="M16 29 C13 22 6 19 1.500 17 C9 15.500 14.500 21 16 29 Z" fill="${D}"/>
+    <path d="M16 29 C19 23 26 21 30.500 19 C23 17 17.500 22 16 29 Z" fill="${D}"/>
+    <path d="M16 29 L16 10" stroke="#fff" stroke-width="1" opacity=".5" stroke-linecap="round"/>`,
 }
 const richSvg = (kind, color, size) => {
   const c = color || '#2f8a4f'
@@ -286,7 +296,9 @@ const richSvg = (kind, color, size) => {
   const defs = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0.25" y2="1"><stop offset="0" stop-color="${L}"/><stop offset=".45" stop-color="${c}"/><stop offset="1" stop-color="${D}"/></linearGradient></defs>`
   return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" style="display:block;overflow:visible;filter:drop-shadow(0 0 1px #fff) drop-shadow(0 2px 2px rgba(0,0,0,.4))">${defs}${RICH[kind](c, L, D, g)}</svg>`
 }
-const markup = (kind, color, size) => (kind === 'palm' ? palm(size) : PHOTO[kind] ? photo(kind, size, color) : RICH[kind] ? richSvg(kind, color, size) : glyph(kind, color, size))
+// A coconut palm with a coloured dot: the dot shows a status, such as green for a land that stores more carbon than it emits.
+const statusPalm = (size, color) => `<span style="position:relative;display:block;width:${size}px;height:${size}px">${palm(size)}<i style="position:absolute;right:-3px;top:-3px;width:${Math.max(10, Math.round(size * 0.36))}px;height:${Math.max(10, Math.round(size * 0.36))}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.45)"></i></span>`
+const markup = (kind, color, size) => (kind === 'envpalm' ? statusPalm(size, color) : kind === 'palm' ? palm(size) : PHOTO[kind] ? photo(kind, size, color) : RICH[kind] ? richSvg(kind, color, size) : glyph(kind, color, size))
 export const glyphHtml = (kind, color, size = 16) => markup(kind, color, size)
 
 const cache = {}
@@ -298,7 +310,7 @@ export function pinIcon(kind, color, size, dim, label) {
       html: markup(kind, color, size) + (label ? `<span class="an-pin-lab">${label}</span>` : ''),
       className: `an-pin${dim ? ' dim' : ''}`,
       iconSize: [size, size],
-      iconAnchor: [size / 2, kind === 'palm' || PHOTO[kind] || RICH[kind] ? size - 2 : size / 2],
+      iconAnchor: [size / 2, kind === 'palm' || kind === 'envpalm' || PHOTO[kind] || RICH[kind] ? size - 2 : size / 2],
     })
   }
   return cache[key]

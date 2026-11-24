@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { createPortal } from 'react-dom'
 import { Character, DrawnCharacter, Pair } from './People'
 import { glyphHtml } from './pins'
+import { MANA, vegetationOf } from './Vegetation'
 import PriceMap, { Coconut } from './PriceMap'
 import LandTopic, { LAND_TOPICS } from './LandTopics'
 import { api } from '../api'
@@ -70,7 +71,7 @@ function IconLegend({ keys, icons }) {
 function Bars({ data, keys = ['value'], colors = PALETTE, horizontal, height = 240, fmt = compact, axisFmt, stacked, single, nameWidth = 112, onPick, photos, thumb = 30, tickIcons, legendIcons }) {
   return (
     <Chart height={height}>
-      <BarChart data={data} layout={horizontal ? 'vertical' : 'horizontal'} margin={{ left: horizontal ? 4 : -8, right: horizontal ? 34 : 14, top: 6 }}>
+      <BarChart data={data} layout={horizontal ? 'vertical' : 'horizontal'} margin={{ left: horizontal ? 4 : 0, right: horizontal ? 34 : 14, top: horizontal ? 6 : 26 }}>
         <GradDefs horizontal={horizontal} colors={[...colors, ...data.map((d) => d.color)]} />
         <CartesianGrid stroke="#dfe5df" strokeDasharray="2 5" vertical={horizontal} horizontal={!horizontal} />
         {horizontal ? (
@@ -81,7 +82,7 @@ function Bars({ data, keys = ['value'], colors = PALETTE, horizontal, height = 2
         ) : (
           <>
             <XAxis dataKey="name" {...ax} interval={0} />
-            <YAxis {...ax} tickFormatter={axisFmt || fmt} />
+            <YAxis {...ax} width={76} tickFormatter={axisFmt || fmt} />
           </>
         )}
         {tipEl(fmt)}
@@ -311,6 +312,37 @@ function EstateCard({ e }) {
         </div>
       </div>
     </article>
+  )
+}
+
+/** The figures of one land, shown when its coconut tree is picked on a map. `extra` adds the page's own figures, such as prices. */
+function LandStats({ e, extra = [], onClose }) {
+  const rows = [
+    ['Land ID', e.id],
+    ['Owner', e.owner + (e.coOwners?.length ? ` + ${e.coOwners.length} more` : '')],
+    ['Area', `${e.acres} acres`],
+    ['Coconut palms', e.palms ? num(e.palms) : '-'],
+    ['District', label(e.district)],
+    ['CDO area', e.region || '-'],
+    ['Registered', e.registeredOn],
+    ...extra,
+  ]
+  return (
+    <div className="ls">
+      <div className="ls-photo" style={{ backgroundImage: `url(${estatePhoto(e)})` }}>
+        <span className={`an-plan ${e.plan.split(' ')[0].toLowerCase()}`}>{e.plan}</span>
+        {onClose && <button type="button" className="ls-x an-noprint" onClick={onClose} aria-label="Close">×</button>}
+      </div>
+      <div className="ls-body">
+        <b>{e.name}</b>
+        <small>{e.crop || 'Coconut'} land · {label(e.district)}</small>
+        <dl>
+          {rows.map(([k, v]) => (
+            <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
+          ))}
+        </dl>
+      </div>
+    </div>
   )
 }
 
@@ -555,7 +587,7 @@ function MachineCard({ value, onChange, list }) {
 }
 
 /** The crop picker that sits on the land maps. */
-function CropCard({ crop, setCrop, estates, keys = Object.keys(CROPS) }) {
+function CropCard({ crop, setCrop, estates, keys = Object.keys(CROPS), manaCount = 0 }) {
   return (
     <div className="an-crop-card an-noprint">
       <b>Crop</b>
@@ -569,9 +601,15 @@ function CropCard({ crop, setCrop, estates, keys = Object.keys(CROPS) }) {
           </button>
         )
       })}
+      <button className={crop === MANA.name ? 'on' : ''} onClick={() => setCrop(MANA.name)}>
+        <span className="an-crop-ic" dangerouslySetInnerHTML={{ __html: glyphHtml(MANA.icon, MANA.color, 20) }} />
+        <span>{MANA.name}</span>
+        <em>{manaCount}</em>
+      </button>
     </div>
   )
 }
+
 
 /** The part of a district's recorded figures that one CDO area gets (1 when no area is picked). */
 function areaShare(d, district, region) {
@@ -941,6 +979,38 @@ function LandsTable({ estates, isCoco, scope }) {
   )
 }
 
+/** A land ID that shows the land and its owner when hovered, and the owner's full details when clicked. Used in the tables of the Land pages. */
+function LandId({ e, children }) {
+  const [open, setOpen] = useState(false)
+  const [hover, setHover] = useState(null)
+  if (!e) return children
+  return (
+    <>
+      <button
+        type="button"
+        className="an-lid"
+        onClick={() => { setHover(null); setOpen(true) }}
+        onMouseEnter={(ev) => { const b = ev.currentTarget.getBoundingClientRect(); setHover({ x: b.left, y: b.bottom + 6, top: b.top, below: b.bottom + 190 < window.innerHeight }) }}
+        onMouseLeave={() => setHover(null)}
+      >{children}</button>
+      {hover && createPortal(
+        <div className="an-lid-tip" style={{ left: Math.max(8, Math.min(hover.x, window.innerWidth - 296)), top: hover.below ? hover.y : undefined, bottom: hover.below ? undefined : window.innerHeight - hover.top + 6 }}>
+          <b>{e.name}</b>
+          <span>{e.id} · {e.crop} · {e.plan}</span>
+          <span>Owner {ownerText(e)}</span>
+          <span>{peopleOf(e).map((o) => `${GENDERS[o.ownerGender]} ${AGE_GROUPS[o.ownerAge]}`).join(' · ')}</span>
+          <span>{e.acres} acres{e.palms ? ` · ${num(e.palms)} palms` : ''}</span>
+          <span>{label(e.district)}{e.region ? ` · ${e.region} CDO area` : ''}</span>
+          <span>{ordersOf(e)} orders · registered {e.registeredOn}</span>
+          <i>Click to see the owner's details</i>
+        </div>,
+        document.body,
+      )}
+      <OwnerModal open={open ? e : null} onClose={() => setOpen(false)} />
+    </>
+  )
+}
+
 /** Cultivation footprint. mode "crops" is the Cultivation type page: the same page for pepper, pineapple and peanut. */
 export function Overview({ d, sel, setSel, mode = 'coconut' }) {
   const isCoco = mode !== 'crops'
@@ -951,12 +1021,22 @@ export function Overview({ d, sel, setSel, mode = 'coconut' }) {
   const estates = useMemo(() => mine.filter((e) => inScope(sel, e.district) && (!sel.region || e.region === sel.region)), [mine, sel])
   const perD = useMemo(() => byDistrict(mine, () => 1), [mine])
   const plans = ['Non-systematic cultivation', 'Systematic cultivation', 'Institutional plantation'].map((p, i) => ({ name: p, value: estates.filter((e) => e.plan === p).length, color: ['#9fd0b0', '#5fa47b', '#256b45'][i] }))
-  const markers = mine.filter((e) => crop === 'All' || e.crop === crop).map((e) => ({
-    lat: e.lat, lng: e.lng, icon: CROPS[e.crop].icon, size: 24 + Math.min(12, Math.round(e.acres / 9)),
+  const veg = useMemo(() => vegetationOf(d), [d])
+  const manaHere = veg.mana.filter((p) => inScope(sel, p.district) && (!sel.region || p.region === sel.region))
+  const hasMana = new Set(veg.mana.map((p) => p.id))
+  const landMarkers = mine.filter((e) => crop === 'All' || e.crop === crop || (crop === MANA.name && hasMana.has(e.id))).map((e) => ({
+    lat: e.lat, lng: e.lng, acres: e.acres, icon: CROPS[e.crop].icon, size: 24 + Math.min(12, Math.round(e.acres / 9)),
     dim: !inScope(sel, e.district) || (!!sel.region && e.region !== sel.region), color: CROPS[e.crop].color,
     tip: <div className="an-tip"><img src={estatePhoto(e)} alt="" /><b>{e.name}</b><br />{e.crop} · {e.owner} · {e.acres} acres<br />{label(e.district)}{e.region ? ` · ${e.region}` : ''} · {e.plan}</div>,
   }))
-  const cropCard = isCoco ? null : <CropCard crop={crop} setCrop={setCrop} estates={estates} keys={cropKeys} />
+  // Mana grass grows on part of some coconut lands: it sits beside that land's palm and carries no `acres`,
+  // so the forest projection leaves it out
+  const patchTip = (p) => <div className="an-tip"><b>{p.land.name}</b><br />Mana grass on about {p.acres} of {p.land.acres} acres<br />{label(p.district)}{p.region ? ` · ${p.region}` : ''}<br /><i>Sample figures</i></div>
+  const manaMarkers = crop === 'All' || crop === MANA.name
+    ? veg.mana.map((p) => ({ lat: p.lat, lng: p.lng, icon: MANA.icon, size: 24, color: MANA.color, dim: !inScope(sel, p.district) || (!!sel.region && p.region !== sel.region), tip: patchTip(p) }))
+    : []
+  const markers = [...landMarkers, ...manaMarkers]
+  const cropCard = <CropCard crop={crop} setCrop={setCrop} estates={estates} keys={cropKeys} manaCount={manaHere.length} />
   const treeScope = planPick ? estates.filter((e) => e.plan === planPick) : estates
   const hist = treeHist(treeScope)
   const cols = landCols(isCoco)
@@ -973,12 +1053,12 @@ export function Overview({ d, sel, setSel, mode = 'coconut' }) {
   return (
     <PageHead title={isCoco ? 'Cultivation footprint' : 'Cultivation type'} sub={isCoco ? 'Every registered coconut land and its trees' : 'Coconut, pepper, pineapple and peanut lands, crop by crop'} name={isCoco ? 'Estate overview' : 'Cultivation type'} sel={sel} onSel={setSel} sections={sections}>
       <div className="an-kpis an-kpis-auto">
-        <Kpi photo="rotary" icon="palm" label={isCoco ? 'Coconut lands' : 'Registered lands'} value={num(estates.length)} sub={`${num(sumBy(estates, (e) => e.acres))} acres in total`} />
+        <Kpi photo="land-grove" icon="palm" label={isCoco ? 'Coconut lands' : 'Registered lands'} value={num(estates.length)} sub={`${num(sumBy(estates, (e) => e.acres))} acres in total`} />
         {isCoco
-          ? <Kpi photo="koku_nagula" icon="palm" tone="brown" label="Coconut palms" value={compact(sumBy(estates, (e) => e.palms))} sub={`${num(estates.length)} coconut lands`} />
-          : <Kpi photo="koku_nagula" icon="palm" tone="brown" label="Most grown crop" value={topCrop && topCrop.value ? topCrop.name : '-'} sub={topCrop && topCrop.value ? `${num(topCrop.value)} lands` : ''} />}
-        <Kpi photo="slasher" icon="users" tone="amber" label="Land owners" value={num(sumBy(estates, (e) => peopleOf(e).length))} sub={`${pct(sumBy(estates, (e) => peopleOf(e).filter((o) => o.ownerGender === 1).length), sumBy(estates, (e) => peopleOf(e).length))} women · ${num(estates.length)} lands`} />
-        <Kpi photo="disc_plough" icon="pin" tone="blue" label="Average land size" value={`${(sumBy(estates, (e) => e.acres) / (estates.length || 1)).toFixed(1)} ac`} sub={`largest ${Math.max(0, ...estates.map((e) => e.acres))} acres`} />
+          ? <Kpi photo="land-palm" icon="palm" tone="brown" label="Coconut palms" value={compact(sumBy(estates, (e) => e.palms))} sub={`${num(estates.length)} coconut lands`} />
+          : <Kpi photo="land-kingcoconut" icon="palm" tone="brown" label="Most grown crop" value={topCrop && topCrop.value ? topCrop.name : '-'} sub={topCrop && topCrop.value ? `${num(topCrop.value)} lands` : ''} />}
+        <Kpi photo="land-farmer" icon="users" tone="amber" label="Land owners" value={num(sumBy(estates, (e) => peopleOf(e).length))} sub={`${pct(sumBy(estates, (e) => peopleOf(e).filter((o) => o.ownerGender === 1).length), sumBy(estates, (e) => peopleOf(e).length))} women · ${num(estates.length)} lands`} />
+        <Kpi photo="land-rows" icon="pin" tone="blue" label="Average land size" value={`${(sumBy(estates, (e) => e.acres) / (estates.length || 1)).toFixed(1)} ac`} sub={`largest ${Math.max(0, ...estates.map((e) => e.acres))} acres`} />
       </div>
       <ProvinceStrip startOpen byD={perD} fmt={num} unit="lands" sel={sel} setSel={setSel} {...landStrip({ ...d, estates: mine }, sel, setSel, perD)} />
       <Split
@@ -986,8 +1066,8 @@ export function Overview({ d, sel, setSel, mode = 'coconut' }) {
           <Card title="Land footprint" sub={isCoco ? 'Each palm is a registered coconut land; a taller palm means a bigger land.' : 'Each pin is a registered land, shown by its crop; a taller pin means a bigger land.'} className="an-card-map">
             <DrillMap
               geo={d.geo} values={perD} fmt={num} unit="lands" sel={sel} onSel={setSel} markers={markers} markerKey={`land-${mode}-${crop}`}
-              overlay={cropCard}
-              legend={cropKeys.map((c) => ({ icon: CROPS[c].icon, color: CROPS[c].color, text: c }))} height={560}
+              overlay={cropCard} forest
+              legend={[...cropKeys.map((c) => ({ icon: CROPS[c].icon, color: CROPS[c].color, text: c })), { icon: MANA.icon, color: MANA.color, text: MANA.name }]} height={560}
             />
           </Card>
         }
@@ -2432,6 +2512,7 @@ export function MarketPrices({ stage }) {
           </div>
         </div>
       </div>
+      {land && <LandStats e={land} onClose={() => setLandId(null)} extra={STEPS.map(([k, name]) => [`${name} price`, lkr2(land.price[k])])} />}
       <PriceSpread rows={scoped} stage={stage} place={place} pf={pf} when={whenText} />
       <div className="an-grid2 mv-graphs">
         <div className="mv-graph">
@@ -2561,6 +2642,7 @@ export function MarketVolumes({ stage }) {
           </div>
         </div>
       </div>
+      {land && <LandStats e={land} onClose={() => setLandId(null)} extra={[['Orders', nuts(land.volume.orders)], ['Deals', nuts(land.volume.deal)], ['Transactions', nuts(land.volume.transactions)]].map(([k, v]) => [`${k} a month`, v])} />}
       <div className="an-grid2 mv-graphs">
         <div className="mv-graph">
           <div className="mv-head">
@@ -2659,4 +2741,4 @@ export default function Analysis({ view }) {
   )
 }
 
-export { PricePicker, periodInfo, usePeriod, Bars, DonationCards, Donations, Donut, FigTiles, PhotoRow, Trend, ProvinceStrip, Split, areaBars, glyphRow, landStrip }
+export { LandId, LandStats, estatePhoto, PricePicker, periodInfo, usePeriod, Bars, DonationCards, Donations, Donut, FigTiles, PhotoRow, Trend, ProvinceStrip, Split, areaBars, glyphRow, landStrip }
