@@ -70,6 +70,7 @@ flutter:
     - assets/machines/
     - assets/images/
     - assets/branding/
+    - assets/plants/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

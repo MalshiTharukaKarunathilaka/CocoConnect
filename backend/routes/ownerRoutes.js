@@ -27,6 +27,7 @@ const {
   deleteDayJob,
   rateDayJobWorker,
 } = require("../controllers/ownerController");
+const { getEstateMap, saveEstateMap } = require("../controllers/estateMapController");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { getOwnerHandoverCount } = require("../controllers/activityController");
 
@@ -68,6 +69,38 @@ router.use(requireAuth, requireRole("ESTATE_OWNER"));
  *       200:
  *         description: Updated estate
  */
+/**
+ * @openapi
+ * /api/owner/estate-map:
+ *   get:
+ *     summary: My estate map (the drawn shape of the land and everything marked on it)
+ *     tags: [Estate Owner]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: "{ plan, marks, updated_at }. plan is null and marks is empty until the owner saves one"
+ *   put:
+ *     summary: Save my estate map (replaces the whole map)
+ *     tags: [Estate Owner]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               plan: { type: object, nullable: true, description: "name, acres, lat, lng, place, optional boundary [[lat, lng], ...]" }
+ *               marks: { type: array, description: "up to 3000 marks: id, kind, lat, lng, count, age, severity, note, updated, status" }
+ *     responses:
+ *       200:
+ *         description: The saved map with its updated_at
+ *       400:
+ *         description: A field is invalid (message says which)
+ */
+router.get("/estate-map", getEstateMap);
+router.put("/estate-map", saveEstateMap);
+
 router.get("/estate", getEstate);
 router.patch("/estate", updateEstate);
 

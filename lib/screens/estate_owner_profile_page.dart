@@ -7,6 +7,8 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/owner_service.dart';
 import 'account_dialogs.dart';
+import 'estate_map/estate_map_page.dart';
+import 'estate_map/estate_map_preview.dart';
 import '../theme/app_theme.dart';
 
 const Color _darkGreen = Color(0xFF1F6B3D);
@@ -46,6 +48,11 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
     );
     if (saved == true) _reload();
   }
+
+  void _openEstateMap() => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const EstateMapPage()),
+  );
 
   Future<void> _editAccount() async {
     final AppUser? user = AuthService.currentUser;
@@ -264,12 +271,55 @@ class _EstateOwnerProfilePageState extends State<EstateOwnerProfilePage> {
             ],
           ),
         ),
+        const SizedBox(height: 10),
+
+        // What the owner marked on the estate, drawn on the map.
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'My Estate Map',
+                      style: TextStyle(
+                        color: _ink,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _openEstateMap,
+                    child: const Text(
+                      'Mark / Edit',
+                      style: TextStyle(
+                        color: _darkGreen,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              EstateMapPreview(onTap: _openEstateMap),
+            ],
+          ),
+        ),
         const SizedBox(height: 18),
         const ProfileSectionLabel('ACCOUNT'),
         const SizedBox(height: 8),
         ProfileAccountCard(
           onEdit: _editAccount,
           actions: [
+            ProfileActionRow(
+              icon: Icons.map_outlined,
+              label: 'Mark your estate',
+              subtitle: 'Mark your trees, pests and weeds on the map',
+              onTap: _openEstateMap,
+            ),
             ProfileActionRow(
               icon: Icons.receipt_long_outlined,
               label: 'My Orders',

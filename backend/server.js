@@ -18,6 +18,8 @@ const app = express();
 
 app.use(cors());
 app.use('/api/fertilizer', express.json({limit: '16mb'}));
+// An estate map with many marks is bigger than the 100 KB default.
+app.use('/api/owner/estate-map', express.json({limit: '2mb'}));
 app.use(express.json());
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.get("/api-docs.json", (req, res) => {

@@ -5,6 +5,7 @@ import '../services/location_service.dart';
 import '../services/owner_service.dart';
 import '../widgets/auth_widgets.dart';
 import 'auth_gate.dart';
+import 'estate_map/estate_setup_flow.dart';
 import 'location_picker_page.dart';
 import 'signup_role_sections.dart';
 
@@ -120,6 +121,21 @@ class _SignupPageState extends State<SignupPage> {
         }
       }
       if (!mounted) return;
+      if (_selectedRole == 'Land Owner') {
+        // New land owners draw their estate and mark what grows on it first.
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => EstateSetupFlow(
+              user: user,
+              estateName: _extras.estateName.text.trim(),
+              areaText: _extras.estateArea.text.trim(),
+              location: _location!,
+            ),
+          ),
+          (route) => false,
+        );
+        return;
+      }
       openHomeFor(context, user);
     } on ApiException catch (error) {
       if (!mounted) return;

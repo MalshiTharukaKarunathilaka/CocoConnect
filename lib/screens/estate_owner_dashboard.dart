@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../widgets/reusable_widgets.dart';
 import 'coconuts_page.dart';
 import 'subcategory_page.dart';
+import 'estate_map/estate_map_page.dart';
 import 'estate_owner_calendar_page.dart';
 import 'fertilizer/fertilizer_hub.dart';
 import 'machinery_map_page.dart';
@@ -89,7 +90,54 @@ class EstateOwnerDashboard extends StatelessWidget {
                           ),
                         ),
 
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 10),
+
+                        // Estate map: mark trees, pests and weeds on the land.
+                        Material(
+                          color: const Color(0xFFE3F0E6),
+                          borderRadius: BorderRadius.circular(14),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const EstateMapPage(),
+                              ),
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.map_outlined,
+                                    color: Color(0xFF256B45),
+                                  ),
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Estate map: mark your trees, pests '
+                                      'and weeds',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF1E2A22),
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    color: Color(0xFF256B45),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
 
                         const Row(
                           children: [
