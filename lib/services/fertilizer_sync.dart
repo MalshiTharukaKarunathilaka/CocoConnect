@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
@@ -78,6 +80,11 @@ class FertilizerSync {
       'acres': r.acres,
       'nic_copy': r.nicCopy,
       'land_title_copy': r.landTitleCopy,
+      // Why: the CDO opens these photos on another login, so the image goes to the server too.
+      if (r.nicBytes != null && r.nicBytes!.isNotEmpty)
+        'nic_data': base64Encode(r.nicBytes!),
+      if (r.landTitleBytes != null && r.landTitleBytes!.isNotEmpty)
+        'land_title_data': base64Encode(r.landTitleBytes!),
       'beneficiary_name': r.beneficiaryName,
       'address': r.address,
       'phone': r.phone,

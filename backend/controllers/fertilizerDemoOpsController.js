@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { unpackDoc, mergeDoc } = require("../utils/govDocs");
 const { storageInfo } = require("./healthController");
 
 const last9 = (phone) => {
@@ -54,8 +55,10 @@ const mapGov = (row) => ({
   outlet: row.outlet || "CCB",
   estate_name: row.estate_name || "",
   acres: row.acres == null ? null : Number(row.acres),
-  nic_copy: row.nic_copy || "",
-  land_title_copy: row.land_title_copy || "",
+  nic_copy: unpackDoc(row.nic_copy).name,
+  nic_data: unpackDoc(row.nic_copy).data,
+  land_title_copy: unpackDoc(row.land_title_copy).name,
+  land_title_data: unpackDoc(row.land_title_copy).data,
   beneficiary_name: row.beneficiary_name || "",
   address: row.address || "",
   phone: row.phone || "",
@@ -348,6 +351,7 @@ const upsertGov = async (req, res) => {
   try {
     const b = req.body || {};
     if (!b.id) return res.status(400).json({ message: "id is required" });
+    const prev = (await pool.query("SELECT nic_copy, land_title_copy FROM fertilizer_demo.fertilizer_gov_requests WHERE id = $1", [String(b.id)])).rows[0] || {};
     const result = await pool.query(
       `INSERT INTO fertilizer_demo.fertilizer_gov_requests (
         id, owner_key, owner_user_id, cdo_user_id, cdo_label, fertilizer,
@@ -407,8 +411,8 @@ const upsertGov = async (req, res) => {
         String(b.outlet || "CCB"),
         String(b.estate_name || b.estateName || ""),
         b.acres ?? null,
-        String(b.nic_copy || b.nicCopy || ""),
-        String(b.land_title_copy || b.landTitleCopy || ""),
+        mergeDoc(b.nic_copy || b.nicCopy, b.nic_data, prev.nic_copy),
+        mergeDoc(b.land_title_copy || b.landTitleCopy, b.land_title_data, prev.land_title_copy),
         String(b.beneficiary_name || b.beneficiaryName || ""),
         String(b.address || ""),
         String(b.phone || ""),
