@@ -484,12 +484,12 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         ],
         Row(
           children: [
-            Expanded(child: SizedBox(height: 48, child: _searchBox())),
-            const SizedBox(width: 10),
-            Expanded(child: SizedBox(height: 48, child: _myJobsButton())),
+            Expanded(child: _searchBox()),
+            const SizedBox(width: 8),
+            _myJobsButton(),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         _categoryShortcuts(),
         const SizedBox(height: 12),
         _calendarCard(jobs),
@@ -793,14 +793,16 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     return TextField(
       controller: _searchController,
       onChanged: (_) => setState(() {}),
+      style: const TextStyle(fontSize: 14, color: _workerInk),
       decoration: InputDecoration(
+        isDense: true,
+        filled: true,
+        fillColor: Colors.white,
         hintText: 'Search Jobs',
-        hintStyle: const TextStyle(
-          color: Color(0xFF969690),
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-        ),
-        prefixIcon: const Icon(Icons.search, size: 26, color: _workerInk),
+        hintStyle: const TextStyle(color: _workerMuted),
+        prefixIcon: const Icon(Icons.search, size: 18, color: _workerMuted),
+        prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 38),
+        suffixIconConstraints: const BoxConstraints(minWidth: 38, minHeight: 38),
         suffixIcon: _searchController.text.isEmpty
             ? null
             : IconButton(
@@ -808,16 +810,19 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                   _searchController.clear();
                   setState(() {});
                 },
+                tooltip: 'Clear search',
+                iconSize: 18,
+                constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
                 icon: const Icon(Icons.close),
               ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 5),
+        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(34),
-          borderSide: const BorderSide(color: _workerGreen, width: 1.8),
+          borderSide: const BorderSide(color: Color(0xFFE3DFD8)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(34),
-          borderSide: const BorderSide(color: _workerGreen, width: 2),
+          borderSide: const BorderSide(color: _workerGreen, width: 1.5),
         ),
       ),
     );
@@ -837,13 +842,15 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       },
       style: OutlinedButton.styleFrom(
         foregroundColor: _workerGreen,
-        minimumSize: const Size.fromHeight(40),
-        side: const BorderSide(color: _workerGreen, width: 1.8),
+        minimumSize: const Size(0, 38),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        backgroundColor: Colors.white,
+        side: const BorderSide(color: Color(0xFFE3DFD8)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
       ),
       child: const Text(
         'My Jobs',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       ),
     );
   }
