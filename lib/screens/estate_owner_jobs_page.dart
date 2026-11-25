@@ -81,6 +81,8 @@ class _EstateOwnerJobsPageState extends State<EstateOwnerJobsPage> {
                     children: [
                       const CircleAvatar(
                         radius: 20,
+                        backgroundColor: Color(0xFFE3F0E6),
+                        foregroundColor: Color(0xFF256B45),
                         child: Icon(Icons.work_outline, size: 20),
                       ),
                       const SizedBox(width: 10),

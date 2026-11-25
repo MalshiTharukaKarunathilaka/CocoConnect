@@ -94,6 +94,7 @@ class _WorkerChatPageState extends State<WorkerChatPage> {
     final chat = _chat;
     return RoleNavigationPage(
       current: AppTab.chats,
+      chatScope: ChatScope.dayJobs,
       child: Scaffold(
         backgroundColor: _workerChatBackground,
         body: GestureDetector(
