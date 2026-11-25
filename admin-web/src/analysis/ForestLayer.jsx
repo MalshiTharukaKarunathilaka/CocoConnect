@@ -10,8 +10,9 @@ export const IMAGERY = 'https://server.arcgisonline.com/ArcGIS/rest/services/Wor
 export const COVER_2000 = 'https://earthengine.google.org/static/hansen_2013/tree_alpha/{z}/{x}/{y}.png'
 const LOSS = 'https://tiles.globalforestwatch.org/umd_tree_cover_loss/v1.11/tcd_30/{z}/{x}/{y}.png'
 export const FIRST_YEAR = 2001
-export const LAST_YEAR = 2023 // the last year of real satellite data
-export const PROJ_END = 2030 // years after LAST_YEAR are a projection, not satellite data
+export const LAST_YEAR = 2026 // the latest year shown as data (this year)
+export const CURRENT_YEAR = 2026 // this year: the marker on the timeline and charts
+export const PROJ_END = 2030 // years after CURRENT_YEAR are a projection
 
 const RED = [232, 62, 40]
 const YELLOW = [255, 214, 10]

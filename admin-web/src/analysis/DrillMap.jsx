@@ -4,9 +4,9 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { DISTRICTS, PROVINCE_COLORS, label, pointIn, provinceOf, rampOf } from './data'
 import { glyphHtml, pinIcon } from './pins'
-import ForestLayer, { COVER_2000, FIRST_YEAR, IMAGERY, LAST_YEAR, PROJ_END } from './ForestLayer'
+import ForestLayer, { COVER_2000, FIRST_YEAR, CURRENT_YEAR, IMAGERY, LAST_YEAR, PROJ_END } from './ForestLayer'
 
-// The projection is a sample: each registered land is assumed to plant 8% of its area in new trees every year after 2023.
+// The projection is a sample: each registered land is assumed to plant 8% of its area in new trees every year after 2026.
 const GROWTH_PER_YEAR = 0.08
 
 export const GREEN_SCALE = ['#e3f0e6', '#bcdcc6', '#86be9c', '#4f9a6f', '#256b45']
@@ -65,7 +65,7 @@ export default function DrillMap({
 }) {
   const [tiles, setTiles] = useState(false)
   const [forestOn, setForestOn] = useState(false)
-  const [year, setYear] = useState(LAST_YEAR)
+  const [year, setYear] = useState(CURRENT_YEAR)
   const [playing, setPlaying] = useState(false)
   const [forestErr, setForestErr] = useState(false)
   const sat = forest && forestOn
@@ -79,10 +79,12 @@ export default function DrillMap({
     setPlaying(!playing)
   }
   useEffect(() => { if (onYear) onYear(year) }, [year]) // eslint-disable-line react-hooks/exhaustive-deps
-  const projected = year > LAST_YEAR
+  const projected = year > CURRENT_YEAR
   const grown = projected ? markers.filter((m) => !m.dim && m.acres) : []
-  const newAcres = Math.round(grown.reduce((a, m) => a + m.acres, 0) * GROWTH_PER_YEAR * (year - LAST_YEAR))
+  const newAcres = Math.round(grown.reduce((a, m) => a + m.acres, 0) * GROWTH_PER_YEAR * (year - CURRENT_YEAR))
   const level = sel.district ? 2 : sel.province ? 1 : 0
+  const [legendOpen, setLegendOpen] = useState(true)
+  useEffect(() => { setLegendOpen(level === 0) }, [level]) // zoomed in, the legend folds so it does not hide lands
   const [subGeo, setSubGeo] = useState(null)
   const region = sel.region || null
   const setRegion = (name) => onSel(name ? { province: sel.province, district: sel.district, region: name } : { province: sel.province, district: sel.district })
@@ -236,7 +238,7 @@ export default function DrillMap({
         {sat && grown.map((m, i) => (
           <CircleMarker
             key={`grow-${i}`} center={[m.lat, m.lng]} interactive={false}
-            radius={((m.size || 24) / 2) * (0.25 + (0.75 * (year - LAST_YEAR)) / (PROJ_END - LAST_YEAR))}
+            radius={((m.size || 24) / 2) * (0.25 + (0.75 * (year - CURRENT_YEAR)) / (PROJ_END - CURRENT_YEAR))}
             pathOptions={{ color: '#7dff9a', weight: 1.5, fillColor: '#3ddc6a', fillOpacity: 0.42 }}
           />
         ))}
@@ -328,7 +330,7 @@ export default function DrillMap({
             </div>
           </div>
           <input type="range" min={FIRST_YEAR} max={PROJ_END} step={1} value={year} onChange={(e) => { setPlaying(false); setYear(Number(e.target.value)) }} />
-          <div className="an-forest-years"><span>{FIRST_YEAR}</span><span style={{ position: 'absolute', left: `${((LAST_YEAR - FIRST_YEAR) / (PROJ_END - FIRST_YEAR)) * 100}%`, transform: 'translateX(-50%)' }}>{LAST_YEAR} · data ends</span><span>{PROJ_END}</span></div>
+          <div className="an-forest-years"><span>{FIRST_YEAR}</span><span style={{ position: 'absolute', left: `${((CURRENT_YEAR - FIRST_YEAR) / (PROJ_END - FIRST_YEAR)) * 100}%`, transform: 'translateX(-50%)' }}>{CURRENT_YEAR} · now</span><span>{PROJ_END}</span></div>
           <div className="an-forest-key">
             <span><i style={{ background: '#00b300' }} />{greenery ? 'Green cover in 2000' : 'Forest in 2000'}</span>
             <span><i style={{ background: '#e83e28' }} />Lost by {Math.min(year, LAST_YEAR + 1) - 1}</span>
@@ -338,7 +340,7 @@ export default function DrillMap({
           {projected && (
             <p className="an-forest-proj">
               <b>+{newAcres.toLocaleString('en-US')} acres</b> of new {greenery ? 'coconut greenery' : 'green'} by {year}
-              <small>Sample projection: each land in view plants 8% of its area in new trees every year after {LAST_YEAR}.</small>
+              <small>Sample projection: each land in view plants 8% of its area in new trees every year after {CURRENT_YEAR}.</small>
             </p>
           )}
           </div>
@@ -352,6 +354,10 @@ export default function DrillMap({
       </div>
 
       <div className="an-map-legend" style={sat ? { display: 'none' } : undefined}>
+        <button type="button" className="an-leg-toggle" onClick={() => setLegendOpen(!legendOpen)} aria-expanded={legendOpen}>
+          <b>Legend</b><span aria-hidden>{legendOpen ? '▾' : '▸'}</span>
+        </button>
+        {legendOpen && <>
         <div className="an-ramp">
           {(sel.province ? rampFor(sel.province) : ['#e6ebe8', '#c3cdc8', '#98a69f', '#6c7f76', '#43544c']).map((c) => (
             <span key={c} style={{ background: c }} />
@@ -376,6 +382,7 @@ export default function DrillMap({
             <span className="an-leg-ic" dangerouslySetInnerHTML={{ __html: glyphHtml('house', '#b4531f', 24) }} /> CDO office
           </div>
         )}
+        </>}
       </div>
     </div>
   )

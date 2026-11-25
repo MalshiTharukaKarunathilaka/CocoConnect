@@ -99,7 +99,8 @@ const PHOTO = {
   harvestpole: ['/crops/harvestpole.png', 1.03, 0.95], climbgear: ['/crops/climbgear.png', 1.14, 0.85], machete: ['/crops/machete.png', 1.68, 0.7],
   seedlings: ['/crops/seedlings.png', 0.98, 1], irrigation: ['/crops/irrigation.png', 1.23, 0.85], pepperplant: ['/crops/pepperplant.png', 0.75, 1.15],
   coconut: ['/photos/coconut.png', 1.39, 0.85],
-  farmstay: ['/tour/farm-stay.png', 1, 1.15], farmfood: ['/tour/farm-tour.png', 1, 1.15], planttour: ['/tour/plantation-tour.png', 1, 1.15], farmtour: ['/tour/farm-food.png', 1, 1.15],
+  farmstay: ['/tour/farm-stay.png', 1, 1.15], farmfood: ['/tour/farm-food.png', 1, 1.15], planttour: ['/tour/plantation-tour.png', 1, 1.15], farmtour: ['/tour/farm-tour.png', 1, 1.15],
+  visitors: ['/tour/visitors.svg', 1, 1.15],
   moneybag: ['/finance/loans.png', 1, 1.1],
   energysolar: ['/energy/solar-panel.png', 1, 1.1], energywater: ['/energy/solar-water.png', 1, 1.1], energybiogas: ['/energy/biogas.png', 1, 1.1], energyshell: ['/energy/coconut-shell.png', 1, 1],
   tractor: ['/crops/tractor.png', 1.41, 0.7], hand: ['/crops/hand-tractor.png', 1.45, 0.7], backhoe: ['/crops/backhoe.png', 2.1, 0.6],
@@ -279,6 +280,17 @@ const RICH = {
     <path d="M4.500 28 L23 9.500" stroke="#fff" stroke-width="1.600" opacity=".7" stroke-linecap="round"/>
     <path d="M12 21.500 L12 14.500 M16.500 17 L16.500 11 M9.500 24 L5.500 21" stroke="#fff" stroke-width=".9" opacity=".45"/>
     <path d="M4.500 28 C2.500 28.500 1.500 29.500 .5 31" stroke="${D}" stroke-width="1.400" fill="none" stroke-linecap="round"/>`,
+  // a coconut mite: a round red body with eight legs
+  mite: (c, L, D, g) => `
+    <path d="M6 9 L12 14 M4 16 L11 17 M6 24 L12 20 M26 9 L20 14 M28 16 L21 17 M26 24 L20 20" stroke="${D}" stroke-width="1.800" stroke-linecap="round" fill="none"/>
+    <ellipse cx="16" cy="17" rx="7.500" ry="9" fill="${g}"/><circle cx="16" cy="8.500" r="3.600" fill="${D}"/>
+    <ellipse cx="13.500" cy="14.500" rx="2" ry="3" fill="#fff" opacity=".45"/>`,
+  // a whitefly: a small body under two pale wings
+  whitefly: (c, L, D, g) => `
+    <ellipse cx="9.500" cy="14" rx="8" ry="5" transform="rotate(-28 9.500 14)" fill="#fff" stroke="${c}" stroke-width="1.200"/>
+    <ellipse cx="22.500" cy="14" rx="8" ry="5" transform="rotate(28 22.500 14)" fill="#fff" stroke="${c}" stroke-width="1.200"/>
+    <ellipse cx="16" cy="19" rx="3.200" ry="8" fill="${g}"/><circle cx="16" cy="9.500" r="2.800" fill="${D}"/>
+    <path d="M14 7 L11.500 3 M18 7 L20.500 3" stroke="${D}" stroke-width="1.100" stroke-linecap="round"/>`,
   // a tuft of tall grass
   mana: (c, L, D, g) => `
     <path d="M16 29 C15 20 11 12 5 5 C13 9 16.500 17 16 29 Z" fill="${g}"/>

@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import DrillMap from './DrillMap'
+import { CURRENT_YEAR } from './ForestLayer'
 import { glyphHtml } from './pins'
 import { Bars, Donations, LandId, LandStats, estatePhoto, Donut, FigTiles, Overview, PhotoRow, ProvinceStrip, Split, areaBars, glyphRow, landStrip } from './AnalysisPages'
 import { MONTHS, USD_LKR, compact, inScope, kgText, label, num, pct, rs, scopeName, sumBy } from './data'
 import PlatformPage from './PlatformPages'
-import { vegetationOf } from './Vegetation'
+import { MANA, MITE, WHITEFLY, vegetationOf } from './Vegetation'
 import { Card, Chips, DataTable, PageHead, Segmented } from './ui'
 
 // =============================================================================
@@ -62,7 +63,7 @@ const ENERGY = [
 // What makes carbon creditable: new, extra action (not business as usual). `share` is the part of a land's absorbed carbon it adds.
 const PRACTICES = [
   { key: 'planting', label: 'New planting', share: 0.3 },
-  { key: 'intercrop', label: 'Intercrop (Gliricidia, Mana grass)', share: 0.2 },
+  { key: 'intercrop', label: 'Intercrop (Gliricidia, Guinea grass)', share: 0.2 },
   { key: 'biochar', label: 'Biochar from husks and shells', share: 0.25 },
 ]
 const CREDIT_STATUS = {
@@ -260,10 +261,35 @@ function topicRows(d) {
   return out
 }
 
-function CatCard({ title, cats, value, onChange, rows }) {
+const LAYERS = [
+  { name: 'Coconut', glyph: 'palm', color: '#2f8a4f' },
+  { name: MANA.name, glyph: MANA.icon, color: MANA.color },
+  { name: WHITEFLY.name, glyph: WHITEFLY.icon, color: WHITEFLY.color },
+  { name: MITE.name, glyph: MITE.icon, color: MITE.color },
+]
+
+/** Invasive alien species tab: tick any mix of coconut, guinea grass, whitefly and coconut mite; each ticked one is drawn on the map. */
+function LayerCard({ value, onChange, counts }) {
+  const toggle = (n) => onChange(value.includes(n) ? value.filter((x) => x !== n) : [...value, n])
   return (
-    <div className="an-crop-card an-noprint">
-      <b>{title}</b>
+    <div className="an-crop-card an-noprint" style={{ position: 'static' }}>
+      <b>Show on map</b>
+      {LAYERS.map((c) => (
+        <button key={c.name} type="button" className={value.includes(c.name) ? 'on' : ''} aria-pressed={value.includes(c.name)} onClick={() => toggle(c.name)}>
+          <span className="an-crop-ic" dangerouslySetInnerHTML={{ __html: glyphHtml(c.glyph, c.color, 20) }} />
+          <span>{c.name}</span>
+          <em>{counts[c.name]}</em>
+        </button>
+      ))}
+      <small style={{ fontSize: '0.66rem', color: '#6b7a70', padding: '2px 6px' }}>Pick more than one to overlay them</small>
+    </div>
+  )
+}
+
+function CatCard({ title, cats, value, onChange, rows, onClose }) {
+  return (
+    <div className="an-crop-card an-noprint" style={{ position: 'static' }}>
+      <b style={onClose ? { display: 'flex', justifyContent: 'space-between', cursor: 'pointer' } : undefined} onClick={onClose}>{title}{onClose && <span aria-hidden>▴</span>}</b>
       <button className={!value ? 'on' : ''} onClick={() => onChange('')}>
         <i className="all" />
         <span>All</span>
@@ -283,9 +309,9 @@ function CatCard({ title, cats, value, onChange, rows }) {
 /**
  * Carbon figures for one year, shown in the map's timeline panel (Environment page).
  * Sample model: palms store more as they mature, emissions ease as green energy spreads,
- * and the "if cleared" line shows what is lost when a coconut land is cut down after 2023.
+ * and the "if cleared" line shows what is lost when a coconut land is cut down after 2026.
  */
-const ENV_FIRST = 2001, ENV_NOW = 2023
+const ENV_FIRST = 2001, ENV_NOW = CURRENT_YEAR
 function envModel(rows, year) {
   const seq0 = sumBy(rows, (r) => r.seq)
   const emit0 = sumBy(rows, (r) => r.emit)
@@ -300,7 +326,7 @@ function envModel(rows, year) {
   return { seq0, ahead, stored, emitted, palms, net: stored + avoided - emitted }
 }
 
-/** Line chart of the same model, 2001 to 2030. Dashed after 2023, a marker at the year picked on the map. */
+/** Line chart of the same model, 2001 to 2030. Dashed after the current year, a marker at the year picked on the map. */
 function EnvTrend({ rows, year }) {
   const data = []
   for (let y = ENV_FIRST; y <= 2030; y++) {
@@ -325,10 +351,10 @@ function EnvTrend({ rows, year }) {
         <Legend content={() => (
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px 22px', fontSize: 12, paddingTop: 8 }}>
             {Object.keys(C).map((k) => <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#3f5148' }}><i style={{ width: 18, height: 3, borderRadius: 2, background: C[k] }} />{names[k]}</span>)}
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#6b7a70' }}><i style={{ width: 18, borderTop: '3px dashed #6b7a70' }} />Dashed = projection after 2023</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#6b7a70' }}><i style={{ width: 18, borderTop: '3px dashed #6b7a70' }} />Dashed = projection after {ENV_NOW}</span>
           </div>
         )} />
-        <ReferenceLine x={ENV_NOW} stroke="#9aa8a0" strokeDasharray="2 4" label={{ value: 'data ends', fontSize: 10, fill: '#6b7a70', position: 'insideBottomLeft' }} />
+        <ReferenceLine x={ENV_NOW} stroke="#9aa8a0" strokeDasharray="2 4" label={{ value: 'now', fontSize: 10, fill: '#6b7a70', position: 'insideBottomLeft' }} />
         <ReferenceLine x={year} stroke="#1e2a22" strokeWidth={2} label={{ value: year, fontSize: 11, fontWeight: 700, fill: '#1e2a22', position: 'top' }} />
         {Object.keys(C).map((k) => <Line key={k} name={names[k]} type="monotone" dataKey={k} stroke={C[k]} strokeWidth={2.5} dot={false} isAnimationActive={false} />)}
         {Object.keys(C).map((k) => <Line key={`${k}F`} name={`${names[k]} (projection)`} type="monotone" dataKey={`${k}F`} stroke={C[k]} strokeWidth={2.5} strokeDasharray="6 5" dot={false} isAnimationActive={false} />)}
@@ -357,7 +383,7 @@ function AdoptLand({ rows }) {
     const tonnes = r.seq * growth
     const income = r.creditable * growth * price
     cum += income
-    data.push({ year: 2023 + t, tonnes: Math.round(tonnes * 10) / 10, income: Math.round(income), total: Math.round(cum) })
+    data.push({ year: CURRENT_YEAR + t, tonnes: Math.round(tonnes * 10) / 10, income: Math.round(income), total: Math.round(cum) })
   }
   const nowIncome = r.creditable * price
   const released = r.seq * 10
@@ -470,6 +496,10 @@ function TopicPage({ d, sel, setSel, spec, bar }) {
   const [tlYear, setTlYear] = useState(ENV_NOW)
   const [landId, setLandId] = useState(null) // Environment page: the land picked on the map
   const [view, setView] = useState('absorb') // Environment map: absorb | emit | credit
+  const [tab, setTab] = useState('carbon') // Environment map: carbon | species
+  const [layers, setLayers] = useState(['Coconut', MANA.name]) // species tab: what is drawn
+  const [totals, setTotals] = useState(false) // Environment map: the tonnes badge on every area, off so the map stays clear
+  const veg = useMemo(() => vegetationOf(d), [d])
   const all = useMemo(() => spec.rows(topicRows(d)), [d, spec])
   const here = (r) => inScope(sel, r.e.district) && (!sel.region || r.e.region === sel.region)
   const pool = all.filter((r) => !cat || r.cat === cat)
@@ -491,26 +521,38 @@ function TopicPage({ d, sel, setSel, spec, bar }) {
     if (!spec.timeline) return { size: 30, color: catOf(r.cat).color, off: false }
     if (view === 'emit') return { size: 22 + Math.round((18 * r.emit) / maxEmit), color: '#c0392b', off: false }
     if (view === 'credit') return { size: 22 + Math.round((18 * r.creditable) / maxCred), color: CREDIT_STATUS[r.cstatus].color, off: r.cstatus === 'none' }
-    return { size: 22 + Math.round((18 * r.seq) / maxSeq), color: '#2e7d32', off: false }
+    return { size: 22 + Math.round((18 * r.seq) / maxSeq), color: r.balance >= 0 ? '#2e7d32' : '#c0392b', off: false }
   }
   const viewTip = (r) => (view === 'credit'
     ? <>{CREDIT_STATUS[r.cstatus].text}<br />Credit-eligible {t1(r.creditable)} of {t1(r.seq)} absorbed<br />{PRACTICES.filter((x) => r.practices[x.key]).map((x) => x.label).join(', ') || 'No extra climate action yet'}</>
     : view === 'emit' ? <>Emits {t1(r.emit)} a year</>
       : <>Absorbs {t1(r.seq)} a year{r.kgPerPalm != null ? ` · ${Math.round(r.kgPerPalm)} kg CO₂ per palm` : ''}</>)
-  const markers = all.map((r) => {
+  const species = spec.timeline && tab === 'species'
+  const showCoco = !spec.timeline || !species || layers.includes('Coconut')
+  const cocoMarkers = !showCoco ? [] : all.map((r) => {
     const pin = pinFor(r)
     return {
       lat: r.e.lat, lng: r.e.lng, icon: catOf(r.cat).glyph, size: pin.size, color: pin.color, acres: r.e.acres,
       dim: !here(r) || (!!cat && r.cat !== cat) || (!!landId && r.e.id !== landId) || pin.off,
       ...(spec.timeline ? { size: r.e.id === landId ? 42 : pin.size, onClick: () => setLandId(r.e.id === landId ? null : r.e.id) } : {}),
+      ...(species ? { icon: 'palm', color: '#2f8a4f', size: r.e.id === landId ? 42 : 26, dim: !here(r), tip: <div className="an-tip"><b>{r.e.name}</b><br />Coconut land · {r.e.acres} acres<br />{label(r.e.district)}{r.e.region ? ` · ${r.e.region}` : ''}</div> } : {}),
       tip: <div className="an-tip"><b>{r.e.name}</b><br />{spec.timeline ? viewTip(r) : <>{r.cat}<br />{spec.tip(r)}</>}<br />{label(r.e.district)}{r.e.region ? ` · ${r.e.region}` : ''}</div>,
     }
   })
-  const viewLegend = view === 'credit'
+  const inHere = (p) => inScope(sel, p.district) && (!sel.region || p.region === sel.region)
+  const patchTip = (p) => <div className="an-tip"><b>{p.land.name}</b><br />{p.kind} on about {p.acres} of {p.land.acres} acres<br />{label(p.district)}{p.region ? ` · ${p.region}` : ''}<br /><i>Sample figures</i></div>
+  const layerData = { [MANA.name]: [MANA, veg.mana], [WHITEFLY.name]: [WHITEFLY, veg.whitefly], [MITE.name]: [MITE, veg.mite] }
+  const extraMarkers = species
+    ? layers.filter((n) => layerData[n]).flatMap((n) => layerData[n][1].map((p) => ({ lat: p.lat, lng: p.lng, icon: layerData[n][0].icon, size: 26, color: layerData[n][0].color, dim: !inHere(p), tip: patchTip(p) })))
+    : []
+  const markers = [...cocoMarkers, ...extraMarkers]
+  const layerCounts = { Coconut: all.filter(here).length, [MANA.name]: veg.mana.filter(inHere).length, [WHITEFLY.name]: veg.whitefly.filter(inHere).length, [MITE.name]: veg.mite.filter(inHere).length }
+  const baseLegend = view === 'credit'
     ? Object.values(CREDIT_STATUS).map((c) => ({ icon: 'envpalm', color: c.color, text: c.text }))
     : view === 'emit' ? [{ icon: 'envpalm', color: '#c0392b', text: 'Emits CO₂ (bigger palm = more tonnes)' }]
-      : [{ icon: 'envpalm', color: '#2e7d32', text: 'Absorbs CO₂ (bigger palm = more tonnes)' }]
-  const viewSub = view === 'credit'
+      : [{ icon: 'envpalm', color: '#2e7d32', text: 'Stores more than it emits (bigger palm = more CO₂ absorbed)' }, { icon: 'envpalm', color: '#c0392b', text: 'Emits more than it stores' }]
+  const viewLegend = !species ? baseLegend : [...(showCoco ? [{ icon: 'palm', color: '#2f8a4f', text: 'Coconut land' }] : []), ...layers.filter((n) => layerData[n]).map((n) => ({ icon: layerData[n][0].icon, color: layerData[n][0].color, text: n }))]
+  const viewSub = species ? 'Pick coconut, guinea grass, whitefly and coconut mite to see where they are and how they overlap. Each pin is a land with that species on it.' : view === 'credit'
     ? 'Credits need extra climate action (new planting, intercrop, biochar), then verification and clear rights. Gold lands are ready; grey have the practice but are not verified; faded lands are not eligible yet.'
     : view === 'emit' ? 'Each palm is a land; a bigger palm emits more carbon from fuel, fertilizer, animals and waste.'
       : 'Each palm is a land; a bigger palm absorbs more CO₂ in its palms and soil. This is what keeping the coconut land is worth.'
@@ -532,10 +574,25 @@ function TopicPage({ d, sel, setSel, spec, bar }) {
       <ProvinceStrip startOpen byD={perD} fmt={spec.fmt || num} unit={spec.unit} sel={sel} setSel={setSel} color={spec.color} {...landStrip(d, sel, setSel, perD, spec.noun, cdoValue)} />
       <Split
         map={
-          <Card title={spec.mapTitle} sub={spec.timeline ? viewSub : spec.mapSub} className="an-card-map" right={spec.timeline ? <Segmented value={view} onChange={setView} options={[['absorb', 'Absorbs CO₂'], ['emit', 'Emits'], ['credit', 'Credit-ready']]} /> : null}>
+          <Card title={spec.mapTitle} sub={spec.timeline ? viewSub : spec.mapSub} className="an-card-map" right={spec.timeline ? <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}><Segmented value={tab} onChange={(t) => { setTab(t); setLandId(null) }} options={[['carbon', 'Carbon balance'], ['species', 'Invasive alien species']]} />{!species && <Segmented value={view} onChange={setView} options={[['absorb', 'Absorbs CO₂'], ['emit', 'Emits'], ['credit', 'Credit-ready']]} />}</div> : null}>
             <DrillMap
-              geo={d.geo} values={perD} fmt={spec.fmt || num} unit={spec.unit} sel={sel} onSel={(x) => { setLandId(null); setSel(x) }} scale={spec.scale} markers={markers} badge={spec.timeline ? { html: (v) => `<span class="an-badge-fig nut">${glyphHtml('palm', '#2f8a4f', 44)}</span><b>${(spec.fmt || num)(v)}</b>` } : null} markerKey={`topic-${spec.name}-${cat}-${landId}-${view}`}
-              overlay={<CatCard title={spec.catTitle} cats={spec.cats} value={cat} onChange={setCat} rows={all.filter(here)} />}
+              geo={d.geo} values={perD} fmt={spec.fmt || num} unit={spec.unit} sel={sel} onSel={(x) => { setLandId(null); setSel(x) }} scale={spec.scale} markers={markers} badge={spec.timeline && !species && totals ? { html: (v) => `<span class="an-badge-fig nut">${glyphHtml('palm', '#2f8a4f', 44)}</span><b>${(spec.fmt || num)(v)}</b>` } : null} markerKey={`topic-${spec.name}-${cat}-${landId}-${view}-${tab}-${layers.join(",")}`}
+              overlay={spec.timeline
+                ? (
+                  <div style={{ position: 'absolute', top: 58, right: 12, zIndex: 500, width: 168, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {species
+                      ? <LayerCard value={layers} onChange={setLayers} counts={layerCounts} />
+                      : (
+                        <>
+                          <CatCard title={spec.catTitle} cats={spec.cats} value={cat} onChange={setCat} rows={all.filter(here)} />
+                          <button type="button" className="an-crop-card an-noprint" aria-pressed={totals} style={{ position: 'static', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', border: 0, font: 'inherit', fontSize: '0.78rem', color: '#1e2a22' }} onClick={() => setTotals(!totals)}>
+                            <span>Tonnes per area</span><b style={{ color: totals ? '#1a5f38' : '#6b7a70' }}>{totals ? 'On' : 'Off'}</b>
+                          </button>
+                        </>
+                      )}
+                  </div>
+                )
+                : <CatCard title={spec.catTitle} cats={spec.cats} value={cat} onChange={setCat} rows={all.filter(here)} />}
               legend={spec.timeline ? viewLegend : spec.cats.map((c) => ({ icon: c.glyph, color: c.color, text: c.name }))} height={spec.timeline ? 700 : 560}
               forest={!!spec.timeline} greenery onYear={spec.timeline ? setTlYear : null} forestInfo={spec.timeline ? (y, proj) => <EnvTimeline rows={scoped} year={y} projected={proj} /> : null}
             />
@@ -614,8 +671,8 @@ const SPECS = {
       const v = sumBy(s, (r) => r.visitors)
       const f = sumBy(s, (r) => r.visitors * r.foreign)
       return [
-        ['Most offered', t && t.value ? t.name : '-', t && t.value ? `on ${t.value} lands` : '', glyphRow(['planttour'], ['#0288d1'], 64)],
-        ['Foreign visitors', v ? pct(f, v) : '-', v ? `${compact(f)} of ${compact(v)} visitors` : '', glyphRow(['farmstay', 'farmfood'], ['#0288d1', '#d99a0b'], 52)],
+        ['Most offered', t && t.value ? t.name : '-', t && t.value ? `on ${t.value} lands` : '', glyphRow([(TOUR.find((c) => c.name === (t && t.value ? t.name : '')) || TOUR[0]).glyph], [(TOUR.find((c) => c.name === (t && t.name)) || TOUR[0]).color], 64)],
+        ['Foreign visitors', v ? pct(f, v) : '-', v ? `${compact(f)} of ${compact(v)} visitors` : '', glyphRow(['farmtour'], ['#d99a0b'], 60)],
       ]
     },
     month: {

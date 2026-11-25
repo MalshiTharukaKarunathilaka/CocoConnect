@@ -5,7 +5,6 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { createPortal } from 'react-dom'
 import { Character, DrawnCharacter, Pair } from './People'
 import { glyphHtml } from './pins'
-import { MANA, vegetationOf } from './Vegetation'
 import PriceMap, { Coconut } from './PriceMap'
 import LandTopic, { LAND_TOPICS } from './LandTopics'
 import { api } from '../api'
@@ -16,6 +15,7 @@ import {
   num, pct, provinceOf, rs, scopeName, sumBy, ym,
 } from './data'
 import { Card, Chart, Chips, DataTable, GradDefs, Icon, Kpi, Loading, Modal, PALETTE, PageHead, RegionSlot, Segmented, gid, tipEl, useData } from './ui'
+import EstateMapModal from './EstateMapModal'
 
 const ax = { tick: { fontSize: 11, fill: '#66736c' }, axisLine: false, tickLine: false }
 const BLUE = ['#e4eff5', '#bad7e6', '#86b6cf', '#4f8fb0', '#25607f']
@@ -587,7 +587,7 @@ function MachineCard({ value, onChange, list }) {
 }
 
 /** The crop picker that sits on the land maps. */
-function CropCard({ crop, setCrop, estates, keys = Object.keys(CROPS), manaCount = 0 }) {
+function CropCard({ crop, setCrop, estates, keys = Object.keys(CROPS) }) {
   return (
     <div className="an-crop-card an-noprint">
       <b>Crop</b>
@@ -601,11 +601,6 @@ function CropCard({ crop, setCrop, estates, keys = Object.keys(CROPS), manaCount
           </button>
         )
       })}
-      <button className={crop === MANA.name ? 'on' : ''} onClick={() => setCrop(MANA.name)}>
-        <span className="an-crop-ic" dangerouslySetInnerHTML={{ __html: glyphHtml(MANA.icon, MANA.color, 20) }} />
-        <span>{MANA.name}</span>
-        <em>{manaCount}</em>
-      </button>
     </div>
   )
 }
@@ -1017,26 +1012,18 @@ export function Overview({ d, sel, setSel, mode = 'coconut' }) {
   const cropKeys = isCoco ? ['Coconut'] : ['Coconut', 'Pepper', 'Pineapple', 'Peanut']
   const [crop, setCrop] = useState('All')
   const [planPick, setPlanPick] = useState('')
+  const [mapLand, setMapLand] = useState(null) // the land whose estate map is open
   const mine = useMemo(() => d.estates.filter((e) => cropKeys.includes(e.crop)), [d, mode]) // eslint-disable-line
   const estates = useMemo(() => mine.filter((e) => inScope(sel, e.district) && (!sel.region || e.region === sel.region)), [mine, sel])
   const perD = useMemo(() => byDistrict(mine, () => 1), [mine])
   const plans = ['Non-systematic cultivation', 'Systematic cultivation', 'Institutional plantation'].map((p, i) => ({ name: p, value: estates.filter((e) => e.plan === p).length, color: ['#9fd0b0', '#5fa47b', '#256b45'][i] }))
-  const veg = useMemo(() => vegetationOf(d), [d])
-  const manaHere = veg.mana.filter((p) => inScope(sel, p.district) && (!sel.region || p.region === sel.region))
-  const hasMana = new Set(veg.mana.map((p) => p.id))
-  const landMarkers = mine.filter((e) => crop === 'All' || e.crop === crop || (crop === MANA.name && hasMana.has(e.id))).map((e) => ({
+  const landMarkers = mine.filter((e) => crop === 'All' || e.crop === crop).map((e) => ({
     lat: e.lat, lng: e.lng, acres: e.acres, icon: CROPS[e.crop].icon, size: 24 + Math.min(12, Math.round(e.acres / 9)),
-    dim: !inScope(sel, e.district) || (!!sel.region && e.region !== sel.region), color: CROPS[e.crop].color,
-    tip: <div className="an-tip"><img src={estatePhoto(e)} alt="" /><b>{e.name}</b><br />{e.crop} · {e.owner} · {e.acres} acres<br />{label(e.district)}{e.region ? ` · ${e.region}` : ''} · {e.plan}</div>,
+    dim: !inScope(sel, e.district) || (!!sel.region && e.region !== sel.region), color: CROPS[e.crop].color, onClick: () => setMapLand(e),
+    tip: <div className="an-tip"><img src={estatePhoto(e)} alt="" /><b>{e.name}</b><br />{e.crop} · {e.owner} · {e.acres} acres<br />{label(e.district)}{e.region ? ` · ${e.region}` : ''} · {e.plan}<br /><i>Click to open the estate map</i></div>,
   }))
-  // Mana grass grows on part of some coconut lands: it sits beside that land's palm and carries no `acres`,
-  // so the forest projection leaves it out
-  const patchTip = (p) => <div className="an-tip"><b>{p.land.name}</b><br />Mana grass on about {p.acres} of {p.land.acres} acres<br />{label(p.district)}{p.region ? ` · ${p.region}` : ''}<br /><i>Sample figures</i></div>
-  const manaMarkers = crop === 'All' || crop === MANA.name
-    ? veg.mana.map((p) => ({ lat: p.lat, lng: p.lng, icon: MANA.icon, size: 24, color: MANA.color, dim: !inScope(sel, p.district) || (!!sel.region && p.region !== sel.region), tip: patchTip(p) }))
-    : []
-  const markers = [...landMarkers, ...manaMarkers]
-  const cropCard = <CropCard crop={crop} setCrop={setCrop} estates={estates} keys={cropKeys} manaCount={manaHere.length} />
+  const markers = landMarkers
+  const cropCard = isCoco ? null : <CropCard crop={crop} setCrop={setCrop} estates={estates} keys={cropKeys} />
   const treeScope = planPick ? estates.filter((e) => e.plan === planPick) : estates
   const hist = treeHist(treeScope)
   const cols = landCols(isCoco)
@@ -1067,7 +1054,7 @@ export function Overview({ d, sel, setSel, mode = 'coconut' }) {
             <DrillMap
               geo={d.geo} values={perD} fmt={num} unit="lands" sel={sel} onSel={setSel} markers={markers} markerKey={`land-${mode}-${crop}`}
               overlay={cropCard} forest
-              legend={[...cropKeys.map((c) => ({ icon: CROPS[c].icon, color: CROPS[c].color, text: c })), { icon: MANA.icon, color: MANA.color, text: MANA.name }]} height={560}
+              legend={cropKeys.map((c) => ({ icon: CROPS[c].icon, color: CROPS[c].color, text: c }))} height={560}
             />
           </Card>
         }
@@ -1089,6 +1076,7 @@ export function Overview({ d, sel, setSel, mode = 'coconut' }) {
       <Card title={`Registered lands · ${scopeName(sel)}`} sub={`${estates.length} lands, newest first. ${estates.filter((e) => e.coOwners?.length).length} have more than one owner. Click a Land ID for the owner's details`}>
         <LandsTable estates={estates} isCoco={isCoco} scope={scopeName(sel)} />
       </Card>
+      {mapLand && <EstateMapModal e={mapLand} onClose={() => setMapLand(null)} />}
     </PageHead>
   )
 }
