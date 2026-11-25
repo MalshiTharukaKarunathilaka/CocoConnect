@@ -157,8 +157,12 @@ class _ProviderHubState extends State<ProviderHub> {
       onOpenStock: () => setState(() => _tab = _isCdo ? 3 : 2),
       onOpenOrders: () => setState(() {
             if (_isCdo) {
-              _msgFocusId = _store.consumePendingOpenGovId();
-              _tab = 4;
+              // Why: cancel / dispute alerts open that exact order in Orders.
+              final id = _store.consumePendingOpenGovId();
+              _msgFocusId = null;
+              _tab = 1;
+              _orderStatusFilter = 'all';
+              if (id != null) _openCdoOrderFromAlert(id);
             } else {
               _tab = 1;
             }
@@ -283,6 +287,28 @@ class _ProviderHubState extends State<ProviderHub> {
           for (final o in list) _orderCard(o),
       ],
     );
+  }
+
+  void _openCdoOrderFromAlert(String id) {
+    FertGovRequest? found;
+    for (final r in _cdoRequests) {
+      if (r.id == id) {
+        found = r;
+        break;
+      }
+    }
+    final request = found;
+    if (request == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final ok = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => FertilizerCdoRequestSheet(request: request),
+      );
+      if (ok == true && mounted) setState(() {});
+    });
   }
 
   Widget _cdoOrdersPage() {
