@@ -456,7 +456,7 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
                           ),
                           SizedBox(height: compactMobile ? 4 : 8),
                         ],
-                        _categoryCard(compact: compactMobile),
+                        _categoryCard(),
                         SizedBox(height: compactMobile ? 5 : 12),
                         HolidayListener(
                           years: [_month.year],
@@ -619,49 +619,42 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
     );
   }
 
-  Widget _categoryCard({required bool compact}) {
+  Widget _categoryCard() {
     final chips = <Widget>[
       _CategoryChip(
         Icons.eco,
         'Nut Gatherer',
-        compact: compact,
         selected: _categoryFilter == 'Nut Gatherer',
         onTap: () => _toggleCategoryFilter('Nut Gatherer'),
       ),
       _CategoryChip(
         Icons.agriculture,
         'Machine Weeder',
-        compact: compact,
         selected: _categoryFilter == 'Machine Weeder',
         onTap: () => _toggleCategoryFilter('Machine Weeder'),
       ),
       _CategoryChip(
         Icons.build,
         'Manual Worker',
-        compact: compact,
         selected: _categoryFilter == 'Manual Worker',
         onTap: () => _toggleCategoryFilter('Manual Worker'),
       ),
       _CategoryChip(
         Icons.star,
         'Holiday',
-        compact: compact,
         iconColor: Colors.red,
         selected: _categoryFilter == 'Holiday',
         onTap: () => _toggleCategoryFilter('Holiday'),
       ),
     ];
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        compact ? 10 : 14,
-        compact ? 8 : 18,
-        compact ? 10 : 14,
-        compact ? 8 : 16,
-      ),
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFE9E2D9)),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(color: Color(0x10000000), blurRadius: 5, offset: Offset(0, 2)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -669,18 +662,22 @@ class _EstateOwnerCalendarPageState extends State<EstateOwnerCalendarPage> {
           const Text(
             'CATEGORY / DAY TYPE',
             style: TextStyle(
-              color: Color(0xFF718096),
-              fontSize: 15,
+              color: Color(0xFF6D6D66),
+              fontSize: 11,
               fontWeight: FontWeight.bold,
-              letterSpacing: .5,
+              letterSpacing: .8,
             ),
           ),
-          SizedBox(height: compact ? 6 : 12),
-          Wrap(
-            spacing: compact ? 8 : 10,
-            runSpacing: compact ? 5 : 10,
-            children: chips,
-          ),
+          for (var i = 0; i < chips.length; i += 2) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: chips[i]),
+                const SizedBox(width: 8),
+                Expanded(child: chips[i + 1]),
+              ],
+            ),
+          ],
           if (_categoryFilter != null) ...[
             const SizedBox(height: 8),
             Row(
@@ -1149,14 +1146,12 @@ class _CategoryChip extends StatelessWidget {
   final String label;
   final Color iconColor;
   final bool selected;
-  final bool compact;
   final VoidCallback onTap;
 
   const _CategoryChip(
     this.icon,
     this.label, {
     this.iconColor = _calendarGreen,
-    required this.compact,
     required this.selected,
     required this.onTap,
   });
@@ -1169,39 +1164,31 @@ class _CategoryChip extends StatelessWidget {
       label: 'Filter calendar by $label',
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(17),
+        borderRadius: BorderRadius.circular(14),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          width: 155,
-          padding: EdgeInsets.symmetric(
-            horizontal: compact ? 10 : 12,
-            vertical: compact ? 7 : 10,
-          ),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFFDDEEE0) : const Color(0xFFF4EFE6),
-            borderRadius: BorderRadius.circular(17),
-            border: Border.all(
-              color: selected ? _calendarGreen : Colors.transparent,
-              width: 1.5,
-            ),
+            color: selected ? _calendarGreen : const Color(0xFFF4F0E8),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: iconColor),
-              const SizedBox(width: 8),
+              Icon(icon, size: 15, color: selected ? Colors.white : iconColor),
+              const SizedBox(width: 5),
               Expanded(
                 child: Text(
                   label,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: selected ? _calendarGreen : _calendarInk,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
+                    color: selected ? Colors.white : _calendarInk,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
               if (selected)
-                const Icon(Icons.check, size: 16, color: _calendarGreen),
+                const Icon(Icons.check, size: 14, color: Colors.white),
             ],
           ),
         ),
