@@ -493,8 +493,6 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         _categoryShortcuts(),
         const SizedBox(height: 12),
         _calendarCard(jobs),
-        const SizedBox(height: 10),
-        _calendarDetailsCard(),
         const SizedBox(height: 22),
         _liveJobs(jobs, onlyApplied: _tab == 1),
       ],
@@ -1181,63 +1179,6 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       return Icons.star;
     }
     return Icons.build;
-  }
-
-  Widget _calendarDetailsCard() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'CATEGORY / JOB TYPE',
-            style: TextStyle(
-              color: _workerMuted,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.8,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Row(
-            children: [
-              Expanded(
-                child: _CalendarTypeChip(
-                  icon: Icons.eco,
-                  label: 'Nut Gatherer',
-                ),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: _CalendarTypeChip(
-                  icon: Icons.agriculture,
-                  label: 'Machine Weeder',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Row(
-            children: [
-              Expanded(
-                child: _CalendarTypeChip(
-                  icon: Icons.build,
-                  label: 'Manual Worker',
-                ),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: _CalendarTypeChip(
-                  icon: Icons.star_border,
-                  label: 'Holiday',
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _liveJobs(List<WorkerJob> jobs, {bool onlyApplied = false}) {
@@ -3137,42 +3078,6 @@ class _WorkerCalendarLegend extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _CalendarTypeChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _CalendarTypeChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F0E8),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: _workerGreen, size: 15),
-          const SizedBox(width: 5),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _workerInk,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
