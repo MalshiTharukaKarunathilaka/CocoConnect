@@ -36,8 +36,7 @@ class WorkerDashboard extends StatefulWidget {
   State<WorkerDashboard> createState() => _WorkerDashboardState();
 }
 
-class _WorkerDashboardState extends State<WorkerDashboard>
-    with WidgetsBindingObserver {
+class _WorkerDashboardState extends State<WorkerDashboard> {
   static const _months = [
     'January',
     'February',
@@ -56,6 +55,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   late Future<List<WorkerJob>> _jobs;
   late Future<WorkerProfileSummary> _profileSummary;
   Future<List<WorkerEstate>>? _jobMapEstates;
+  Future<List<AppNotification>>? _alerts;
   WorkerProfileSummary? _profileCache;
   final _searchController = TextEditingController();
   int _tab = 0;
@@ -75,7 +75,6 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _jobs = WorkerService.getAvailableJobs();
     _profileSummary = _fetchProfile();
     _refreshNotificationCount();
@@ -88,18 +87,9 @@ class _WorkerDashboardState extends State<WorkerDashboard>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _notificationTimer?.cancel();
     _searchController.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _reloadJobs();
-      _reloadProfile();
-    }
   }
 
   void _reloadJobs() {
@@ -128,7 +118,17 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       final items = await ChatService.getNotifications();
       final unseen = await ChatService.unseenNotifications(items);
       final count = groupNotifications(unseen, bySender: true).length;
-      if (mounted) setState(() => _notificationCount = count);
+      if (!mounted) return;
+      if (_tab == 3 && unseen.isNotEmpty) {
+        await ChatService.markSeen(items);
+        if (!mounted || _tab != 3) return;
+        setState(() {
+          _alerts = Future.value(items);
+          _notificationCount = 0;
+        });
+      } else if (count != _notificationCount) {
+        setState(() => _notificationCount = count);
+      }
     } on ApiException {
       // The jobs dashboard remains usable when notifications are unavailable.
     }
@@ -138,7 +138,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     try {
       final chats = await DayJobChatService.getChats();
       final count = chats.where((chat) => chat.unreadCount > 0).length;
-      if (mounted) setState(() => _chatCount = count);
+      if (mounted && count != _chatCount) setState(() => _chatCount = count);
     } on ApiException {
       // Keep the previous badge if chat refresh is temporarily unavailable.
     }
@@ -457,7 +457,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       child: FutureBuilder<List<WorkerJob>>(
         future: _jobs,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           final jobs = snapshot.data ?? const <WorkerJob>[];
@@ -1218,7 +1218,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     return FutureBuilder<List<WorkerJob>>(
       future: _jobs,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
         final jobs = snapshot.data ?? const <WorkerJob>[];
@@ -2737,11 +2737,17 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     );
   }
 
+  Future<List<AppNotification>> _loadAlerts() async {
+    final items = await ChatService.getNotifications();
+    if (mounted && _tab == 3) await ChatService.markSeen(items);
+    return items;
+  }
+
   Widget _notifications() {
     return FutureBuilder<List<AppNotification>>(
-      future: ChatService.getNotifications(),
+      future: _alerts ??= _loadAlerts(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
+        if (!snapshot.hasData && snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
         final items = snapshot.data ?? const <AppNotification>[];
@@ -2754,7 +2760,6 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             ),
           );
         }
-        ChatService.markSeen(items);
         return ListView.separated(
           padding: const EdgeInsets.all(20),
           itemCount: groups.length,
@@ -2980,6 +2985,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
             _category = null;
           }
           if (tab == AppTab.alerts) {
+            _alerts = _loadAlerts();
             _notificationCount = 0;
           }
         });
