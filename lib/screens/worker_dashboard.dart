@@ -17,6 +17,7 @@ import '../widgets/open_street_map_tiles.dart';
 import '../widgets/profile_widgets.dart';
 import '../widgets/buyer_widgets.dart';
 import '../widgets/holiday_widgets.dart';
+import '../widgets/app_bottom_nav.dart' show AppBottomNav;
 import '../widgets/role_navigation_page.dart';
 import 'worker_chat_page.dart';
 import 'estate_jobs_map_page.dart';
@@ -3007,77 +3008,36 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     if (saved == true && mounted) _reloadProfile();
   }
 
-  Widget _bottomNavigation() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Color(0x12000000), blurRadius: 8)],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(Icons.grid_view_rounded, 'Dashboard', 0),
-          _navItem(Icons.work_outline, 'Jobs', 1),
-          _navItem(Icons.chat_bubble_outline, 'Chats', 2, badge: _chatCount),
-          _navItem(
-            Icons.notifications_none,
-            'Alerts',
-            3,
-            badge: _notificationCount,
-          ),
-          _navItem(Icons.account_circle_outlined, 'Profile', 4),
-        ],
-      ),
-    );
-  }
+  static const _tabs = [
+    AppTab.dashboard,
+    AppTab.jobs,
+    AppTab.chats,
+    AppTab.alerts,
+    AppTab.profile,
+  ];
 
-  Widget _navItem(IconData icon, String label, int index, {int badge = 0}) {
-    final selected = _tab == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          if (index == 1) {
-            _jobMapEstates ??= WorkerService.getEstates();
+  Widget _bottomNavigation() {
+    return AppBottomNav.worker(
+      current: _tabs[_tab],
+      chatCount: _chatCount,
+      alertCount: _notificationCount,
+      onTab: (tab) {
+        if (tab == AppTab.jobs) {
+          _jobMapEstates ??= WorkerService.getEstates();
+        }
+        setState(() {
+          _tab = _tabs.indexOf(tab);
+          if (tab == AppTab.jobs) {
+            _myJobsOnly = false;
+            _category = null;
           }
-          setState(() {
-            _tab = index;
-            if (index == 1) {
-              _myJobsOnly = false;
-              _category = null;
-            }
-            if (index == 3) _notificationCount = 0;
-          });
-          if (index == 0 || index == 1) _reloadJobs();
-          if (index == 4) _reloadProfile();
-        },
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Badge(
-              isLabelVisible: badge > 0,
-              label: Text(badge > 99 ? '99+' : '$badge'),
-              backgroundColor: Colors.red,
-              child: Icon(
-                icon,
-                color: selected ? _workerGreen : _workerMuted,
-                size: 29,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: TextStyle(
-                color: selected ? _workerGreen : _workerMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
+          if (tab == AppTab.alerts) {
+            _notificationCount = 0;
+          }
+        });
+        if (tab == AppTab.dashboard || tab == AppTab.jobs) _reloadJobs();
+        if (tab == AppTab.profile) _reloadProfile();
+      },
     );
   }
 

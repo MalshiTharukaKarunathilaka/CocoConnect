@@ -168,6 +168,7 @@ class AppBottomNav extends StatefulWidget {
   final ValueChanged<AppTab>? onProviderTab;
   final int providerChatCount;
   final int providerAlertCount;
+  final bool _worker;
 
   const AppBottomNav({
     super.key,
@@ -176,7 +177,21 @@ class AppBottomNav extends StatefulWidget {
     this.onProviderTab,
     this.providerChatCount = 0,
     this.providerAlertCount = 0,
-  });
+  }) : _worker = false;
+
+  const AppBottomNav.worker({
+    super.key,
+    required this.current,
+    required ValueChanged<AppTab> onTab,
+    required int chatCount,
+    required int alertCount,
+  }) : chatScope = ChatScope.dayJobs,
+       onProviderTab = onTab,
+       providerChatCount = chatCount,
+       providerAlertCount = alertCount,
+       _worker = true;
+
+  bool get _providerStyle => onProviderTab != null && !_worker;
 
   @override
   State<AppBottomNav> createState() => _AppBottomNavState();
@@ -209,9 +224,7 @@ class _AppBottomNavState extends State<AppBottomNav> {
     return Container(
       padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
       decoration: BoxDecoration(
-        color: widget.onProviderTab == null
-            ? const Color(0xFFF8F4EB)
-            : Colors.white,
+        color: widget._providerStyle ? Colors.white : const Color(0xFFF8F4EB),
         border: const Border(top: BorderSide(color: Color(0xFFE8E2D6))),
       ),
       child: ValueListenableBuilder(
@@ -239,9 +252,10 @@ class _AppBottomNavState extends State<AppBottomNav> {
                       : 0,
                 ),
               ),
-            if (widget.onProviderTab == null &&
-                AuthService.currentUser?.role == 'ESTATE_OWNER' &&
-                widget.chatScope == ChatScope.dayJobs)
+            if (widget._worker ||
+                (widget.onProviderTab == null &&
+                    AuthService.currentUser?.role == 'ESTATE_OWNER' &&
+                    widget.chatScope == ChatScope.dayJobs))
               _item(AppTab.jobs, Icons.work_outline, Icons.work, 'Jobs'),
             _item(
               AppTab.chats,
@@ -267,12 +281,10 @@ class _AppBottomNavState extends State<AppBottomNav> {
             ),
             _item(
               AppTab.profile,
-              widget.onProviderTab == null
-                  ? Icons.person_outline
-                  : Icons.account_circle_outlined,
-              widget.onProviderTab == null
-                  ? Icons.person
-                  : Icons.account_circle,
+              widget._providerStyle
+                  ? Icons.account_circle_outlined
+                  : Icons.person_outline,
+              widget._providerStyle ? Icons.account_circle : Icons.person,
               'Profile',
             ),
           ],
@@ -301,7 +313,7 @@ class _AppBottomNavState extends State<AppBottomNav> {
               duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               decoration: BoxDecoration(
-                color: active && widget.onProviderTab == null
+                color: active && !widget._providerStyle
                     ? _greenSoft
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(14),
@@ -312,7 +324,7 @@ class _AppBottomNavState extends State<AppBottomNav> {
                 backgroundColor: const Color(0xFFD32F2F),
                 child: Icon(
                   active ? activeIcon : icon,
-                  size: widget.onProviderTab == null ? 22 : 26,
+                  size: widget._providerStyle ? 26 : 22,
                   color: color,
                 ),
               ),
