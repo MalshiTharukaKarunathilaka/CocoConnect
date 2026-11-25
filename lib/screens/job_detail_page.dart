@@ -69,6 +69,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
 
     return RoleNavigationPage(
       chatScope: ChatScope.dayJobs,
+      current: AppTab.jobs,
       child: Scaffold(
         backgroundColor: _detailBackground,
         body: SizedBox.expand(

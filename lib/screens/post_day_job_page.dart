@@ -179,7 +179,7 @@ class _PostDayJobPageState extends State<PostDayJobPage> {
   Widget build(BuildContext context) {
     return RoleNavigationPage(
       chatScope: ChatScope.dayJobs,
-      current: AppTab.dashboard,
+      current: AppTab.jobs,
       child: Scaffold(
         backgroundColor: const Color(0xFFE7E5DF),
         body: Center(

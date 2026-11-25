@@ -7,6 +7,10 @@ Map<String, List<AppNotification>> groupNotifications(
   final groups = <String, List<AppNotification>>{};
   for (final item in items) {
     final key = switch (item) {
+      AppNotification(
+        type: NotificationType.dayJobChat,
+        dayJobChatId: final id?,
+      ) => 'day-job-chat-$id',
       AppNotification(isChatMessage: true, senderId: final id?) when bySender =>
         'sender-$id',
       AppNotification(isChatMessage: true, negotiationId: final id?)

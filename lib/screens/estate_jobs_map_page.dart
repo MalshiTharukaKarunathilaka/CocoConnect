@@ -15,6 +15,8 @@ class EstateJobsMapPage extends StatefulWidget {
   final List<WorkerJob> jobs;
   final int radiusKm;
   final bool nearbyOnly;
+  final bool onlyJobEstates;
+  final DateTime? selectedDate;
   final int? initialEstateId;
   final String? initialEstateName;
 
@@ -23,6 +25,8 @@ class EstateJobsMapPage extends StatefulWidget {
     required this.jobs,
     this.radiusKm = 20,
     this.nearbyOnly = false,
+    this.onlyJobEstates = false,
+    this.selectedDate,
     this.initialEstateId,
     this.initialEstateName,
   });
@@ -114,7 +118,11 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
       builder: (context, estateSnapshot) {
         final estates = estateSnapshot.data ?? const <WorkerEstate>[];
         final mappedEstates = _mappedEstates(estates);
-        final mapEstates = _estatesWithJobPostings(estates, mappedEstates);
+        final mapEstates = _estatesWithJobPostings(
+          estates,
+          mappedEstates,
+          onlyJobEstates: widget.onlyJobEstates,
+        );
         _focusInitialEstateWhenReady(estateSnapshot, mapEstates);
         return RoleNavigationPage(
           chatScope: ChatScope.dayJobs,
@@ -122,7 +130,11 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
           child: Scaffold(
             appBar: AppBar(
               title: Text(
-                widget.nearbyOnly
+                widget.selectedDate != null
+                    ? 'Day Jobs ${widget.selectedDate!.day.toString().padLeft(2, '0')}/'
+                          '${widget.selectedDate!.month.toString().padLeft(2, '0')}/'
+                          '${widget.selectedDate!.year}'
+                    : widget.nearbyOnly
                     ? 'Reachable Lands (${widget.radiusKm} km)'
                     : 'All Lands',
               ),
@@ -193,17 +205,24 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
                               ),
                             ),
                           ),
-                        for (final group in _groupNearbyEstates(mapEstates))
-                          if (group.estates.any(
-                            (estate) => estate.id == _selectedEstateId,
-                          ))
-                            for (final estate in group.estates)
-                              _estateMarker(
-                                estate,
-                                workerEstateMapPoint(estate)!,
-                              )
-                          else
-                            _estateGroupMarker(context, group),
+                        if (widget.onlyJobEstates)
+                          for (final estate in mapEstates)
+                            _estateMarker(
+                              estate,
+                              workerEstateMapPoint(estate)!,
+                            )
+                        else
+                          for (final group in _groupNearbyEstates(mapEstates))
+                            if (group.estates.any(
+                              (estate) => estate.id == _selectedEstateId,
+                            ))
+                              for (final estate in group.estates)
+                                _estateMarker(
+                                  estate,
+                                  workerEstateMapPoint(estate)!,
+                                )
+                            else
+                              _estateGroupMarker(context, group),
                       ],
                     ),
                     const RichAttributionWidget(
@@ -233,7 +252,7 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
                       _mapControl(
                         tooltip: 'Show all lands',
                         icon: Icons.fit_screen,
-                        onPressed: () => _fitAllEstates(estates),
+                        onPressed: () => _fitAllEstates(mapEstates),
                       ),
                       if (workerPoint != null) ...[
                         const SizedBox(height: 8),
@@ -528,8 +547,16 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
   ) {
     if (_initialFocusHandled ||
         snapshot.connectionState != ConnectionState.done ||
-        estates.isEmpty ||
-        (widget.initialEstateId == null && widget.initialEstateName == null)) {
+        estates.isEmpty) {
+      return;
+    }
+    if (widget.initialEstateId == null && widget.initialEstateName == null) {
+      if (widget.onlyJobEstates) {
+        _initialFocusHandled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _fitAllEstates(estates);
+        });
+      }
       return;
     }
     WorkerEstate? target;
@@ -754,7 +781,14 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
         if (estate.id > 0) estate.id: estate,
     };
     final byEstate = <String, _MappedEstate>{};
+    final selectedDate = widget.selectedDate;
     for (final job in widget.jobs) {
+      if (selectedDate != null &&
+          (job.requiredDate.year != selectedDate.year ||
+              job.requiredDate.month != selectedDate.month ||
+              job.requiredDate.day != selectedDate.day)) {
+        continue;
+      }
       final knownEstate = job.estateOwnerId > 0
           ? estatesById[job.estateOwnerId]
           : null;
@@ -792,17 +826,21 @@ class _EstateJobsMapPageState extends State<EstateJobsMapPage>
 
   List<WorkerEstate> _estatesWithJobPostings(
     List<WorkerEstate> estates,
-    List<_MappedEstate> jobEstates,
-  ) {
-    final result = <String, WorkerEstate>{
+    List<_MappedEstate> jobEstates, {
+    required bool onlyJobEstates,
+  }) {
+    final availableByKey = <String, WorkerEstate>{
       for (final estate in estates)
         _estateKey(estate.id, estate.estateName): estate,
+    };
+    final result = <String, WorkerEstate>{
+      if (!onlyJobEstates) ...availableByKey,
     };
 
     for (final mapped in jobEstates) {
       final job = mapped.job;
       final key = _estateKey(job.estateOwnerId, job.estateName);
-      final existing = result[key];
+      final existing = result[key] ?? availableByKey[key];
       final jobEstateName = job.estateName.trim();
       final jobOwnerName = job.estateOwnerName.trim();
       final jobLocation = job.estateLocation.trim();

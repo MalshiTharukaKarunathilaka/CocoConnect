@@ -32,11 +32,13 @@ class RoleNavigationPage extends StatelessWidget {
   final Widget child;
   final AppTab current;
   final ChatScope chatScope;
+  final bool showBottomNavigation;
   const RoleNavigationPage({
     super.key,
     required this.child,
     this.current = AppTab.dashboard,
     this.chatScope = ChatScope.all,
+    this.showBottomNavigation = true,
   });
 
   @override
@@ -61,13 +63,14 @@ class RoleNavigationPage extends StatelessWidget {
                   child: child,
                 ),
               ),
-              Material(
-                color: Color(0xFFF8F4EB),
-                child: SafeArea(
-                  top: false,
-                  child: AppBottomNav(current: current, chatScope: chatScope),
+              if (showBottomNavigation)
+                Material(
+                  color: Color(0xFFF8F4EB),
+                  child: SafeArea(
+                    top: false,
+                    child: AppBottomNav(current: current, chatScope: chatScope),
+                  ),
                 ),
-              ),
             ],
           ),
         ),

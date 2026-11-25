@@ -101,6 +101,7 @@ class _ScheduledJobsPageState extends State<ScheduledJobsPage> {
       chatScope: ChatScope.dayJobs,
       current: AppTab.jobs,
       child: OwnerPage(
+        showMainNavigation: false,
         child: FutureBuilder<List<DayJob>>(
           future: _jobs,
           builder: (context, snapshot) {

@@ -19,6 +19,7 @@ class AcceptedWorkersPage extends StatelessWidget {
       chatScope: ChatScope.dayJobs,
       current: AppTab.jobs,
       child: OwnerPage(
+        showMainNavigation: false,
         child: Column(
           children: [
             OwnerHeader(title: job.category),

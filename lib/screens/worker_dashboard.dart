@@ -11,6 +11,7 @@ import '../services/chat_service.dart';
 import '../services/day_job_chat_service.dart';
 import '../services/holiday_service.dart';
 import '../services/worker_service.dart';
+import '../services/notification_attention.dart';
 import '../utils/worker_map_locations.dart';
 import '../widgets/open_street_map_tiles.dart';
 import '../widgets/profile_widgets.dart';
@@ -124,7 +125,8 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   Future<void> _refreshNotificationCount() async {
     try {
       final items = await ChatService.getNotifications();
-      final count = await ChatService.unseenCount(items);
+      final unseen = await ChatService.unseenNotifications(items);
+      final count = groupNotifications(unseen, bySender: true).length;
       if (mounted) setState(() => _notificationCount = count);
     } on ApiException {
       // The jobs dashboard remains usable when notifications are unavailable.
@@ -134,7 +136,7 @@ class _WorkerDashboardState extends State<WorkerDashboard>
   Future<void> _refreshChatCount() async {
     try {
       final chats = await DayJobChatService.getChats();
-      final count = chats.fold(0, (total, chat) => total + chat.unreadCount);
+      final count = chats.where((chat) => chat.unreadCount > 0).length;
       if (mounted) setState(() => _chatCount = count);
     } on ApiException {
       // Keep the previous badge if chat refresh is temporarily unavailable.
@@ -1356,6 +1358,8 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                           jobs: selectedJobs,
                           radiusKm: _radiusKm ?? 20,
                           nearbyOnly: _radiusKm != null,
+                          onlyJobEstates: _selectedDate != null,
+                          selectedDate: _selectedDate,
                         ),
                       ),
                     ),
@@ -1456,6 +1460,8 @@ class _WorkerDashboardState extends State<WorkerDashboard>
                         jobs: jobs,
                         radiusKm: _radiusKm ?? 20,
                         nearbyOnly: _radiusKm != null,
+                        onlyJobEstates: _selectedDate != null,
+                        selectedDate: _selectedDate,
                       ),
                     ),
                   ),
@@ -1625,7 +1631,18 @@ class _WorkerDashboardState extends State<WorkerDashboard>
     List<WorkerEstate> estates, {
     required bool estateLoadFailed,
   }) {
-    final pins = _jobMapPins(jobs, estates);
+    final selectedDate = _selectedDate;
+    final mapJobs = selectedDate == null
+        ? jobs
+        : jobs
+              .where(
+                (job) =>
+                    job.requiredDate.year == selectedDate.year &&
+                    job.requiredDate.month == selectedDate.month &&
+                    job.requiredDate.day == selectedDate.day,
+              )
+              .toList();
+    final pins = _jobMapPins(mapJobs, estates);
     final center = _radiusKm != null && pins.isNotEmpty
         ? pins.first.point
         : pins.length == 1
@@ -1721,9 +1738,12 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           Positioned(
             top: 9,
             left: 9,
-            child: _mapLabel(
-              _radiusKm == null ? 'All lands' : '$_radiusKm km radius',
-            ),
+            child: _mapLabel(_selectedDate != null
+                ? 'Jobs for ${_selectedDate!.day} '
+                      '${_months[_selectedDate!.month - 1]}'
+                : _radiusKm == null
+                ? 'All lands'
+                : '$_radiusKm km radius'),
           ),
           Positioned(
             top: 9,
@@ -2019,6 +2039,8 @@ class _WorkerDashboardState extends State<WorkerDashboard>
       MaterialPageRoute(
         builder: (_) => EstateJobsMapPage(
           jobs: jobs,
+          onlyJobEstates: _selectedDate != null,
+          selectedDate: _selectedDate,
           initialEstateId: estateJob.estateOwnerId,
           initialEstateName: estateJob.estateName,
         ),
@@ -2774,7 +2796,8 @@ class _WorkerDashboardState extends State<WorkerDashboard>
           return const Center(child: CircularProgressIndicator());
         }
         final items = snapshot.data ?? const <AppNotification>[];
-        if (items.isEmpty) {
+        final groups = groupNotifications(items, bySender: true).values.toList();
+        if (groups.isEmpty) {
           return const Center(
             child: Text(
               'No new alerts',
@@ -2785,10 +2808,10 @@ class _WorkerDashboardState extends State<WorkerDashboard>
         ChatService.markSeen(items);
         return ListView.separated(
           padding: const EdgeInsets.all(20),
-          itemCount: items.length,
+          itemCount: groups.length,
           separatorBuilder: (_, _) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
-            final item = items[index];
+            final item = groups[index].first;
             return ListTile(
               tileColor: Colors.white,
               leading: const Icon(Icons.chat_bubble, color: _workerGreen),

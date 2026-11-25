@@ -199,13 +199,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     itemBuilder: (context, index) {
                       final entry = groups[index];
                       final group = entry.value;
+                      final unseenCount = group
+                          .where((item) => data.unseen.contains(item.key))
+                          .length;
+                      final isDayJobChat =
+                          group.first.type == NotificationType.dayJobChat;
                       return _NotificationCard(
                         key: ValueKey(entry.key),
                         groupKey: entry.key,
                         item: group.first,
-                        newCount: group
-                            .where((item) => data.unseen.contains(item.key))
-                            .length,
+                        newCount: isDayJobChat && unseenCount > 0
+                            ? 1
+                            : unseenCount,
                         messageCount: group.first.isChatMessage
                             ? group.length
                             : 0,

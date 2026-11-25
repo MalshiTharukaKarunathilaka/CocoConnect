@@ -92,7 +92,7 @@ class Unread {
       );
       final dayJobUnread = dayJobChats.fold(
         0,
-        (sum, chat) => sum + chat.unreadCount,
+        (count, chat) => count + (chat.unreadCount > 0 ? 1 : 0),
       );
       counts.value = (
         chats: coconutUnread + dayJobUnread,

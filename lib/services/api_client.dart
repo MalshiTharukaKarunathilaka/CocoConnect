@@ -29,15 +29,17 @@ class ApiClient {
   ApiClient._();
 
   static String get baseUrl {
+    if (kIsWeb) {
+      // API_URL is often set to 10.0.2.2 for the Android emulator, which a
+      // browser cannot reach. Configure web separately when needed.
+      const String webOverride = String.fromEnvironment('API_URL_WEB');
+      return webOverride.isNotEmpty ? webOverride : 'http://localhost:5000';
+    }
+
+    // The Android emulator reaches the computer's localhost via 10.0.2.2.
     // Point at another server with --dart-define=API_URL=http://...
     const String override = String.fromEnvironment('API_URL');
-    if (override.isNotEmpty) {
-      return override;
-    }
-    // The Android emulator reaches the computer's localhost via 10.0.2.2.
-    if (kIsWeb) {
-      return 'http://localhost:5000';
-    }
+    if (override.isNotEmpty) return override;
     return 'http://10.0.2.2:5000';
   }
 
