@@ -68,6 +68,7 @@ flutter:
   assets:
     - assets/services/
     - assets/machines/
+    - assets/estates/
     - assets/images/
     - assets/branding/
 

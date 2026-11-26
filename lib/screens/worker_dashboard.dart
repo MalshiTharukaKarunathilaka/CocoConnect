@@ -21,6 +21,7 @@ import '../widgets/app_bottom_nav.dart' show AppBottomNav;
 import '../widgets/role_navigation_page.dart';
 import 'worker_chat_page.dart';
 import 'estate_jobs_map_page.dart';
+import 'worker_jobs_map_view.dart';
 import 'day_job_chats_list.dart';
 import 'estate_owner_worker_profile_page.dart';
 
@@ -75,6 +76,8 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
   @override
   void initState() {
     super.initState();
+    // Jobs near the worker first: within 5 km when a location is saved.
+    if (AuthService.currentUser?.hasCoordinates == true) _radiusKm = 5;
     _jobs = WorkerService.getAvailableJobs();
     _profileSummary = _fetchProfile();
     _refreshNotificationCount();
@@ -457,7 +460,8 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
       child: FutureBuilder<List<WorkerJob>>(
         future: _jobs,
         builder: (context, snapshot) {
-          if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData &&
+              snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           final jobs = snapshot.data ?? const <WorkerJob>[];
@@ -799,8 +803,14 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
         hintText: 'Search Jobs',
         hintStyle: const TextStyle(color: _workerMuted),
         prefixIcon: const Icon(Icons.search, size: 18, color: _workerMuted),
-        prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 38),
-        suffixIconConstraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 36,
+          minHeight: 38,
+        ),
+        suffixIconConstraints: const BoxConstraints(
+          minWidth: 38,
+          minHeight: 38,
+        ),
         suffixIcon: _searchController.text.isEmpty
             ? null
             : IconButton(
@@ -1035,8 +1045,11 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
               final dayJobs = jobsByDay[day];
               final dayIcons = dayJobs == null
                   ? const <IconData>[]
+                  // One icon per kind of job, so a busy day shows at most three
+                  // instead of one for every posting.
                   : dayJobs
                         .map((job) => _calendarIconForCategory(job.category))
+                        .toSet()
                         .toList();
               final today = DateTime.now();
               final todayDate = DateTime(today.year, today.month, today.day);
@@ -1218,7 +1231,8 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
     return FutureBuilder<List<WorkerJob>>(
       future: _jobs,
       builder: (context, snapshot) {
-        if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData &&
+            snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
         final jobs = snapshot.data ?? const <WorkerJob>[];
@@ -1248,6 +1262,31 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
         final detailsJobs = _selectedEstate == null
             ? const <WorkerJob>[]
             : estateJobs[_selectedEstate] ?? const <WorkerJob>[];
+        if (!_myJobsOnly && _selectedEstate == null) {
+          // The map view does its own kind and distance filtering.
+          final dateJobs = jobs.where((job) {
+            return date == null ||
+                (job.requiredDate.year == date.year &&
+                    job.requiredDate.month == date.month &&
+                    job.requiredDate.day == date.day);
+          }).toList();
+          return WorkerJobsMapView(
+            jobs: dateJobs,
+            category: _category,
+            radiusKm: _radiusKm,
+            subtitle: date == null
+                ? 'NUT GATHERER, MANUAL WORKER & MACHINE WEEDER JOBS'
+                : 'JOBS FOR ${date.day} ${_months[date.month - 1].toUpperCase()}',
+            onCategory: (c) => setState(() => _category = c),
+            onRadius: (r) => setState(() => _radiusKm = r),
+            onOpenLand: (name) => setState(() => _selectedEstate = name),
+            onMyJobs: () => setState(() {
+              _myJobsOnly = true;
+              _selectedDate = null;
+              _selectedEstate = null;
+            }),
+          );
+        }
         return RefreshIndicator(
           color: _workerGreen,
           onRefresh: _refresh,
@@ -1687,12 +1726,14 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
           Positioned(
             top: 9,
             left: 9,
-            child: _mapLabel(_selectedDate != null
-                ? 'Jobs for ${_selectedDate!.day} '
-                      '${_months[_selectedDate!.month - 1]}'
-                : _radiusKm == null
-                ? 'All lands'
-                : '$_radiusKm km radius'),
+            child: _mapLabel(
+              _selectedDate != null
+                  ? 'Jobs for ${_selectedDate!.day} '
+                        '${_months[_selectedDate!.month - 1]}'
+                  : _radiusKm == null
+                  ? 'All lands'
+                  : '$_radiusKm km radius',
+            ),
           ),
           Positioned(
             top: 9,
@@ -2747,11 +2788,15 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
     return FutureBuilder<List<AppNotification>>(
       future: _alerts ??= _loadAlerts(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData && snapshot.connectionState != ConnectionState.done) {
+        if (!snapshot.hasData &&
+            snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
         final items = snapshot.data ?? const <AppNotification>[];
-        final groups = groupNotifications(items, bySender: true).values.toList();
+        final groups = groupNotifications(
+          items,
+          bySender: true,
+        ).values.toList();
         if (groups.isEmpty) {
           return const Center(
             child: Text(
