@@ -4,7 +4,7 @@ import DrillMap from './DrillMap'
 import { CURRENT_YEAR } from './ForestLayer'
 import { glyphHtml } from './pins'
 import { Bars, Donations, LandId, LandStats, estatePhoto, Donut, FigTiles, Overview, PhotoRow, ProvinceStrip, Split, areaBars, glyphRow, landStrip } from './AnalysisPages'
-import { MONTHS, USD_LKR, compact, inScope, kgText, label, num, pct, rs, scopeName, sumBy } from './data'
+import { MONTHS, USD_LKR, compact, inScope, kgText, label, num, pct, provinceOf, rs, scopeName, sumBy } from './data'
 import PlatformPage from './PlatformPages'
 import { MANA, MITE, WHITEFLY, vegetationOf } from './Vegetation'
 import { Card, Chips, DataTable, PageHead, Segmented } from './ui'
@@ -272,7 +272,7 @@ const LAYERS = [
 function LayerCard({ value, onChange, counts }) {
   const toggle = (n) => onChange(value.includes(n) ? value.filter((x) => x !== n) : [...value, n])
   return (
-    <div className="an-crop-card an-noprint" style={{ position: 'static' }}>
+    <div className="an-crop-card an-noprint" style={{ position: 'static', width: '100%', boxSizing: 'border-box' }}>
       <b>Show on map</b>
       {LAYERS.map((c) => (
         <button key={c.name} type="button" className={value.includes(c.name) ? 'on' : ''} aria-pressed={value.includes(c.name)} onClick={() => toggle(c.name)}>
@@ -286,9 +286,9 @@ function LayerCard({ value, onChange, counts }) {
   )
 }
 
-function CatCard({ title, cats, value, onChange, rows, onClose }) {
+function CatCard({ title, cats, value, onChange, rows, onClose, inline }) {
   return (
-    <div className="an-crop-card an-noprint" style={{ position: 'static' }}>
+    <div className="an-crop-card an-noprint" style={inline ? { position: 'static', width: '100%', boxSizing: 'border-box' } : undefined}>
       <b style={onClose ? { display: 'flex', justifyContent: 'space-between', cursor: 'pointer' } : undefined} onClick={onClose}>{title}{onClose && <span aria-hidden>▴</span>}</b>
       <button className={!value ? 'on' : ''} onClick={() => onChange('')}>
         <i className="all" />
@@ -497,7 +497,7 @@ function TopicPage({ d, sel, setSel, spec, bar }) {
   const [landId, setLandId] = useState(null) // Environment page: the land picked on the map
   const [view, setView] = useState('absorb') // Environment map: absorb | emit | credit
   const [tab, setTab] = useState('carbon') // Environment map: carbon | species
-  const [layers, setLayers] = useState(['Coconut', MANA.name]) // species tab: what is drawn
+  const [layers, setLayers] = useState([MANA.name, WHITEFLY.name, MITE.name]) // species tab: what is drawn (tick Coconut to add the lands under them)
   const [totals, setTotals] = useState(false) // Environment map: the tonnes badge on every area, off so the map stays clear
   const veg = useMemo(() => vegetationOf(d), [d])
   const all = useMemo(() => spec.rows(topicRows(d)), [d, spec])
@@ -556,6 +556,17 @@ function TopicPage({ d, sel, setSel, spec, bar }) {
     ? 'Credits need extra climate action (new planting, intercrop, biochar), then verification and clear rights. Gold lands are ready; grey have the practice but are not verified; faded lands are not eligible yet.'
     : view === 'emit' ? 'Each palm is a land; a bigger palm emits more carbon from fuel, fertilizer, animals and waste.'
       : 'Each palm is a land; a bigger palm absorbs more CO₂ in its palms and soil. This is what keeping the coconut land is worth.'
+  // Invasive alien species tab: the side charts show the species, not the carbon figures.
+  const spList = species ? (layers.filter((n) => layerData[n]).length ? layers.filter((n) => layerData[n]) : Object.keys(layerData)) : []
+  const spItems = (n) => layerData[n][1].filter(inHere)
+  const spDonut = spList.map((n) => ({ name: n, value: spItems(n).length, color: layerData[n][0].color, glyph: layerData[n][0].icon }))
+  const spLands = new Set(spList.flatMap((n) => spItems(n).map((p) => p.id))).size
+  const spGroup = (p) => (sel.province ? label(p.district) : provinceOf(p.district))
+  const spRows = (() => {
+    const m = {}
+    spList.forEach((n) => spItems(n).forEach((p) => { const g = spGroup(p); m[g] = m[g] || { name: g }; m[g][n] = (m[g][n] || 0) + 1 }))
+    return Object.values(m).map((r) => ({ ...r, _t: spList.reduce((t, n) => t + (r[n] || 0), 0) })).sort((a, b) => b._t - a._t)
+  })()
   const cdoValue = (n) => sumBy(pool.filter((r) => r.e.region === n), mv)
   const areas = areaBars(sel, perD, spec.color)
   const top = [...scoped].sort((a, b) => spec.rank(b) - spec.rank(a)).slice(0, 7).map((r) => ({ name: r.e.name, value: spec.rank(r) }))
@@ -574,7 +585,13 @@ function TopicPage({ d, sel, setSel, spec, bar }) {
       <ProvinceStrip startOpen byD={perD} fmt={spec.fmt || num} unit={spec.unit} sel={sel} setSel={setSel} color={spec.color} {...landStrip(d, sel, setSel, perD, spec.noun, cdoValue)} />
       <Split
         map={
-          <Card title={spec.mapTitle} sub={spec.timeline ? viewSub : spec.mapSub} className="an-card-map" right={spec.timeline ? <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}><Segmented value={tab} onChange={(t) => { setTab(t); setLandId(null) }} options={[['carbon', 'Carbon balance'], ['species', 'Invasive alien species']]} />{!species && <Segmented value={view} onChange={setView} options={[['absorb', 'Absorbs CO₂'], ['emit', 'Emits'], ['credit', 'Credit-ready']]} />}</div> : null}>
+          <Card title={spec.mapTitle} sub={spec.timeline ? viewSub : spec.mapSub} className="an-card-map">
+            {spec.timeline && (
+              <div className="an-env-bar an-noprint">
+                <Segmented value={tab} onChange={(t) => { setTab(t); setLandId(null) }} options={[['carbon', 'Carbon balance'], ['species', 'Invasive alien species']]} />
+                {!species && <Segmented value={view} onChange={setView} options={[['absorb', 'Absorbs CO₂'], ['emit', 'Emits'], ['credit', 'Credit-ready']]} />}
+              </div>
+            )}
             <DrillMap
               geo={d.geo} values={perD} fmt={spec.fmt || num} unit={spec.unit} sel={sel} onSel={(x) => { setLandId(null); setSel(x) }} scale={spec.scale} markers={markers} badge={spec.timeline && !species && totals ? { html: (v) => `<span class="an-badge-fig nut">${glyphHtml('palm', '#2f8a4f', 44)}</span><b>${(spec.fmt || num)(v)}</b>` } : null} markerKey={`topic-${spec.name}-${cat}-${landId}-${view}-${tab}-${layers.join(",")}`}
               overlay={spec.timeline
@@ -584,8 +601,8 @@ function TopicPage({ d, sel, setSel, spec, bar }) {
                       ? <LayerCard value={layers} onChange={setLayers} counts={layerCounts} />
                       : (
                         <>
-                          <CatCard title={spec.catTitle} cats={spec.cats} value={cat} onChange={setCat} rows={all.filter(here)} />
-                          <button type="button" className="an-crop-card an-noprint" aria-pressed={totals} style={{ position: 'static', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', border: 0, font: 'inherit', fontSize: '0.78rem', color: '#1e2a22' }} onClick={() => setTotals(!totals)}>
+                          <CatCard inline title={spec.catTitle} cats={spec.cats} value={cat} onChange={setCat} rows={all.filter(here)} />
+                          <button type="button" className="an-crop-card an-noprint" aria-pressed={totals} style={{ position: 'static', width: '100%', boxSizing: 'border-box', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', border: 0, font: 'inherit', fontSize: '0.78rem', color: '#1e2a22' }} onClick={() => setTotals(!totals)}>
                             <span>Tonnes per area</span><b style={{ color: totals ? '#1a5f38' : '#6b7a70' }}>{totals ? 'On' : 'Off'}</b>
                           </button>
                         </>
@@ -600,12 +617,27 @@ function TopicPage({ d, sel, setSel, spec, bar }) {
         }
         side={
           <>
+            {species ? (
+              <>
+                <Card title="Species on lands" sub={`${num(spLands)} lands affected in ${scopeName(sel)}`}>
+                  <Donut data={spDonut} height={190} />
+                </Card>
+                <Card title={sel.province ? 'Species by district' : 'Species by province'} sub="Lands with each species">
+                  {spRows.length
+                    ? <Bars data={spRows} keys={spList} colors={spList.map((n) => layerData[n][0].color)} horizontal stacked height={Math.max(200, spRows.length * 34 + 60)} fmt={num} />
+                    : <p style={{ color: '#6b7a70', fontSize: '0.8rem' }}>None of these species in view.</p>}
+                </Card>
+              </>
+            ) : (
+              <>
             <Card title={spec.donutTitle} sub={`${scoped.length} lands in ${scopeName(sel)}`}>
-              <Donut data={byCat} height={190} />
-            </Card>
-            <Card title={sel.province ? `${spec.noun} by district` : `${spec.noun} by province`}>
-              <Bars data={areas} horizontal single height={Math.max(180, areas.length * 28)} fmt={spec.fmt || num} />
-            </Card>
+                  <Donut data={byCat} height={190} />
+                </Card>
+                <Card title={sel.province ? `${spec.noun} by district` : `${spec.noun} by province`}>
+                  <Bars data={areas} horizontal single height={Math.max(180, areas.length * 28)} fmt={spec.fmt || num} />
+                </Card>
+              </>
+            )}
           </>
         }
       />
@@ -617,12 +649,12 @@ function TopicPage({ d, sel, setSel, spec, bar }) {
           ['Credit income a year', land.cstatus === 'ready' ? rs(land.creditable * 12 * USD_LKR) : land.cstatus === 'pending' ? `${rs(land.creditable * 12 * USD_LKR)} once verified` : 'Rs. 0'],
         ]} />
       )}
-      {spec.timeline && (
+      {spec.timeline && !species && (
         <Card title="Carbon over the years" sub={`Stored, emitted and net balance for ${scoped.length} lands in ${scopeName(sel)}. Sample figures; dashed lines are a projection after ${ENV_NOW}. Move the map slider to move the marker.`}>
           <EnvTrend rows={scoped} year={tlYear} />
         </Card>
       )}
-      {spec.timeline && (
+      {spec.timeline && !species && (
         <Card title="Adopt a land" sub="Pick a land to see the carbon it stores, what the credits could earn its owner, and what keeping it is worth">
           <AdoptLand rows={scoped} />
         </Card>
